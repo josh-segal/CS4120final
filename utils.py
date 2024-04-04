@@ -6,7 +6,11 @@ nltk.download('stopwords')
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
 from nltk.stem import PorterStemmer
+from sklearn.metrics.pairwise import cosine_similarity
+from tokenizers import Tokenizer
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
+import numpy as np
+import shutil
 
 
 def read_file(file_path):
@@ -104,7 +108,7 @@ def preprocess_text(text_data):
         # Stemming
         words = [stemmer.stem(word) for word in words]
         # Join tokens back to text
-        preprocessed_text.append(' '.join(words))
+        preprocessed_text.append(words)
     return preprocessed_text
 
 
@@ -190,3 +194,113 @@ def process_presentation_folder(folder_path):
                 if parsed_data:
                     all_data.extend(parsed_data)
     return all_data
+
+
+def read_embeddings(filename: str, tokenizer: Tokenizer) -> (dict, dict):
+    '''Loads and parses embeddings trained in earlier.
+    Parameters:
+        filename (str): path to file
+        Tokenizer: tokenizer used to tokenize the data (needed to get the word to index mapping)
+    Returns:
+        (dict): mapping from word to its embedding vector
+        (dict): mapping from index to its embedding vector
+    '''
+    # YOUR CODE HERE
+    word_map = {}
+    index_map = {}
+    vector = []
+    word = ""
+
+    #open file
+    file = open(filename)
+
+    #reading the file into a string
+    spooky_content = file.readlines()
+    #tokenizer.fit_on_texts(spooky_content)
+    #tokenizer.texts_to_sequences(spooky_content)
+
+    #map word to its embedding vector
+    #map index to its embedding vector
+
+    del spooky_content[0]
+
+    for line in spooky_content:
+
+        tokens  = line.split(" ")
+        word = tokens[0]
+        vector = []
+        del tokens[0]
+        tokens[-1] = tokens[-1][:-2]
+
+        for token in tokens:
+            vector.append(token)
+
+        try:
+            index_map[tokenizer.word_index[word]] = vector
+            word_map[word] = vector
+        except KeyError:
+            tokenizer.word_index[word] = max(tokenizer.word_index.values()) + 1
+            word_map[word] = vector
+
+    return word_map, index_map
+
+
+def find_most_similar_paper(paper_embeddings, pres_embedding):
+
+    # Calculate cosine similarity between each paper and the desired presentation
+    similarities = []
+    for paper_embedding in paper_embeddings:
+        # Calculate cosine similarity
+        similarity = cosine_similarity([pres_embedding], [paper_embedding])[0][0]
+        similarities.append(similarity)
+
+    # Get the index of the most similar paper
+    most_similar_index = np.argmax(similarities)
+
+    return most_similar_index
+
+
+def move_xml_files(source_dir, first_xml_dir, second_xml_dir):
+    # Create destination directories if they don’t exist
+    os.makedirs(first_xml_dir, exist_ok=True)
+    os.makedirs(second_xml_dir, exist_ok=True)
+
+    # Counter to handle duplicate file names
+    file_counter = {}
+
+    # Iterate through each folder in the source directory
+    for folder_name in os.listdir(source_dir):
+        folder_path = os.path.join(source_dir, folder_name)
+        # Check if the item in the source directory is a folder
+        if os.path.isdir(folder_path):
+            # List all files in the current folder
+            files = os.listdir(folder_path)
+            # Filter out XML files
+            xml_files = [file for file in files if file.endswith('.xml')]
+            # Make sure there are exactly two XML files in the folder
+            if len(xml_files) == 2:
+                # Move the first XML file to the first_xml_dir
+                first = xml_files[0]
+                second = xml_files[1]
+                if first.startswith('slide'):
+                    first, second = second, first  # Swap if the first file is named 'slide'
+                first_xml_file = os.path.join(folder_path, first)
+                # Determine destination file name with counter
+                first_destination = os.path.join(first_xml_dir, f"{folder_name}_{first}")
+                # Increment counter if file name already exists
+                file_counter[first_destination] = file_counter.get(first_destination, 0) + 1
+                if file_counter[first_destination] > 1:
+                    first_destination = f"{first_destination}_{file_counter[first_destination]}"
+                shutil.move(first_xml_file, first_destination)
+                # Move the second XML file to the second_xml_dir
+                second_xml_file = os.path.join(folder_path, second)
+                # Determine destination file name with counter
+                second_destination = os.path.join(second_xml_dir, f"{folder_name}_{second}")
+                # Increment counter if file name already exists
+                file_counter[second_destination] = file_counter.get(second_destination, 0) + 1
+                if file_counter[second_destination] > 1:
+                    second_destination = f"{second_destination}_{file_counter[second_destination]}"
+                shutil.move(second_xml_file, second_destination)
+                print(f"Moved XML files from {folder_name} folder.")
+    print("Process completed.")
+
