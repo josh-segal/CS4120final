@@ -11,6 +11,7 @@ from tokenizers import Tokenizer
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 import numpy as np
 import shutil
+import xml.etree.ElementTree as ET
 
 
 def read_file(file_path):
@@ -303,4 +304,22 @@ def move_xml_files(source_dir, first_xml_dir, second_xml_dir):
                 shutil.move(second_xml_file, second_destination)
                 print(f"Moved XML files from {folder_name} folder.")
     print("Process completed.")
+
+
+def parse_title(xml_content):
+    root = ET.fromstring(xml_content)
+    # Define the namespace
+    ns = {'tei': 'http://www.tei-c.org/ns/1.0'}
+    # Find the title element using the namespace
+    title = root.find(".//tei:titleStmt/tei:title[@level='a'][@type='main']", namespaces=ns)
+    if title is not None and title.text is not None:
+        return title.text.strip()
+    else:
+        return None
+
+
+
+
+
+
 
