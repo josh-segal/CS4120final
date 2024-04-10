@@ -12,6 +12,8 @@ from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_sc
 import numpy as np
 import shutil
 import xml.etree.ElementTree as ET
+import re
+from nltk.corpus import stopwords
 
 
 def read_file(file_path):
@@ -322,6 +324,26 @@ def stringify(los):
   for string in los:
     strings += string
   return string
+
+
+def clean_data(text):
+    text = re.sub(r'[^ \nA-Za-z0-9À-ÖØ-öø-ÿ/]+', '', text)
+    text = re.sub(r'[\\/×\^\]\[÷]', '', text)
+    return text
+
+
+def change_lower(text):
+    text = text.lower()
+    return text
+
+stopwords_list = stopwords.words("english")
+def remover(text):
+    text_tokens = text.split(" ")
+    final_list = [word for word in text_tokens if not word in stopwords_list]
+    text = ' '.join(final_list)
+    return text
+
+
 
 
 
