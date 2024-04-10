@@ -317,14 +317,11 @@ def parse_title(xml_content):
     else:
         return None
 
-def stringify(lolos):
-  los = []
+def stringify(los):
   strings = ""
-  for l in lolos:
-    for string in l:
-      strings += string
-    los.append(strings)
-  return los
+  for string in los:
+    strings += string
+  return string
 
 
 
