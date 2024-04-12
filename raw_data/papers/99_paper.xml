@@ -1,0 +1,651 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<TEI xmlns="http://www.tei-c.org/ns/1.0" 
+xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+xsi:schemaLocation="http://www.tei-c.org/ns/1.0 /Users/atharsefid/Desktop/grobid-0.5.3/grobid-home/schemas/xsd/Grobid.xsd"
+ xmlns:xlink="http://www.w3.org/1999/xlink">
+	<teiHeader xml:lang="en">
+		<encodingDesc>
+			<appInfo>
+				<application version="0.5.3" ident="GROBID" when="2019-03-26T16:30+0000">
+					<ref target="https://github.com/kermitt2/grobid">GROBID - A machine learning software for extracting information from scholarly documents</ref>
+				</application>
+			</appInfo>
+		</encodingDesc>
+		<fileDesc>
+			<titleStmt>
+				<title level="a" type="main">Supporting Objects in Run-Time Bytecode Specialization</title>
+			</titleStmt>
+			<publicationStmt>
+				<publisher/>
+				<availability status="unknown"><licence/></availability>
+			</publicationStmt>
+			<sourceDesc>
+				<biblStruct>
+					<analytic>
+						<author>
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Reynald</forename><surname>Affeldt</surname></persName>
+							<email>affeldt@yl.is.s.u-tokyo.ac.jp</email>
+							<affiliation key="aff0">
+								<orgName type="department">†Department of Computer Science ‡Department of Graphics and Computer Science Graduate School of Information Science and Technology Graduate School of Arts and Sciences</orgName>
+								<orgName type="institution">University of Tokyo University of Tokyo</orgName>
+							</affiliation>
+						</author>
+						<author>
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Hidehiko</forename><surname>Masuhara</surname></persName>
+							<email>masuhara@yl.is.s.u-tokyo.ac.jp</email>
+							<affiliation key="aff0">
+								<orgName type="department">†Department of Computer Science ‡Department of Graphics and Computer Science Graduate School of Information Science and Technology Graduate School of Arts and Sciences</orgName>
+								<orgName type="institution">University of Tokyo University of Tokyo</orgName>
+							</affiliation>
+						</author>
+						<author>
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Eijiro</forename><surname>Sumii</surname></persName>
+							<email>sumii@yl.is.s.u-tokyo.ac.jp</email>
+							<affiliation key="aff0">
+								<orgName type="department">†Department of Computer Science ‡Department of Graphics and Computer Science Graduate School of Information Science and Technology Graduate School of Arts and Sciences</orgName>
+								<orgName type="institution">University of Tokyo University of Tokyo</orgName>
+							</affiliation>
+						</author>
+						<author>
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Akinori</forename><surname>Yonezawa</surname></persName>
+							<email>yonezawa@yl.is.s.u-tokyo.ac.jp</email>
+							<affiliation key="aff0">
+								<orgName type="department">†Department of Computer Science ‡Department of Graphics and Computer Science Graduate School of Information Science and Technology Graduate School of Arts and Sciences</orgName>
+								<orgName type="institution">University of Tokyo University of Tokyo</orgName>
+							</affiliation>
+						</author>
+						<title level="a" type="main">Supporting Objects in Run-Time Bytecode Specialization</title>
+					</analytic>
+					<monogr>
+						<imprint>
+							<date/>
+						</imprint>
+					</monogr>
+				</biblStruct>
+			</sourceDesc>
+		</fileDesc>
+		<profileDesc>
+			<textClass>
+				<keywords>
+					<term>D34 [Programming Languages]: Processors-Code gen- eration, Optimization, Run-time environments</term>
+					<term>F32 [Logics and Meanings of Programs]: Semantics of Programming Languages-Partial evaluation</term>
+					<term>F33 [Logics and Mean- ings of Programs]: Studies of Program Constructs-Object- oriented constructs General Terms Performance, Languages Keywords Specialization, Object-Oriented Paradigm, Partial Evalua- tion, Program Transformation</term>
+				</keywords>
+			</textClass>
+			<abstract>
+				<p>This paper describes a run-time specialization system for the Java language. One of the main difficulties of supporting the full Java language resides in a sound yet effective management of references to objects. This is because the specialization process may share references with the running application that executes the residual code, and because side-effects through those references by the specialization process could easily break the semantics of the running application. To cope with these difficulties, we elaborate requirements that ensure sound run-time specialization. Based on them, we design and implement a run-time specialization system for the Java language, which exhibits, for instance, approximately 20-25% speed-up factor for a ray-tracing application.</p>
+			</abstract>
+		</profileDesc>
+	</teiHeader>
+	<text xml:lang="en">
+		<body>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="1.">INTRODUCTION</head><p>Program specialization (or partial evaluation) is a technique that transforms a given program (called subject program) into an optimized program (called residual program) by assuming that some of the parameters of the program are Permission to make digital or hard copies of all or part of this work for personal or classroom use is granted without fee provided that copies are not made or distributed for profit or commercial advantage and that copies bear this notice and the full citation on the first page. To copy otherwise, to republish, to post on servers or to redistribute to lists, requires prior specific permission and/or a fee. ASIA-PEPM'02, <ref type="bibr">September 12-14, 2002</ref>, Aizu, Japan. Copyright 2002 ACM 1-58113-458-4/02/0009 ...$5.00. particular constants (called static parameters). The residual program takes values of the remaining parameters (called dynamic parameters), and more efficiently computes the same result than the subject program does.</p><p>Recent progress in specialization techniques called runtime specialization makes specialization processes so efficient that they can be used at run-time <ref type="bibr" target="#b4">[5,</ref><ref type="bibr" target="#b6">7,</ref><ref type="bibr" target="#b7">8,</ref><ref type="bibr" target="#b8">9,</ref><ref type="bibr" target="#b9">10,</ref><ref type="bibr" target="#b11">12,</ref><ref type="bibr" target="#b12">13,</ref><ref type="bibr" target="#b14">15,</ref><ref type="bibr" target="#b13">14,</ref><ref type="bibr" target="#b15">16]</ref>. They thus offer more opportunities to specialize programs by using quasi-invariants that are only available at run-time, such as user's input and intermediate results of computation.</p><p>On the other hand, it is not easy to effectively optimize object-oriented programs by using existing specialization techniques, including run-time specialization techniques. This is because many object-oriented programs extensively use destructive updates and object identity (i.e., reference equality), which makes sound specialization difficult. As a result, existing specialization systems are either conservative (e.g., those that only specialize individual objects <ref type="bibr" target="#b6">[7,</ref><ref type="bibr" target="#b20">21]</ref>) or unsound without careful annotations <ref type="bibr" target="#b4">[5,</ref><ref type="bibr" target="#b8">9,</ref><ref type="bibr" target="#b9">10,</ref><ref type="bibr" target="#b15">16]</ref>.</p><p>This paper presents a run-time specialization technique that soundly and effectively specializes object-oriented programs. For soundness, we define a set of requirements for sound specialization that apply to the specialization process, user processes and the residual code. Based on those requirements, our technique exploits the advantages of run-time specialization in two ways: (1) it can specialize programs with respect to objects constructed at run-time and (2) its heap-reusing mechanism allows the specialization process to construct objects so that the residual code can reuse them.</p><p>In addition to these advantages, the use of existing techniques such as partially static data, escape analysis (or region inference), and method inlining, effectively specializes object-oriented programs. In fact, our implementation, which is for the Java Virtual Machine language, effectively optimizes realistic object-oriented applications including raytracing rendering.</p><p>The rest of the paper is organized as follows. Sect. 2 discusses problems in run-time specialization of object-oriented programs. Sect. 3 overviews our run-time specialization system. Sect. 4 defines the requirements for sound specialization. Sect. 5 discusses issues on implementation. Sect. 6 shows how object-oriented programs can be specialized with the proposed mechanisms. Sect. 7 presents performance measurements of our implementation. We review related work in Sect. 8 and Sect. 9 concludes with a discussion on further research directions.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="2.">PROBLEMS OF SPECIALIZING OBJECTS</head><p>This section presents a few examples in which naive specialization in terms of object manipulation could generate wrong residual programs.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="2.1">Object Creation</head><p>The first example shows the problems of over-specialization of object creation. The following class defines a one-dimensional point. The method make creates a point, modifies its state, and then returns it: Assume that we specialize the make method with respect to its first argument in an application that originally has the following lines:</p><p>int u = Console.getInt (); Point a = Point.make (u, 7); Point b = Point.make (u, 11); int v = a.x + b.x; int w = a == b;</p><p>Since the object construction at line 5 does not depend on dynamic arguments, a naive specializer may create the object during specialization and consider it static 1 . Because the receiver object and the argument are static, the specializer performs the method call at line 6. The method invocation at line 7 makes the object dynamic and lines 7 to 9 are residualized. This entails in particular residualization of accesses to the object p. With the aim of residualizing those accesses, the specializer records the object in a global variable p: we say that the reference to the object is lifted. In the residual code, accesses to object p are realized through the variable p:</p><formula xml:id="formula_0">static Point make_res (int d) { p.update (d)</formula><p>; / * p is the static point constructed during specialization * / p.update (42); // 42 is the value of s return p; }</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="2.1.1">Problems</head><p>Assume that u is indeed 42 and let us transform the above application into the following one that uses the previously specialized method:</p><p>Point _a = Point.make_res (7); Point _b = Point.make_res (11); int v = _a.x + _b.x; int w = _a == _b;</p><p>Unexpectedly, results are different from those in the original application. This is because the object creation is specialized and the residual code reuses the lifted object p. Because p is uninitialized before the second invocation of <ref type="bibr" target="#b0">1</ref> We here assume simple binding-times for objects where an object has a type either fully static or fully dynamic. make res, the state of b becomes different from the state of b in the original method. Also, since a and b share the same object, the second invocation changes a's state as well. Consequently, the value of v becomes incorrect. In addition, references a and b have the same values in the residual code whereas a and b had different values in the original method, hence the incorrect value of w. Here, naive specialization fails to deliver objects in their expected states and with their expected identities.</p><p>A conservative solution would make creation of object p at line 5 dynamic, so as to residualize all the operations on p. However, it fails to specialize the computation in the invocation of update at line 6.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="2.2">Field Accesses</head><p>The second example illustrates problems of over-specialization of field accesses. The following program fragment creates a point object, and calls update twice with the same parameter:</p><p>Since the method calls have the same receiver object and the same parameter, one could imagine that we can specialize the method with respect to the receiver object and the parameter and transform the program fragment as follows, where update gen is a method that specializes update with respect to p and s:</p><formula xml:id="formula_1">Point p = new Point (); update_res = update_gen (p, s); update_res (); update_res ();</formula><p>The specializer update gen would perform all the static operations, namely execution of f and assignment to x, and return a residual method. (For readability, we present the residual method as a first class function.) The residual method, as a result, is an empty method.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="2.2.1">Problems</head><p>The execution of the transformed program fragment results in an object p in a different state because it performs the update operation only once, at specialization-time. This suggests that the specializer process and the user program that uses the specializer and the residual code should follow some rules.</p><p>First, even if a method is called with the same object as its parameter, it may not be regarded as static if the state of the object changes. In the above case, the state of the receiver object p should not be used for specialization, since p's field changes.</p><p>Next, the specializer should not perform side-effects visible to the user program. In the transformed program above, update gen changes p's state. As a result, the heap against which the first invocation of update res is performed is different from the heap against which update is first executed in the original program Finally, even though it is not the case in our present example, there may be arbitrary statements between the execution of the specializer and the execution of the residual code. Through such statements, the running application may modify the static arguments used to produce the residual code, the latter being invalidated by those inconsistencies. We elaborate those rules in Sect. 4.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.">RUN-TIME SPECIALIZATION IN BCS</head><p>Before discussing correctness of specialization, this section gives an overview of run-time specialization. Although our system, called ByteCode Specialization (BCS), is implemented for the Java Virtual Machine language (JVML), most techniques are basically common to other run-time specialization systems. The details of the BCS system are explained by the second and the fourth authors <ref type="bibr" target="#b13">[14]</ref>.</p><p>As an example, we use a method in a ray tracer that computes an intersection between a ray (from an observer to a point on a screen) with a scene, which is a collection of visual objects:</p><p>// set scene of objects and observer for each point on the screen { // set the ray to the point Inter inter = ray.closestInter (observer, scene); // compute the color } Since the position of the observer and the layout of the objects in a scene is fixed for one picture, we can specialize closestInter with respect to observer and scene.</p><p>A run-time specialization system consists of three stages, namely off-line, specialization, and execution. Below, we explain the notion of binding-time specification followed by each of the three stages.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.1">Binding-time Specification</head><p>The first step is to distinguish between static and dynamic arguments. This is the role of the binding-time specification. There are many ways to express binding-time specifications. The simplest solution consists in treating all the objects of a given class as either fully static or fully dynamic. Because of the emphasis on the structure of data in object-oriented languages, we opt for a more precise solution: we treat objects individually and allow them to be either fully dynamic or partially static (the fields of a partially static object can be either static or dynamic).</p><p>The underlying idea of our representation is that objects can be represented as trees. To each argument of the subject method, we associate one tree of binding-times: the tree is rooted at the method's argument, if the argument is an object, each field of reference type becomes a node and each field of primitive type becomes a leaf. Roots, nodes, and leaves are individually assigned a binding-time (S for static or D for dynamic) with the convention that subtrees rooted at a dynamic node are fully dynamic. In the case of our ray-tracing example, the subject method closestInter has three arguments (ray, observer, scene) and this leads to the following binding-time specification: We simplify the notation by adopting the additional convention that subtrees rooted at a static reference are fully static if not specified otherwise. Our binding-time specification is written more concisely:</p><formula xml:id="formula_2">ray:D ¨ ¨ ¨ ¨ ¨ ¨ ¨ ¨ ¨ À À À À À À À À À origin:D ¨ ¨ ¨ À À</formula><p>ray:D observer:S scene:S The advantage of our representation is that all the heap slots reachable from static arguments can be specified individually. It should however be noted that techniques developed in this paper are also applicable to other binding-time representations.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.2">Off-line Stage</head><p>The off-line stage, given method definitions (closestInter in this case) to be specialized and a binding-time specification, generates a specializer. This stage 1. performs a binding-time analysis to identify dynamic expressions and statements that can not be performed at specialization-time, and then 2. generates a specializer (a method that returns residual code at run-time) by transforming the dynamic expressions and statements in the given definitions into code-generating instructions.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.3">Specialization Stage</head><p>The specialization stage takes place at run-time. When the specializer closestInter gen is called with the values of the static arguments (observer and scene), it returns a residual method closestInter res, the specialized version of the subject method closestInter 2 .</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.4">Execution Stage</head><p>The execution stage is the execution of the residual code. Here, the residual code closestInter res is called with the value of the dynamic argument, namely ray.</p><p>Currently, we have to manually replace a call to the subject method (closestInter) with a call to the residual code (closestInter res) in the application program. The application program can generate more than one residual method for different static parameters. In such a case, choosing an appropriate residual method is the user's responsibility.</p><p>In our example, we can modify the application program to use the specializer as follows:</p><p>// set scene of objects and observer closestInter_res = closestInter_gen (observer, scene); for each point on the screen { // set the ray to the point Inter inter = closestInter_res (ray); // compute the color }</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="4.">CORRECTNESS OF RUN-TIME SPECIAL-IZATION FOR JVML</head><p>As a first step, we review a definition of correctness of specialization for functional languages with structural equality (i.e., equality between two structured values does not depend on their locations in memory but only on the equality between corresponding fields):</p><p>Let f and fs be functions and s be a value. fs is a correct result of specialization of f with respect to s if, for any value d, f (s, d) = v implies fs(d) = v 񮽙 and v is structurally equal to v 񮽙 .</p><p>Unfortunately, the definition is not directly transposable into run-time specialization for imperative languages, including JVML. This is because the definition lacks the notion of heap. For example, structural equality of results does not capture all side-effects on the heap. Also, it can not express the preservation of object identity by the program transformation. Furthermore, there is no mention of the fact that the specialization process interacts with the heap of the running application.</p><p>Below, we first formalize the heap manipulated by the Java Virtual Machine. Next, we discuss more precisely the characteristics of specialization with respect to the heap of the running application. We then state a key relation that any correct run-time specialization for JVML must satisfy. From the relation, we clarify the reasonable requirements in terms of the heap state, the specializer, the residual code, and the application process. We claim that adequacy of run-time specialization with the correctness relation and the additional soundness requirements constitutes a sound specification of the program transformation. Finally, we point out one salient characteristic of our run-time specialization for JVML that enables reuse of heap-allocated objects to improve the efficiency of the specialization.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="4.1">Notations for Heaps</head><p>A JVML value (a value for short) is either a primitive value or a reference to an object. Two values are equal in the sense of Java's == operator: i.e., two references are equal if they reference the same address. We represent lists of JVML values by a vector-like notation: for instance, − → v .</p><p>An object belongs to a class and has fields of values. We denote an object in class C with fields k0, k1, . . . as:</p><formula xml:id="formula_3">object C {k0 = v0, k1 = v1, . . .},</formula><p>where vi is the field value of ki.</p><p>A heap is a map from references to objects. By way of example, we write a heap with an object object A {k0 = 42, k1 = β} pointed to by the reference α and an object object B {l0 = α} pointed to by a reference β (both objects point at each other) as:</p><formula xml:id="formula_4">{ α 񮽙 → object A {k0 = 42, k1 = β}, β 񮽙 → object B {l0 = α} }.</formula><p>Given a heap H and a reference α, we can retrieve information about the object pointed to by α by means of the following three operators:</p><formula xml:id="formula_5">• class(object C {. . .}) = C,</formula><p>• fields(C) is a set of fields in class C, and</p><formula xml:id="formula_6">• object C {. . . , k = v, . . .}.k = v.</formula><p>Our execution model is single threaded. We represent method execution as follows: given method arguments − → v and a heap K, mK( − → v ) = 񮽙v, K 񮽙 񮽙 represents the execution of the method m with actual arguments − → v in the heap K that returns the value v and modifies the heap such that it becomes K 񮽙 .</p><p>Two values on different heaps can be equivalent if not equal. This is expressed by the following definition:</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>Definition 1 (Equivalence Relation over Heaps) :</head><p>Let H and H 񮽙 be heaps and φ be a surjection from references to references. R H,H 񮽙 ,φ is the smallest binary relation such that:</p><p>-for all values of primitive type v, (v, v) ∈ R H,H 񮽙 ,φ , and</p><formula xml:id="formula_7">-for all values of reference type α, (α, φ(α)) ∈ R H,H 񮽙 ,φ iff class(H(α)) = class(H 񮽙 (φ(α))) and ∀k ∈ fields(class(H(α))). (H(α).k, H 񮽙 (φ(α)).k) ∈ R H,H 񮽙 ,φ . ¾</formula><p>Intuitively, when v and v 񮽙 are object references, (v, v 񮽙 ) ∈ R H,H 񮽙 ,φ means that object graphs reachable from v in H and from v 񮽙 in H 񮽙 have the same shape and values, ignoring the allocated addresses of objects.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="4.2">Heap-Based Specialization</head><p>One of the important characteristics of run-time specialization is that the specializer and the residual code use the same heap. This is a crucial difference from compile-time specialization, in which the specializer and the residual code never share the heap. For this reason, we formalize the specialization process as a heap transformation:</p><formula xml:id="formula_8">񮽙m, − → s , H񮽙 spec −−→ →m res, H 񮽙 񮽙,</formula><p>where m is the subject method, − → s are the static arguments, H is the heap at specialization-time, m res is the residual code, and H 񮽙 is the heap after the specialization.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="4.3">Correctness of Run-time Specialization</head><p>In this section, we state the correctness relation that any run-time specializer for an imperative language such as JVML must satisfy. Intuitively, this relation expresses the fact that both the subject method and the residual code, whenever run against the same arguments, yield the same result.</p><p>By "arguments," we mean not only method parameters but also reachable objects. More precisely, "same arguments" signifies that (1) parameters are equal, (2) heaps against which methods are executed are equivalent, and (3) static objects in those heaps are allocated at the same addresses. Equivalence of heaps accounts for structural equality of reachable objects. The fact that static objects must be allocated at the same addresses is a consequence of reference lifting. Indeed, static references can be lifted during specialization and residualized in such a way that execution of the residual code may access (static) objects without any need for a (static) reference to be passed to it. So static objects cannot be placed elsewhere without compromising correctness, even if structural equivalence is preserved.</p><p>We call static heap of a specialization that part of the heap at specialization-time that consists of objects pointed to by static references. The fact that static objects are not moved around is expressed by the following definition: By "same result," we mean that (1) the return values are equal primitive values or equivalent objects and that (2) the resulting heaps (i.e., the set of live objects after the execution) are equivalent. Note that we take the latter into account as a part of the results of the method execution. This is because JVML methods can modify the state of objects that may not be reachable from the return value.</p><p>The following definition expresses the correctness relation that any run-time specialization for JVML must satisfy: </p><formula xml:id="formula_9">(v, v 񮽙 ) ∈ R J,J 񮽙 ,φ and ∀w ∈ − → l .(w, w) ∈ R J,J 񮽙 ,φ . ¾</formula></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="4.4">Soundness Requirements</head><p>In this section, we discuss soundness requirements to ensure correct run-time specialization.</p><p>The specializer, the residual code and the application that uses the specializer and the residual code share the same heap. As a consequence, run-time specialization can be easily misused, as we observe in the example of Sect. 2.2: the specializer and the running application may modify the static heap in such a way that the residual code may be invalidated, and the specializer may modify the static heap in such a way that the heap of the running application may be made inconsistent.</p><p>In practice, there are several ways to deal with those problems. Some solutions are simple but lead to poor specialization (for instance, one can prohibit side-effects during specialization). Better specialization may be achieved thanks to more involved techniques (for instance, all side-effects may be allowed as long as a mechanism for recovering a consistent heap after the specialization is provided).</p><p>Below, we expose the solutions we adopt for BCS. They are elaborated enough to enable production of efficient code as shown in Sect. 4.5, yet simple enough to be easily implemented as shown in Sect. 5.</p><p>Our first soundness requirement is to prohibit modification of the static heap by the running application. In practice, we request the application programmer to use the residual code without modifying the objects reachable from static parameters.</p><p>Our second soundness requirement is to prohibit potentially offending side-effects during specialization. Not all side-effects are potentially offending: only those whose effect is visible from the outside of the specialization process need to be forbidden. In other words, we request that the specialization process preserves the heap of the running application: </p><formula xml:id="formula_10">Definition</formula></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>Let</head><p>− → l be a list of live references after this specialization. The specialization preserves the heap of the running appli-</p><formula xml:id="formula_11">cation iff ∀v ∈ − → l , (v, v) ∈ R H,H 񮽙 ,id . ¾</formula><p>As long as this condition is satisfied, specialization processes can statically perform side-effects to possibly yield more efficient residual code (see Sect. 5.3).</p><p>Those two soundness requirements ensure in particular that the heap against which the residual code is executed always preserves the static heap (Definition 2). As a result, the residual code can directly access to any objects reachable from static parameters at its run-time.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="4.5">Specialization Store Reuse</head><p>We observe in the example of Sect. 2.1 that we can produce more efficient residual code by performing dynamic allocation of some objects at specialization-time and reuse them in the residual code. However, we also show that naive reuse of such objects may also break the semantics of the running application because of the loss of objects' identity and state. The issue is subtle since problems can only be identified when the residual code is used several times.</p><p>Regarding in particular the preservation of object identity, one expects that the residual code always returns the same reference only if the subject method does so: </p><formula xml:id="formula_12">mK 1 ( − − → s d1) = 񮽙v1, K 񮽙 1 񮽙 and mK 2 ( − − → s d2) = 񮽙v2, K 񮽙 2 񮽙,</formula><p>if we substitute m for m res:</p><formula xml:id="formula_13">m resK 1 ( − → d1) = 񮽙v res 1 , K 񮽙res 1 񮽙 and m resK 2 ( − → d2) = 񮽙v res 2 , K 񮽙res 2 񮽙,</formula><p>then for any lists − → l1 and − → l2 of references live after, respectively, the first and the second execution of m res, there exists two surjections φ1 and φ2 from references to references such that: </p><formula xml:id="formula_14">(v1, v res 1 ) ∈ R K 񮽙 1 ,K 񮽙</formula><formula xml:id="formula_15">∀x ∈ {v1}∪ − → l1 .∀y ∈ {v2}∪ − → l2 . if φ1(x) = φ2(y) then x = y. ¾</formula><p>One approach to guarantee that this property is satisfied is the conservative, systematic residualization of the construction of dynamically allocated objects. It is however not obvious how to preserve this correctness property while enabling reuse of heap-allocated objects as pointed out in Sect. 2.1.</p><p>The correctness definitions and the soundness requirements however allow for an adequate optimization: specialization store reuse. Concretely, BCS distinguishes operations that create and/or modify objects in terms of the visibility of the objects from the computation that follows the subject method invocation:</p><p>• for operations for may-visible objects (i.e., objects that may be visible from the rest of the computation), BCS performs and residualizes those operations during specialization, and</p><p>• for operations for never-visible objects, BCS only performs those operations during specialization; the residual code merely reuses the object created during specialization.</p><p>This is an optimization because it avoids, whenever safely possible, residualization of object creation and performs more field assignments during specialization (see Sect. 5.4). It should be observed that sharing of objects among different instances of the same residual code may compromise correctness of multi-threaded programs. Although simple provisions can be made to bypass this problem, we stick to single threaded programs for the sake of simplicity.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="5.">IMPLEMENTATION ISSUES</head><p>This section focuses on implementation techniques that guarantee correctness of run-time specialization. The technical intricacies of the implementation for JVML are presented in the first author's paper <ref type="bibr" target="#b0">[1]</ref>. The program transformation in itself is an extension of previous work by the second and last authors <ref type="bibr" target="#b13">[14]</ref>. Below, we first elaborate the notions introduced in the previous section, such as side-effects visible from the outside and visible objects from the rest of the computation, from the viewpoint of implementation.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="5.1">Preliminary Analyses</head><p>Objects manipulated during the execution of a method m can be divided into two categories:</p><p>• a local object to the execution of m is an object that is created during the execution of m, and</p><p>• a non-local object to the execution of m is an object that existed prior to the execution of m.</p><p>Local objects can further be distinguished by whether or not they are escaping from the execution of m, and non-local objects can be further distinguished by whether or not they are side-effected by a visible side-effect during the execution of m:</p><p>• a visible side-effect is a destructive update of a field of a non-local object occurring during the execution of m, and</p><p>• a local object escapes when a reference to the object become reachable from the return value of the execution of m, or from a reference live after the execution of m.</p><p>This leads to the following classification of JVML objects:</p><formula xml:id="formula_16">JVML objects¨¨ objects¨objects¨¨ ¨ ¨ ¨ ¨ À À À À À À locaï¨¨ locaïlocaï¨locaï¨¨ À À À escaping non-escaping non-locaï¨¨ locaïlocaï¨locaï¨¨ ¨ À À À À side-effected non-side effected</formula><p>We suppose that we are given preliminary compile-time analyses that annotate the instructions of the subject method m:</p><p>• all the assignments that may have visible side-effects in some execution of m are annotated with SE (conversely, unannotated assignments never cause visible side-effects in any execution), and</p><p>• all the new instructions that may create an escaping object in some execution of m are annotated with ESC (conversely, unannotated new instructions never create an escaping object in any execution).</p><p>We now see how this information is used to guarantee correctness and soundness of run-time specialization in BCS.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="5.2">Notations for Specializers and Residual Codes</head><p>Although run-time specialization in BCS is done at the bytecode level, we hereafter discuss specializers and residual code in a pseudo-language resembling Java. We informally present specializers with the following code-generating instructions:</p><p>• GEN stat, where stat is a Java statement or a label, emits its argument into the residual code,</p><p>• LIFT expr, where expr is a Java expression, evaluates its argument and emits a constant expression that yields the evaluated value of expr, and</p><p>• INL m gen (a0, a1, . . . ), where m gen is a specializer and ai its arguments, inlines the code resulting from the specialization m gen (a0, a1, . . . ) and possibly returns a (static or dynamic) value.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="5.3">Heap Preserving Specialization</head><p>In order to preserve static heaps during specialization, as required in Definition 4, we prohibit visible side-effecting assignments by adding binding-time analysis typing rules to make those assignments dynamic.</p><p>Consider the example of Sect. 2.2, with annotations of visible side-effects:</p><formula xml:id="formula_17">class Point { int x = 0; void update (int a) { x = SE x + a; } }</formula><p>We specialize the update method with respect to the enclosing point <ref type="bibr" target="#b2">3</ref> and the argument a. The destructive update of the coordinate is a visible side-effect, it is therefore made dynamic by the binding-time analysis. The right-hand side of the assignment is a function call whose arguments are static, it is therefore evaluated during specialization.</p><p>We show in <ref type="figure" target="#fig_0">Fig. 1</ref> the specializer and the residual code when the coordinate of the enclosing point is 0 and the argument a is 42. <ref type="bibr" target="#b2">3</ref> We regard the receiver object of a method invocation as a parameter. </p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="5.4">Unique Identity Generation</head><p>To preserve the identity of objects, as specified by Property 1, we enforce residualization of the construction of escaping objects.</p><p>Consider the example of Sect. 2.1, with appropriate escaping information:</p><formula xml:id="formula_18">class Point { int x = 0; void update (int a) { x = x + a; } static Point make (int s, int d) { Point p = new ESC Point (); p.update (s); p.update (d); p.update (s); return p; } }</formula><p>We specialize make with respect to the argument s. During specialization, the construction of the escaping object is both residualized and performed and the created object is considered static. The next three method calls are all inlined. In the case of the first one, the receiver object and the argument are static; the side-effect is both residualized and performed because it is visible and the modified object is escaping. In the case of the next method call, the sideeffect is residualized because the argument is dynamic. As a result, the state of the receiver object becomes dynamic and the last side-effect must also be residualized.</p><p>The specializer and the residual code resulting from s being given the value 42 are shown in <ref type="figure">Fig. 2</ref>. Contrary to the naive specialization of the same sample code in Sect. 2.1, the 'unique identity generation' property is here satisfied. Additionally, we observe that the specializer safely performs some side-effects and yields more efficient residual code, since one update is evaluated away. In the next section, we discuss more evidence that BCS performs better specialization for object-oriented programs.</p><formula xml:id="formula_19">make_gen (int s) { Point p = new Point (); GEN Point _p = new Point (); INL (update_gen_0 (p, s)); INL (update_gen_1 (p, d );); INL (update_gen_1 (p, s)); GEN return _p;</formula></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="6.">OBJECT-ORIENTED OPTIMIZATIONS</head><p>Ubiquitous object creation and virtual dispatching are typical overheads of object-oriented programs. The following examples illustrate how BCS targets those inefficiencies.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="6.1">Object Construction Elimination</head><p>To relieve the residual code from useless dynamic allocations, specialization can evaluate away creation of nonescaping objects.</p><p>The class below represents complex numbers and the eval method performs simple arithmetic operations:</p><formula xml:id="formula_20">class Complex { float real, imag; Complex times (Complex d) { Complex mul = new ESC Complex (); mul.real = real * d.real − imag * d.imag; mul.imag = real * d.imag + imag * d.real; return mul; } Complex plus (Complex s) { Complex add = new Complex (); add.real = real + s.real; add.imag = imag + s.imag; return add; } static Complex eval (Complex s, Complex d) { return s.plus(s).times(d); } }</formula><p>We specialize eval with respect to the argument s, whose value is object Complex {real = 2, imag = 3}. The corresponding specializer eval gen is shown in <ref type="figure" target="#fig_1">Fig. 3</ref>. At the beginning of specialization, the method plus gen is called. Line 11 creates a static object that we call α hereafter. Lines 12 and 13 initialize the fields of α which represents the complex value 4 + 6i when it is returned. Note that no residual code is generated during the execution of the method plus gen. The method times gen is then called. Line 2 creates a static object that we call β. Object creation is also residualized because it is originally annotated with ESC. Accesses to the real and imag fields of α in the statements at lines 4 and 6 are performed at specialization-time but the rest of the arithmetic operations must be residualized. Because the creation site of β is annotated with ESC, field assignments are both performed and residualized. The resulting residual code is shown in <ref type="figure" target="#fig_2">Fig. 4</ref>. The results of the escape analysis are used to avoid residualizing creation of the non-escaping object that originally occurred inside the plus method. Whereas the execution of the subject method creates one non-escaping local object as an intermediate result of the computation, we have been able, by using the results of the escape analysis, to remove any need for it in the residual code.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="6.2">Specialization Store Reuse</head><p>The following example, which is taken from a study on compile-time partial evaluation of imperative languages <ref type="bibr" target="#b1">[2]</ref>, demonstrates specialization of the construction of a data structure.</p><p>The method below dynamically allocates a list, initializes it, and then looks up a key element:</p><formula xml:id="formula_21">public int search (int n, int data, int key) { // make a list List list = new List (); list.key = 0; list.data = data++; List ptr = list;</formula><p>for (int i = 1; i &lt; n; i++) { ptr.next = new List (); ptr = ptr.next; ptr.key = i; ptr.data = data++; } // look up the key element for (ptr = list; ptr.key != key; ptr = ptr.next) ; return ptr.data; } Let us assume that n and key are static. The corresponding specializer is shown in <ref type="figure">Fig. 5</ref>. Line 2 creates an object, which we call α0 hereafter. Line 3 sets key field of α0 to 0, while line 4 is residualized because data is dynamic. The loop from line 6 to line 11 is static. All the constructions at line 7 and all the assignments at lines 8 and 9 are done during specialization, resulting in a series of partially initialized objects α1, α2, . . . , αn−1. The loop statement from line 12 to 13 is also static, resulting on ptr being eventually initialized to αkey. Eventually, the return statement is residualized, the ptr variable lifted, and field access residualized because of the contents of data being dynamic. The corresponding residual code is shown in <ref type="figure">Fig. 6</ref>.</p><p>During specialization, all the object creations are performed and remembered. When executed, the residual code does not create any object on its own but instead reuses those objects. Since execution of the residual code modifies the state of the objects, one may fear that multiple executions of the residual code may create inconsistencies. This </p><formula xml:id="formula_22">(int data) { α 0 .data = data++; α 1 .data = data++; α 2 .data = data++; ... α n−1 .data = data++;</formula><p>return αkey.data; } <ref type="figure">Figure 6</ref>: Residual code for search actually does not occur because specialization has residualized all the assignments that initialize them (here, the data fields' increments).</p><p>This reuse of already allocated objects is actually reminiscent of an optimization technique used in object-oriented languages with automatic memory management which consists in recycling memory slots to avoid ubiquitous object creation.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="6.3">Virtual Dispatching</head><p>Like optimization based on compile-time class-hierarchy analysis, run-time specialization in BCS can eliminate virtual dispatches. It is however more efficient because (1) the specializer knows the run-time class of static objects and (2) optimizations provided by specialization (such as loop unrolling) disambiguate method calls.</p><p>We show below the source code of the subject method closestInter from the ray tracer discussed in Sect. 3: The scene to be displayed is composed of objects that are gathered together in the array scene.objects that appears at line 7. The elements of scene.objects have for declared class an abstract class whose subclasses implement the different kinds of objects that may appear in the scene (Plane, Sphere, . . . ). Since each subclass has its own implementation of the intersect method, it is only when execution reaches line 7 that we discover where it pursues. Residualization of the method call is a systematic solution to this ambiguity but it fails to produce optimized residual code in general. Indeed, if the receiver object is static, knowledge of its run-time class during specialization enables residualization of dedicated residual code. BCS performs this optimization.</p><p>We show below the specializer and the residual code of the specialization of method closestInter with respect to the scene and observer arguments. Specialization of the closestInter method entails specialization of all the involved implementations of intersect. In the specializer <ref type="figure">(Fig. 7)</ref>, intersect gen is a wrapper that is in charge of calling the adequate specializer (depending on whether the receiver object is a plane, a sphere, . . . ). The residual code resulting from the specialization of intersect methods is inlined in the residual code (not displayed here for the sake of clarity) <ref type="figure">(Fig. 8)</ref>. </p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="7.">PERFORMANCE MEASUREMENTS</head><p>We have implemented the system described above by extending the second and the last author's system <ref type="bibr" target="#b13">[14]</ref>. We have chosen three Java applications that are written in an object-oriented style to measure performance.</p><p>We compare for each application the execution time of a bottleneck, generic method with the execution of its corresponding specialized version, generated by BCS. We also measure the overhead of Just-in-time compilation in each case. Concretely, we run the same methods with the same arguments 1,000,000 times and took the average execution time at each 10,000 runs slice. To estimate the execution time of an iteration and of the Just-in-time overhead, we do a linear approximation by linear regression in the least square sense of the second half of the data, i.e., after the Just-in-time overhead.</p><p>The experiments are carried in three different environments: <ref type="formula">(1)</ref>  Our first example is an implementation proposed by Schultz <ref type="bibr" target="#b17">[18]</ref> of the power function written using the Strategy design pattern. The function is specialized with respect to its exponent of value 19, the multiplication operator and its neutral; the raised base value is dynamic (results in <ref type="table">Table 1</ref> Our second example is an application that displays Mandelbrot sets <ref type="bibr" target="#b13">[14]</ref>. The formula to be displayed is input interactively and is evaluated by an interpreter written in an object-oriented way. We specialize the evaluation method of that interpreter with respect to the expression z * z + c (results in Our third example is a ray tracer implemented in Java by using a standard text book on the model of experiments for another (compile-time) specialization system <ref type="bibr" target="#b2">[3]</ref>. This is the same experiment as the one described in Sect. 3: the method closestInter is here specialized with respect to an observer at a fixed position and a scene of ten objects (results in We have done the power function experiment for the purpose of comparison with the JSpec compile-time specializer for Java <ref type="bibr" target="#b17">[18]</ref>. Results obtained with IBM's virtual machine under the Intel architecture are actually comparable while results with Sun's Hotspot virtual machine are below our expectations.</p><p>The optimization that run-time specialization in BCS provides in the case of the Mandelbrot sets drawer essentially amounts to devirtualization of method calls. The displayed formula is in fact very simple and does not involve many virtual dispatches. As a consequence, performance gains are not substantial.</p><p>Run-time specialization in BCS also features traditional optimizations such as constant propagation, expression unfolding, and loop unrolling. The ray-tracing experiment benefits from both devirtualization and traditional optimizations, and this leads to better speed-up. Yet, similar experiments with other specialization systems (compile-time specialization <ref type="bibr" target="#b2">[3]</ref> and run-time specialization <ref type="bibr" target="#b6">[7]</ref>) reach even better speed-up. We believe that this is due (1) to less aggressive compilation optimizations in Just-in-time compilers compared to traditional compilers, (2) to the lack of optimizations in BCS during the off-line stage, and (3) to the fact that some optimizations performed by Just-in-time compilers and specialization are redundant.</p><p>The combined use of dynamic compilation (in the form of JIT compilation) and run-time specialization (that often entails code growth) complicates performance measurements. Indeed, JIT compilation already has an overhead and one must be careful that specialization does not make it much worse. Although figures are reassuring, their interpretation is difficult because we are not provided with reliable descriptions of the behavior of JIT compilation. Ideally, JIT compilation and run-time specialization should be studied in a common framework to gain more confidence about the concurrent action of optimizations and overheads.</p><p>Above experiments do not benefit from object construction elimination and specialization store reuse. This is because the current implementation appeals to the Reflection API of the Java platform and object traversals to residualize initialization of escaping objects. Those techniques lack efficiency in themselves. They impose a consequent specialization overhead and limit the range of real-size examples that we can investigate. We are now in the process of designing a more efficient approach whose implementation will let us show stronger evidence of performance gains.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="8.">RELATED WORK</head><p>C-Mix <ref type="bibr" target="#b1">[2]</ref> is a compile-time specializer for the C language. It deals with pointers and structures, which are in essence much like Java references and objects. There are other similarities. For instance, replacement of dynamic allocation with static allocation by C-Mix can be compared to our specialization store reuse optimization. However, run-time specialization in BCS benefits from the fact that references are liftable and is simpler in many respects.</p><p>Tempo <ref type="bibr" target="#b4">[5]</ref> provides both compile-time and run-time specialization for the C language. Formal presentation of the run-time specialization facility does not handle dynamic allocation nor structures and run-time specializers are fairly different since they simply copy precompiled templates to memory, thus preventing run-time optimizations. Yet, the amortization cost is very small.</p><p>Lea and Dean et al. first discussed specialization of objectoriented languages but focused on virtual dispatching <ref type="bibr" target="#b5">[6]</ref>, <ref type="bibr" target="#b10">[11]</ref>, not on partial evaluation techniques.</p><p>JSpec <ref type="bibr" target="#b18">[19]</ref> is a compile-time specializer for the Java language. The specialization is off-line and uses Tempo as a compile-time specializer for C and translators between the Java and the C languages. Objects are supported through specialization classes <ref type="bibr" target="#b20">[21]</ref>. The formalization by Schultz <ref type="bibr" target="#b16">[17]</ref> does not handle mutable objects nor dynamic allocation and focuses instead on interactions between objects.</p><p>Fujinami <ref type="bibr" target="#b6">[7]</ref> proposes a run-time specializer for the C++ language. Specialization is done on objects' methods with respect to the fields of the enclosing object and the residual code can be used until invalidation of the contents of these fields. The specializer produced at compile-time goes through an optimization layer, whereas our implementation relies exclusively on the optimizations provided by Just-intime compilers.</p><p>Thiemann proposes a region-based binding-time analysis <ref type="bibr" target="#b19">[20]</ref>. It uses effects to determine binding-times and it makes possible to specialize dynamic allocation and accesses to data structures.</p><p>Asai integrates partial evaluation into a language interpreter <ref type="bibr" target="#b3">[4]</ref> and discusses specialization based on the heap state at the time of specialization. Our work can be seen as a similar program transformation for non-interactive use. An important difference is that we do not assume side-effect free subject methods.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="9.">CONCLUSION AND FUTURE WORK</head><p>In this paper, we presented a run-time specialization system for the Java language that soundly and effectively specializes programs with references and objects.</p><p>Our contributions include a definition of sound run-time specialization in presence of heap-allocated objects. Regarding side-effects and dynamic allocation, we propose nonconservative solutions, with in particular a mechanism for reusing objects created during specialization. We also explain how we implement our specialization strategy and show how it achieves production of efficient residual code for objectoriented programs. Our implementation for Java is an extension of previous work by the second and last authors <ref type="bibr" target="#b13">[14]</ref> and our experiments show, for instance, approximately 20-25% speed-up factor for a ray-tracing application.</p><p>Now that we have explained in details our specialization strategy, we are interested in the accompanying semantics, with the aim of effectively proving correctness, including in particular correctness of the specialization store reuse optimization. We also think that alternative approaches for sound run-time specialization, concerning for instance visible side-effects during specialization, deserve investigation. In order to complete our implementation, we plan to use third parties compile-time analyses to annotate the sub-ject program with information about side-effects and escaping. A properly enhanced implementation will let us study larger examples in order to attest the relevance of our design choices. Ultimately, we would like to support the whole JVML language. In this perspective, pertinent solutions to handle exceptions, subroutines and others will be supported.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="10.">ACKNOWLEDGMENTS</head><p>The authors are grateful to Kenichi Asai for his help and would like to thank anonymous reviewers and the members of Prof. Yonezawa's group at the University of Tokyo for their comments.</p></div><figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_0"><head>1 class</head><label>1</label><figDesc>Point { 2 int x = 0; 3 void update (int a) { x = x + a; } 4 static Point make (int s, int d) { 5 Point p = new Point (); 6 p.update (s); 7 p.update (d); 8 p.update (s); 9 return p; 10 } 11 }</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_1"><head>Definition 3 (</head><label>3</label><figDesc>Correct Specialization) : Let m and m res be methods, H and H 񮽙 be heaps, and − → s be a list of values such that 񮽙m, − → s , H񮽙 spec −−→ →m res, H 񮽙 񮽙. m res is a correct result of run-time specialization of m with respect to − → s and H iff: -for any list of values − → d , -for any heap K that preserves the static heap of the specialization, and -for any list − → l of references live after the execution of m res, if mK( − → sd) = 񮽙v, J񮽙, then m resK ( − → d ) = 񮽙v 񮽙 , J 񮽙 񮽙 and there exists a surjection φ from references to references such that</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_2"><head>4 (</head><label>4</label><figDesc>Heap Preserving Specialization) : Let m and m res be methods, H and H 񮽙 be heaps, and − → s be a list of values such that 񮽙m, − → s , H񮽙 spec −−→ →m res, H 񮽙 񮽙.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_3"><head>Property 1 (</head><label>1</label><figDesc>Unique Identity Generation) : Let m and m res be methods, H and H 񮽙 be heaps, and − → s be a list of values such that 񮽙m, − → s , H񮽙 spec −−→ →m res, H 񮽙 񮽙. Specialization satisfies the 'unique identity generation' prop- erty iff, for any application P , for any two executions of m:</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_4"><head>Figure 1 :</head><label>1</label><figDesc>Figure 1: Specializer and residual code for update</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_5"><head></head><label></label><figDesc>Figure 2: Specializer and residual code for make</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_6"><head>1 times_gen</head><label>1</label><figDesc>Figure 3: Specializer for eval</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_7"><head>static</head><label></label><figDesc>Figure 4: Residual code for eval</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_8"><head>1 search_gen</head><label>1</label><figDesc>Figure 5: Specializer for search</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_9"><head>1 class</head><label>1</label><figDesc>Ray { 2 public Inter closestInter (Point observer, Scene scene) { 3 float smallest = Float.MAX_VALUE; 4 Inter closest_inter = null; 5 Inter tmp = null; 6 for (int i = 0; i &lt; scene.objects.length;) { 7 tmp = scene.objects[i].intersect (observer, this); 8 i++; 9 if (tmp != null) { 10 if (tmp.k &lt; smallest) { 11 smallest = tmp.k; 12 closest_inter = tmp; 13 } 14 } 15 } 16 return closest_inter; 17 } 18 }</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_10"><head>closestInter_gen</head><label></label><figDesc>Figure 7: Specializer for closestInter</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_11"><head></head><label></label><figDesc>virtual machine: Sun JDK 1.3.1 Hotspot Client; architecture: UltraSparc II at 400MHz (Sun Ultra Enter- prise 4500, 14 processors); operating system: Solaris 2.8, (2) virtual machine: Sun JDK 1.3.1 Hotspot Client; archi- tecture: Pentium III at 700MHz (IBM Netfinity 7100, 4 processors); operating system: Linux 2.4.6. (3) virtual ma- chine: IBM JDK 1.3.0 Classic (JIT enabled); architecture: Pentium III at 700MHz (IBM Netfinity 7100, 4 processors); operating system: Linux 2.4.6.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_1" validated="false"><head>Definition 2 (Static Heap Preservation) : Let m and m res be methods, H and H 񮽙 be heaps, and − → s be a list of values such that 񮽙m, − → s , H񮽙 spec −−→ →m res, H 񮽙 񮽙. Let K be a heap. K preserves the static heap of the spe- cialization iff ∀v ∈ − → s .(v, v) ∈ R H,K,id , where id is the iden- tity function. ¾</head><label>2</label><figDesc></figDesc><table></table></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_2" validated="false"><head>res 1 ,φ 1 and ∀w ∈1 ,K 񮽙 res 1 ,φ 1 , and (v2, v res 2 ) ∈ R K 񮽙 2 ,K 񮽙 res 2 ,φ 2 and ∀w ∈2 ,K 񮽙 res 2 ,φ 2 , and</head><label></label><figDesc></figDesc><table>− → 
+l1 .(w, w) ∈ R K 񮽙 
+
+− → 
+l2 .(w, w) ∈ R K 񮽙 
+
+</table></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_4" validated="true"><head>Table 2 ).</head><label>2</label><figDesc></figDesc><table>env. 
+unspec. (µs) spec. (µs) speed-up 
+(1) method 
+2.08 
+1.93 
+1.07 
+JIT 
+151,695 
+103,046 
+(2) method 
+1.14 
+1.20 
+0.95 
+JIT 
+30,553 
+34,650 
+(3) method 
+1.49 
+1.42 
+1.05 
+JIT 
+109,252 
+123,235 
+Table 2: Mandelbrot Sets 
+
+</table></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_5" validated="false"><head>Table 3 ).</head><label>3</label><figDesc></figDesc><table>env. 
+
+unspec. (µs) spec. (µs) speed-up 
+(1) method 
+10.18 
+8.65 
+1.18 
+JIT 
+196,055 
+200,485 
+(2) method 
+6.40 
+5.12 
+1.25 
+JIT 
+115,241 
+104,031 
+(3) method 
+9.87 
+7.84 
+1.26 
+JIT 
+208,341 
+557,194 
+Table 3: Ray Tracer 
+
+</table></figure>
+
+			<note place="foot" n="2"> Actually, BCS returns an instance of a class that implements the residual code.</note>
+		</body>
+		<back>
+			<div type="references">
+
+				<listBibl>
+
+<biblStruct xml:id="b0">
+	<monogr>
+		<title level="m" type="main">Supporting object-oriented features in run-time bytecode specialization</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Affeldt</surname></persName>
+		</author>
+		<imprint>
+			<date type="published" when="2001-09" />
+		</imprint>
+		<respStmt>
+			<orgName>University of Tokyo, Graduate School of Science, Department of Information Science</orgName>
+		</respStmt>
+	</monogr>
+	<note>Master&apos;s thesis</note>
+</biblStruct>
+
+<biblStruct xml:id="b1">
+	<analytic>
+		<title level="a" type="main">Binding-time analysis and the taming of C pointers</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">L</forename><forename type="middle">O</forename><surname>Andersen</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Partial Evaluation and Semantics-Based Program Manipulation</title>
+		<imprint>
+			<publisher>ACM Press</publisher>
+			<date type="published" when="1993-06" />
+			<biblScope unit="page" from="47" to="58" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b2">
+	<analytic>
+		<title level="a" type="main">Partial evaluation applied to ray tracing</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><forename type="middle">H</forename><surname>Andersen</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Software Engineering in Scientific Computing</title>
+		<editor>W. Mackens and S. Rump</editor>
+		<imprint>
+			<publisher>Vieweg</publisher>
+			<date type="published" when="1996" />
+			<biblScope unit="page" from="78" to="85" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b3">
+	<analytic>
+		<title level="a" type="main">Integrating partial evaluators into interpreters</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">K</forename><surname>Asai</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Second International Workshop on Semantics, Applications and Implementation of Program Generation</title>
+		<imprint>
+			<publisher>Springer-Verlag</publisher>
+			<date type="published" when="2001-09" />
+			<biblScope unit="volume">2196</biblScope>
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b4">
+	<analytic>
+		<title level="a" type="main">A general approach for run-time specialization and its application to C</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Consel</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">F</forename><surname>Noël</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">23rd ACM SIGPLAN-SIGACT Symposium on Principles of Programming Languages</title>
+		<imprint>
+			<publisher>ACM Press</publisher>
+			<date type="published" when="1996-01" />
+			<biblScope unit="page" from="145" to="156" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b5">
+	<analytic>
+		<title level="a" type="main">Selective specialization for object-oriented languages</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Dean</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Chambers</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Grove</forename></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">ACM SIGPLAN Notices</title>
+		<imprint>
+			<biblScope unit="volume">30</biblScope>
+			<biblScope unit="page" from="93" to="102" />
+			<date type="published" when="1995" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b6">
+	<analytic>
+		<title level="a" type="main">Automatic run-time code generation in C++</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">N</forename><surname>Fujinami</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Scientific Computing in Object-Oriented Parallel Environments</title>
+		<imprint>
+			<publisher>Springer-Verlag</publisher>
+			<date type="published" when="1997" />
+			<biblScope unit="volume">1343</biblScope>
+			<biblScope unit="page" from="9" to="16" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b7">
+	<analytic>
+		<title level="a" type="main">Determination of dynamic method dispatches using run-time code generation</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">N</forename><surname>Fujinami</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Types in Compilation</title>
+		<editor>X. Leroy and A. Ohori</editor>
+		<imprint>
+			<publisher>Springer-Verlag</publisher>
+			<date type="published" when="1998-03" />
+			<biblScope unit="volume">1473</biblScope>
+			<biblScope unit="page" from="253" to="271" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b8">
+	<analytic>
+		<title level="a" type="main">Annotation-directed run-time specialization in C</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">B</forename><surname>Grant</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Mock</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Philipose</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Chambers</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><forename type="middle">J</forename><surname>Eggers</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">ACM SIGPLAN Symposium on Partial Evaluation and Semantics-Based Program Manipulation</title>
+		<imprint>
+			<publisher>ACM Press</publisher>
+			<date type="published" when="1997-06" />
+			<biblScope unit="page" from="163" to="178" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b9">
+	<analytic>
+		<title level="a" type="main">An evaluation of staged run-time optimizations in DyC</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">B</forename><surname>Grant</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Philipose</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Mock</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><forename type="middle">J</forename><surname>Eggers</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Chambers</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">ACM SIGPLAN Conference on Programming Language Design and Implementation</title>
+		<imprint>
+			<publisher>ACM Press</publisher>
+			<date type="published" when="1999-05" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b10">
+	<analytic>
+		<title level="a" type="main">Customization in C++</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Lea</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">C++ Conference</title>
+		<imprint>
+			<date type="published" when="1990" />
+			<biblScope unit="page" from="301" to="314" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b11">
+	<analytic>
+		<title level="a" type="main">Optimizing ML with run-time code generation</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>Lee</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Leone</forename></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">ACM SIGPLAN Conference on Programming Language Design and Implementation</title>
+		<imprint>
+			<publisher>ACM Press</publisher>
+			<date type="published" when="1996" />
+			<biblScope unit="page" from="137" to="148" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b12">
+	<analytic>
+		<title level="a" type="main">Lightweight run-time code generation</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Leone</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Lee</forename></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">ACM SIGPLAN Workshop on Partial Evaluation and Semantics-Based Program Manipulation</title>
+		<imprint>
+			<publisher>ACM Press</publisher>
+			<date type="published" when="1994-06" />
+			<biblScope unit="page" from="97" to="106" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b13">
+	<analytic>
+		<title level="a" type="main">A portable approach to dynamic optimization in run-time specialization</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">H</forename><surname>Masuhara</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Yonezawa</forename></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Journal of New Generation Computing</title>
+		<imprint>
+			<biblScope unit="volume">20</biblScope>
+			<biblScope unit="page" from="101" to="124" />
+			<date type="published" when="2001-11" />
+		</imprint>
+	</monogr>
+	<note>An extended version of [15</note>
+</biblStruct>
+
+<biblStruct xml:id="b14">
+	<analytic>
+		<title level="a" type="main">Run-time bytecode specialization: A portable approach to generating optimized specialized code</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">H</forename><surname>Masuhara</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Yonezawa</forename></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Programs as Data Objects</title>
+		<editor>O. Danvy and A. Filinski</editor>
+		<imprint>
+			<publisher>Springer-Verlag</publisher>
+			<date type="published" when="2001" />
+			<biblScope unit="volume">2053</biblScope>
+			<biblScope unit="page" from="138" to="152" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b15">
+	<analytic>
+		<title level="a" type="main">Automatic, template-based run-time specialization: Implementation and experimental study</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">F</forename><surname>Noël</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">L</forename><surname>Hornof</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Consel</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><forename type="middle">L</forename><surname>Lawall</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">International Conference on Computer Languages</title>
+		<imprint>
+			<publisher>IEEE</publisher>
+			<date type="published" when="1998-05" />
+			<biblScope unit="page" from="123" to="142" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b16">
+	<analytic>
+		<title level="a" type="main">Partial evaluation for class-based object-oriented languages</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">U</forename><surname>Schultz</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Programs as Data Objects</title>
+		<editor>O. Danvy and A. Filinski</editor>
+		<imprint>
+			<publisher>Springer-Verlag</publisher>
+			<date type="published" when="2001" />
+			<biblScope unit="volume">2053</biblScope>
+			<biblScope unit="page" from="173" to="197" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b17">
+	<monogr>
+		<title level="m" type="main">Automatic program specialization for Java</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">U</forename><surname>Schultz</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Consel</forename></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename></persName>
+		</author>
+		<ptr target="http://www.daimi.au.dk/PB/551/PB-551.pdf" />
+		<imprint>
+			<date type="published" when="2000-11" />
+		</imprint>
+	</monogr>
+<note type="report_type">Tech. rep.</note>
+	<note>IRISA/INRIA, Rennes -LABRI</note>
+</biblStruct>
+
+<biblStruct xml:id="b18">
+	<analytic>
+		<title level="a" type="main">Toward automatic specialization of Java programs</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">U</forename><forename type="middle">P</forename><surname>Schultz</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><forename type="middle">L</forename><surname>Lawall</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Consel</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">G</forename><surname>Muller</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">13th European Conference on Object-Oriented Programming</title>
+		<imprint>
+			<date type="published" when="1999-06" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b19">
+	<analytic>
+		<title level="a" type="main">Correctness of a region-based binding-time analysis</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><forename type="middle">J</forename><surname>Thiemann</surname></persName>
+		</author>
+		<ptr target="http://www.elsevier.nl/locate/entcs/volume6.html" />
+	</analytic>
+	<monogr>
+		<title level="m">Mathematical Foundations of Programming Semantics</title>
+		<imprint>
+			<publisher>Elsevier Science</publisher>
+			<date type="published" when="1997" />
+			<biblScope unit="volume">6</biblScope>
+		</imprint>
+	</monogr>
+	<note>of Electronic Notes in Theoretical Computer Science</note>
+</biblStruct>
+
+<biblStruct xml:id="b20">
+	<analytic>
+		<title level="a" type="main">Declarative specialization of object-oriented programs</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">E</forename><forename type="middle">N</forename><surname>Volanschi</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Consel</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">G</forename><surname>Muller</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Cowan</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">ACM SIGPLAN Conference on Object-Oriented Programming Systems, Languages, and Applications</title>
+		<imprint>
+			<publisher>ACM Press</publisher>
+			<date type="published" when="1997" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+				</listBibl>
+			</div>
+		</back>
+	</text>
+</TEI>

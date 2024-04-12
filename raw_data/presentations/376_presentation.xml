@@ -1,0 +1,296 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>TaintDroid: An Information-Flow Tracking System for Realtime Privacy Monitoring on Smartphones</p>
+    <p>OSDI10</p>
+    <p>William Enck, Peter Gilbert, Byung-Gon Chun, Landon P. Cox, Jaeyeon Jung, Patrick McDaniel, and Anmol N. Sheth</p>
+  </div>
+  <div class="page">
+    <p>Smartphone Privacy?</p>
+    <p>(http://www.flickr.com/photos/pong/2404940312/)</p>
+  </div>
+  <div class="page">
+    <p>Monitoring Smartphone Behavior</p>
+    <p>There are tens of thousands of smartphone apps that provide both fun and valuable utility.</p>
+    <p>General challenge: balance fun and utility with privacy</p>
+    <p>Step 1: look inside of applications to watch how they use privacy sensitive data</p>
+    <p>location  phone identifiers  microphone  camera  address book</p>
+  </div>
+  <div class="page">
+    <p>Challenges  Goal: Monitor app behavior to determine when</p>
+    <p>privacy sensitive information leaves the phone</p>
+    <p>Challenges ...</p>
+    <p>Smartphones are resource constrained</p>
+    <p>Third-party applications are entrusted with several types of privacy sensitive information</p>
+    <p>Context-based privacy information is dynamic and can be difficult to identify even when sent in the clear</p>
+    <p>Applications can share information 4</p>
+  </div>
+  <div class="page">
+    <p>Dynamic Taint Analysis</p>
+    <p>Dynamic taint analysis is a technique that tracks information dependencies from an origin</p>
+    <p>Conceptual idea:</p>
+    <p>Taint source</p>
+    <p>Taint propagation</p>
+    <p>Taint sink</p>
+    <p>Limitations: performance and granularity is a trade-off 5</p>
+    <p>c = taint_source() ... a = b + c ... network_send(a)</p>
+  </div>
+  <div class="page">
+    <p>TaintDroid  TaintDroid is a system-wide integration of taint</p>
+    <p>tracking into the Android platform</p>
+    <p>Variable tracking throughout Dalvik VM environment  Patches state after native method invocation  Extends tracking between applications and to storage</p>
+    <p>TaintDroid is a firmware modification, not an app 6</p>
+    <p>Network Interface</p>
+    <p>Native System Libraries</p>
+    <p>Virtual Machine</p>
+    <p>Virtual Machine</p>
+    <p>Application Code Application CodeMsg</p>
+    <p>Secondary Storage</p>
+    <p>Message-level tracking</p>
+    <p>Variable-level tracking</p>
+    <p>Method-level tracking</p>
+    <p>File-level tracking</p>
+  </div>
+  <div class="page">
+    <p>VM Variable-level Tracking  We modified the Dalvik VM interpreter to store and</p>
+    <p>propagate taint tags (a taint bit-vector) on variables.</p>
+    <p>Local variables and args: taint tags stored adjacent to variables on the internal execution stack.</p>
+    <p>64-bit variables span 32-bit storage</p>
+    <p>Class fields: similar to locals, but inside static and instance field heap objects</p>
+    <p>Arrays: one taint tag per array to minimize overhead</p>
+    <p>out1 taint tag</p>
+    <p>(unused)</p>
+    <p>VM goop</p>
+    <p>v0 == local0</p>
+    <p>v0 taint tag</p>
+    <p>v1 == local1</p>
+    <p>v1 taint tag</p>
+    <p>v2 == in0</p>
+    <p>Low Addresses (0x00000000)</p>
+    <p>High Addresses (0xffffffff)</p>
+    <p>out0</p>
+    <p>VM goop</p>
+    <p>v0 == local0</p>
+    <p>v0 taint tag</p>
+    <p>v1 == in0</p>
+    <p>frame pointer (previous)</p>
+    <p>frame pointer (current)</p>
+    <p>Interpreted Targets</p>
+    <p>arg0</p>
+    <p>Native Targets</p>
+    <p>stack pointer (top)</p>
+    <p>out1</p>
+    <p>out0 taint tag</p>
+    <p>out0</p>
+    <p>v1 taint tag</p>
+    <p>v2 == in1</p>
+    <p>v2 taint tag</p>
+    <p>arg1</p>
+    <p>return taint</p>
+    <p>arg0 taint tag</p>
+    <p>arg1 taint tag</p>
+    <p>v4 taint tag</p>
+    <p>variable variable taint tag</p>
+  </div>
+  <div class="page">
+    <p>Table I DEX TAINT PROPAGATION LOGIC. REGISTER VARIABLES AND CLASS FIELDS ARE REFERENCED BY vX AND fX , RESPECTIVELY. R AND E ARE THE RETURN AND EXCEPTION VARIABLES, RESPECTIVELY, MAINTAINED WITHIN THE INTERPRETER. A, B, AND C ARE CONSTANTS IN THE BYTE-CODE.</p>
+    <p>Op Format Op Semantics Taint Propagation Description</p>
+    <p>const-op vA C vA  C  (vA)   Clear vA taint move-op vA vB vA  vB  (vA)   (vB ) Set vA taint to vB taint move-op-R vA vA  R  (vA)   (R) Set vA taint to return taint return-op vA R  vA  (R)   (vA) Set return taint ( if void) move-op-E vA vA  E  (vA)   (E) Set vA taint to exception taint throw-op vA E  vA  (E)   (vA) Set exception taint unary-op vA vB vA  vB  (vA)   (vB ) Set vA taint to vB taint binary-op vA vB vC vA  vB  vC  (vA)   (vB )   (vC ) Set vA taint to vB taint  vC taint binary-op vA vB vA  vA  vB  (vA)   (vA)   (vB ) Update vA taint with vB taint binary-op vA vB C vA  vB  C  (vA)   (vB ) Set vA taint to vB taint aput-op vA vB vC vB [vC ]  vA  (vB [])   (vB [])   (vA) Update array vB taint with vA taint aget-op vA vB vC vA  vB [vC ]  (vA)   (vB [])   (vC ) Set vA taint to array and index taint sput-op vA fB fB  vA  (fB )   (vA) Set field fB taint to vA taint sget-op vA fB vA  fB  (vA)   (fB ) Set vA taint to field fB taint iput-op vA vB fC vB (fC )  vA  (vB (fC ))   (vA) Set field fC taint to vA taint iget-op vA vB fC vA  vB (fC )  (vA)   (vB (fC ))   (vB ) Set vA taint to field fC and object reference taint</p>
+    <p>DEX machine language. We begin by defining taint markings, taint tags, variables, and taint propagation. We then present our logic rules for DEX.</p>
+    <p>Definition 1 (Universe of Taint Markings L). Let each taint marking be a label l. We assume a fixed set of taint markings in any particular system. Example privacybased taint markings include location, phone number, and microphone input. We define the universe of taint markings L to be the set of taint markings considered relevant for an application of TaintDroid.</p>
+    <p>Definition 2 (Taint Tag). A taint tag is a set of taint markings, i.e., a taint tag t is in the power set of L, denoted 2L, which includes . Each variable has an associated tag.</p>
+    <p>Definition 3 (Variable). A variable is an instantiation of one of the five variable types described in Section IV-A (method local variable, method argument, class static field, class instance field, and array). These variable types have different representations in our logic. The local and argument variables correspond to virtual registers. We refer to these variables in the form vx. Class field variables are denoted as fx to indicate a field variable with index x. fx alone indicates a static field. Instance fields require an instance object, which is referenced via a register vy . Hence, instance fields are denoted as vy(fx). Finally, we use vx[] to denote an array. In this case, vx is an array object reference variable, and vx[] is the referenced array.</p>
+    <p>Definition 4 (Virtual taint map function  ()). Let v be a variable.  (v) returns the taint tag t for variable v.  (v) can also be used to assign a taint tag to a variable. Retrieval and assignment is distinguished by the position of  () w.r.t. the  symbol. When  (v) appears on the right hand side of ,  (v) retrieves the taint tag for v. When  (v) appears on the left hand side,  (v) assigns the taint tag for v. For example,  (v1)   (v2) copies the taint tag from variable v2 to v1.</p>
+    <p>Definitions 1-4 provide the primitives required to define runtime taint propagation for Dalvik VM. Table I captures the propagation logic. The table enumerates abstracted versions of the byte-code instructions specified in the DEX documentation. Register variables and class fields are referenced by vX and fX , respectively. R and E are the return and exception variables, respectively, maintained within the interpreter. A, B, and C are constants in the byte-code.</p>
+    <p>The const-op instructions assign constant values to virtual registers. As these values come from the source code, they are not tainted. Hence, the corresponding taint tag is set to . Note that in other scenarios (e.g., tracking values stored in code sections), values different from  may be appropriate.</p>
+    <p>Move instructions copy the taint tag from one variable to another. Table I includes several move related instructions. In addition to the standard move-op, DEX includes instructions to transfer values between registers and hidden variables managed by the interpreter. In particular, the Dalvik VM provides transparent storage for return and exception values. We instrument the corresponding instructions to copy the taint tag, storing it alongside internally maintained values.</p>
+    <p>Arithmetic and logic instructions are performed with the unary-op and binary-op instructions, including unary negation, binary arithmetic, bit shifts, and bitwise AND and OR. Table I abstracts these operations with the  symbol. Taint propagation is defined in its usual form. Note that we include bit shift distances in the propagation logic, and we assume constant values in the DEX code to be untainted. Additionally, due to the unfixed number of DEX registers, we do not need to test for instruction idioms that clear values (e.g., xor eax, eax in x86).</p>
+    <p>Array instructions propagate taint tags to and from array objects (recall that we store one taint tag per array). The aput-op instruction assigns the union of the existing taint tag on the array and the taint tag of the stored variable to the array. The aget-op instruction assigns the destination register</p>
+    <p>DEX Propagation Logic</p>
+    <p>Data flow: propagate source regs to destination reg</p>
+  </div>
+  <div class="page">
+    <p>Table I DEX TAINT PROPAGATION LOGIC. REGISTER VARIABLES AND CLASS FIELDS ARE REFERENCED BY vX AND fX , RESPECTIVELY. R AND E ARE THE RETURN AND EXCEPTION VARIABLES, RESPECTIVELY, MAINTAINED WITHIN THE INTERPRETER. A, B, AND C ARE CONSTANTS IN THE BYTE-CODE.</p>
+    <p>Op Format Op Semantics Taint Propagation Description</p>
+    <p>const-op vA C vA  C  (vA)   Clear vA taint move-op vA vB vA  vB  (vA)   (vB ) Set vA taint to vB taint move-op-R vA vA  R  (vA)   (R) Set vA taint to return taint return-op vA R  vA  (R)   (vA) Set return taint ( if void) move-op-E vA vA  E  (vA)   (E) Set vA taint to exception taint throw-op vA E  vA  (E)   (vA) Set exception taint unary-op vA vB vA  vB  (vA)   (vB ) Set vA taint to vB taint binary-op vA vB vC vA  vB  vC  (vA)   (vB )   (vC ) Set vA taint to vB taint  vC taint binary-op vA vB vA  vA  vB  (vA)   (vA)   (vB ) Update vA taint with vB taint binary-op vA vB C vA  vB  C  (vA)   (vB ) Set vA taint to vB taint aput-op vA vB vC vB [vC ]  vA  (vB [])   (vB [])   (vA) Update array vB taint with vA taint aget-op vA vB vC vA  vB [vC ]  (vA)   (vB [])   (vC ) Set vA taint to array and index taint sput-op vA fB fB  vA  (fB )   (vA) Set field fB taint to vA taint sget-op vA fB vA  fB  (vA)   (fB ) Set vA taint to field fB taint iput-op vA vB fC vB (fC )  vA  (vB (fC ))   (vA) Set field fC taint to vA taint iget-op vA vB fC vA  vB (fC )  (vA)   (vB (fC ))   (vB ) Set vA taint to field fC and object reference taint</p>
+    <p>DEX machine language. We begin by defining taint markings, taint tags, variables, and taint propagation. We then present our logic rules for DEX.</p>
+    <p>Definition 1 (Universe of Taint Markings L). Let each taint marking be a label l. We assume a fixed set of taint markings in any particular system. Example privacybased taint markings include location, phone number, and microphone input. We define the universe of taint markings L to be the set of taint markings considered relevant for an application of TaintDroid.</p>
+    <p>Definition 2 (Taint Tag). A taint tag is a set of taint markings, i.e., a taint tag t is in the power set of L, denoted 2L, which includes . Each variable has an associated tag.</p>
+    <p>Definition 3 (Variable). A variable is an instantiation of one of the five variable types described in Section IV-A (method local variable, method argument, class static field, class instance field, and array). These variable types have different representations in our logic. The local and argument variables correspond to virtual registers. We refer to these variables in the form vx. Class field variables are denoted as fx to indicate a field variable with index x. fx alone indicates a static field. Instance fields require an instance object, which is referenced via a register vy . Hence, instance fields are denoted as vy(fx). Finally, we use vx[] to denote an array. In this case, vx is an array object reference variable, and vx[] is the referenced array.</p>
+    <p>Definition 4 (Virtual taint map function  ()). Let v be a variable.  (v) returns the taint tag t for variable v.  (v) can also be used to assign a taint tag to a variable. Retrieval and assignment is distinguished by the position of  () w.r.t. the  symbol. When  (v) appears on the right hand side of ,  (v) retrieves the taint tag for v. When  (v) appears on the left hand side,  (v) assigns the taint tag for v. For example,  (v1)   (v2) copies the taint tag from variable v2 to v1.</p>
+    <p>Definitions 1-4 provide the primitives required to define runtime taint propagation for Dalvik VM. Table I captures the propagation logic. The table enumerates abstracted versions of the byte-code instructions specified in the DEX documentation. Register variables and class fields are referenced by vX and fX , respectively. R and E are the return and exception variables, respectively, maintained within the interpreter. A, B, and C are constants in the byte-code.</p>
+    <p>The const-op instructions assign constant values to virtual registers. As these values come from the source code, they are not tainted. Hence, the corresponding taint tag is set to . Note that in other scenarios (e.g., tracking values stored in code sections), values different from  may be appropriate.</p>
+    <p>Move instructions copy the taint tag from one variable to another. Table I includes several move related instructions. In addition to the standard move-op, DEX includes instructions to transfer values between registers and hidden variables managed by the interpreter. In particular, the Dalvik VM provides transparent storage for return and exception values. We instrument the corresponding instructions to copy the taint tag, storing it alongside internally maintained values.</p>
+    <p>Arithmetic and logic instructions are performed with the unary-op and binary-op instructions, including unary negation, binary arithmetic, bit shifts, and bitwise AND and OR. Table I abstracts these operations with the  symbol. Taint propagation is defined in its usual form. Note that we include bit shift distances in the propagation logic, and we assume constant values in the DEX code to be untainted. Additionally, due to the unfixed number of DEX registers, we do not need to test for instruction idioms that clear values (e.g., xor eax, eax in x86).</p>
+    <p>Array instructions propagate taint tags to and from array objects (recall that we store one taint tag per array). The aput-op instruction assigns the union of the existing taint tag on the array and the taint tag of the stored variable to the array. The aget-op instruction assigns the destination register</p>
+    <p>DEX Propagation Logic</p>
+    <p>To appear at the 9th USENIX Symposium on Operating Systems Design and Implementation (OSDI10)</p>
+    <p>Table 1: DEX Taint Propagation Logic. Register variables and class fields are referenced by vX and fX , respectively. R and E are the return and exception variables maintained within the interpreter. A, B, and C are byte-code constants.</p>
+    <p>Op Format Op Semantics Taint Propagation Description</p>
+    <p>const-op vA C vA  C  (vA)   Clear vA taint move-op vA vB vA  vB  (vA)   (vB ) Set vA taint to vB taint move-op-R vA vA  R  (vA)   (R) Set vA taint to return taint return-op vA R  vA  (R)   (vA) Set return taint ( if void) move-op-E vA vA  E  (vA)   (E) Set vA taint to exception taint throw-op vA E  vA  (E)   (vA) Set exception taint unary-op vA vB vA  vB  (vA)   (vB ) Set vA taint to vB taint binary-op vA vB vC vA  vB  vC  (vA)   (vB )   (vC ) Set vA taint to vB taint  vC taint binary-op vA vB vA  vA  vB  (vA)   (vA)   (vB ) Update vA taint with vB taint binary-op vA vB C vA  vB  C  (vA)   (vB ) Set vA taint to vB taint aput-op vA vB vC vB [vC ]  vA  (vB [])   (vB [])   (vA) Update array vB taint with vA taint aget-op vA vB vC vA  vB [vC ]  (vA)   (vB [])   (vC ) Set vA taint to array and index taint sput-op vA fB fB  vA  (fB )   (vA) Set field fB taint to vA taint sget-op vA fB vA  fB  (vA)   (fB ) Set vA taint to field fB taint iput-op vA vB fC vB (fC )  vA  (vB (fC ))   (vA) Set field fC taint to vA taint iget-op vA vB fC vA  vB (fC )  (vA)   (vB (fC ))   (vB ) Set vA taint to field fC and object reference taint</p>
+    <p>public static Integer valueOf(int i) { if (i &lt; -128 || i &gt; 127) { return new Integer(i); }</p>
+    <p>return valueOfCache.CACHE [i+128]; } static class valueOfCache { static final Integer[] CACHE = new Integer[256]; static { for(int i=-128; i&lt;=127; i++) {</p>
+    <p>CACHE[i+128] = new Integer(i); } } }</p>
+    <p>Figure 4: Excerpt from Androids Integer class illustrating the need for object reference taint propagation.</p>
+    <p>A value in the array is not. Hence, the taint logic for aget-op uses both the array and array index taint. Second, when the array contains object references (e.g., an Integer array), the index taint tag is propagated to the object reference and not the object value. Therefore, we include the object reference taint tag in the instance get (iget-op) rule.</p>
+    <p>The code listed in Figure 4 demonstrates a real instance of where object reference tainting is needed. Here, valueOf() returns an Integer object for a passed int. If the int argument is between 128 and 127, valueOf() returns reference to a statically defined Integer object. valueOf() is implicitly called for conversion to an object. Consider the following definition and use of a method intProxy().</p>
+    <p>Object intProxy(int val) { return val; } int out = (Integer) intProxy(tVal);</p>
+    <p>Consider the case where tVal is an int with value 1 and taint tag TAG. When intProxy() is passed tVal, TAG is propagated to val. When intProxy() returns val, it calls Integer.valueOf() to obtain an Integer instance corresponding to the scalar variable val. In this case, Integer.valueOf() returns a reference to the static Integer object with value 1. The value field (of the Integer class) in</p>
+    <p>the object has taint tag of ; however, since the aget-op propagation rule includes the taint of the index register, the object reference has a taint tag of TAG. Therefore, only by including the object reference taint tag when the value field is read from the Integer (i.e., the iget-op propagation rule), will the correct taint tag of TAG be assigned to out.</p>
+    <p>Native code is unmonitored in TaintDroid. Ideally, we achieve the same propagation semantics as the interpreted counterpart. Hence, we define two necessary postconditions for accurate taint tracking in the Javalike environment: 1) all accessed external variables (i.e., class fields referenced by other methods) are assigned taint tags according to data flow rules; and 2) the return value is assigned a taint tag according to data flow rules. TaintDroid achieves these postconditions through an assortment of manual instrumentation, heuristics, and method profiles, depending on situational requirements.</p>
+    <p>Internal VM Methods: Internal VM methods are called directly by interpreted code, passing a pointer to an array of 32-bit register arguments and a pointer to a return value. The stack augmentation shown in Figure 3 provides access to taint tags for both Java arguments and the return value. As there are a relatively small number of internal VM methods which are infrequently added between versions,2 we manually inspected and patched them for taint propagation as needed. We identified 185 internal VM methods in Android version 2.1; however, only 5 required patching: the System.arraycopy() native method for copying array contents, and several native methods implementing Java reflection.</p>
+    <p>JNI Methods: JNI methods are invoked through the JNI call bridge. The call bridge parses Java arguments and assigns a return value using the methods descriptor</p>
+    <p>Data flow: propagate source regs to destination reg</p>
+  </div>
+  <div class="page">
+    <p>Table I DEX TAINT PROPAGATION LOGIC. REGISTER VARIABLES AND CLASS FIELDS ARE REFERENCED BY vX AND fX , RESPECTIVELY. R AND E ARE THE RETURN AND EXCEPTION VARIABLES, RESPECTIVELY, MAINTAINED WITHIN THE INTERPRETER. A, B, AND C ARE CONSTANTS IN THE BYTE-CODE.</p>
+    <p>Op Format Op Semantics Taint Propagation Description</p>
+    <p>const-op vA C vA  C  (vA)   Clear vA taint move-op vA vB vA  vB  (vA)   (vB ) Set vA taint to vB taint move-op-R vA vA  R  (vA)   (R) Set vA taint to return taint return-op vA R  vA  (R)   (vA) Set return taint ( if void) move-op-E vA vA  E  (vA)   (E) Set vA taint to exception taint throw-op vA E  vA  (E)   (vA) Set exception taint unary-op vA vB vA  vB  (vA)   (vB ) Set vA taint to vB taint binary-op vA vB vC vA  vB  vC  (vA)   (vB )   (vC ) Set vA taint to vB taint  vC taint binary-op vA vB vA  vA  vB  (vA)   (vA)   (vB ) Update vA taint with vB taint binary-op vA vB C vA  vB  C  (vA)   (vB ) Set vA taint to vB taint aput-op vA vB vC vB [vC ]  vA  (vB [])   (vB [])   (vA) Update array vB taint with vA taint aget-op vA vB vC vA  vB [vC ]  (vA)   (vB [])   (vC ) Set vA taint to array and index taint sput-op vA fB fB  vA  (fB )   (vA) Set field fB taint to vA taint sget-op vA fB vA  fB  (vA)   (fB ) Set vA taint to field fB taint iput-op vA vB fC vB (fC )  vA  (vB (fC ))   (vA) Set field fC taint to vA taint iget-op vA vB fC vA  vB (fC )  (vA)   (vB (fC ))   (vB ) Set vA taint to field fC and object reference taint</p>
+    <p>DEX machine language. We begin by defining taint markings, taint tags, variables, and taint propagation. We then present our logic rules for DEX.</p>
+    <p>Definition 1 (Universe of Taint Markings L). Let each taint marking be a label l. We assume a fixed set of taint markings in any particular system. Example privacybased taint markings include location, phone number, and microphone input. We define the universe of taint markings L to be the set of taint markings considered relevant for an application of TaintDroid.</p>
+    <p>Definition 2 (Taint Tag). A taint tag is a set of taint markings, i.e., a taint tag t is in the power set of L, denoted 2L, which includes . Each variable has an associated tag.</p>
+    <p>Definition 3 (Variable). A variable is an instantiation of one of the five variable types described in Section IV-A (method local variable, method argument, class static field, class instance field, and array). These variable types have different representations in our logic. The local and argument variables correspond to virtual registers. We refer to these variables in the form vx. Class field variables are denoted as fx to indicate a field variable with index x. fx alone indicates a static field. Instance fields require an instance object, which is referenced via a register vy . Hence, instance fields are denoted as vy(fx). Finally, we use vx[] to denote an array. In this case, vx is an array object reference variable, and vx[] is the referenced array.</p>
+    <p>Definition 4 (Virtual taint map function  ()). Let v be a variable.  (v) returns the taint tag t for variable v.  (v) can also be used to assign a taint tag to a variable. Retrieval and assignment is distinguished by the position of  () w.r.t. the  symbol. When  (v) appears on the right hand side of ,  (v) retrieves the taint tag for v. When  (v) appears on the left hand side,  (v) assigns the taint tag for v. For example,  (v1)   (v2) copies the taint tag from variable v2 to v1.</p>
+    <p>Definitions 1-4 provide the primitives required to define runtime taint propagation for Dalvik VM. Table I captures the propagation logic. The table enumerates abstracted versions of the byte-code instructions specified in the DEX documentation. Register variables and class fields are referenced by vX and fX , respectively. R and E are the return and exception variables, respectively, maintained within the interpreter. A, B, and C are constants in the byte-code.</p>
+    <p>The const-op instructions assign constant values to virtual registers. As these values come from the source code, they are not tainted. Hence, the corresponding taint tag is set to . Note that in other scenarios (e.g., tracking values stored in code sections), values different from  may be appropriate.</p>
+    <p>Move instructions copy the taint tag from one variable to another. Table I includes several move related instructions. In addition to the standard move-op, DEX includes instructions to transfer values between registers and hidden variables managed by the interpreter. In particular, the Dalvik VM provides transparent storage for return and exception values. We instrument the corresponding instructions to copy the taint tag, storing it alongside internally maintained values.</p>
+    <p>Arithmetic and logic instructions are performed with the unary-op and binary-op instructions, including unary negation, binary arithmetic, bit shifts, and bitwise AND and OR. Table I abstracts these operations with the  symbol. Taint propagation is defined in its usual form. Note that we include bit shift distances in the propagation logic, and we assume constant values in the DEX code to be untainted. Additionally, due to the unfixed number of DEX registers, we do not need to test for instruction idioms that clear values (e.g., xor eax, eax in x86).</p>
+    <p>Array instructions propagate taint tags to and from array objects (recall that we store one taint tag per array). The aput-op instruction assigns the union of the existing taint tag on the array and the taint tag of the stored variable to the array. The aget-op instruction assigns the destination register</p>
+    <p>DEX Propagation Logic</p>
+    <p>To appear at the 9th USENIX Symposium on Operating Systems Design and Implementation (OSDI10)</p>
+    <p>Table 1: DEX Taint Propagation Logic. Register variables and class fields are referenced by vX and fX , respectively. R and E are the return and exception variables maintained within the interpreter. A, B, and C are byte-code constants.</p>
+    <p>Op Format Op Semantics Taint Propagation Description</p>
+    <p>const-op vA C vA  C  (vA)   Clear vA taint move-op vA vB vA  vB  (vA)   (vB ) Set vA taint to vB taint move-op-R vA vA  R  (vA)   (R) Set vA taint to return taint return-op vA R  vA  (R)   (vA) Set return taint ( if void) move-op-E vA vA  E  (vA)   (E) Set vA taint to exception taint throw-op vA E  vA  (E)   (vA) Set exception taint unary-op vA vB vA  vB  (vA)   (vB ) Set vA taint to vB taint binary-op vA vB vC vA  vB  vC  (vA)   (vB )   (vC ) Set vA taint to vB taint  vC taint binary-op vA vB vA  vA  vB  (vA)   (vA)   (vB ) Update vA taint with vB taint binary-op vA vB C vA  vB  C  (vA)   (vB ) Set vA taint to vB taint aput-op vA vB vC vB [vC ]  vA  (vB [])   (vB [])   (vA) Update array vB taint with vA taint aget-op vA vB vC vA  vB [vC ]  (vA)   (vB [])   (vC ) Set vA taint to array and index taint sput-op vA fB fB  vA  (fB )   (vA) Set field fB taint to vA taint sget-op vA fB vA  fB  (vA)   (fB ) Set vA taint to field fB taint iput-op vA vB fC vB (fC )  vA  (vB (fC ))   (vA) Set field fC taint to vA taint iget-op vA vB fC vA  vB (fC )  (vA)   (vB (fC ))   (vB ) Set vA taint to field fC and object reference taint</p>
+    <p>public static Integer valueOf(int i) { if (i &lt; -128 || i &gt; 127) { return new Integer(i); }</p>
+    <p>return valueOfCache.CACHE [i+128]; } static class valueOfCache { static final Integer[] CACHE = new Integer[256]; static { for(int i=-128; i&lt;=127; i++) {</p>
+    <p>CACHE[i+128] = new Integer(i); } } }</p>
+    <p>Figure 4: Excerpt from Androids Integer class illustrating the need for object reference taint propagation.</p>
+    <p>A value in the array is not. Hence, the taint logic for aget-op uses both the array and array index taint. Second, when the array contains object references (e.g., an Integer array), the index taint tag is propagated to the object reference and not the object value. Therefore, we include the object reference taint tag in the instance get (iget-op) rule.</p>
+    <p>The code listed in Figure 4 demonstrates a real instance of where object reference tainting is needed. Here, valueOf() returns an Integer object for a passed int. If the int argument is between 128 and 127, valueOf() returns reference to a statically defined Integer object. valueOf() is implicitly called for conversion to an object. Consider the following definition and use of a method intProxy().</p>
+    <p>Object intProxy(int val) { return val; } int out = (Integer) intProxy(tVal);</p>
+    <p>Consider the case where tVal is an int with value 1 and taint tag TAG. When intProxy() is passed tVal, TAG is propagated to val. When intProxy() returns val, it calls Integer.valueOf() to obtain an Integer instance corresponding to the scalar variable val. In this case, Integer.valueOf() returns a reference to the static Integer object with value 1. The value field (of the Integer class) in</p>
+    <p>the object has taint tag of ; however, since the aget-op propagation rule includes the taint of the index register, the object reference has a taint tag of TAG. Therefore, only by including the object reference taint tag when the value field is read from the Integer (i.e., the iget-op propagation rule), will the correct taint tag of TAG be assigned to out.</p>
+    <p>Native code is unmonitored in TaintDroid. Ideally, we achieve the same propagation semantics as the interpreted counterpart. Hence, we define two necessary postconditions for accurate taint tracking in the Javalike environment: 1) all accessed external variables (i.e., class fields referenced by other methods) are assigned taint tags according to data flow rules; and 2) the return value is assigned a taint tag according to data flow rules. TaintDroid achieves these postconditions through an assortment of manual instrumentation, heuristics, and method profiles, depending on situational requirements.</p>
+    <p>Internal VM Methods: Internal VM methods are called directly by interpreted code, passing a pointer to an array of 32-bit register arguments and a pointer to a return value. The stack augmentation shown in Figure 3 provides access to taint tags for both Java arguments and the return value. As there are a relatively small number of internal VM methods which are infrequently added between versions,2 we manually inspected and patched them for taint propagation as needed. We identified 185 internal VM methods in Android version 2.1; however, only 5 required patching: the System.arraycopy() native method for copying array contents, and several native methods implementing Java reflection.</p>
+    <p>JNI Methods: JNI methods are invoked through the JNI call bridge. The call bridge parses Java arguments and assigns a return value using the methods descriptor</p>
+    <p>To appear at the 9th USENIX Symposium on Operating Systems Design and Implementation (OSDI10)</p>
+    <p>Table 1: DEX Taint Propagation Logic. Register variables and class fields are referenced by vX and fX , respectively. R and E are the return and exception variables maintained within the interpreter. A, B, and C are byte-code constants.</p>
+    <p>Op Format Op Semantics Taint Propagation Description</p>
+    <p>const-op vA C vA  C  (vA)   Clear vA taint move-op vA vB vA  vB  (vA)   (vB ) Set vA taint to vB taint move-op-R vA vA  R  (vA)   (R) Set vA taint to return taint return-op vA R  vA  (R)   (vA) Set return taint ( if void) move-op-E vA vA  E  (vA)   (E) Set vA taint to exception taint throw-op vA E  vA  (E)   (vA) Set exception taint unary-op vA vB vA  vB  (vA)   (vB ) Set vA taint to vB taint binary-op vA vB vC vA  vB  vC  (vA)   (vB )   (vC ) Set vA taint to vB taint  vC taint binary-op vA vB vA  vA  vB  (vA)   (vA)   (vB ) Update vA taint with vB taint binary-op vA vB C vA  vB  C  (vA)   (vB ) Set vA taint to vB taint aput-op vA vB vC vB [vC ]  vA  (vB [])   (vB [])   (vA) Update array vB taint with vA taint aget-op vA vB vC vA  vB [vC ]  (vA)   (vB [])   (vC ) Set vA taint to array and index taint sput-op vA fB fB  vA  (fB )   (vA) Set field fB taint to vA taint sget-op vA fB vA  fB  (vA)   (fB ) Set vA taint to field fB taint iput-op vA vB fC vB (fC )  vA  (vB (fC ))   (vA) Set field fC taint to vA taint iget-op vA vB fC vA  vB (fC )  (vA)   (vB (fC ))   (vB ) Set vA taint to field fC and object reference taint</p>
+    <p>public static Integer valueOf(int i) { if (i &lt; -128 || i &gt; 127) { return new Integer(i); }</p>
+    <p>return valueOfCache.CACHE [i+128]; } static class valueOfCache { static final Integer[] CACHE = new Integer[256]; static { for(int i=-128; i&lt;=127; i++) {</p>
+    <p>CACHE[i+128] = new Integer(i); } } }</p>
+    <p>Figure 4: Excerpt from Androids Integer class illustrating the need for object reference taint propagation.</p>
+    <p>A value in the array is not. Hence, the taint logic for aget-op uses both the array and array index taint. Second, when the array contains object references (e.g., an Integer array), the index taint tag is propagated to the object reference and not the object value. Therefore, we include the object reference taint tag in the instance get (iget-op) rule.</p>
+    <p>The code listed in Figure 4 demonstrates a real instance of where object reference tainting is needed. Here, valueOf() returns an Integer object for a passed int. If the int argument is between 128 and 127, valueOf() returns reference to a statically defined Integer object. valueOf() is implicitly called for conversion to an object. Consider the following definition and use of a method intProxy().</p>
+    <p>Object intProxy(int val) { return val; } int out = (Integer) intProxy(tVal);</p>
+    <p>Consider the case where tVal is an int with value 1 and taint tag TAG. When intProxy() is passed tVal, TAG is propagated to val. When intProxy() returns val, it calls Integer.valueOf() to obtain an Integer instance corresponding to the scalar variable val. In this case, Integer.valueOf() returns a reference to the static Integer object with value 1. The value field (of the Integer class) in</p>
+    <p>the object has taint tag of ; however, since the aget-op propagation rule includes the taint of the index register, the object reference has a taint tag of TAG. Therefore, only by including the object reference taint tag when the value field is read from the Integer (i.e., the iget-op propagation rule), will the correct taint tag of TAG be assigned to out.</p>
+    <p>Native code is unmonitored in TaintDroid. Ideally, we achieve the same propagation semantics as the interpreted counterpart. Hence, we define two necessary postconditions for accurate taint tracking in the Javalike environment: 1) all accessed external variables (i.e., class fields referenced by other methods) are assigned taint tags according to data flow rules; and 2) the return value is assigned a taint tag according to data flow rules. TaintDroid achieves these postconditions through an assortment of manual instrumentation, heuristics, and method profiles, depending on situational requirements.</p>
+    <p>Internal VM Methods: Internal VM methods are called directly by interpreted code, passing a pointer to an array of 32-bit register arguments and a pointer to a return value. The stack augmentation shown in Figure 3 provides access to taint tags for both Java arguments and the return value. As there are a relatively small number of internal VM methods which are infrequently added between versions,2 we manually inspected and patched them for taint propagation as needed. We identified 185 internal VM methods in Android version 2.1; however, only 5 required patching: the System.arraycopy() native method for copying array contents, and several native methods implementing Java reflection.</p>
+    <p>JNI Methods: JNI methods are invoked through the JNI call bridge. The call bridge parses Java arguments and assigns a return value using the methods descriptor</p>
+    <p>Data flow: propagate source regs to destination reg</p>
+  </div>
+  <div class="page">
+    <p>Native Methods</p>
+    <p>Applications execute native methods through the Java Native Interface (JNI)</p>
+    <p>TaintDroid uses a combination of heuristics and method profiles to patch VM tracking state</p>
+    <p>Applications are restricted to only invoking native methods in system-provided libraries</p>
+    <p>Network Interface</p>
+    <p>Native System Libraries</p>
+    <p>Virtual Machine</p>
+    <p>Virtual Machine</p>
+    <p>Application Code Application CodeMsg</p>
+    <p>Secondary Storage</p>
+    <p>Message-level tracking</p>
+    <p>Variable-level tracking</p>
+    <p>Method-level tracking</p>
+    <p>File-level tracking</p>
+  </div>
+  <div class="page">
+    <p>IPC and File Propagation</p>
+    <p>TaintDroid uses message level tracking for IPC</p>
+    <p>Applications marshall and unmarshall individual data items</p>
+    <p>Persistent storage tracked at the file level</p>
+    <p>Single taint tag stored in the file system XATTR</p>
+    <p>Network Interface</p>
+    <p>Native System Libraries</p>
+    <p>Virtual Machine</p>
+    <p>Virtual Machine</p>
+    <p>Application Code Application CodeMsg</p>
+    <p>Secondary Storage</p>
+    <p>Message-level tracking</p>
+    <p>Variable-level tracking</p>
+    <p>Method-level tracking</p>
+    <p>File-level tracking</p>
+  </div>
+  <div class="page">
+    <p>Performance</p>
+    <p>Memory overhead: 4.4%</p>
+    <p>IPC overhead: 27%</p>
+    <p>Macro-benchmark:  App load: 3% (2ms)  Address book: (&lt; 20 ms)</p>
+    <p>Phone call: 10% (10ms)  Take picture: 29% (0.5s)</p>
+    <p>sieve loop logic string float method total</p>
+    <p>Android</p>
+    <p>TaintDroid</p>
+    <p>CaffeineMark 3.0 benchmark (higher is better)</p>
+    <p>CaffeineMark score roughly corresponds to the number of Java instructions per second.</p>
+  </div>
+  <div class="page">
+    <p>Taint Adaptors</p>
+    <p>Taint sources and sinks must be carefully integrated into the existing architectural framework.</p>
+    <p>Depends on information properties</p>
+    <p>Low-bandwidth sensors: location, accelerometer  High-bandwidth sensors: microphone, camera  Information databases: address book, SMS storage  Device identifiers: IMEI, IMSI*, ICC-ID, Ph. #  Network taint sink</p>
+  </div>
+  <div class="page">
+    <p>Selected 30 applications with bias on popularity and access to Internet, location, microphone, and camera</p>
+    <p>Of 105 flagged connections, only 37 clearly legitimate</p>
+    <p>applications # permissions The Weather Channel, Cetos, Solitarie, Movies, Babble, Manga Browser 6</p>
+    <p>Bump, Wertago, Antivirus, ABC --- Animals, Traffic Jam, Hearts, Blackjack, Horoscope, 3001 Wisdom Quotes Lite, Yellow Pages, Datelefonbuch, Astrid, BBC News Live Stream, Ringtones</p>
+    <p>Layer, Knocking, Coupons, Trapster, Spongebot Slide, ProBasketBall 6</p>
+    <p>MySpace, Barcode Scanner, ixMAT 3 Evernote 1</p>
+    <p>Application Study</p>
+  </div>
+  <div class="page">
+    <p>Findings - Location</p>
+    <p>15 of the 30 applications shared physical location with an ad server (admob.com, ad.qwapi.com, ads.mobclix.com, data.flurry.com)</p>
+    <p>Most traffic was plaintext (e.g., AdMob HTTP GET):</p>
+    <p>In no case was sharing obvious to user or in EULA</p>
+    <p>In some cases, periodic and occurred without app use</p>
+    <p>...&amp;s=a14a4a93f1e4c68&amp;..&amp;t=062A1CB1D476DE85 B717D9195A6722A9&amp;d%5Bcoord%5D=47.6612278900 00006%2C-122.31589477&amp;...</p>
+  </div>
+  <div class="page">
+    <p>Findings - Phone Identifiers</p>
+    <p>7 applications sent device (IMEI) and 2 apps sent phone info (Ph. #, IMSI*, ICC-ID) to a remote server without informing the user.  One apps EULA indicated the IMEI was sent  Another app sent the hash of the IMEI  Frequency was app-specific, e.g., one app sent phone</p>
+    <p>information every time the phone booted.  Appeared to be sent to app developers ...</p>
+    <p>There have been cases in the past on other mobile platforms where well-intentioned developers are simply over-zealous in their data gathering, without having malicious intent. -- Lookout</p>
+  </div>
+  <div class="page">
+    <p>Limitations</p>
+    <p>Approach limitations:</p>
+    <p>TaintDroid only tracks data flows (i.e., explicit flows).</p>
+    <p>Taint source limitations:</p>
+    <p>IMSI contains country (MCC) and network (MNC) codes</p>
+    <p>File databases must be all one type</p>
+  </div>
+  <div class="page">
+    <p>Summary</p>
+    <p>TaintDroid provides efficient, system-wide, dynamic taint tracking and analysis for Android</p>
+    <p>We found 20 of the 30 studied applications to share information in a way that was not expected.</p>
+    <p>Source code will be available soon: appanalysis.org</p>
+    <p>Future investigations:</p>
+    <p>Provide direct feedback to users  Potential for realtime enforcement  Integration with expert rating systems</p>
+  </div>
+  <div class="page">
+    <p>Demo</p>
+    <p>Demo available at http://appanalysis.org/demo/</p>
+  </div>
+  <div class="page">
+    <p>Questions?</p>
+    <p>Additional Team Members</p>
+    <p>Peter Gilbert (Duke University)  Byung-Gon Chun (Intel Labs, Berkeley)  Landon Cox (Duke University)  Jaeyeon Jung (Intel Labs, Seattle)  Patrick McDaniel (Penn State University)  Anmol Sheth (Intel Labs, Seattle)</p>
+    <p>William Enck Systems and Internet Infrastructure Security (SIIS) Laboratory</p>
+    <p>Department of Computer Science and Engineering The Pennsylvania State University</p>
+    <p>enck@cse.psu.edu</p>
+  </div>
+</Presentation>

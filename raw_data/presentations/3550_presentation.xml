@@ -1,0 +1,194 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>Origin-sensitive CFI</p>
+    <p>Mustakimur R. Khandaker, Wenqing Liu, Abu Naser, Zhi Wang, Jie Yang</p>
+    <p>Department of Computer Science Florida State University</p>
+  </div>
+  <div class="page">
+    <p>Control Flow Integrity Control Flow Integrity (CFI) is a defense mechanism against control-flow hijacking, It employs inline reference monitor to enforce the run-time control flow of a process must follow the statically computed control-flow graph (CFG).</p>
+    <p>CFI consists of:</p>
+    <p>CFI Policy  Inline Reference Monitor  CFG</p>
+    <p>local variable</p>
+    <p>arguments ...</p>
+    <p>return address</p>
+    <p>canary</p>
+    <p>old frame pointers</p>
+    <p>void (*fnptr)()</p>
+    <p>char buf[10]</p>
+    <p>caller</p>
+    <p>callee</p>
+  </div>
+  <div class="page">
+    <p>Context-sensitive CFI Policy  Context-insensitive (CI-) CFI: CFI policy without additional information.  Context-sensitive (CS-) CFI: CFI policy with past execution history.</p>
+    <p>e.g., path sensitivity, call-site sensitivity</p>
+    <p>To quantify security guarantee of CFI:</p>
+    <p>Some Context-Sensitive CFI systems cannot break down largest ECs (limited number of contexts, i.e., incoming execution paths to ICTs)</p>
+  </div>
+  <div class="page">
+    <p>Motivation</p>
+    <p>There is a C-style indirect call from execute().  That function pointer, code_to_exec is a member of an</p>
+    <p>object.</p>
+    <p>The context of the indirect call is a loop that iterates over a list of objects.</p>
+    <p>Indirect calls has indifferent context.</p>
+    <p>The function pointer receives the target when the object is created.</p>
+    <p>The objects are created from different locations.</p>
+    <p>The object creation location is more diverse than the context of the indirect call.</p>
+    <p>Object creation location aka origin.</p>
+  </div>
+  <div class="page">
+    <p>Origin Sensitivity: A New Type of Context  Origin: code location where a code pointer originates.</p>
+    <p>Virtual call: where the receiving object is created (class constructor is being called).  C-style indirect call: the address-taken code location of the code pointer.</p>
+    <p>Requires an efficient run-time tracing method.  Map objects virtual pointer to object construction location.  Map code pointer to address-taken location.</p>
+    <p>Performance is a challenge:  Track origins as function addresses propagate</p>
+    <p>throughout the program</p>
+    <p>Similar to how taint is tracked.</p>
+    <p>typedef void (*fnptr)();</p>
+    <p>void target(){</p>
+    <p>}</p>
+    <p>void callee(fnptr arg){</p>
+    <p>fnptr tmp = arg;</p>
+    <p>tmp();</p>
+    <p>}</p>
+    <p>void caller(){</p>
+    <p>callee(&amp;target);</p>
+    <p>}</p>
+  </div>
+  <div class="page">
+    <p>Hybrid Definition  Need a more efficient definition for C-style ICT.</p>
+    <p>Combines the origin with call-site sensitivity.  Origin: latest code pointer assignment location.  Use call-sites as the context for the origin.</p>
+    <p>Virtual function does not need change  Constructors cannot be virtually called  If an object is copied to another object, it essentially</p>
+    <p>create a new object using its class copy constructor or</p>
+    <p>copy assignment operator. This creates a new origin for</p>
+    <p>that object.</p>
+    <p>typedef void (*fnptr)();</p>
+    <p>void target(){</p>
+    <p>}</p>
+    <p>void callee(fnptr arg){</p>
+    <p>fnptr tmp = arg;</p>
+    <p>tmp();</p>
+    <p>}</p>
+    <p>void caller(){</p>
+    <p>callee(&amp;target);</p>
+    <p>}</p>
+    <p>origin</p>
+    <p>call-site</p>
+  </div>
+  <div class="page">
+    <p>Origin Sensitivity Effectiveness  As compared to call-site sensitivity</p>
+    <p>Benchmarks</p>
+    <p>Lang</p>
+    <p>Context-insensitive 1-call-site 2-call-site origin-sensitive</p>
+    <p>ECL ECL Reduce</p>
+    <p>by ECL Reduce</p>
+    <p>by ECL Reduce</p>
+    <p>by</p>
+  </div>
+  <div class="page">
+    <p>OS-CFI  LLVM-based prototype OS-CFI system.  Focus on:</p>
+    <p>Precision: OS-CFI must improve the security by reducing the average and largest EC sizes.  Security: OS-CFI must protect both the contextual data and the (temporary) data used by</p>
+    <p>reference monitors.</p>
+    <p>Performance: OS-CFI must have strong performance relative to the native system.  Compatibility: OS-CFI must support both C and C++ programs.</p>
+  </div>
+  <div class="page">
+    <p>OS-CFI Policy  Adaptive CFI policy:</p>
+    <p>Use call-site sensitivity if it is sufficiently precise.  Use origin sensitivity to break down large ECs.</p>
+  </div>
+  <div class="page">
+    <p>Instrumentation</p>
+    <p>To track origin of the object creation location.  store_metadata(vptr_addr, vtable, origin_loc)</p>
+    <p>To track origin of the function pointer assignment location.  store_metadata(ptr_addr, ptr_val, origin_loc, origin_context)</p>
+    <p>To monitor the virtual function call.  ccall_ref_monitor(ptr_addr, target)</p>
+    <p>To monitor the C-style indirect call.  vcall_ref_monitor(vptr_addr, vtable, target)</p>
+  </div>
+  <div class="page">
+    <p>CFG Generation  Based on SUPA, an on-demand context-, flow-, and field-sensitive points-to</p>
+    <p>analysis.  Constructs a whole-program sparse value-flow graph (SVFG) that conservatively captures the</p>
+    <p>programs (imprecise) def-use chains.  Improves the precision by refining away imprecise value-flows in the SVFG with strong updates.</p>
+    <p>OS-CFI CFGs are constructed on top of the refined SVFG of SUPA.  Piggybacks on SUPA while traversing the programs SVFG reversely to compute points-to sets.  Reverse: from sink (ICT) to source (origin).</p>
+  </div>
+  <div class="page">
+    <p>Pitfalls (Static Points-to Analysis)  SUPA is Scalable, precise, and publicly available.</p>
+    <p>Relatively powerful machine (16-core Xeon server with 64GB of memory).</p>
+    <p>Issues  Out of budget</p>
+    <p>Generous budget (-maxcxt=10 -flowbg=10000 -cxtbg=100000).</p>
+    <p>Returns set of address-taken functions (refined by including type-matched).</p>
+    <p>Empty points-to sets  Mostly because of missing implementations e.g.</p>
+    <p>pointer to member function.</p>
+    <p>Refined by address-taken and type-matched set.</p>
+  </div>
+  <div class="page">
+    <p>Metadata Storage  Intel MPX is a Hardware-based bound check system.</p>
+    <p>Operates like a two-level page table.</p>
+    <p>Repurpose MPX as a generic (key, value) store  Indexed by the address of a pointer (code pointer address).  Every bound table entry consists of</p>
+    <p>content of the pointer (code pointer target).  the upper bound (origin location).  the lower bound (origin context).</p>
+    <p>Map (ptr_addr, ptr_target) = &lt;origin, origin_context&gt;.  If inline reference monitor</p>
+    <p>Provide wrong ptr_target, load will fail.  Provide correct ptr_target, origin and origin context will be verified.</p>
+  </div>
+  <div class="page">
+    <p>Protection of Metadata, Context, IRM</p>
+    <p>Intel MPX (Runtime Metadata)  Protected by ASLR.  Bound directory (user-space), Bound Table (kernel space).  Base of the bounds directory is stored in a special register, BNDCFGx, inaccessible to the user space.  With additional overhead, MPXs bound check can be used to protect itself.</p>
+    <p>Context (Call Stack)  Intel CET shadow stack (recent update is on May 2019.  SafeStack (published in OSDI14 and adopted by LLVM in 2015 (clang-9.0)).  ShadowCallStack (available for aarch64 in LLVM (from clang-7.0)).</p>
+    <p>Reference Monitor protected by Intel TSX  keeps tracks of the memory accessed by a transaction and aborts the transaction if any of that</p>
+    <p>memory is changed by others.</p>
+  </div>
+  <div class="page">
+    <p>CFG Address Mapping  CFGs are accordingly encoded as the LLVM IR locations.</p>
+    <p>But runtime Requires the low-level addresses of the CFG nodes.  Traditional approach</p>
+    <p>Use the debug information  works for function addresses.  but not as well for call sites because they are not in the symbol table.</p>
+    <p>Use heuristics  such as the code structure are used to infer the locations of call sites.  may not be reliable when the compiler optimization is turned on.</p>
+    <p>OS-CFI uses Label-As-Value to obtain the runtime addresses of the CFG nodes  Create a label at every required call-sites  Create an array of label in required functions and located it into a custom section  Assembler will automatically convert the label with actual code address  Supports ASLR</p>
+  </div>
+  <div class="page">
+    <p>Evaluation We separate our evaluation into three parts:</p>
+    <p>Improvements in security  Security guarantee  Case study</p>
+    <p>Experiments with vulnerabilities  Performance</p>
+  </div>
+  <div class="page">
+    <p>Security Guarantee (1)  Excluded SUPA failed cases.  Comparing to CI-CFI</p>
+    <p>Average Avg. EC Size reduction 59.8%.  Average Largest EC Size reduction</p>
+  </div>
+  <div class="page">
+    <p>Security Guarantee (2)</p>
+  </div>
+  <div class="page">
+    <p>Case Study</p>
+  </div>
+  <div class="page">
+    <p>Pitfalls (CFI Policy)  This single ICT can target to 8</p>
+    <p>functions.  The target is decided by the index piecet(i).</p>
+    <p>SUPA fails to provide the context for the ICT.</p>
+    <p>Because evalRoutines is initialized statically, SUPA will not generate any context for this ICT.</p>
+    <p>This case requires to protect the integrity of index data throughout its context.</p>
+  </div>
+  <div class="page">
+    <p>Synthesized Exploit  Background</p>
+    <p>Two virtual function calls.  Two vulnerable functions</p>
+    <p>getPerson() may return a malicious object by overwriting the vPtr with wrong vTable.</p>
+    <p>isEmployee() may always return true by overwriting boolean return.</p>
+    <p>Security guarantee  First ICT is protected by Object Type Integrity.  Second ICT is protected by CFI.</p>
+  </div>
+  <div class="page">
+    <p>Performance</p>
+    <p>Intel Xeon E3-1275 processor and 64 GB of memory.  SafeStack for secure call stack and Intel TSX to protect the reference monitors.  OS-CFI incurred an overhead of 7.1% without Intel TSX and 7.6% with it.  CFG generation has no longer than 5.3% overhead. 22</p>
+  </div>
+  <div class="page">
+    <p>Related Work</p>
+  </div>
+  <div class="page">
+    <p>Conclusion  Origin sensitivity is an effective context for CFI to reduce the LC size.  OS-CFI supports both virtual calls and C-style ICTs.  Repurposing Intel MPX as generic (key, value) store.  Static points-to analysis for CFG generation requires special attention to</p>
+    <p>ensure the security guarantee.  Source code available: https://github.com/mustakcsecuet/OS-CFI</p>
+  </div>
+  <div class="page">
+    <p>Q&amp;A http://ww2.cs.fsu.edu/~khandake/</p>
+  </div>
+  <div class="page">
+    <p>Performance of CFG Generator</p>
+  </div>
+  <div class="page">
+    <p>Real-world Exploit</p>
+    <p>Based on CVE-2015-8668  Heap-based buffer overflow caused by</p>
+    <p>an integer overflow.</p>
+    <p>Overwrite TIFF object out using the overflow vulnerability.</p>
+  </div>
+</Presentation>

@@ -1,0 +1,557 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<TEI xmlns="http://www.tei-c.org/ns/1.0" 
+xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+xsi:schemaLocation="http://www.tei-c.org/ns/1.0 /Users/atharsefid/Desktop/grobid-0.5.3/grobid-home/schemas/xsd/Grobid.xsd"
+ xmlns:xlink="http://www.w3.org/1999/xlink">
+	<teiHeader xml:lang="en">
+		<encodingDesc>
+			<appInfo>
+				<application version="0.5.3" ident="GROBID" when="2019-03-26T16:56+0000">
+					<ref target="https://github.com/kermitt2/grobid">GROBID - A machine learning software for extracting information from scholarly documents</ref>
+				</application>
+			</appInfo>
+		</encodingDesc>
+		<fileDesc>
+			<titleStmt>
+				<title level="a" type="main">Improving Instruction Delivery with a Block-Aware ISA</title>
+			</titleStmt>
+			<publicationStmt>
+				<publisher/>
+				<availability status="unknown"><licence/></availability>
+			</publicationStmt>
+			<sourceDesc>
+				<biblStruct>
+					<analytic>
+						<author>
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Ahmad</forename><surname>Zmily</surname></persName>
+							<email>zmily@stanford.edu</email>
+							<affiliation key="aff0">
+								<orgName type="department">Electrical Engineering Department</orgName>
+								<orgName type="institution">Stanford University</orgName>
+							</affiliation>
+						</author>
+						<author>
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Earl</forename><surname>Killian</surname></persName>
+							<email>killian@stanford.edu</email>
+							<affiliation key="aff0">
+								<orgName type="department">Electrical Engineering Department</orgName>
+								<orgName type="institution">Stanford University</orgName>
+							</affiliation>
+						</author>
+						<author>
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Christos</forename><surname>Kozyrakis</surname></persName>
+							<email>kozyraki@stanford.edu</email>
+							<affiliation key="aff0">
+								<orgName type="department">Electrical Engineering Department</orgName>
+								<orgName type="institution">Stanford University</orgName>
+							</affiliation>
+						</author>
+						<title level="a" type="main">Improving Instruction Delivery with a Block-Aware ISA</title>
+					</analytic>
+					<monogr>
+						<imprint>
+							<date/>
+						</imprint>
+					</monogr>
+					<note>530</note>
+				</biblStruct>
+			</sourceDesc>
+		</fileDesc>
+		<profileDesc>
+			<abstract>
+				<p>Instruction delivery is a critical component for wide-issue processors since its bandwidth and accuracy place an upper limit on performance. The processor front-end accuracy and bandwidth are limited by instruction cache misses, multi-cycle instruction cache accesses, and target or direction mispredictions for control-flow operations. This paper introduces a block-aware ISA (BLISS) that helps accurate instruction delivery by defining basic block descriptors in addition to and separate from the actual instructions in a program. We show that BLISS allows for a decoupled front-end that tolerates cache latency and allows for higher speculation accuracy. This translates to a 20% IPC and 14% energy improvements over conventional front-ends. We also demonstrate that a BLISS-based front-end outperforms by 13% decoupled front-ends that detect fetched blocks dynamically in hardware, without any information from the ISA.</p>
+			</abstract>
+		</profileDesc>
+	</teiHeader>
+	<text xml:lang="en">
+		<body>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="1">Introduction</head><p>Effective instruction delivery is vital for superscalar processors <ref type="bibr" target="#b0">[1]</ref>. The rate and accuracy at which instructions enter the pipeline set an upper limit to sustained performance. Consequently, wide-issue designs place increased demands on the processor front-end, the engine responsible for control-flow prediction and instruction fetching. The frontend must handle three basic detractors: instruction cache misses that cause instruction delivery stalls; target and direction mispredictions for branches that send erroneous instructions to the execution core; and multi-cycle instruction cache accesses that cause additional uncertainty about the existence and direction of branches within the instruction stream.</p><p>To overcome these problems in high performance yet energy efficient way, we propose a block-aware instruction set architecture (BLISS). BLISS defines basic block descriptors in addition to and separately from the actual instructions in each program. A descriptor provides sufficient information for fast and accurate control-flow prediction without accessing or parsing the instruction stream. It describes the type of the control-flow operation that terminates the block, its potential target, and the number of instructions in the basic block. BLISS allows the processor front-end to access the software defined block descriptors through a small cache that replaces the block target buffer (BTB). The descriptors' cache decouples control-flow speculation from instruction cache accesses. Hence, the instruction cache latency is no longer in the critical path of accurate prediction. The fetched descriptors can be used to prefetch instructions and eliminate the impact of instruction cache misses. Furthermore, the control-flow information available in descriptors allows for judicious use of branch predictors, which reduces interference and training time and improves overall prediction accuracy. We demonstrate that for an 8-way superscalar processor, a BLISS-based front-end allows for 20% performance improvement and 14% overall energy savings over a conventional front-end engine. Moreover, BLISS compares favorably to advanced, hardware-based schemes for decoupled front-end engines such as the fetch-block-buffer (FTB) design <ref type="bibr" target="#b1">[2,</ref><ref type="bibr" target="#b2">3]</ref>. The FTB performs aggressive block coalescing to increase the number of instructions per control-flow prediction and increase the utilization of the BTB. The BLISS-based frontend provides higher control-flow accuracy than the FTB by removing over-speculation with block fetching and coalescing. Our experiments show that a BLISS-based 8-way processor provides 13% higher performance and 7% overall energy savings over the FTB design.</p><p>Overall, we demonstrate the potential of delegating portions of instruction delivery (accurate fetch block formation) to software using an expressive ISA.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="2">Block-Aware Instruction Set Architecture</head><p>Our proposal for addressing front-end performance is based on a block-aware instruction set (BLISS) that explicitly describes basic blocks. A basic block (BB) is a sequence of instructions starting at the target or fall-through of a control-flow instruction and ending with the next control-flow instruction or before the next potential branch target.</p><p>BLISS stores the definitions for basic blocks in addition to and separately from the ordinary instructions they include. The code segment for a program is divided in two distinct sections. The first section contains descriptors that define the type and boundaries of blocks, while the second section lists the actual instructions in each block. <ref type="figure" target="#fig_0">Fig- ure 1</ref> presents the format of a basic block descriptor (BBD). Each BBD defines the type of the control-flow operation that terminates the block. The BBD also includes an offset field to be used for blocks ending with a branch or a jump with PC-relative addressing. The actual instructions in the basic block are identified by the pointer to the first instruction and the length field. The last BBD field contains optional compiler-generated hints. In this study, we make limited use of this field to convey branch prediction hints generated through profiling <ref type="bibr" target="#b3">[4]</ref>. The overall BBD length is 32 bits.  BLISS treats each basic block as an atomic unit of execution. There is a single program counter and it only points within the code segment for BBDs. The execution of all instructions associated with each descriptor updates the PC so that it points to the descriptor for the next basic block in the program order (PC+4 or PC+offset). Precise exceptions are supported similar to <ref type="bibr" target="#b4">[5]</ref>.</p><p>The BBDs provide the processor front-end with architectural information about the program control-flow in a compressed and accurate manner. Since BBDs are stored separately from instructions, their information is available for front-end tasks before instructions are fetched and decoded. The sequential block target is always at PC+4, regardless of the number of instructions in the block. The non-sequential block target (PC+offset) is also available through the offset field for all blocks terminating with a PC-relative control-flow instructions (branches -BR B and BR F, jumps -J and JAL, loop -LOOP). For the remaining cases (jump register -JR and JALR, return -RET), the non-sequential target is provided by the last instruction in the block through a register. BBDs provide the branch condition when it is statically determined (all jumps, return, fall-through blocks). For conditional branches, the BBD provides type information (forward, backward, loop) and hints which can assist with dynamic prediction. The actual branch condition is provided by the last instruction in the block. Finally, instruction pointer and length fields can be used for instruction (pre)fetching. <ref type="figure" target="#fig_1">Figure 2</ref> presents an example program that counts the number of zeros in array a and calls foo() for each non-zero element. With a RISC ISA like MIPS, the program requires 8 instructions <ref type="figure" target="#fig_1">(Figure 2</ref>.b). The 4 control-flow operations define 5 basic blocks. All branch conditions and targets are defined by the branch and jump instructions. With the BLISS equivalent of MIPS <ref type="figure" target="#fig_1">(Figure 2</ref>.c), the program requires 5 basic block descriptors and 7 instructions. All PC-relative offsets for branch and jump operations are available in BBDs. Compared to the original code, we have eliminated the j instruction. The corresponding descriptor (BBD3) defines both the control-flow type (J) and the offset, hence the jump instruction itself is redundant. However, we cannot eliminate  <ref type="figure">Fig. 3</ref>. A decoupled front-end for a superscalar processor based on the BLISS ISA either of the two conditional branches (bneqz, bne). The corresponding BBDs provide the offsets but not the branch conditions, which are still specified by the regular instructions. However, the regular branch instructions no longer need an offset field, which frees a large number of instruction bits. Similarly, we have preserved the jalr instruction because it allows reading the jump target from register r3 and writing the return address in register r31.</p><p>Note that function pointers, virtual methods, jump tables, and dynamic linking are implemented in BLISS using jump-register BBDs and instructions in an identical manner to how they are implemented with conventional ISAs. For example, the target register (r3) for the jr instruction in <ref type="figure" target="#fig_1">Figure 2</ref> could be the destination register of a previous load instruction.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3">Decoupled Front-End for the Block-Aware ISA</head><p>The BLISS ISA suggests a superscalar front-end that fetches BBDs and the associated instructions in a decoupled manner. <ref type="figure">Figure 3</ref> presents a BLISS-based front-end that replaces branch target buffer (BTB) with a BB-cache that caches the block descriptors in programs. The offset field in each descriptor is stored in the BB-cache in an expanded form that identifies the full target of the terminating branch. For PC-relative branches and jumps, the expansion takes place on BB-cache refills from lower levels of the memory hierarchy, which eliminates target mispredictions even for the first time the branch is executed. For the register-based jumps, the offset field is available after the first execution of the basic block. The BB-cache stores eight sequential BBDs per cache line. Long BB-cache lines exploit spatial locality in descriptor accesses and reduce the storage overhead for tags.</p><p>The BLISS front-end operation is simple. On every cycle, the BB-cache is accessed using the PC. On a miss, the front-end stalls until the missing descriptor is retrieved from the memory hierarchy (L2 cache). On a hit, the BBD and its predicted direction/target are pushed in the basic block queue (BBQ). The direction is also verified by a tag-less, hybrid predictor. The predicted PC is used to access the BB-cache in the following cycle. Instruction cache accesses use the instruction pointer and length fields in the descriptors available in the BBQ.</p><p>The BLISS front-end alleviates all shortcomings of a conventional front-end. The BBQ decouples control-flow prediction from instruction fetching. Multi-cycle latency for large instruction cache no longer affects prediction accuracy, as the vital information for speculation is included in basic-block descriptors available through the BB-cache (block length, target offset). Since the PC in the BLISS ISA always points to basic block descriptors (i.e. a control-flow instruction), the hybrid predictor is only used and trained for PCs that correspond to branches. With a conventional front-end, on the other hand, the PC may often point to non control-flow instructions which causes additional interference and slower training for the hybrid predictor. The contents of the BLISS BBQ also provide an early view into the instruction address stream and can be used for instruction prefetching and hide instruction cache misses <ref type="bibr" target="#b5">[6]</ref>.</p><p>A decoupled front-end similar to the one in <ref type="figure">Figure 3</ref> can be implemented without the ISA support provided by BLISS. The FTB design <ref type="bibr" target="#b1">[2,</ref><ref type="bibr" target="#b2">3]</ref> describes the latest of such design. The FTB detects basic block boundaries and targets dynamically in hardware and stores them in an advanced BTB called the fetch target buffer (FTB). Block boundaries are discovered by introducing large instruction sequential blocks which are later shortened when jumps are decoded (misfetch) or branches are taken (mispredict) within the block. The FTB allows for instruction fetch decoupling and prefetching as described above. Furthermore, the FTB coalesces multiple continuous basic blocks into a single long fetch block in order to improve control-flow rate and better utilize the FTB capacity. Nevertheless, the simpler BLISS front-end outperforms the aggressive FTB design by providing a better balance between over-and under-speculation. With BLISS, block formation is statically done in software and it never introduces misfetches. In addition, the PC used to access the hybrid predictor for each block (branch) is the same. With FTB, as fetch blocks shrink dynamically when branches switch behavior, the PC used to index in the predictor and FTB for each branch changes dynamically, causing slower predictor training and additional interference.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="4">Methodology</head><p>We simulate an 8-way superscalar processor in order to compare the BLISS-based front-end to conventional (base) and FTB-based front-ends. <ref type="table" target="#tab_2">Table 1</ref> summarizes the key architectural parameters. Note that the target prediction buffers in the three frontends (BTB, FTB, and BB-cache) have exactly the same capacity for fairness. All other parameters are identical across the three models. We have also performed detailed experiments varying several of these parameters and the results are consistent (4-way processor, BTB size, I-cache latency, etc.). For BLISS, we fully model contention for the L2-cache bandwidth between BB-cache misses and I-cache or D-cache misses. Our graphs present two sets of results for BLISS: without (BLISS) and with (BLISS-hints) using the prediction hints in the BBDs. We do not discuss BLISS-hints in details due to space limitations.</p><p>We study 12 SPEC CPU2000 benchmarks using their reference datasets <ref type="bibr" target="#b6">[7]</ref>. The benchmarks are compiled at the -O3 optimization level. In all cases, we skip the first billion instructions and simulate another billion instructions for detailed analysis. We generate BLISS executables using a static binary translator, which can handle arbitrary programs written in any language. The generation of BLISS executable could also be done using a transparent, dynamic compilation framework <ref type="bibr" target="#b7">[8]</ref>. Despite introducing the block descriptors, BLISS executables are actually up to 16% smaller than the original binaries, as BLISS allows aggressive code size optimizations such as branch removal and common block elimination. The evaluation of code size optimizations is omitted due to space limitations. Our simulation framework is based on the Simplescalar/PISA 3.0 toolset <ref type="bibr" target="#b8">[9]</ref>, which we modified to add the FTB and BLISS front-end models. For energy measurements, we use the Wattch framework with the cc3 power model <ref type="bibr" target="#b9">[10]</ref>. Energy consumption was calculated for a 0.10µm process with a 1.1V power supply. The reported Total Energy includes all the processor components (front-end, execution core, and all caches). <ref type="figure">Figure 4</ref> presents IPC and IPC improvement for the BLISS front-end over the base and FTB front-ends for the 8-way superscalar processor. BLISS outperforms the base front-end for all benchmarks with an average IPC improvement of 20%. The hardwarebased FTB front-end outperforms the base for only half of the benchmarks and most of the 7% average IPC improvement is due to vortex. BLISS outperforms FTB for all benchmarks but vortex, with an average IPC advantage of 13% (up to 18% with BLISS-hints). <ref type="figure">Figure 4</ref> also presents total energy savings. BLISS provides a 14% total energy improvement over the base design. The advantage is mostly due to the elimination of a  <ref type="figure">Fig. 4</ref>. IPC, percentage of IPC improvement, and percentage of total energy improvement for the FTB and BLISS front-ends over the base fornt-end design.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="5">Evaluation</head><p>significant number of pipeline flushes due to control-flow misprediction. BLISS offers a 7% energy advantage over FTB which allows similar energy optimizations in the frontend but suffers from higher number of control-flow mispredictions. It is important to note from <ref type="figure">Figure 4</ref> that BLISS provides both performance and energy advantages over the base and FTB. <ref type="figure" target="#fig_2">Figure 5</ref> explains the basic performance advantage of BLISS over the base and FTB design. Compared to the base, BLISS reduces by 36% the number of pipeline flushes due to target and direction mispredictions. These flushes have a severe performance impact as they empty the full processor pipeline. Flushes in BLISS are slightly more expensive than in the base design due to the longer pipeline, but they are less frequent. The BLISS advantage is due to the availability of control-flow information from the BB-cache regardless of I-cache latency and the accurate indexing and judicious use of the hybrid predictor. The FTB front-end has a significantly higher number of pipeline flushes compared to the BLISS front-end as block recreation affects the prediction accuracy of the hybrid predictor due to longer training and increased interference. Both BLISS and FTB allow for a decoupled front-end with instruction prefetching. BLISS enables I-cache prefetching though the BBQ which reduces the number of I-cache misses by 24% on average for the benchmarks studied. Although the BLISS L2-cache serves an additional type of misses from the BB-cache, BLISS number of   L2-cache accesses and misses are slightly better than the numbers for the FTB design. BLISS has a 10% higher number of L2-cache accesses, and 2% lower number of L2-cache misses compared to the base design for the benchmarks studied. The increased number of L2-cache accesses for BLISS and FTB designs is mainly due to instruction prefetching. <ref type="figure" target="#fig_3">Figure 6</ref> shows the BB-cache and FTB hit rates to evaluate the effectiveness of the FTB in forming fetch-blocks and the BB-cache in delivering BBDs. Since the FTB returns a fall-through block address even when it misses in order to avoid storing the fall-through blocks, we define its miss rate as the number of misfetches divided over the number of FTB accesses. A misfetch occurs when the decoder detects that the block fetched from the FTB is wrong and needs to be updated and a new block to be fetched. At the same storage capacity, the BLISS BB-cache achieves a 2% to 3% higher hit rate than the FTB as the BB-cache avoids block splitting and recreation that occur when branches change behavior or when the cache capacity cannot capture the working set of the benchmark. The FTB has an advantage for programs like vortex that stress the capacity of the target cache and include large fetch blocks. For vortex, the FTB packs 9.5 instructions per entry (multiple basic blocks), while the BB-cache packs 5.5 instructions per entry (single basic block).</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="6">Related Work</head><p>Certain ISAs allow for basic blocks descriptors, interleaved with regular operations in the instruction stream (e.g. prepare-to-branch instructions in <ref type="bibr" target="#b10">[11,</ref><ref type="bibr" target="#b11">12]</ref>). They allow for target address calculation and instruction prefetching a few cycles before the branch instruction is decoded. The block-structured ISA (BSA) by Patt et al. <ref type="bibr" target="#b4">[5]</ref> defines basic blocks of reversed ordered instructions as atomic execution units in order to simplify instruction renaming and scheduling. BLISS goes a step further by separating basic block descriptors from regular instructions which allows for instruction fetch bandwidth improvements. The benefits from BSA and BLISS are complimentary. The decoupled control-execute architectures use a separate ISA with distinct architectural state for control-flow calculation <ref type="bibr" target="#b12">[13,</ref><ref type="bibr" target="#b13">14]</ref>. The BBDs in BLISS are not a stand-alone ISA and do not define any state, eliminating the deadlock scenarios with decoupled control-execute ISAs.</p><p>Block-based front-end architectures were introduced by Yeh and Patt <ref type="bibr" target="#b14">[15]</ref>, with basic block descriptors formed by hardware without any additional architectural support. Decoupled front-end techniques have been explored by Calder and Grunwald <ref type="bibr" target="#b15">[16]</ref> and Stark et al. <ref type="bibr" target="#b16">[17]</ref>. Reinman et al. combined the two techniques in a comprehensive frontend with prefetching capabilities <ref type="bibr" target="#b1">[2,</ref><ref type="bibr" target="#b2">3]</ref>. Our work improves their design using explicit ISA support for basic block formation. Significant amount of front-end research has also focused on trace caches <ref type="bibr" target="#b17">[18]</ref><ref type="bibr" target="#b18">[19]</ref><ref type="bibr" target="#b19">[20]</ref>. Trace caches have been shown to work well with basic blocks defined by hardware <ref type="bibr" target="#b20">[21]</ref>. One can form streams or traces on top of the basic blocks in the BLISS ISA. BLISS provides two degrees of freedom for code layout optimizations (blocks and instructions), which could be useful for stream or trace formation. Exploring such approaches is an interesting area for future work.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="7">Conclusions</head><p>We present a block-aware ISA that addresses basic challenges in the front-end of wide superscalar processors. The ISA defines basic block descriptors in addition to and separately from the actual instructions. Software-defined basic blocks allow a decoupled front-end with highly accurate control-flow speculation, which leads to 20% IPC and 14% energy advantages over conventional designs. The ISA-supported front-end also outperforms (13% IPC and 7% energy) advanced decouple front-ends that dynamically build fetch blocks in hardware. Overall, this work establishes the potential of using expressive ISAs to address difficult hardware problems in modern processors.</p></div><figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_0"><head>Fig. 1 .</head><label>1</label><figDesc>Fig. 1. The 32-bit basic block descriptor format in BLISS.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_1"><head>Fig. 2 .</head><label>2</label><figDesc>Fig. 2. Example program in (a) C source code, (b) MIPS assembly, and (c) BLISS assembly. In (b) and (c), the instructions in each basic block are identified with dotted-line boxes. Register r3 contains the address for the first instruction (b) or first basic block descriptor (c) of function foo. For illustration purposes, the instruction pointers in basic block descriptors are represented with arrows.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_2"><head>Fig. 5 .</head><label>5</label><figDesc>Fig. 5. Normalized number of pipeline flushes for the base, FTB, BLISS for representative benchmarks. The average is across all 12 benchmarks.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_3"><head>Fig. 6 .</head><label>6</label><figDesc>Fig. 6. Normalized FTB and BB-cache hit rates for representative benchmarks. The average is across all 12 benchmarks.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_2" validated="true"><head>Table 1 . The microarchitecture parameters for the simulations. The common parameters apply to all three models (base, FTB, BLISS).</head><label>1</label><figDesc></figDesc><table>Base 
+FTB 
+BLISS 
+Fetch Width 
+8 instructions/cycle 1 fetch block/cycle 1 basic block/cycle 
+Target 
+BTB: 2K entries 
+FTB: 2K entries 
+BB-cache: 2K entries 
+Predictor 
+4-way, 1-cycle access 4-way, 1-cycle access 4-way, 1-cycle access 
+8 entries per cache line 
+Decoupling Queue -
+FTQ: 4 entries 
+BBQ: 4 entries 
+Common Processor Parameters 
+Hybrid 
+gshare: 4K counters 
+Predictor 
+PAg L1: 1K entries, PAg L2: 1K counters 
+selector: 4K counters 
+RAS 
+32 entries with shadow copy 
+I-cache 
+32 KBytes, 4-way, 64B blocks, 1 port, 2-cycle access pipelined 
+Issue/Commit Width 8 instructions/cycle 
+IQ/RUU/LSQ Size 64/128/128 entries 
+FUs 
+8 INT &amp; 6 FP 
+D-cache 
+64 KBytes, 4-way, 64B blocks, 2 ports, 2-cycle access pipelined 
+L2 cache 
+1 MByte, 8-way, 128B blocks, 1 port, 12-cycle access, 4-cycle repeat rate 
+Main memory 
+100-cycle access 
+
+</table></figure>
+		</body>
+		<back>
+
+			<div type="acknowledgement">
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>Acknowledgements</head><p>This work was supported by a Stanford OTL grant.</p></div>
+			</div>
+
+			<div type="references">
+
+				<listBibl>
+
+<biblStruct xml:id="b0">
+	<analytic>
+		<title level="a" type="main">Coming Challenges in Microarchitecture and Architecture</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Ronen</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Mendelson</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Proceedings of the IEEE</title>
+		<imprint>
+			<biblScope unit="volume">89</biblScope>
+			<biblScope unit="issue">3</biblScope>
+			<date type="published" when="2001-03" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b1">
+	<analytic>
+		<title level="a" type="main">Fetch Directed Instruction Prefetching</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">G</forename><surname>Reinman</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">B</forename><surname>Calder</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">T</forename><surname>Austin</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Intl. Symposium on Microarchitecture</title>
+		<meeting><address><addrLine>Haifa, Israel</addrLine></address></meeting>
+		<imprint>
+			<date type="published" when="1999-11" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b2">
+	<analytic>
+		<title level="a" type="main">Optimizations Enabled by a Decoupled Front-End Architecture</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">G</forename><surname>Reinman</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Calder</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">T</forename><surname>Austin</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">IEEE TC</title>
+		<imprint>
+			<biblScope unit="volume">50</biblScope>
+			<biblScope unit="issue">40</biblScope>
+			<date type="published" when="2001-04" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b3">
+	<analytic>
+		<title level="a" type="main">Branch Prediction Using Profile Data</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Ramirez</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Larriba-Pey</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Valero</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">EuroPar Conference</title>
+		<meeting><address><addrLine>Manchester, UK</addrLine></address></meeting>
+		<imprint>
+			<date type="published" when="2001-08" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b4">
+	<analytic>
+		<title level="a" type="main">Enhancing Instruction Scheduling with a Block-structured ISA</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Melvin</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Y</forename><surname>Patt</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Intl. Journal on Parallel Processing</title>
+		<imprint>
+			<biblScope unit="volume">23</biblScope>
+			<biblScope unit="issue">3</biblScope>
+			<date type="published" when="1995-06" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b5">
+	<analytic>
+		<title level="a" type="main">A Performance Study of Software and Hardware Data Prefetching Schemes</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">T</forename><surname>Chen</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><forename type="middle">L</forename><surname>Baer</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">In Intl. Symposium on Computer Architecture</title>
+		<imprint>
+			<date type="published" when="1994-04" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b6">
+	<analytic>
+		<title level="a" type="main">SPEC CPU2000: Measuring Performance in the New Millennium</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Henning</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">IEEE Computer</title>
+		<imprint>
+			<biblScope unit="volume">33</biblScope>
+			<biblScope unit="issue">7</biblScope>
+			<date type="published" when="2000-07" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b7">
+	<analytic>
+		<title level="a" type="main">Dynamo: A Transparent Dynamic Optimization System</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">V</forename><surname>Bala</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">E</forename><surname>Duesterwald</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Banerjia</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">the Proceedings of the Conference on Programming Language Design and Implementation</title>
+		<meeting><address><addrLine>Vancouver, Canada</addrLine></address></meeting>
+		<imprint>
+			<date type="published" when="2000-06" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b8">
+	<monogr>
+		<title level="m" type="main">Simplescalar Tool Set, Version 2.0</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Burger</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Austin</surname></persName>
+		</author>
+		<idno>CS-TR-97- 1342</idno>
+		<imprint>
+			<date type="published" when="1997-06" />
+			<pubPlace>Madison</pubPlace>
+		</imprint>
+		<respStmt>
+			<orgName>University of Wisconsin</orgName>
+		</respStmt>
+	</monogr>
+<note type="report_type">Technical Report</note>
+</biblStruct>
+
+<biblStruct xml:id="b9">
+	<analytic>
+		<title level="a" type="main">Wattch: A Framework for Architectural-Level Power Analysis and Optimizations</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Brooks</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">V</forename><surname>Tiwari</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Martonosi</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Intl. Symposium on Computer Architecture, Vancouver</title>
+		<meeting><address><addrLine>BC, Canada</addrLine></address></meeting>
+		<imprint>
+			<date type="published" when="2000-06" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b10">
+	<analytic>
+		<title level="a" type="main">The Reduction of Branch Instruction Execution Overhead Using Structured Control Flow</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Wedig</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Rose</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Intl. Symposium on Computer Architecture</title>
+		<meeting><address><addrLine>Ann Arbor, MI</addrLine></address></meeting>
+		<imprint>
+			<date type="published" when="1984-06" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b11">
+	<monogr>
+		<title level="m" type="main">HPL PlayDoh Architecture Specification</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">V</forename><surname>Kathail</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Schlansker</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">B</forename><surname>Rau</surname></persName>
+		</author>
+		<idno>HPL-93-80</idno>
+		<imprint>
+			<date type="published" when="1994" />
+		</imprint>
+		<respStmt>
+			<orgName>HP Labs</orgName>
+		</respStmt>
+	</monogr>
+<note type="report_type">Technical Report</note>
+</biblStruct>
+
+<biblStruct xml:id="b12">
+	<analytic>
+		<title level="a" type="main">Performance of the Decoupled ACRI-1 Architecture: the Perfect Club</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">N</forename><surname>Topham</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">K</forename><surname>Mcdougall</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Intl. Conference on High-Performance Computing and Networking</title>
+		<meeting><address><addrLine>Milan, Italy</addrLine></address></meeting>
+		<imprint>
+			<date type="published" when="1995-05" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b13">
+	<monogr>
+		<title level="m" type="main">The Branch Processor Architecture</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Manohar</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Heinrich</surname></persName>
+		</author>
+		<idno>CSL- TR-1999-1000</idno>
+		<imprint>
+			<date type="published" when="1999-11" />
+		</imprint>
+		<respStmt>
+			<orgName>Cornell Computer Systems Laboratory</orgName>
+		</respStmt>
+	</monogr>
+<note type="report_type">Technical Report</note>
+</biblStruct>
+
+<biblStruct xml:id="b14">
+	<analytic>
+		<title level="a" type="main">A Comprehensive Instruction Fetch Mechanism for a Processor Supporting Speculative Execution</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">T</forename><surname>Yeh</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Y</forename><surname>Patt</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">In Intl. Symposium on Microarchitecture</title>
+		<imprint>
+			<date type="published" when="1992-12" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b15">
+	<analytic>
+		<title level="a" type="main">Fast and Accurate Instruction Fetch and Branch Prediction</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">B</forename><surname>Calder</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Grunwald</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">In Intl. Symposium on Computer Architecture</title>
+		<imprint>
+			<date type="published" when="1994-04" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b16">
+	<analytic>
+		<title level="a" type="main">Reducing the Performance Impact of Instruction Cache Misses by Writing Instructions into the Reservation Stations Out-of-Order</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Stark</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>Racunas</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Y</forename><surname>Patt</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Intl. Symposium on Microarchitecture</title>
+		<meeting><address><addrLine>Research Triangle Park, NC</addrLine></address></meeting>
+		<imprint>
+			<date type="published" when="1997-12" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b17">
+	<analytic>
+		<title level="a" type="main">Alternative Fetch and Issue Techniques from the Trace Cache Mechanism</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Friendly</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Patel</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Y</forename><surname>Patt</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Intl. Symposium on Microarchitecture</title>
+		<meeting><address><addrLine>Research Triangle Park, NC</addrLine></address></meeting>
+		<imprint>
+			<date type="published" when="1997-12" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b18">
+	<analytic>
+		<title level="a" type="main">Path-based Next Trace Prediction</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Q</forename><surname>Jacobson</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">E</forename><surname>Rotenberg</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Smith</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Intl. Symposium on Microarchitecture</title>
+		<meeting><address><addrLine>Research Triangle Park, NC</addrLine></address></meeting>
+		<imprint>
+			<date type="published" when="1997-12" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b19">
+	<analytic>
+		<title level="a" type="main">Improving Trace Cache Effectiveness with Branch Promotion and Trace Packing</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Patel</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Evers</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Y</forename><surname>Patt</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">In Intl. Symposium on Computer Architecture</title>
+		<imprint>
+			<date type="published" when="1998-06" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b20">
+	<analytic>
+		<title level="a" type="main">Extended Block Cache</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Jourdan</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Intl. Symposium on High-Performance Computer Architecture</title>
+		<meeting><address><addrLine>Toulouse, France</addrLine></address></meeting>
+		<imprint>
+			<date type="published" when="2000-01" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+				</listBibl>
+			</div>
+		</back>
+	</text>
+</TEI>

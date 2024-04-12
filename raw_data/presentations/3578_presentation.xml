@@ -1,0 +1,263 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>KEPLER: Facilitating Control-flow Hijacking Primitive Evaluation for</p>
+    <p>Linux Kernel Vulnerabilities Wei Wu1,2,3, Yueqi Chen2, Xinyu Xing2, Wei Zou1,3</p>
+    <p>Aug 15, 2019 1</p>
+  </div>
+  <div class="page">
+    <p>Background  OS kernels are written in low-level languages C/C++</p>
+    <p>Linux: C  Windows: C and C++</p>
+    <p>OS kernels are prone to memory corruption bugs  Out of Bounds Access, Use-After-Free, data race and even type confusion (in C++</p>
+    <p>components)  Bugs in OS kernel are plenty and many of them are exploitable  Exploit Mitigation: make exploit harder with ignorable cost</p>
+    <p>The cost to prove exploitability is increasing  Exploitability: a predicate related to each bug  A concrete kernel exploit could serve as a proof of exploitability</p>
+  </div>
+  <div class="page">
+    <p>Background (cont.)  Automatic exploit generation systems: capable of generating concrete exploits  Automatic exploit generation systems in two steps:</p>
+    <p>Exploit primitive:  A machine state which empowers an attacker to craft an exploit (a.k.a. programming weird</p>
+    <p>machine)  Data flow: Writing 8 bytes anywhere, write 1 byte to adjacent heap chunk etc.  Control flow: Control-flow hijacking</p>
+    <p>Control-flow hijacking primitive is one of the most popular exploit primitives.</p>
+  </div>
+  <div class="page">
+    <p>Crafting a control-flow hijacking kernel exploit  Step 1. Adjusting parameters of system calls and memory</p>
+    <p>layout  [USENIX-SEC18][CCS 16]</p>
+    <p>Getting a control-flow hijacking primitive</p>
+    <p>Adjusting syscall parameters and memory</p>
+    <p>layout</p>
+    <p>Executing exploitation payload</p>
+    <p>Step 2. Getting a control-flow hijacking primitive  [P0 blog][POC16]</p>
+    <p>Step 3. Payload execution  [USENIX-SEC 14]</p>
+  </div>
+  <div class="page">
+    <p>Key Step: from control-flow hijack to ROP payload execution</p>
+    <p>Getting a control-flow hijacking primitive</p>
+    <p>How to bootstrap a ROP attack? (e.g. Transition S -&gt; S)</p>
+    <p>Executing exploitation payload (e.g. through</p>
+    <p>ROP)</p>
+    <p>Semantic of an example ROP payload</p>
+    <p>commit_creds(prepare_kernel_cred(0)) ... (fixing context and safely return to userspace) ... execve(/bin/sh,NULL,NULL)</p>
+    <p>Kernel State S gdb&gt; info registers rsp: x rip: 0x41424344 !  ! gdb&gt; x/10gx $rsp! X : ???????? ???????? ! X+8 : ???????? ???????? !</p>
+    <p>Kernel State S gdb&gt; info registers rsp: x rip: 0x51525354 !  ! gdb&gt; x/10gx $rsp! X : 41414141 41414141 ! X+8 : 41414141 41414141 !</p>
+  </div>
+  <div class="page">
+    <p>Challenge 1. kernel exploit mitigations</p>
+    <p>kernel space</p>
+    <p>user space</p>
+    <p>Control register</p>
+    <p>virtualization-based hypervisor</p>
+    <p>cr4</p>
+    <p>corrupted code ptr shellcode</p>
+    <p>blocked by SMEP</p>
+    <p>corrupted data ptr</p>
+    <p>crafted data object</p>
+    <p>protected by hypervisor</p>
+    <p>physmap</p>
+    <p>Non-executable physmap region</p>
+    <p>blocked by SMAP</p>
+    <p>gadget functions (e.g. call_usermodehelper )</p>
+    <p>shortcuts patched</p>
+    <p>native_write_cr4()</p>
+  </div>
+  <div class="page">
+    <p>Challenge 2. ill-suited exploit primitive</p>
+    <p>Lack of stack pivoting gadget in Linux kernel</p>
+    <p>traditional stack pivoting gadget blocked by SMAP because it accesses user-space memory</p>
+    <p>Intra-kernel stack pivoting gadget sometimes does not exist.</p>
+    <p>Insufficient control over registers for invoking kernel functions</p>
+    <p>Fake stack in User-Space</p>
+    <p>pop ***, ret  pop ***, ret</p>
+    <p>blocked by SMAP</p>
+    <p>call rax</p>
+    <p>xchg eax, esp ; ret xchg rdi, rsp ; ret</p>
+    <p>Lack of gadget</p>
+    <p>Fake stack in kernel-space pop ***, ret  pop ***, ret</p>
+    <p>call copy_from_user</p>
+    <p>smash current kernel stack</p>
+    <p>Insufficient register control</p>
+    <p>copy_from_user(dst, src, size) 7</p>
+  </div>
+  <div class="page">
+    <p>Challenge 3. exploit path pitfall User-space</p>
+    <p>Kernel-space</p>
+    <p>Trigger vuln.</p>
+    <p>CFHP</p>
+    <p>kernel panic pitfall</p>
+    <p>CFHP</p>
+    <p>Trigger vuln.</p>
+    <p>User-space</p>
+    <p>Kernel-space</p>
+    <p>Trigger vuln.</p>
+    <p>CFHP</p>
+    <p>pitfall</p>
+    <p>smash Kern. Stack</p>
+    <p>exec. ROP chain</p>
+    <p>Our Solution: single-shot exploitation</p>
+  </div>
+  <div class="page">
+    <p>Roadmap</p>
+    <p>Challenges  Our Technique  Evaluation with real-world Linux kernel vulnerabilities  Conclusion</p>
+  </div>
+  <div class="page">
+    <p>Overview of single-shot Exploitation</p>
+    <p>CFHP</p>
+    <p>Blooming gadget</p>
+    <p>indirect jmp/call</p>
+    <p>indirect jmp/call   indirect jmp/call</p>
+    <p>Bridging gadget</p>
+    <p>indirect jmp/call</p>
+    <p>Auxiliary gadget</p>
+    <p>call copy_to_user  return</p>
+    <p>Disclosure gadget</p>
+    <p>call copy_from_user  ret</p>
+    <p>Stack overflow gadget Arbitrary ROP</p>
+    <p>payload</p>
+  </div>
+  <div class="page">
+    <p>copy_from_user(dst, src, size)  Data channel between user-space</p>
+    <p>and kernel-space  Destination is kernel stack for 91%</p>
+    <p>invocations of copy_from_user() in Linux kernel 4.15.</p>
+    <p>Short return  Check for non-zero return value and</p>
+    <p>returns -EFAULT  Short return path exists for more</p>
+    <p>than 99% invocations in Linux kernel 4.15</p>
+    <p>static long bsg_ioctl(struct file *file, unsigned int cmd, unsigned long arg){</p>
+    <p>struct sg_io_v4 hdr; // destination is local variable  if (copy_from_user(&amp;hdr, uarg, sizeof(hdr))) {</p>
+    <p>return -EFAULT; // short return }</p>
+    <p>Stack smashing gadget</p>
+    <p>pagefault</p>
+    <p>userspace kernelP1</p>
+    <p>P2</p>
+    <p>n</p>
+    <p>rsp (=rdi=dst) stack canary</p>
+    <p>rsi (=src)</p>
+    <p>unmapped page</p>
+    <p>data successfully migrated</p>
+    <p>data failing to copy</p>
+    <p>ROP payload stack canary</p>
+    <p>ROP payload</p>
+    <p>n+1</p>
+  </div>
+  <div class="page">
+    <p>copy_to_user(to, from, n)  Copying kernel data to user</p>
+    <p>space  Src is usually kernel stack (82%</p>
+    <p>in 4.15)  Short return path exists</p>
+    <p>Problem:  Caller of copy_to_user also</p>
+    <p>protected by stack canary</p>
+    <p>SYSCALL_DEFINE2(gettimeofday, struct timeval *, tv, struct timezone *, tz){ struct timeval ktv;  if(copy_to_user(tv, &amp;ktv, sizeof(ktv))) { return -EFAULT; }</p>
+    <p>Bypassing stack canary: stack disclosure gadget</p>
+    <p>stack canary</p>
+    <p>userspace kernel</p>
+    <p>(mapped) P1</p>
+    <p>P2</p>
+    <p>n (=rdx)</p>
+    <p>rsp (=rsi=src)</p>
+    <p>stack canary</p>
+    <p>pagefault</p>
+    <p>rdi</p>
+    <p>(unmapped)</p>
+    <p>data successfully migrated</p>
+    <p>data failing to copy</p>
+  </div>
+  <div class="page">
+    <p>Auxiliary function gadget  Protected by stack canary  controllable indirect call</p>
+    <p>Leaking stack canary by combination of</p>
+    <p>Auxiliary function, and  Canary disclosure gadget</p>
+    <p>Bypassing stack canary (cont.) push rbp mov rbp, rsp push r12 ... sub rsp, 58h mov rax, gs:qword_28 mov [rbp-30h], rdi mov rax, [rdi] call rax ...</p>
+    <p>Auxiliary function gadget lea rsi, [rbp-60h] call _copy_to_user test rax, rax jnz fail ... fail: mov rbx, FFFFFFF2h jmp exit ...</p>
+    <p>exit: mov rcx, [rbp-30h] xor rcx, gs:qword_28 jnz panic add rsp, 60h pop rbx ... ret</p>
+    <p>Canary disclosure gadget</p>
+    <p>stack right before call rax</p>
+    <p>local variables rsp</p>
+    <p>rbp</p>
+    <p>rbp-0x30 rsp+0x58</p>
+    <p>return addr</p>
+    <p>stack canary</p>
+    <p>return addr</p>
+    <p>local variables</p>
+    <p>rsp</p>
+    <p>rbp</p>
+    <p>rbp-0x30 rsp+0x60</p>
+    <p>return addr</p>
+    <p>stack right after call rax</p>
+    <p>stack canary</p>
+  </div>
+  <div class="page">
+    <p>static void aliasing_gtt_unbind_vma(struct i915_vma *vma) {</p>
+    <p>vma-&gt;vm-&gt;clear_range(vma-&gt;vm, vma&gt;node.start, vma-&gt;size);</p>
+    <p>}</p>
+    <p>Enhancing register control: blooming gadget  Linux kernel code have features of</p>
+    <p>object-oriented programming  self passed as first parameter</p>
+    <p>Blooming gadget:  Given register rdi is under control  A family of kernel functions containing an</p>
+    <p>indirect call  target is controllable  three parameters of the indirect call are</p>
+    <p>controllable</p>
+  </div>
+  <div class="page">
+    <p>Bridging gadget  Bridging gadget</p>
+    <p>Containing multiple controllable indirect calls</p>
+    <p>Spawning two CFHPs and combining canary leak and stack smash into a single shot.</p>
+    <p>Layout of struct regmap</p>
+    <p>lock unlock</p>
+    <p>A B .physmap page under our control</p>
+    <p>map</p>
+    <p>auxiliary &amp; disclosure gadget</p>
+    <p>Stack smash gadget</p>
+    <p>void regcache_mark_dirty(struct regmap *map){ map-&gt;lock(map-&gt;lock_arg);// the 1st control-flow hijack map-&gt;cache_dirty=true;</p>
+    <p>map-&gt;no_sync_defaults=true;</p>
+    <p>map-&gt;unlock(map-&gt;lock_arg);// the 2nd controlflow hijack</p>
+    <p>}</p>
+  </div>
+  <div class="page">
+    <p>Implementation  Collecting candidate gadgets with static analysis</p>
+    <p>Built on IDA-Pro SDK 6.95  Taking Exploit chain identification as a tree search</p>
+    <p>problem  28 workers to search different sub-trees concurrently</p>
+    <p>Stitching gadgets with symbolic execution  Built on angr  Initialization: QEMU snapshot  Pruning: checking constraints satisfiability at key locations  State explosion mitigations:</p>
+    <p>Giving up after 20 steps for each stage  Entering a loop for less than 5 times.</p>
+    <p>CFHP</p>
+    <p>Blooming</p>
+    <p>Bridging</p>
+    <p>Auxiliary</p>
+    <p>Canary disclosure</p>
+    <p>Stack overflow 16</p>
+  </div>
+  <div class="page">
+    <p>Evaluation  Test Cases:</p>
+    <p>16 CVEs + 3 CTF challenges</p>
+    <p>Comparing with previous exploit generation/hardening techniques</p>
+    <p>FUZE: relying on an exploit technique named CR4 hijacking</p>
+    <p>Not bypassing VMM-based hypervisor  Not bypassing exploitation pitfalls</p>
+    <p>Q : relying on stack-pivoting gadget which is not available in the kernel binary image</p>
+  </div>
+  <div class="page">
+    <p>Evaluation (cont.)</p>
+    <p>Finding exploit chain in 50 wall clock minutes</p>
+    <p>Generating tens of thousands of exploit chains</p>
+    <p>Hard to defeat because the gadget could not be easily removed.</p>
+  </div>
+  <div class="page">
+    <p>Conclusions</p>
+    <p>New technique: Single-shot exploitation is an effective kernel exploitation technique</p>
+    <p>Reduction: From ROP is Turing Complete to control-flow hijacking is Turing Complete</p>
+    <p>New tool: Kepler is able to convert Linux kernel ROP bootstrapping task into a bounded tree-search problem and facilitate evaluation of control-flow hijacking primitive</p>
+    <p>Source: https://github.com/ww9210/ kepler-cfhp</p>
+    <p>Suggestion: Kernel CFI should be deployed because other mitigations hardly stop exploitation</p>
+  </div>
+  <div class="page">
+    <p>Thank you.</p>
+  </div>
+  <div class="page">
+    <p>kernel state RIP: 0xdeadbeef RSP: x x : ?????????? ?????????? x + 8: ?????????? ??????????</p>
+    <p>KEPLER</p>
+    <p>Gadget Stitching</p>
+    <p>Input</p>
+    <p>CFHP Constructing Kernel Stack</p>
+    <p>Overflow</p>
+    <p>Candidate Gadgets</p>
+    <p>single-shot exploit</p>
+    <p>Arbitrary ROP payload</p>
+    <p>Enhancing CFHP</p>
+    <p>Performing Static analysis</p>
+    <p>Kernel Binary Image</p>
+    <p>kernel state RIP: 0xdeadbeef RSP: x</p>
+    <p>x : 0x41414141 0x41414141 x + 8: 0x41414141 0x41414141</p>
+    <p>Bootstrapping any ROP chain</p>
+  </div>
+</Presentation>

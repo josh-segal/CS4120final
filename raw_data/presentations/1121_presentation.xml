@@ -1,0 +1,321 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>Haojie Wang, Jidong Zhai, Xiongchao Tang</p>
+    <p>Bowen Yu, Xiaosong Ma, Wenguang Chen</p>
+    <p>, 7 . 7 1 @ . . 8 7 1 1. 7 1</p>
+    <p>, 8 87</p>
+    <p>https://github.com/thu-pacman/Spindle</p>
+  </div>
+  <div class="page">
+    <p>Memory access monitoring: imperative L1 L2</p>
+    <p>L3 Cache DRAM</p>
+    <p>NVRAM SSD HDD</p>
+    <p>Shared memory system</p>
+    <p>Memory Hierarchy</p>
+    <p>Full monitoring for a long-running program introduces large overhead</p>
+    <p>Memory access is error prone  Uninitialized read, write after free, data race, deadlock</p>
+    <p>Memory access is a key factor of performance  Big gap between CPU and memory, complex cache hierarchy</p>
+    <p>Memory access has high security risk  Buffer overflow</p>
+    <p>We need memory access monitoring for bug detection, performance optimization, and malware analysis</p>
+  </div>
+  <div class="page">
+    <p>Conventional one-by-one checking is slow  Dynamic tools</p>
+    <p>PIN, Valgrind, DynamoRIO, Dr.Memory  Modify instruction flow at runtime to insert checking functions</p>
+    <p>Static + dynamic hybrid tools  Address Sanitizer, Memory Sanitizer  Add checking functions at compile time</p>
+    <p>/ 0</p>
+    <p>checkAccess(&amp;a[i]);</p>
+    <p>Check all memory access one by one Record all memory access for tracing</p>
+  </div>
+  <div class="page">
+    <p>Use access pattern to avoid redundant checks  Memory access addresses often predictable</p>
+    <p>Only starting address a and loop count N are unknown  Record at runtime</p>
+    <p>a, a+4, a+8, a+12, , a+4*(N-1)</p>
+    <p>recordArrayBase(a); recordLoopFinal(N); Knowing a and N, we can compute each a[i]</p>
+    <p>No more checking is needed</p>
+    <p>, , ,</p>
+    <p>Learn memory access pattern from source code1 for (int i=0; i&lt;N; ++i) { 2 a[i] = i; 3 }</p>
+    <p>Instrumentation code</p>
+  </div>
+  <div class="page">
+    <p>Spindle: Informed Memory Access Monitoring  Enabling judicious memory access monitoring</p>
+    <p>Extracts code structure and memory access patterns in static analysis  Loop, branch, array index, structure offset,</p>
+    <p>Dramatically reduces runtime instrumentation overhead  Non-computable accesses: Program input, heap variable address, stack address,</p>
+    <p>General framework for building memory monitoring tools  For trace generation, bug detection, security check,   Tool-specific analysis module supplied by tool developers</p>
+    <p>Two proof of concept tool  S-Detector for efficient memory bug detection  S-Tracer for low-overhead memory tracing</p>
+  </div>
+  <div class="page">
+    <p>Spindle overview</p>
+    <p>int main() {</p>
+    <p>}</p>
+    <p>Common static</p>
+    <p>analysis</p>
+    <p>Tool-specific Analysis &amp;</p>
+    <p>Instrumentation</p>
+    <p>int main() { recordXXX(xx);</p>
+    <p>}</p>
+    <p>Spindle Runtime Analysis</p>
+    <p>Monitoring Output</p>
+    <p>Memory Access Skeleton (MAS)</p>
+    <p>Developersupplied</p>
+    <p>LLVM plugin</p>
+    <p>Instrumented code</p>
+    <p>Source code</p>
+    <p>Spindle</p>
+  </div>
+  <div class="page">
+    <p>Common Static</p>
+    <p>Analysis</p>
+    <p>Tool-specific Static Analysis</p>
+    <p>&amp; Instrumentation</p>
+    <p>Runtime Analysis</p>
+    <p>SpindleSpindle common analysis</p>
+    <p>Flag</p>
+    <p>Call Swap (A, L0, L1)</p>
+    <p>End Loop 1</p>
+    <p>End Loop 0</p>
+    <p>True</p>
+    <p>False</p>
+    <p>Load 1</p>
+    <p>M-CFG of BubbleSort</p>
+    <p>Loop 0 (0, N, +1)</p>
+    <p>Loop 1 (0, N, +1)</p>
+    <p>Load 2</p>
+    <p>Load 3</p>
+    <p>M-CFG of Swap</p>
+    <p>Load 4 Store 1 Store 2</p>
+    <p>Control flow analysis</p>
+  </div>
+  <div class="page">
+    <p>S[i]</p>
+    <p>Spindle common analysis</p>
+    <p>%prom = sext i32 %i.0 to i64 %array = getelementptr i32* %S, i64 %prom %0 = load i32* %array</p>
+    <p>AccessLLVM IR Dependence</p>
+    <p>Analysis</p>
+    <p>Interprocedural</p>
+    <p>Analysis MAS</p>
+    <p>Function BubbleSort(dyn_A, dyn_N) { L0: 0, dyn_N, 1 { L1: L0, dyn_N, 1 { Load1: dyn_A+L0*4; Load2: dyn_A+L1*4; Branch: dyn_flag { Call Swap(dyn_A, L0, L1);</p>
+    <p>}}}} Function Swap(S, i, j) { Load3 : S+i*4; Load4 : S+j*4; Store1: S+i*4; Store2: S+j*4; }</p>
+    <p>Common Static</p>
+    <p>Analysis</p>
+    <p>Tool-specific Static Analysis</p>
+    <p>&amp; Instrumentation</p>
+    <p>Runtime Analysis</p>
+    <p>Spindle</p>
+  </div>
+  <div class="page">
+    <p>Sample Tool 1: S-Tracer</p>
+    <p>BubbleSort { dyn_A: 0x7fffdfc58320; dyn_N: 10; dyn_flag: {0,0,1,1,0,...,1,1};</p>
+    <p>}</p>
+    <p>1 void BubbleSort(int *A, int N) { 2 3 4 for (int i=0; i&lt;N; ++i) { 5 for (int j=i+1; j&lt;N; ++j) { 6 bool flag = (A[i]&gt;A[j]); 7 8 if (flag) { 9 Swap(A, i, j); 10 }}}} 11 // Omit function Swap</p>
+    <p>recordAddr(A, variable_id); recordLoop(N, loop_id);</p>
+    <p>recordPath(flag, path_id);</p>
+    <p>Flag</p>
+    <p>M-CFG segment</p>
+    <p>Common Static</p>
+    <p>Analysis</p>
+    <p>Tool-specific Static Analysis</p>
+    <p>&amp; Instrumentation</p>
+    <p>Runtime Analysis</p>
+    <p>Spindle</p>
+  </div>
+  <div class="page">
+    <p>Common Static</p>
+    <p>Analysis</p>
+    <p>Tool-specific Static Analysis</p>
+    <p>&amp; Instrumentation</p>
+    <p>Runtime Analysis</p>
+    <p>Spindle</p>
+    <p>S-Detector Example</p>
+    <p>![#] is valid # &lt; &amp;#'()*(!)</p>
+    <p>if -  &amp;#'()* / : access ![#] is valid</p>
+    <p>else: access ![#] may not be valid</p>
+    <p>Only A and N need to be checked!</p>
+    <p>checkValid(access_id, N&lt;=sizeof(A));</p>
+  </div>
+  <div class="page">
+    <p>Challenges and Solutions  Multi-threaded programs</p>
+    <p>Record when the thread is created and joined, then apply per-thread analysis as the single-thread programs</p>
+    <p>Register spilling &amp; Call convention  IR level register allocation simulator &amp; call convention simulator</p>
+    <p>External libraries without source code  Use dynamic tools to collect the memory accesses from the libraries, and</p>
+    <p>merge them to Spindle</p>
+  </div>
+  <div class="page">
+    <p>Test Platform and Programs  Platform</p>
+    <p>Intel Xeon E7-8890 (v3), running CentOS 7.1  128GB of DDR3 memory  1TB SATA-2 hard disk</p>
+    <p>Benchmarks  NPB: BT, CG, EP, FT, IS, LU, MG, SP  SPEC CPU: 400.perlbench, 401.bzip2, 403.gcc, 429.mcf, 433.milc,</p>
+    <p>Applications  BFS from Graph 500  MNIST, Kissdb, Fido, Mapreduce word count (WC)</p>
+  </div>
+  <div class="page">
+    <p>Spindle and Spindle-tool Usage  For Spindle-based tool developers</p>
+    <p>LLVM plugin: tool-specific static analysis  For S-Tracer it dumps the MAS as static trace and adds instrumentation functions</p>
+    <p>For S-Detector it analyzes the object boundaries and validation before reading/writing</p>
+    <p>Runtime library: tool-specific runtime instrumentation  For S-Tracer it records compilation time unknown values as dynamic trace</p>
+    <p>For S-Detector it creates shadow memory to check the boundaries and validation</p>
+    <p>S-Tracer and S-Detector each implemented in &lt; 500 Lines of C++ code</p>
+    <p>For end-users of Spindle-based tools (LLVM plugin): clang O3 -m64 -Xclang -load -Xclang libSTool.so source.c &amp;&amp; ./a.out</p>
+  </div>
+  <div class="page">
+    <p>Evaluation  Compilation overhead:</p>
+    <p>2% to 35% of the original LLVM compilation cost (average at 10%)  Correctness:</p>
+    <p>Full trace size difference between 0.5% and 6% compared with PIN (median at 3.2%)</p>
+    <p>Heap trace difference ratio between 0.0% and 4.7% compared with PIN (median at 1.5%)</p>
+    <p>Cache simulation for worst case: BFS</p>
+  </div>
+  <div class="page">
+    <p>Evaluation: S-Detector</p>
+    <p>Overhead comparison (bars over 300% truncated)Reduction in runtime memory checks</p>
+    <p>Spindle enables S-Detector to cut runtime memory checks by 64% on average</p>
+    <p>S-Detector brings down runtime overhead to 26% on average compared with ASan</p>
+  </div>
+  <div class="page">
+    <p>Evaluation: S-Tracer</p>
+    <p>Trace size comparison Application slowdown by S-Tracer and PIN with I/O (left) and S-Tracer speedup over PIN (right)</p>
+    <p>S-Tracer achieves reduction by orders of magnitude in trace size from the PIN baseline</p>
+    <p>S-Tracer reduces slowdown from PIN by a factor of 61x on average</p>
+  </div>
+  <div class="page">
+    <p>Conclusion  Spindle framework for memory access monitoring</p>
+    <p>Computing rather than collecting memory accesses  Falling back to conventional runtime instrumentation when necessary  General underlying mechanism supporting diverse tools</p>
+    <p>Two sample Spindle-based tools: S-Detector and S-Tracer  Illustrated significant trimming of instrumentation  Greatly reduced runtime overhead and trace size</p>
+    <p>Future work  Support C++ codes  Provide richer APIs for static analyzing</p>
+  </div>
+  <div class="page">
+    <p>PACMAN pacman.cs.tsinghua.edu.cn</p>
+    <p>! ds.qcri.org</p>
+  </div>
+  <div class="page"/>
+  <div class="page">
+    <p>Multi-threaded programs</p>
+    <p>void thread1() {</p>
+    <p>// do some thing }}</p>
+    <p>int main() {</p>
+    <p>pthread_t tid; int err; err = pthread_create(&amp;tid, NULL, thread1, NULL);</p>
+    <p>if (0 != err) { printf(&quot;Can't create thread\n&quot;);</p>
+    <p>} int **ret = NULL; pthread_join(tid, (void **)ret);</p>
+    <p>return 0; }</p>
+    <p>For multi-threaded programs, for example, pthread programs, Spindle will record when the thread is created, when it is joined, along with the thread ID for each function.</p>
+    <p>recordThreadID(pthread_self());</p>
+    <p>recordCreateThread(pthread_self(), tid, thread1);</p>
+    <p>recordJoinThread(pthread_self(), tid);</p>
+    <p>recordThreadID(pthread_self());</p>
+    <p>Then Spindle can apply per-thread analysis as the single-thread programs.</p>
+  </div>
+  <div class="page">
+    <p>Source code:</p>
+    <p>int main() {</p>
+    <p>}</p>
+    <p>Spindle Common Analysis</p>
+    <p>Memory Access Skeleton (MAS)</p>
+    <p>Tool-specific Analysis &amp;</p>
+    <p>Instrumentation</p>
+    <p>Instrumented Code</p>
+    <p>int main() { recordXXX(xx);</p>
+    <p>}</p>
+    <p>Spindle Runtime Analysis</p>
+    <p>Monitoring Output</p>
+    <p>User-supplied Spindle Tool</p>
+  </div>
+  <div class="page">
+    <p>Spindle: Informed Memory Access Monitoring</p>
+    <p>Analyze code to find memory access patterns at compile time  Loop, branch, array index, structure offset</p>
+    <p>Record non-computable parameters at runtime  Program input, heap variable address</p>
+    <p>S-Tracer for memory tracing S-Detector for memory bug detection</p>
+    <p>Other Spindle based tools</p>
+    <p>Spindle Common Analysis</p>
+    <p>Source Code</p>
+    <p>Memory Access Skeleton (MAS)</p>
+    <p>Patterns</p>
+    <p>Bug ReportExecution</p>
+    <p>Instrumented Code 1</p>
+    <p>Bugs-related Analysis</p>
+    <p>S-Detector</p>
+    <p>Traces Execution Dynamic Trace</p>
+    <p>Static Trace</p>
+    <p>Instrumented Code 2</p>
+    <p>Trace-related Analysis</p>
+    <p>S-Tracer</p>
+  </div>
+  <div class="page">
+    <p>S-Detector Example</p>
+    <p>Spindle Common Analysis</p>
+    <p>Source Code</p>
+    <p>S-Tracer</p>
+    <p>S-Detector</p>
+    <p>Memory Access</p>
+    <p>Skeleton (MAS)</p>
+    <p>In-struct accesses Struct type !&quot;#$_$s range:</p>
+    <p>[#$'(!$_)*#+,#$'(!$_)*#+ + #$'(!$_#./+) Struct access to array 1+2s member:</p>
+    <p>*33' = #$'(!$_)*#+ + !&quot;1#$_&quot;55#+$ Such accesses are valid only if:</p>
+    <p>!&quot;1#$_&quot;55#+$ &lt; #$'(!$_#./+ and accesses to array 1+2 is valid.</p>
+  </div>
+  <div class="page">
+    <p>[!&quot;#_&amp;'&amp;(,!&quot;#_*&amp;'+,) Array './s size:</p>
+    <p>'./_#&amp;0. Array accesses valid only if:</p>
+    <p>!&quot;#_&amp;'&amp;(  1  #(456(_#&amp;0. &lt; './_#&amp;0. (1) &amp;&amp; !&quot;#_.'9/2  1  0 (2)</p>
+    <p>S-Detector Example</p>
+    <p>In-struct accesses Struct type 6&quot;#(_(s range:</p>
+    <p>[#(456(_&gt;+#.,#(456(_&gt;+#. + #(456(_#&amp;0.) Struct access to array './s member:</p>
+    <p>+994 = #(456(_&gt;+#. + 6&quot;'#(_&quot;**#.( Such accesses are valid only if:</p>
+    <p>Only have to record: pos_init, pos_end, new_size. (struct_size is known at compilation time)</p>
+    <p>Spindle Common Analysis</p>
+    <p>Source Code</p>
+    <p>S-Tracer</p>
+    <p>S-Detector</p>
+    <p>Memory Access</p>
+    <p>Skeleton (MAS)</p>
+  </div>
+  <div class="page">
+    <p>S[i]</p>
+    <p>Spindle common analysis</p>
+    <p>recordAddr(A, variable_id); recordLoop(N, loop_id);</p>
+    <p>recordPath(flag, path_id);</p>
+    <p>%prom = sext i32 %i.0 to i64 %array = getelementptr i32* %S, i64 %prom %0 = load i32* %array</p>
+    <p>AccessLLVM IR Dependence</p>
+    <p>Analysis</p>
+    <p>Interprocedural</p>
+    <p>Analysis Instrumentation</p>
+    <p>Spindle Common Analysis</p>
+    <p>Source Code</p>
+    <p>S-Tracer</p>
+    <p>S-Detector</p>
+    <p>Memory Access</p>
+    <p>Skeleton (MAS)</p>
+  </div>
+  <div class="page">
+    <p>Spindle overview</p>
+    <p>Source code:</p>
+    <p>int main() {</p>
+    <p>}</p>
+    <p>Spindle Common Analysis</p>
+    <p>Tool-specific Analysis &amp;</p>
+    <p>Instrumentation</p>
+    <p>Instrumented Code</p>
+    <p>int main() { recordXXX(xx);</p>
+    <p>}</p>
+    <p>Spindle Runtime Analysis</p>
+    <p>Monitoring Output</p>
+    <p>Memory Access Skeleton (MAS)</p>
+    <p>User-supplied LLVM plugin</p>
+  </div>
+  <div class="page">
+    <p>Spindle overview</p>
+    <p>Source code:</p>
+    <p>int main() {</p>
+    <p>}</p>
+    <p>Spindle Common Analysis</p>
+    <p>Tool-specific Analysis &amp;</p>
+    <p>Instrumentation</p>
+    <p>Instrumented Code</p>
+    <p>int main() { recordXXX(xx);</p>
+    <p>}</p>
+    <p>Spindle Runtime Analysis</p>
+    <p>Monitoring Output</p>
+    <p>Memory Access Skeleton (MAS)</p>
+    <p>User-supplied LLVM plugin</p>
+    <p>Runtime Library</p>
+    <p>Spindle supplied internal analysis</p>
+    <p>User supplied external analysis</p>
+    <p>User supplied runtime library</p>
+  </div>
+</Presentation>

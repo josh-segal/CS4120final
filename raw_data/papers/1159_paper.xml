@@ -1,0 +1,899 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<TEI xmlns="http://www.tei-c.org/ns/1.0" 
+xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+xsi:schemaLocation="http://www.tei-c.org/ns/1.0 /Users/atharsefid/Desktop/grobid-0.5.3/grobid-home/schemas/xsd/Grobid.xsd"
+ xmlns:xlink="http://www.w3.org/1999/xlink">
+	<teiHeader xml:lang="en">
+		<encodingDesc>
+			<appInfo>
+				<application version="0.5.3" ident="GROBID" when="2019-03-26T16:38+0000">
+					<ref target="https://github.com/kermitt2/grobid">GROBID - A machine learning software for extracting information from scholarly documents</ref>
+				</application>
+			</appInfo>
+		</encodingDesc>
+		<fileDesc>
+			<titleStmt>
+				<title level="a" type="main">MeCC: Memory Comparison-based Clone Detector *</title>
+			</titleStmt>
+			<publicationStmt>
+				<publisher/>
+				<availability status="unknown"><licence/></availability>
+			</publicationStmt>
+			<sourceDesc>
+				<biblStruct>
+					<analytic>
+						<author role="corresp">
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Heejung</forename><surname>Kim</surname></persName>
+							<email>hjkim@ropas.snu.ac.kr</email>
+							<affiliation key="aff0">
+								<orgName type="institution" key="instit1">Seoul National University</orgName>
+								<orgName type="institution" key="instit2">Seoul National University</orgName>
+								<orgName type="institution" key="instit3">The Hong Kong University of Science and Technology</orgName>
+								<orgName type="institution" key="instit4">Seoul National University</orgName>
+							</affiliation>
+						</author>
+						<author>
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Yungbum</forename><surname>Jung</surname></persName>
+							<affiliation key="aff0">
+								<orgName type="institution" key="instit1">Seoul National University</orgName>
+								<orgName type="institution" key="instit2">Seoul National University</orgName>
+								<orgName type="institution" key="instit3">The Hong Kong University of Science and Technology</orgName>
+								<orgName type="institution" key="instit4">Seoul National University</orgName>
+							</affiliation>
+						</author>
+						<author>
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Sunghun</forename><surname>Kim</surname></persName>
+							<affiliation key="aff0">
+								<orgName type="institution" key="instit1">Seoul National University</orgName>
+								<orgName type="institution" key="instit2">Seoul National University</orgName>
+								<orgName type="institution" key="instit3">The Hong Kong University of Science and Technology</orgName>
+								<orgName type="institution" key="instit4">Seoul National University</orgName>
+							</affiliation>
+						</author>
+						<author>
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Kwankeun</forename><surname>Yi</surname></persName>
+							<affiliation key="aff0">
+								<orgName type="institution" key="instit1">Seoul National University</orgName>
+								<orgName type="institution" key="instit2">Seoul National University</orgName>
+								<orgName type="institution" key="instit3">The Hong Kong University of Science and Technology</orgName>
+								<orgName type="institution" key="instit4">Seoul National University</orgName>
+							</affiliation>
+						</author>
+						<title level="a" type="main">MeCC: Memory Comparison-based Clone Detector *</title>
+					</analytic>
+					<monogr>
+						<imprint>
+							<date/>
+						</imprint>
+					</monogr>
+				</biblStruct>
+			</sourceDesc>
+		</fileDesc>
+		<profileDesc>
+			<textClass>
+				<keywords>
+					<term>D27 [Software Engineering]: Distribution</term>
+					<term>Maintenance</term>
+					<term>and Enhancement-restructuring</term>
+					<term>reverse engineering</term>
+					<term>and reengineering; F32 [Logics and Meanings of Programs]: Semantics of Programming Languages-program analysis General Terms Languages</term>
+					<term>Algorithms</term>
+					<term>Experimentation Keywords Clone detection</term>
+					<term>abstract interpretation</term>
+					<term>static analysis</term>
+					<term>soft- ware maintenance</term>
+				</keywords>
+			</textClass>
+			<abstract>
+				<p>In this paper, we propose a new semantic clone detection technique by comparing programs&apos; abstract memory states, which are computed by a semantic-based static analyzer. Our experimental study using three large-scale open source projects shows that our technique can detect semantic clones that existing syntactic-or semantic-based clone detectors miss. Our technique can help developers identify inconsistent clone changes, find refactoring candidates, and understand software evolution related to semantic clones.</p>
+			</abstract>
+		</profileDesc>
+	</teiHeader>
+	<text xml:lang="en">
+		<body>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="2.">CLONE TYPES</head><p>Basically, clones are code pairs or groups that have the same or similar functionality <ref type="bibr" target="#b30">[31,</ref><ref type="bibr" target="#b28">29]</ref>. Some code clones are syntactically similar, but some are different.</p><p>Based on syntactic similarity, Roy et al. <ref type="bibr" target="#b28">[29]</ref> classify clones into four types:</p><p>• Type-1 (Exact clones): Identical code fragments except for variations in whitespace, layout, and comments.</p><p>• Type-2 (Renamed clones): Syntactically identical fragments except for variations in identifiers, literals, and variable types in addition to Type-1's variations.</p><p>• Type-3 (Gapped clones): Copied fragments with further modifications such as changed, added, or deleted statements in addition to Type-2's variations.</p><p>• Type-4 (Semantic clones): Code fragments that perform similar functionality but are implemented by different syntactic variants.</p><p>These definitions are widely used in the literature <ref type="bibr" target="#b30">[31,</ref><ref type="bibr" target="#b29">30,</ref><ref type="bibr" target="#b14">15]</ref>, and we also use them in this paper.</p><p>The definitions of Type-1 and Type-2 clones are straightforward. Mostly, they are copies (from other code) that remain unchanged (Type-1) or have a small variance (Type-2). These clones can be easily detected by comparing syntactic features such as tokens in source code <ref type="bibr" target="#b17">[18]</ref>.</p><p>On the other hand, Type-4 (semantic) clones are syntactically different. Since there is no clear consensus on Type-4 clones, some researchers define subtypes of Type-4 clones such as statement reordering, control replacement, and unrelated statement insertion <ref type="bibr" target="#b30">[31,</ref><ref type="bibr" target="#b8">9,</ref><ref type="bibr" target="#b23">24]</ref>. Similarly, we define subtypes of Type-4 clones as follows:</p><p>• Control replacement with semantically equivalent control structures (Refer to <ref type="figure" target="#fig_6">Figure 5</ref>.)</p><p>• Statement reordering without modifying the semantics (Refer to <ref type="figure" target="#fig_7">Figure 6</ref>.)</p><p>• Statement insertion without changing computation (Refer to <ref type="figure">Figure 8</ref>.)</p><p>• Statement modification with preserving memory behavior (Refer to <ref type="figure">Figure 7</ref>.) Like Type-4 clones, there is no consensus on Type-3 clones. Stefan Bellon et al. <ref type="bibr" target="#b0">[1]</ref> define Type-3 clones as all clones that are neither Type-1 nor Type-2. Similarly, in this paper, we define Type-3 clones as all clones that are not Type-1, Type-2, and Type-4 clones.</p><p>This paper proposes an abstract memory comparison-based clone detector, which can identify all four clones discussed in this section.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.">CLONE DETECTION BASED ON MEM-ORY COMPARISON</head><p>Our goal is to detect clones by comparing the functionality of code fragments regardless of their syntactic similarity. A naive way to achieve this goal is to perform exhaustive testing on a given set of clone candidates (programs). We may determine semantic similarities of programs by generating all possible inputs for programs, observing all possible executions using the inputs, and comparing their execution results. However, such exhaustive testing is often infeasible, since there might be infinitive many numbers of inputs and/or execution paths.</p><p>For this reason, we use semantic-based static analysis <ref type="bibr" target="#b2">[3,</ref><ref type="bibr" target="#b3">4,</ref><ref type="bibr" target="#b34">35,</ref><ref type="bibr" target="#b16">17,</ref><ref type="bibr" target="#b15">16]</ref> to determine semantic similarities of given programs, because static analysis soundly and finitely estimates the dynamic semantics of programs. In our case, we use a path-sensitive semantic-based static analyzer that symbolically estimates the memory effects of procedures.</p><p>Our overall approach is shown in <ref type="figure">Figure 1</ref>. We compute abstract memory states from given programs via static analysis. Then we compare the abstract memory states to determine code clones. Figure 1: Our clone detection approach: abstract memory states for each clone candidate are computed by a path-sensitive semantic-based static analyzer. These abstract memory states are compared for detecting code clones</p><p>We build a semantic-based static analyzer on top of commercialized analyzer Sparrow <ref type="bibr" target="#b16">[17,</ref><ref type="bibr" target="#b15">16]</ref>, which can summarize each procedure after analyzing the procedure based on the abstract interpretation framework <ref type="bibr" target="#b2">[3]</ref>, and these procedural summaries have been carefully tuned to capture all memory-related behaviors in real-world C programs <ref type="bibr" target="#b16">[17]</ref>. However, Sparrow does not support path-sensitive analysis. We extend Sparrow to be path-sensitive like <ref type="bibr" target="#b34">[35]</ref> by adding guards and guarded values to the abstract domain.</p><p>The path-sensitivity is crucial for semantic code clone detection. A path-insensitive analyzer loses the relation between condition expressions and corresponding statements. For example, a path-insensitive analyzer considers the fol- lowing two different if-else codes as the same, since it does not know which statements are belonging to which condition expressions. This insensitivity leads to detecting false positive clones.</p><formula xml:id="formula_0">M ∈ Mem = Addr fin −→ GV GV ∈ GV = 2 Guard×Value g ∈ Guard = Value × Rel × Value + Guard ∧ Guard + Guard ∨ Guard v ∈ Value = N + Addr + (Uop × Value) + (Value × Bop × Value) + x, α, ∈ Addr = Var + Symbol + AllocSite + Addr × Field Var = Global + Param + Local</formula><p>"if(a &gt; 0) A else B" = "if(a &gt; 0) B else A"</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.1">Collecting Abstract Memory States</head><p>We compute abstract memory states at every program point of a given procedure by the conventional fixpoint iteration over abstract semantics (` a la abstract interpretation <ref type="bibr" target="#b2">[3]</ref>).</p><p>Memory State Representation Our abstract domains for memory states are presented in <ref type="figure" target="#fig_1">Figure 2</ref>. Our analysis is flow-and path-sensitive; it summarizes possible abstract memory states for each program point and all execution paths to the point. An abstract memory state (M in <ref type="figure" target="#fig_1">Figure 2</ref>) is a finite mapping from abstract (symbolic) addresses to guarded values. A guarded value (GV in <ref type="figure" target="#fig_1">Figure 2</ref>) is a set of pairs of a guard and a symbolic value, where the guard is the accumulated symbolic condition that leads to the accompanying value. The set of all variables (Var ) consists of three disjoint sets, all global variables (Global ), all parameters (Param), and all local variables (Local ) except procedure parameters. This partitioning enables us to define three equivalence classes for variables when defining equivalent addresses in Section 3.2. Symbols (Symbol ) are used to indicate symbolic values or symbolic addresses in global input memories of the current procedure. Allocated addresses (AllocSite) denote all addresses allocated (including arrays) at each allocation site (a static call program point for allocations). Field addresses (Addr × Field ) represent field variables of structures.</p><p>A symbolic value can be a number (N ), an address (Addr ), a binary value (Value × Bop × Value), or a unary value (Uop ×Value). Bop and Uop denote a set of binary and unary operation symbols respectively. A guard (Guard ) can be generated from the relations between values (Value × Rel × Value), where Rel denotes the set of comparison operators (e.g., =, ≤). Some guards can also be connected by logical operators (conjunction ∧ and disjunction ∨).</p><p>The next step is estimating the semantics of the program as elements in this domain.</p><p>Abstract Semantics Our analysis starts from the entry point of a procedure without knowing the input memory states. The unknown input memory states are constructed by observing which locations and values are accessed by the procedure <ref type="bibr" target="#b16">[17]</ref>. Abstract memory states are updated by evaluating each statement in the procedure, and the updates are decided by the predefined abstract semantics of each statement. For example, one abstract semantics of the assignment statement is defined as follows:</p><formula xml:id="formula_1">M e1 : {(g, x)} M e2 : {(gi, vi)}i M * e1 := e2 : M x → {(g ∧ gi, vi)}i</formula><p>M e : GV denotes that expression e evaluates to a guarded value GV given the memory state M. This abstract semantics illustrates the destructive update case, in which the previous guarded values of the updated address is overwritten. The rule indicates the destructive update can happen only when the address value of e1 is a single variable (note that the singleton set for the value in M e1 : {(g, x)}). As a result, the value of variable x is updated by the value of e2 in memory M. The guards for the new values are the conjunctions of guard g of the address and guards gi of the values. </p><formula xml:id="formula_2">1 int* foo(list *a,</formula><formula xml:id="formula_3">a {{true, α} α.len {{true, β} b {(true, γ)} {{β &gt; 5 ∧ γ &gt; 0, , res ((β ≤ 5)∨ (β &gt; 5 ∧ γ ≤ 0)), 0 }</formula><p>The procedural summary of bar x &gt; 0 return alloc x ≤ 0 return 0</p><p>Figure 3: Procedure bar with its procedural summary and procedure foo with its abstract memory state at the exit point (line 6).</p><p>Consider the procedure foo in <ref type="figure">Figure 3</ref>. The abstract memory state at the exit point (line 6) is presented on the right side. At line 3, variable res has guarded value {{true, 0} which means variable res always has the value zero at the program point. Parameter a is accessed in the condition expression at line 4, however the value of parameter a is unknown. Hence a new symbol α is created to represent the value of parameter a. For the field value of a-&gt;len which is also unknown, new symbol β is created. From the condition expression, guards β &gt; 5 and β ≤ 5 are kept for true and false branches respectively.</p><p>Inter-procedural Analysis The procedural summary information enables the analyzer to capture the semantics of procedure calls without analyzing the procedures again. At line 5, procedure bar is called. According to the procedural summary, the procedure returns an allocated address when the value of parameter x is greater than 0, otherwise it returns 0. The procedural summary keeps conditions (as extended from <ref type="bibr" target="#b16">[17]</ref>) for memory behaviors of procedure. This procedural summary is instantiated with the abstract memory state at the call site (line 5). At line 5, the value of formal parameter x in procedure bar is instantiated with γ (the value of actual parameter b). With this instantiation of the procedural summary, we obtain the result memory state of the procedure call. Now, variable res points to the result guarded value, {{β &gt; 5 ∧ γ &gt; 0, , β &gt; 5 ∧ γ ≤ 0, 0}. Here guard β &gt; 5 comes from the condition on true branch at line 4 and guards γ &gt; 0 and γ ≤ 0 come from the procedural summary of bar. At line 6, the abstract memory states on both true and false branches are joined. Variable res points to a guarded value {{β ≤ 5, 0} in the memory state from the false branch. The joined memory state at the return point of foo (line 6) is shown as the table in <ref type="figure">Figure 3</ref>. The procedural summary of procedure foo is automatically generated from this abstract memory state <ref type="bibr" target="#b16">[17]</ref>.</p><p>Handling Loops The termination of the fixpoint iterations is guaranteed by a widening operator <ref type="bibr" target="#b2">[3]</ref>. Without the widening operator, fixpoint iterations may diverge because the heights of the number domain N and the symbolic-value domain Value×Bop×Value are infinite. After five iterations (delayed widening <ref type="bibr" target="#b1">[2]</ref>), changing values go into the special value (indicating an unknown value). When we compare memory states, the unknown values are considered as not equivalent. Hence our clone detection may miss some clones.</p><p>Example for Comparison The abstract memory states at the exit point of procedures are compared for code clone detection. As an example, procedure foo2 in <ref type="figure">Figure 4</ref> is a semantic clone of procedure foo in <ref type="figure">Figure 3</ref>. If we disregard the names of variables, symbols, field variables, and variable types then two memories are equivalent. Note that two guards β ≤ 5 ∨ γ ≤ 0 and β ≤ 5 ∨ (β &gt; 5 ∧ γ ≤ 0) are equivalent. This equivalence is attained by function simple <ref type="bibr" target="#b4">[5]</ref> presented in Section 3.2.</p><formula xml:id="formula_4">1 int* foo2(list2 *x, 2 int y){ 3 int ret = 0; 4 if (x-&gt;val&gt;5 &amp;&amp; y&gt;0) 5 ret = malloc(y); 6 return ret; 7 } Abstract memory state (line 6) x {{true, α} α.val {{true, β} y {(true, γ)} {{β &gt; 5 ∧ γ &gt; 0, , ret β ≤ 5 ∨ γ ≤ 0, 0}</formula><p>Figure 4: Procedure foo2 with its abstract memory state at the exit point (line 6).</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.2">Comparing Abstract Memory States</head><p>Given estimated abstract memory states, we need to quantify their similarities. Algorithm 1 presents the quantification steps. First, we calculate the similarities between guarded value pairs of all possible combinations on the given memories M1 and M2 (line 2 to 8). We compare addresses using the equivalence relation L = on addresses (as defined below). If addresses are equivalent, then we calculate the similarity of two guarded values by function simGV (GV 1 , GV 2 ) (line 4). If addresses are not equivalent, the similarity is zero (line 5). For all combinations, the similarities of pairs are recorded in map S (line 6). Then the find best matching(S ) function finds a subset of S that exclusively spans the two memories such that the total similarities of matched pairs</p><formula xml:id="formula_5">Algorithm 1: simM(M1, M2)</formula><p>Input: abstract memory states M1 and M2 Output: similarity value of M1 and M2 1 S := {}; 2 foreach address a1 ∈ dom(M1) do 3 foreach address a2 ∈ dom(M2) do 4 if a1</p><formula xml:id="formula_6">L = a2 then v := simGV (M1(a1), M(a2)); 5</formula><p>else v := 0; 6 S := S{(a1, a2) → v}; 7 end 8 end 9 best = find best matching(S); 10 if | dom(M1) | + | dom(M2) |= 0 then return 0;</p><formula xml:id="formula_7">11 return 2 · best | dom(M1) | + | dom(M2) |</formula><p>becomes the biggest (line 9). Finally, the algorithm returns the ratio of similarity to the total size of memories. If both memories are empty (the denominator becomes zero), then the similarity is zero (line 10 to 11).</p><p>Equivalent Addresses Two addresses are equivalent with the relation L = if one of the following conditions is satisfied:</p><formula xml:id="formula_8">x L = y if x, y ∈ Global ∨ x, y ∈ Param ∨ x, y ∈ Local L = if , ∈ AllocSite a.f L = a .f if a L = a α L = β if origin(α) L = origin(β)</formula><p>When two variables are compared, the names and types of the variables are ignored (Var). We only check if both variables are parameters, global variables, or non-parameter local variables. All dynamically allocated addresses are considered as equivalent regardless of their allocation sites (AllocSite). For field addresses (Addr × F ield), the names of field variables are ignored and only structural equivalences are considered. For example, x.val L = x.len holds even if the address uses different field names. However, (x.next).len L = x.len is not true because the former one has an additional field dereference. All symbolic addresses are equivalent only when their origins are the same (Symbol). The origin address origin(α) is the address pointing to symbolic address α. As an example, the following origin(α) = a and origin(β) = α.len hold in <ref type="figure">Figure 3</ref>.</p><p>Similarity Between Guarded Values A guarded value GV is a set of pairs which consist of a guard and a value. Function simGV (GV 1 , GV 2 ) compares all guards and values in GV 1 with those in GV 2 , and then counts the number of matched pairs n. Finally, the similarity of two guarded values is computed as follows:</p><formula xml:id="formula_9">simGV (GV 1 , GV 2 ) = 2 · n | GV 1 | + | GV 2 | n = maximum of |M | s.t. M ⊆ S and</formula><p>∀∀(g1, v1), (g2, v2) ∈ M, (g1, v1) and (g2, v2) appear only once</p><formula xml:id="formula_10">S = {{(g1, v1), (g2, v2) | g1 G = g2 ∧ v1 V = v2} ∀(g1, v1) ∈ GV 1 and ∀(g2, v2) ∈ GV 2</formula><p>The similarity is the ratio of the number of matched pairs to the total size of two guarded values. We seek for the maximum number of matched pairs trying to match all possible combinations GV 1 × GV 2 . Equivalent values   that simplifies guards so that they do not contain any redundant sub-formulas using a decision procedure <ref type="bibr" target="#b6">[7]</ref>. Furthermore, we want to assume x &gt; 5 and z &gt; 5 are equivalent if x L = z holds. This process is done by unification algorithm unify, which is widely used in type systems <ref type="bibr" target="#b24">[25]</ref>. The algorithm returns true if there exists a substitution which makes two different structures the same while preserving relations</p><formula xml:id="formula_11">n1 V = n2 if n1 = n2 v1 ⊕ v2 V = v3 ⊕ v4 if v1 V = v3 ∧ (⊕ = ⊕ ) ∧ v2 V = v4 v1 V = v2 if v1 V = v2 ∧ = V = if L = Equivalence</formula><formula xml:id="formula_12">v1 ∼ v2 G = v3 ∼ v4 if v1 V = v3 ∧ (∼=∼ ) ∧ v2 V = v4 g1 G = g2 if</formula><formula xml:id="formula_13">L = and V =.</formula><p>Best Matching Function find best matching(S ) at line 9 in Algorithm 1 finds the best matching (i.e. the matching that maximizes the sum of similarities), and then returns the maximum sum of similarities. Consider this similarity table as an example.</p><formula xml:id="formula_14">X X X X X X X M2 M1</formula><note type="other">(a 1 1 , GV 1 1 ) (a 2 1 , GV 2 1 ) (a 3 1 , GV 3 1 ) (a 4 1 , GV 4 1 ) (a 1 2 , GV 1 2 ) 0.8 1 0.1 0.5 0.6 (a 2 2 , GV 2 2 ) 0.7 0.7 2 0.6 0.5 (a 3 2 , GV 3 2 ) 0.6 0.5 0.6 3 0.4</note><p>The boxed ones represent the best matching, since it maximizes the sum of similarities. Suppose our matching function finds this best matching. The value of best at line 9 in Algorithm 1 is the sum of similarities, 2.1 = 0.8+0.7+0.6 of all matched pairs. Hence the similarity, 0.6 = 2 · 2.1/(4 + 3) of these two memories is returned at line 11 in Algorithm 1. We develop a lightweight greedy algorithm to heuristically try finding the best matching which runs in O(n 2 ), where n is the number of elements. After calculating the similarities of all pairs, the pair which has the maximum similarity is chosen as a matched one. Then the algorithm continues to choose another maximum pair among the remaining pairs until all addresses in either M1 or M2 are matched. The order of choices for the above table is annotated over the boxes. The algorithm is not guaranteed to find the best matching, but has the advantage of the running time. There is a combinatorial optimization algorithm called the Hungarian method <ref type="bibr" target="#b21">[22]</ref> which is guaranteed to find the best matching but runs in O(n 3 ), much slower than ours. In our experiments, we found that our algorithm yields the same results as the Hungarian method. This is because similarities of pairs are usually near 1 or 0.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.3">Judgement of Clones</head><p>We allow parametrization by MinEntry to filter small clones such as a procedure containing just one line as its body. Though the similarity function simM(M1, M2) gives high values to similar memories, this function does not reflect the size of memories. So we give a penalty to small size memories. Note that the value of the similarity function ranges over <ref type="bibr">[0,</ref><ref type="bibr" target="#b0">1]</ref>.</p><formula xml:id="formula_15">simM(M1, M2) log MinEntry log(| dom(M1) | + | dom(M2) |)</formula><p>The above formula is proportional to the size of memories and inversely proportional to MinEntry. Log function is used to smoothen the amount of the penalty. Here parameter MinEntry is given by users depending on target program size. The parameter is similar to parameter minT which determines the minimum number of tokens for clone candidates in Deckard <ref type="bibr" target="#b11">[12]</ref>.</p><p>We evaluate similarities for all possible pairs of abstract memories. There is a high probability that procedures with high similarity are true clones. Hence we sort all pairs according to their similarities. We allow another parameter Similarity, which determines the threshold of similarities of clones to be reported. If Similarity is set to 80% then pairs with similarity less than 0.8 are not reported.</p><p>Sometimes the similarity of two memories M1 and M2 never exceeds the given Similarity if there are a big difference in the entry numbers of the two memories. Hence we can skip the comparison of two memories where,</p><formula xml:id="formula_16">2 × min(| dom(M1) |, | dom(M2) |) | dom(M1) | + | dom(M2) | ≤ Similarity.</formula><p>This strategy significantly reduces the memory comparison time.</p><p>Users can choose parameters MinEntry and Similarity to pick thresholds to determine clones. One could set MinEntry high, if one wants to ignore small clones. One could set Similarity high, if one wants less false positives.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="4.">EXPERIMENTS</head><p>In this section, we evaluate our code clone detector MeCC. We apply MeCC to detect clones in large-scale open source projects, Python, Apache, and PostgreSQL as shown in <ref type="table">Ta</ref> </p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="4.1">Detectability</head><p>We apply MeCC to detect clones to evaluate the detectability. In our experiments, we set Similarity=80% and MinEntry =50. Then the detected clones by MeCC are manually inspected and categorized into four clone types as discussed in Section 2 by one author who has experience with C/C++ development in industry more than eight years. The other two authors review and confirm the inspected clones.  The numbers of detected and classified clones are shown in <ref type="table" target="#tab_2">Table 2</ref>. MeCC can detect all four types of clones. Type-4 (semantic) and some Type-3 (gapped) clones in <ref type="table" target="#tab_2">Table 2</ref> have noticeable syntactic differences. Nevertheless, MeCC can detect these clones because it only compares abstract memory states. MeCC also detects Type-1 (exact) and Type-2 (renamed) clones since syntactic similarity is usually accompanied by semantic similarity. <ref type="figure" target="#fig_6">Figure 5</ref> shows one Type-4 clone detected by MeCC. This is a typical example of control replacement. The if-else statements in <ref type="figure" target="#fig_6">Figure 5</ref>(a) are replaced by semantically equivalent statement using the ternary conditional '? :'operator in <ref type="figure" target="#fig_6">Figure 5</ref>(b). MeCC detects this clone, since their functionalities are the same and thus the abstract memory states are the same. A more complex Type-4 clone detected by MeCC is presented in <ref type="figure" target="#fig_7">Figure 6</ref>. The clone has two syntactic differences. One difference is statement reordering. Two statements from line 4 to 7 in <ref type="figure" target="#fig_7">Figure 6</ref>(a) are reordered into the statements from line 3 to 6 in <ref type="figure" target="#fig_7">Figure 6</ref>(b). The second difference comes from using intermediate variables. The local variable sconf is introduced at line 3 in <ref type="figure" target="#fig_7">Figure 6</ref>(a) and then used as a parameter of the ap_get_module_config function call at line 5. The local variable proto is introduced at line 7 in <ref type="figure" target="#fig_7">Fig- ure 6(b)</ref>. The return value of the apr_pstrdup function call at line 11 in <ref type="figure" target="#fig_7">Figure 6</ref>(b) is assigned to this variable. This value is assigned to a field address at line 13 via the local variable. These syntactic changes make it difficult for textual-based clone detectors to identify such clones <ref type="bibr" target="#b17">[18]</ref>.</p><p>Understanding the semantics of procedure calls is one advantage of MeCC. An interesting Type-4 clone detected by MeCC in <ref type="figure">Figure 7</ref> highlights this strength. The major syntactic difference between the two procedures is that the assignment statement at line 6 in <ref type="figure">Figure 7</ref>(a) is substituted by the procedure memcpy call at line 7 <ref type="figure">Figure 7</ref>(b). Most previous clone detection techniques cannot capture this semantic similarity between a procedure call and similar assignment statements.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="4.2">Accuracy</head><p>The next question is how accurately MeCC can detect clones. We manually inspected the detected clones and identified false positives, which are not real clones, but are detected as clones by MeCC. <ref type="table" target="#tab_4">Table 3</ref> presents the false positive clones and their ratio from three subjects (when Similarity=80% and MinEntry=50).   In Python, the total number of found clones is 264, the number of false positive clones is 39, and hence the false positive ratio is around 14.7%. Similarly, the false positive ratio for Apache is 12.5%, and for PostgreSQL is around 16.9%. The most common case of false positive clones is data structure initialization. In those clones, a structure is allocated and then field variables are initialized according to the structure type. Some of them can be viewed as clones, but we scrupulously mark these initialization code pairs as false positives.</p><p>These false positive ratios look slightly higher than previous approaches <ref type="bibr" target="#b17">[18,</ref><ref type="bibr" target="#b11">12,</ref><ref type="bibr" target="#b8">9]</ref>. However, one could set Similarity higher to reduce the false positive ratio. As an example, the false positive ratio is only 3% for Python when we set Similarity=90%.</p><p>In the next step, we measure the ratio of false negative clones -real clones, but missed by MeCC. For this experiment, since we need an oracle clone set, we use the benchmark provided by Roy et al. <ref type="bibr" target="#b30">[31]</ref>. This benchmark includes three Type-1, four Type-2, five Type-3, and four Type-4 clones. We apply MeCC on the benchmark with Similarity=80%. Since the sizes of procedures in the benchmark are small, we set MinEntry=2.   <ref type="bibr" target="#b30">[31]</ref>. MeCC misses only one clone in Type-3. <ref type="table" target="#tab_6">Table 4</ref> shows that MeCC has almost no false negatives. MeCC misses only one Type-3 clone, which has an insertion of an if statement that is related to a procedure call, and it changes the memory state. However, MeCC detects this clone if we set Similarity=79%.</p><p>Overall, our experimental results in this section show that MeCC can detect clones accurately, with almost no false negatives and with a reasonable false positive ratio.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="4.3">Scalability</head><p>In this section, we measure scalability of MeCC. We already showed that MeCC can detect clones in large-scale open source projects accurately in Section 4.1 and Section 4.2.</p><p>We measure the time spent to detect the clones for three subjects. Our experiments were conducted on an Ubuntu 64-bit machine with a 2.4 GHz Intel Core 2 Quad CPU and 8 GB RAM.  <ref type="table">Table 5</ref>: Time spent for the detection process. <ref type="table">Table 5</ref> shows the results. Static analysis took about 63 minutes for Python and 422 minutes for PostgreSQL. Since our static analysis includes preprocessing, summarization/instantiation of procedural summaries, and fixpoint iterations for collecting memory states, it is computationally expensive. However, this is usually one-time cost. When software changes, we can incrementally recompute memory states of the changed parts including impacted parts according to the call relationship. If the changed part in a procedure does not cause observable changes to memory behaviors of the procedure, then callers of the procedure do not need to be re-analyzed. Though the dependency can, in the worst case, expand to all the procedures, such situation (a procedure's change in memory effects, combined with that procedure as a hub in the call-graph) would not be that common.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>KLOC Analysis Comparison</head></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="4.4">Comparison</head><p>Section 4.1 shows that MeCC can detect all four types of clones including Type-3 (gapped) and Type-4 (semantic) clones. In this section, we discuss if other clone detectors can also identify these clones.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>Python</head><p>Apache PostgreSQL</p><p>Type-3   <ref type="bibr" target="#b8">[9]</ref>.</p><p>For the comparison, we use two publicly available syntactic clone detectors, Deckard, a AST-based detector, and CCFinder, a token-based detector. We also use a result set from a PDG-based semantic clone detector <ref type="bibr" target="#b8">[9]</ref>.</p><p>For Deckard, we set the options as used in <ref type="bibr" target="#b11">[12]</ref>, mint=30 (minimum token size), stride=2 (size of the sliding window), and Similarity=0.9. For CCFinder, we also use the default options, Minimum Clone Length=30, Minimum TKS=12 (token set size), and Shaper Level=Soft shaper. For the PDG-based detector <ref type="bibr" target="#b8">[9]</ref>, we directly used the clone detection results provided by the authors of the detector, since the tool is not publicly available at the time of this writing. <ref type="table" target="#tab_9">Table 6</ref> compares Type-3 and Type-4 clone detectability of Deckard, CCFinder, the PDG-based detector. We assume these detectors can detect all Type-1 and Type-2 clones, since these clones are syntactically almost the same.</p><p>CCFinder is a scalable and fast tool which detects Type-1 and Type-2 clones accurately. However, CCFinder could not identify any Type-3 and Type-4 clones. The main reason is that CCFinder extracts and compares syntactic tokens, but usually Type-3 and Type-4 clones are significantly different in the token level.</p><p>Deckard detects about 24% of Type-3 clones. Since Deckard uses the characteristic vectors of AST, it can detect clones with small syntactic variations. Surprisingly, Deckard identifies two Type-4 clones in PostgreSQL. The two detected Type-4 clones are classified as the statement reordering subtype shown in <ref type="figure" target="#fig_7">Figure 6</ref>. Since Deckard extracts characteristic vectors of these reordered ASTs, the vector only captures the number of elements in AST. However, Deckard still misses a large portion of Type-3 and Type-4 clones.</p><p>The PDG-based detector identifies about 12% of Type-3 clones. Only one Type-4 clone is identified in each Python and PostgreSQL. The detected Type-4 clones are statement reordering. Since PDGs capture program semantics using data dependency and control flows, the PDG-based detector can detect some Type-4 clones like statement reordered ones.</p><p>However, these PDG-based approaches <ref type="bibr" target="#b8">[9,</ref><ref type="bibr" target="#b20">21,</ref><ref type="bibr" target="#b23">24]</ref> have some limitations. (1) First, inter-procedural semantics via procedure calls cannot be supported, which means that semantic clones that differ in respect to procedure calls (e.g., function inlining) are missed. MeCC captures memory behavior of procedure calls by procedural summaries as described in Section 3. (2) Second, PDGs cannot be completely free from changes on syntactic structures, while our technique reliably determines the semantic similarity of code because we use purely semantic information (path-sensitive abstract memory effects) of programs.</p><p>Overall, the comparison results in this section suggest that MeCC, an abstract memory-based clone detector is effective in detecting all four types (including Type-3 and Type-4) of clones.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="5.">DISCUSSION</head><p>We discuss potential applications and limitations of our approach. We also identify threats to validity of our experimental results.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="5.1">Applications</head><p>Detecting code clones is useful for software development and maintenance tasks such as finding inconsistencies <ref type="bibr" target="#b14">[15,</ref><ref type="bibr" target="#b13">14]</ref> and identifying potential bugs or code smells <ref type="bibr" target="#b9">[10]</ref>.</p><p>We used MeCC to identify potential bugs and code smells caused by inconsistencies. <ref type="figure">Figure 8</ref> shows one example of Type-4 clones identified by MeCC. This clone was not detected by other clone detectors (e.g. <ref type="bibr" target="#b17">[18,</ref><ref type="bibr" target="#b11">12,</ref><ref type="bibr" target="#b8">9]</ref>). It clearly shows an inconsistency: the procedure PQparameterStatus in <ref type="figure">Figure 8</ref> (b) checks whether parameter paramName is not null, but the procedure GetVariable in (a) does not check. This inconsistency shows an exploitable bug, which manifests when null is passed as the second parameter, name.  We manually inspected all Type-3 and Type-4 clones identified by MeCC to check if they were caused by inconsistencies, and if these inconsistencies lead to potential problems. When we identified problems caused by inconsistencies, we classified them in two categories, exploitable bugs and code smells: A bug is exploitable if it causes unexpected behaviors, for example when a particular variable is used as procedure input as shown in <ref type="figure">Figure 8 (a)</ref>. Conversely, a code smell occurs when an inconsistency has no demonstrated unexpected behaviors, but refactorings or consistent changes (with other clone pairs) are highly recommended.  <ref type="table" target="#tab_11">Table 7</ref> shows the manual inspection results 1 . Among 278 Type-3 and Type-4 clones, 55 exploitable bugs and 70 code smells were found. About 45% of Type-3 and Type-4 clones are either exploitable bugs or code smells. These bugs and code smells would be missed by previous approaches (e.g. <ref type="bibr" target="#b17">[18,</ref><ref type="bibr" target="#b11">12,</ref><ref type="bibr" target="#b8">9]</ref>), since most of these Type-3 and Type-4 clones were not detected by them as discussed in Section 4.4.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head># Type-3 Exploitable</head><p>Overall, <ref type="table" target="#tab_11">Table 7</ref> implies that MeCC and its identified Type-3 and Type-4 clones are very useful for detecting inconsistencies, exploitable bugs, and code smells.</p><p>MeCC can be used for plagiarism detection and common bug pattern identification. Syntactic plagiarism detection tools (e.g. Moss <ref type="bibr" target="#b32">[33]</ref> and JPlag <ref type="bibr" target="#b27">[28]</ref>) cannot detect plagiarism if code is copied and intentionally changed with some syntactic obfuscations. MeCC is able to detect plagiarism as long as the semantics of the copied code remains similar regardless of its syntactic changes. Similarly, MeCC can help identify common bug patterns. <ref type="bibr">Kim et al. proposed Bug- Mem [20]</ref>, which identifies common bug fix patterns and locates similar bugs in other code. However, they only capture syntactic bug patterns using tokens of code. MeCC can improve their work by identifying common semantic bug patterns.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="5.2">Limitations</head><p>Since our current implementation compares abstract memory states at the exit points of procedures, MeCC detects only procedure-level clones. However it is possible to extend MeCC to find clones with a finer granularity such as basic blocks adapting a code fragments generation technique <ref type="bibr" target="#b12">[13]</ref> to prepare code clone candidates of finer granularity. Then we can calculate every abstract memory state for each candidate and compare them to identify clones.</p><p>Collecting abstract memory states from programs is a computationally expensive task in both time and memory. Analyzing the semantics of programs takes longer than syn-tactic comparison. However, the current implementation of MeCC showed that MeCC scales to detect clones in PostgreSQL, which is around 1M LOC.</p><p>Similar abstract memory states do not always imply similar concrete behaviors, which may cause false positives. In the abstract interpretation framework <ref type="bibr" target="#b2">[3]</ref>, one element in an abstract domain can represent several concrete elements. Procedural summaries record memory related behaviors <ref type="bibr" target="#b16">[17]</ref>, but do not capture all concrete procedure behaviors. This limitation is inevitable since determining semantic equivalence between two programs is generally undecidable <ref type="bibr" target="#b7">[8]</ref>.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="5.3">Threats to Validity</head><p>We identify the following threats to validity to our work:</p><p>Open source projects may not be representative. The three projects used in this paper are all open source and not representative of all software systems, and hence we cannot currently generalize the results of our study across all projects. However, these projects are chosen because they are commonly used in other code clone related research.</p><p>Manually inspected and classified clones. One author manually inspected and classified clones, and they are used to evaluate MeCC. Since there is no consensus about Type-3 and Type-4 clones, there is ambiguity in the classified clones. However, two other authors confirmed the classified clones, and we made these data publicly available.</p><p>Default options are used. Deckard, CCFinder, and the PDG-based detector have various options to tune their clone detectability. In this paper, we use their default options. However, careful option tuning may allow these tools to detect more Type-3 or Type-4 clones.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="6.">RELATED WORK</head><p>Most clone detection techniques are syntactic clone detectors ones <ref type="bibr" target="#b30">[31,</ref><ref type="bibr" target="#b28">29,</ref><ref type="bibr" target="#b11">12,</ref><ref type="bibr" target="#b17">18,</ref><ref type="bibr" target="#b22">23,</ref><ref type="bibr" target="#b31">32,</ref><ref type="bibr" target="#b8">9,</ref><ref type="bibr" target="#b29">30,</ref><ref type="bibr" target="#b0">1]</ref> leveraging line-based <ref type="bibr" target="#b31">[32]</ref>, token-based <ref type="bibr" target="#b17">[18,</ref><ref type="bibr" target="#b22">23]</ref>, or tree-based <ref type="bibr" target="#b11">[12]</ref> approaches. These detectors are good at identifying Type-1 and Type-2 clones, but they miss most of the Type-4 and some of the Type-3 clones as discussed in Section 4.4.</p><p>Existing semantic clone detectors have limitations. For example, as we discussed in Section 4.4, PDG-based detectors <ref type="bibr" target="#b8">[9,</ref><ref type="bibr" target="#b20">21,</ref><ref type="bibr" target="#b23">24]</ref> miss some semantic clones due to, for example, ignorance of inter-procedural semantics. A PDG-based technique <ref type="bibr" target="#b8">[9]</ref> maps slices of PDGs to syntax subtrees and applies DECKARD <ref type="bibr" target="#b11">[12]</ref> to detect similar subtrees. Although slicing enables one to detect more gapped clones, clones in each clone cluster still need to be syntactically similar. Jiang et al. <ref type="bibr" target="#b12">[13]</ref> proposed a clone detector using random testing techniques. They conclude two code fragments are clones when their outputs are the same just for a number of randomly generated inputs. Since random testing cannot cover all program paths or inputs -usually around up to 60 ∼ 70% <ref type="bibr" target="#b25">[26,</ref><ref type="bibr" target="#b26">27,</ref><ref type="bibr" target="#b33">34]</ref>, false positives are inevitable. Furthermore, the inter-procedural behaviors are not considered in their approach.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="7.">CONCLUSIONS AND FUTURE WORK</head><p>We proposed an abstract memory-based code clone detection technique, presented its implementation, MeCC, and discussed its applications. Since MeCC compares abstract semantics (as embodied in abstract memory states), its clone detection ability is independent of syntactic similarity. Our empirical study shows that MeCC can accurately detect all four types of code clones. We also show that most of Type-4 and some of Type-3 clones identified by MeCC cannot be detected by previous approaches <ref type="bibr" target="#b17">[18,</ref><ref type="bibr" target="#b11">12,</ref><ref type="bibr" target="#b8">9]</ref>.</p><p>We anticipate that MeCC will allow developers to find inconsistencies as shown in Section 5.1, identify refactoring candidates, and understand software evolution related to semantic clones which would be neglected by previous approaches.</p><p>Overall, we expect that future clone detection approaches will exploit more deep semantics of code via static analysis program logic, and/or other program verification technologies. MeCC is one step forward in this direction.</p></div><figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_1"><head>Figure 2 :</head><label>2</label><figDesc>Figure 2: Abstract domains: the abstract semantics of procedure is estimated as abstract memory state over domain M em.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_3"><head>V</head><label></label><figDesc>= and equiva- lent guards G = are defined as the following. Equivalent Values Relation V = establishes the equiva- lence on values:</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_4"><head></head><label></label><figDesc>of numbers is determined by numerical equiv- alence (N ). Binary values are equivalent when both the pair of values and the operators are equivalent (Value × Bop × Value). From our definition of V =, we may miss se- mantically equivalent values due to their syntactic expres- sion differences. For example, x &gt; 0 and 0 &lt; x should be regarded as equivalent, but it is regarded as not equiv- alent because of x V = 0, &gt; =&lt;, and 0 V = x. To address this problem, we canonicalize the symbolic values. The canoni- calization gives certain partial orders on both operators and values then sorts the binary values by the orders. Hence all semantically equivalent binary values have their unique representations. Equivalent Guards Relation G = determines equivalent guards:</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_5"><head></head><label></label><figDesc>unify(simple(g1), simple(g2)) true G = true false G = false Two relation guards v1 ∼ v2 and v3 ∼ v4 in domain (Value× Rel × Value) are equivalent when their value pairs are the same and their relations (e.g., &lt;, =) are the same. However, one formula can be presented as several different forms. For example, formulas x &gt; 5 ∧ (x &lt; 10 ∨ x &gt; 0) and x &gt; 5 look different, but are actually equivalent because x &gt; 5 implies x &gt; 0. To remedy this, we use a simplify function simple [5]</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_6"><head>Figure 5 :</head><label>5</label><figDesc>Figure 5: Type-4 clone, control replacement from Python. The statement if-else is changed by using the ternary conditional ? : operator. Syntactical differences are underlined.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_7"><head>Figure 6 :</head><label>6</label><figDesc>Figure 6: Type-4 clone, statement reordering from Apache</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_8"><head>1 const char *Figure 8 :</head><label>18</label><figDesc>Figure 8: One Type-4 clone, statement insertion without changing computation from PostgreSQL. It includes an exploitable bug due to an inconsistency.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_2" validated="false"><head>Table 2 :</head><label>2</label><figDesc>The distribution of detected clone types by MeCC.</figDesc><table></table></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_4" validated="false"><head>Table 3 :</head><label>3</label><figDesc></figDesc><table>Detected clones and false positives. Total: 
+total number of detected clones, FP: number of false 
+positive clones, and FP ratio: false positive ratio. 
+
+</table></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_6" validated="false"><head>Table 4 : False negatives on the benchmark set</head><label>4</label><figDesc></figDesc><table></table></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_9" validated="false"><head>Table 6 :</head><label>6</label><figDesc></figDesc><table>The numbers of detected Type-3 and 
+Type-4 clones by MeCC, Deckard, CCFinder, 
+and a PDG-based detector </table></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_11" validated="false"><head>Table 7 :</head><label>7</label><figDesc></figDesc><table>Exploitable bugs and code smells in Type-3 
+and Type-4 clones found by MeCC. 
+
+</table></figure>
+
+			<note place="foot" n="1"> More detailed data is available at http://ropas.snu.ac. kr/mecc</note>
+		</body>
+		<back>
+			<div type="references">
+
+				<listBibl>
+
+<biblStruct xml:id="b0">
+	<analytic>
+		<title level="a" type="main">Comparison and evaluation of clone detection tools</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Bellon</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Koschke</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">G</forename><surname>Antoniol</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Krinke</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">E</forename><surname>Merlo</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">IEEE Transactions on Software Engineering</title>
+		<imprint>
+			<biblScope unit="volume">33</biblScope>
+			<biblScope unit="issue">9</biblScope>
+			<date type="published" when="2007" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b1">
+	<analytic>
+		<title level="a" type="main">A static analyzer for large safety-critical software</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">B</forename><surname>Blanchet</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>Cousot</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Cousot</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Feret</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">L</forename><surname>Mauborgne</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Miné</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Monniaux</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">X</forename><surname>Rival</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">PLDI</title>
+		<imprint>
+			<date type="published" when="2003" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b2">
+	<analytic>
+		<title level="a" type="main">Abstract interpretation: a unified lattice model for static analysis of programs by construction or approximation of fixpoints</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>Cousot</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Cousot</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">POPL</title>
+		<imprint>
+			<date type="published" when="1977" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b3">
+	<analytic>
+		<title level="a" type="main">Sound, complete and scalable path-sensitive analysis</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">I</forename><surname>Dillig</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">T</forename><surname>Dillig</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Aiken</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">PLDI</title>
+		<imprint>
+			<date type="published" when="2008" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b4">
+	<analytic>
+		<title level="a" type="main">Small formulas for large programs: On-line constraint simplification in scalable static analysis</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">I</forename><surname>Dillig</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">T</forename><surname>Dillig</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Aiken</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">SAS</title>
+		<imprint>
+			<date type="published" when="2010" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b5">
+	<analytic>
+		<title level="a" type="main">Tracking code clones in evolving software</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">E</forename><surname>Duala-Ekoko</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><forename type="middle">P</forename><surname>Robillard</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">ICSE</title>
+		<imprint>
+			<date type="published" when="2007" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b6">
+	<analytic>
+		<title level="a" type="main">A fast linear-arithmetic solver for DPLL(T)</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">B</forename><surname>Dutertre</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">L</forename><forename type="middle">D</forename><surname>Moura</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">CAV</title>
+		<imprint>
+			<publisher>Springer</publisher>
+			<date type="published" when="2006" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b7">
+	<analytic>
+		<title level="a" type="main">Program equivalence and provability</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><forename type="middle">E G</forename><surname>Cousineau</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">MFCS</title>
+		<imprint>
+			<date type="published" when="1979" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b8">
+	<analytic>
+		<title level="a" type="main">Scalable detection of semantic clones</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Gabel</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">L</forename><surname>Jiang</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Z</forename><surname>Su</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">ICSE</title>
+		<imprint>
+			<date type="published" when="2008" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b9">
+	<analytic>
+		<title level="a" type="main">Scalable and systematic detection of buggy inconsistencies in source code</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Gabel</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Yang</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Y</forename><surname>Yu</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Goldszmidt</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Z</forename><surname>Su</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">OOPSLA</title>
+		<imprint>
+			<date type="published" when="2010" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b10">
+	<analytic>
+		<title level="a" type="main">Aries: Refactoring support environment based on code clone analysis</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Y</forename><surname>Higo</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">T</forename><surname>Kamiya</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Kusumoto</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">K</forename><surname>Inoue</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">K</forename><surname>Words</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">SEA</title>
+		<imprint>
+			<date type="published" when="2004" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b11">
+	<analytic>
+		<title level="a" type="main">Deckard: Scalable and accurate tree-based detection of code clones</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">L</forename><surname>Jiang</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">G</forename><surname>Misherghi</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Z</forename><surname>Su</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">ICSE</title>
+		<imprint>
+			<date type="published" when="2007" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b12">
+	<analytic>
+		<title level="a" type="main">Automatic mining of functionally equivalent code fragments via random testing</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">L</forename><surname>Jiang</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Z</forename><surname>Su</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">ISSTA</title>
+		<imprint>
+			<date type="published" when="2009" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b13">
+	<analytic>
+		<title level="a" type="main">Context-based detection of clone-related bugs</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">L</forename><surname>Jiang</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Z</forename><surname>Su</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">E</forename><surname>Chiu</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">ESEC/FSE</title>
+		<imprint>
+			<date type="published" when="2007" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b14">
+	<analytic>
+		<title level="a" type="main">Do code clones matter</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">E</forename><surname>Juergens</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">F</forename><surname>Deissenboeck</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">B</forename><surname>Hummel</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Wagner</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">ICSE</title>
+		<imprint>
+			<date type="published" when="2009" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b15">
+	<analytic>
+		<title level="a" type="main">Taming false alarms from a domain-unaware c analyzer by a bayesian statistical post analysis</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Y</forename><surname>Jung</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Kim</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Shin</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">K</forename><surname>Yi</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">SAS</title>
+		<imprint>
+			<date type="published" when="2005" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b16">
+	<analytic>
+		<title level="a" type="main">Practical memory leak detector based on parameterized procedural summaries</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Y</forename><surname>Jung</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">K</forename><surname>Yi</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">ISMM</title>
+		<imprint>
+			<date type="published" when="2008" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b17">
+	<analytic>
+		<title level="a" type="main">Ccfinder: A multilinguistic token-based code clone detection system for large scale source code</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">T</forename><surname>Kamiya</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Kusumoto</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">K</forename><surname>Inoue</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">IEEE Transactions on Software Engineering</title>
+		<imprint>
+			<biblScope unit="volume">28</biblScope>
+			<date type="published" when="2002" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b18">
+	<analytic>
+		<title level="a" type="main">An empirical study of code clone genealogies</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Kim</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">V</forename><surname>Sazawal</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Notkin</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">G</forename><surname>Murphy</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">SIGSOFT Softw. Eng. Notes</title>
+		<imprint>
+			<biblScope unit="volume">30</biblScope>
+			<biblScope unit="issue">5</biblScope>
+			<date type="published" when="2005" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b19">
+	<analytic>
+		<title level="a" type="main">Memories of bug fixes</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Kim</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">K</forename><surname>Pan</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">E</forename><forename type="middle">E J</forename><surname>Whitehead</surname><genName>Jr</genName></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">SIGSOFT FSE</title>
+		<imprint>
+			<date type="published" when="2006" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b20">
+	<analytic>
+		<title level="a" type="main">Using slicing to identify duplication in source code</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Komondoor</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Horwitz</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">SAS</title>
+		<imprint>
+			<date type="published" when="2001" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b21">
+	<analytic>
+		<title level="a" type="main">The hungarian method for the assignment problem</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">H</forename><forename type="middle">W</forename><surname>Kuhn</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">50 Years of Integer Programming</title>
+		<imprint>
+			<date type="published" when="1958" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b22">
+	<analytic>
+		<title level="a" type="main">Cp-miner: Finding copy-paste and related bugs in large-scale software code</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Z</forename><surname>Li</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Lu</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Myagmar</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Y</forename><surname>Zhou</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">IEEE Trans. Softw. Eng</title>
+		<imprint>
+			<biblScope unit="volume">32</biblScope>
+			<biblScope unit="issue">3</biblScope>
+			<date type="published" when="2006" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b23">
+	<analytic>
+		<title level="a" type="main">Gplag: detection of software plagiarism by program dependence graph analysis</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Liu</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Chen</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Han</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><forename type="middle">S</forename><surname>Yu</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">KDD</title>
+		<imprint>
+			<date type="published" when="2006" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b24">
+	<analytic>
+		<title level="a" type="main">A theory of type polymorphism in programming</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Milner</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Journal of Computer and System Sciences</title>
+		<imprint>
+			<biblScope unit="volume">17</biblScope>
+			<date type="published" when="1978" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b25">
+	<analytic>
+		<title level="a" type="main">Finding errors in .net with feedback-directed random testing</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Pacheco</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><forename type="middle">K</forename><surname>Lahiri</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">T</forename><surname>Ball</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">ISSTA</title>
+		<imprint>
+			<date type="published" when="2008" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b26">
+	<analytic>
+		<title level="a" type="main">Feedback-directed random test generation</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Pacheco</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><forename type="middle">K</forename><surname>Lahiri</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><forename type="middle">D</forename><surname>Ernst</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">T</forename><surname>Ball</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">ICSE</title>
+		<imprint>
+			<date type="published" when="2007" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b27">
+	<analytic>
+		<title level="a" type="main">Finding plagiarisms among a set of programs with jplag</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">L</forename><surname>Prechelt</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">G</forename><surname>Malpohl</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Philippsen</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Journal of Universal Computer Science</title>
+		<imprint>
+			<biblScope unit="volume">8</biblScope>
+			<date type="published" when="2001" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b28">
+	<monogr>
+		<title level="m" type="main">A survey on software clone detection research. SCHOOL OF COMPUTING TR 2007-541</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><forename type="middle">K</forename><surname>Roy</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><forename type="middle">R</forename><surname>Cordy</surname></persName>
+		</author>
+		<imprint>
+			<date type="published" when="2007" />
+			<biblScope unit="volume">115</biblScope>
+		</imprint>
+		<respStmt>
+			<orgName>QUEEN&apos;S UNIVERSITY</orgName>
+		</respStmt>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b29">
+	<analytic>
+		<title level="a" type="main">Nicad: Accurate detection of near-miss intentional clones using flexible pretty-printing and code normalization</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><forename type="middle">K</forename><surname>Roy</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><forename type="middle">R</forename><surname>Cordy</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">ICPC</title>
+		<imprint>
+			<date type="published" when="2008" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b30">
+	<analytic>
+		<title level="a" type="main">Comparison and evaluation of code clone detection techniques and tools: A qualitative approach</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><forename type="middle">K</forename><surname>Roy</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><forename type="middle">R</forename><surname>Cordy</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Koschke</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Sci. Comput. Program</title>
+		<imprint>
+			<biblScope unit="volume">74</biblScope>
+			<biblScope unit="issue">7</biblScope>
+			<date type="published" when="2009" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b31">
+	<analytic>
+		<title level="a" type="main">A program for identifying duplicated code</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">B</forename><forename type="middle">S</forename><surname>Baker</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Computer Science and Statistics: Proc. Symp. on the Interface</title>
+		<imprint>
+			<date type="published" when="1992" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b32">
+	<analytic>
+		<title level="a" type="main">Winnowing: local algorithms for document fingerprinting</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Schleimer</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><forename type="middle">S</forename><surname>Wilkerson</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Aiken</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">SIGMOD</title>
+		<imprint>
+			<date type="published" when="2003" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b33">
+	<analytic>
+		<title level="a" type="main">Mseqgen: object-oriented unit-test generation via mining source code</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Thummalapenta</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">T</forename><surname>Xie</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">N</forename><surname>Tillmann</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>De Halleux</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">W</forename><surname>Schulte</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">ESEC/FSE</title>
+		<imprint>
+			<date type="published" when="2009" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b34">
+	<analytic>
+		<title level="a" type="main">Context-and path-sensitive memory leak detection</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Y</forename><surname>Xie</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Aiken</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">ESEC/FSE</title>
+		<imprint>
+			<date type="published" when="2005" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+				</listBibl>
+			</div>
+		</back>
+	</text>
+</TEI>

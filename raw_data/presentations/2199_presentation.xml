@@ -1,0 +1,572 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>CrashMonkey: A Framework to Systematically Test</p>
+    <p>File-System Crash Consistency</p>
+    <p>Ashlie Martinez</p>
+    <p>Vijay Chidambaram</p>
+    <p>University of Texas at Austin</p>
+  </div>
+  <div class="page">
+    <p>Crash Consistency</p>
+    <p>File-system updates change multiple blocks on storage</p>
+    <p>Data blocks, inodes, and superblock may all need updating</p>
+    <p>Changes need to happen atomically</p>
+    <p>Need to ensure file system consistent if system crashes</p>
+    <p>Ensures that data is not lost or corrupted</p>
+    <p>File data is correct</p>
+    <p>Links to directories and files unaffected</p>
+    <p>All free data blocks are accounted for</p>
+    <p>Techniques: journaling, copy-on-write</p>
+    <p>Crash consistency is complex and hard to implement</p>
+  </div>
+  <div class="page">
+    <p>Testing Crash Consistency</p>
+    <p>Randomly power cycling a VM or machine</p>
+    <p>Random crashes unlikely to reveal bugs</p>
+    <p>Restarting machine or VM after crash is slow</p>
+    <p>Killing user space file-system process</p>
+    <p>Requires special file-system design</p>
+    <p>Ad-hoc</p>
+    <p>Despite its importance, no standardized or systematic tests</p>
+  </div>
+  <div class="page">
+    <p>What Really Needs Tested?</p>
+    <p>Current tests write data to disk each time</p>
+    <p>Crashing while writing data is not the goal</p>
+    <p>True goal is to generate disk states that crash could cause</p>
+  </div>
+  <div class="page">
+    <p>CrashMonkey Framework to test crash consistency</p>
+    <p>Works by constructing crash states for given workload</p>
+    <p>Does not require reboot of OS/VM</p>
+    <p>File-system agnostic</p>
+    <p>Modular, extensible</p>
+    <p>Currently tests 100,000 crash states in ~10min</p>
+  </div>
+  <div class="page">
+    <p>Outline</p>
+    <p>Overview</p>
+    <p>How Consistency is Tested Today</p>
+    <p>Linux Writes</p>
+    <p>CrashMonkey</p>
+    <p>Preliminary Results</p>
+    <p>Future Plans</p>
+    <p>Conclusion</p>
+  </div>
+  <div class="page">
+    <p>How Consistency Is Tested Today</p>
+    <p>Power cycle a machine or VM</p>
+    <p>Crash machine/VM while data is being written to disk</p>
+    <p>Reboot machine and check file system</p>
+    <p>Random and slow</p>
+    <p>Run file system in user space</p>
+    <p>ZFS test strategy</p>
+    <p>Kill file system user process during write operations</p>
+    <p>Requires file system have the ability to run in user space</p>
+    <p>Write to foo.txt</p>
+    <p>Rebooting  Please Wait...</p>
+    <p>?X</p>
+  </div>
+  <div class="page">
+    <p>Outline</p>
+    <p>Overview</p>
+    <p>How Consistency is Tested Today</p>
+    <p>Linux Writes</p>
+    <p>CrashMonkey</p>
+    <p>Preliminary Results</p>
+    <p>Future Plans</p>
+    <p>Conclusion</p>
+  </div>
+  <div class="page">
+    <p>Persistent storage deviceBlock Device</p>
+    <p>Linux Storage Stack</p>
+    <p>VFS Provides consistent interface across file systems</p>
+    <p>Page Cache Holds recently used files and data</p>
+    <p>File System Ext, NTFS, etc.</p>
+    <p>Generic Block Layer Interface between file systems and device drivers</p>
+    <p>Block Device Driver Device specific driver</p>
+    <p>Disk Cache Caches data on block device</p>
+  </div>
+  <div class="page">
+    <p>Linux Writes  Write Flags</p>
+    <p>Metadata attached to operations sent to device driver</p>
+    <p>Change how the OS and device driver order operations</p>
+    <p>Both IO scheduler and disk cache reorder requests</p>
+    <p>sync  denotes process waiting for this write</p>
+    <p>Orders writes issued with sync in that process</p>
+    <p>flush  all data in the device cache should be persisted</p>
+    <p>If request has data, data may not be persisted at return</p>
+    <p>Forced Unit Access (FUA)  return when data is persisted</p>
+    <p>Often paired with flush so all data including request is durable</p>
+  </div>
+  <div class="page">
+    <p>Linux Writes</p>
+    <p>Data written to disk in epochs</p>
+    <p>each terminated by flush and/or FUA operations</p>
+    <p>Reordering within epochs</p>
+    <p>Operating system adheres to FUA, flush, and sync flags</p>
+    <p>Block device adheres to FUA and flush flags</p>
+    <p>E: write, sync</p>
+    <p>F: write, sync</p>
+    <p>G: write, sync</p>
+    <p>H: FUA, flush</p>
+    <p>Epoch 2Epoch 1</p>
+    <p>A: write B: write,</p>
+    <p>meta C: write,</p>
+    <p>sync D: flush</p>
+  </div>
+  <div class="page">
+    <p>Linux Writes  Example</p>
+    <p>echo Hello World! &gt; foo.txt</p>
+    <p>Data 1 Data 2 flush</p>
+    <p>epoch 1</p>
+    <p>Journal: inode</p>
+    <p>flush</p>
+    <p>epoch 2</p>
+    <p>Journal: commit</p>
+    <p>flush</p>
+    <p>epoch 3</p>
+    <p>Operating System</p>
+    <p>Block Device</p>
+  </div>
+  <div class="page">
+    <p>Linux Writes  Example</p>
+    <p>echo Hello World! &gt; foo.txt</p>
+    <p>Data 1 Data 2 flush</p>
+    <p>epoch 1</p>
+    <p>Journal: inode</p>
+    <p>flush</p>
+    <p>epoch 2</p>
+    <p>Journal: commit</p>
+    <p>flush</p>
+    <p>epoch 3</p>
+    <p>Operating System</p>
+    <p>Block Device</p>
+    <p>Data 2 Data 1 flush</p>
+    <p>epoch 1</p>
+  </div>
+  <div class="page">
+    <p>Linux Writes  Example</p>
+    <p>echo Hello World! &gt; foo.txt</p>
+    <p>Data 1 Data 2 flush</p>
+    <p>epoch 1</p>
+    <p>Journal: inode</p>
+    <p>flush</p>
+    <p>epoch 2</p>
+    <p>Journal: commit</p>
+    <p>flush</p>
+    <p>epoch 3</p>
+    <p>Operating System</p>
+    <p>Block Device</p>
+    <p>Data 2 Data 1 flush</p>
+    <p>epoch 1</p>
+    <p>Journal: inode</p>
+    <p>flush</p>
+    <p>epoch 2</p>
+  </div>
+  <div class="page">
+    <p>Linux Writes  Example</p>
+    <p>echo Hello World! &gt; foo.txt</p>
+    <p>Data 1 Data 2 flush</p>
+    <p>epoch 1</p>
+    <p>Journal: inode</p>
+    <p>flush</p>
+    <p>epoch 2</p>
+    <p>Journal: commit</p>
+    <p>flush</p>
+    <p>epoch 3</p>
+    <p>Operating System</p>
+    <p>Block Device</p>
+    <p>Data 2 Data 1 flush</p>
+    <p>epoch 1</p>
+    <p>Journal: inode</p>
+    <p>flush</p>
+    <p>epoch 2</p>
+    <p>Journal: commit</p>
+    <p>flush</p>
+    <p>epoch 3</p>
+  </div>
+  <div class="page">
+    <p>Outline</p>
+    <p>Overview</p>
+    <p>How Consistency is Tested Today</p>
+    <p>Linux Writes</p>
+    <p>CrashMonkey</p>
+    <p>Preliminary Results</p>
+    <p>Future Plans</p>
+    <p>Conclusion</p>
+  </div>
+  <div class="page">
+    <p>Goals for CrashMonkey</p>
+    <p>Fast</p>
+    <p>Ability to intelligently and systematically direct tests toward interesting crash states</p>
+    <p>File-system agnostic</p>
+    <p>Works out of the box without the need for recompiling the kernel</p>
+    <p>Easily extendable and customizable</p>
+  </div>
+  <div class="page">
+    <p>CrashMonkey: Architecture</p>
+    <p>File System</p>
+    <p>Generic Block Layer</p>
+    <p>Device Wrapper</p>
+    <p>Custom RAM Block Device</p>
+    <p>Test Harness</p>
+    <p>Kernel</p>
+    <p>User</p>
+    <p>User Workload</p>
+    <p>Crash State 1</p>
+    <p>Crash State 2</p>
+    <p>User provided file-system operations</p>
+    <p>Records information about user workload</p>
+    <p>Provides fast writable snapshot capability</p>
+    <p>Generated potential crash states</p>
+  </div>
+  <div class="page">
+    <p>Constructing Crash States</p>
+    <p>touch foo.txt</p>
+    <p>echo foo bar baz &gt; foo.txt</p>
+    <p>Randomly choose n epochs to permute (n = 2 here)Journal:</p>
+    <p>inode</p>
+    <p>flush</p>
+    <p>e p</p>
+    <p>o ch</p>
+    <p>Data 1</p>
+    <p>Data 2</p>
+    <p>Data 3</p>
+    <p>flush</p>
+    <p>e p</p>
+    <p>o ch</p>
+    <p>Journal: inode</p>
+    <p>flush</p>
+    <p>e p</p>
+    <p>o ch</p>
+  </div>
+  <div class="page">
+    <p>Constructing Crash States</p>
+    <p>touch foo.txt</p>
+    <p>echo foo bar baz &gt; foo.txt</p>
+    <p>Randomly choose n epochs to permute (n = 2 here)</p>
+    <p>Copy epochs [1, n  1]</p>
+    <p>Journal: inode</p>
+    <p>flush</p>
+    <p>e p</p>
+    <p>o ch</p>
+    <p>Data 1</p>
+    <p>Data 2</p>
+    <p>Data 3</p>
+    <p>flush</p>
+    <p>e p</p>
+    <p>o ch</p>
+    <p>Journal: inode</p>
+    <p>flush</p>
+    <p>e p</p>
+    <p>o ch</p>
+    <p>Journal: inode</p>
+    <p>flush</p>
+    <p>e p</p>
+    <p>o ch</p>
+  </div>
+  <div class="page">
+    <p>Constructing Crash States</p>
+    <p>touch foo.txt</p>
+    <p>echo foo bar baz &gt; foo.txt</p>
+    <p>Data 3</p>
+    <p>Data 1</p>
+    <p>e p</p>
+    <p>o ch</p>
+    <p>Randomly choose n epochs to permute (n = 2 here)</p>
+    <p>Copy epochs [1, n  1]</p>
+    <p>Permute and possibly drop operations from epoch n</p>
+    <p>Journal: inode</p>
+    <p>flush</p>
+    <p>e p</p>
+    <p>o ch</p>
+    <p>Data 1</p>
+    <p>Data 2</p>
+    <p>Data 3</p>
+    <p>flush</p>
+    <p>e p</p>
+    <p>o ch</p>
+    <p>Journal: inode</p>
+    <p>flush</p>
+    <p>e p</p>
+    <p>o ch</p>
+    <p>Journal: inode</p>
+    <p>flush</p>
+    <p>e p</p>
+    <p>o ch</p>
+  </div>
+  <div class="page">
+    <p>CrashMonkey In Action</p>
+    <p>User Workload Test Harness</p>
+    <p>Device Wrapper</p>
+    <p>Base Disk</p>
+  </div>
+  <div class="page">
+    <p>CrashMonkey In Action</p>
+    <p>Workload Setup</p>
+    <p>User Workload Test Harness</p>
+    <p>Device Wrapper</p>
+    <p>Base Disk</p>
+    <p>Metadata</p>
+    <p>mkdir test</p>
+  </div>
+  <div class="page">
+    <p>CrashMonkey In Action</p>
+    <p>Snapshot Device</p>
+    <p>User Workload Test Harness</p>
+    <p>Device Wrapper</p>
+    <p>Writable Snapshot</p>
+    <p>Metadata</p>
+  </div>
+  <div class="page">
+    <p>CrashMonkey In Action</p>
+    <p>Profile Workload</p>
+    <p>User Workload Test Harness</p>
+    <p>Device Wrapper</p>
+    <p>Writable Snapshot</p>
+    <p>Metadata Data</p>
+    <p>Metadata Metadata</p>
+    <p>Data</p>
+    <p>echo bar baz &gt; foo.txt</p>
+  </div>
+  <div class="page">
+    <p>CrashMonkey In Action</p>
+    <p>Export Data</p>
+    <p>User Workload Test Harness</p>
+    <p>Device Wrapper</p>
+    <p>Writable Snapshot</p>
+    <p>Metadata Data</p>
+    <p>Metadata Metadata</p>
+    <p>Data</p>
+    <p>Data</p>
+    <p>Metadata</p>
+  </div>
+  <div class="page">
+    <p>CrashMonkey In Action</p>
+    <p>Restore Snapshot</p>
+    <p>User Workload Test Harness</p>
+    <p>Device Wrapper</p>
+    <p>Crash State</p>
+    <p>Metadata Data</p>
+    <p>Metadata</p>
+    <p>DataMetadata</p>
+  </div>
+  <div class="page">
+    <p>CrashMonkey In Action</p>
+    <p>Reorder Data</p>
+    <p>User Workload Test Harness</p>
+    <p>Device Wrapper</p>
+    <p>Crash State</p>
+    <p>Metadata Data</p>
+    <p>Metadata</p>
+    <p>Metadata</p>
+  </div>
+  <div class="page">
+    <p>CrashMonkey In Action</p>
+    <p>Write Reordered Data to Snapshot</p>
+    <p>User Workload Test Harness</p>
+    <p>Device Wrapper</p>
+    <p>Crash State</p>
+    <p>Metadata Data</p>
+    <p>Metadata</p>
+    <p>Metadata</p>
+    <p>Metadata</p>
+  </div>
+  <div class="page">
+    <p>CrashMonkey In Action</p>
+    <p>Check File-System Consistency</p>
+    <p>User Workload Test Harness</p>
+    <p>Device Wrapper</p>
+    <p>Crash State</p>
+    <p>Metadata Data</p>
+    <p>Metadata</p>
+    <p>Metadata</p>
+    <p>Metadata</p>
+  </div>
+  <div class="page">
+    <p>Testing Consistency</p>
+    <p>Different types of consistency</p>
+    <p>File system is inconsistent and unfixable</p>
+    <p>File system is consistent but garbage data</p>
+    <p>File system has leaked inodes but is recoverable</p>
+    <p>File system is consistent and data is good</p>
+    <p>Currently run fsck on all disk states</p>
+    <p>Check only certain parts of file system for consistency</p>
+    <p>Users can define checks for data consistency</p>
+  </div>
+  <div class="page">
+    <p>Customizing CrashMonkey</p>
+    <p>Customize algorithm to construct crash states</p>
+    <p>Customize workload:  Setup</p>
+    <p>Data writes</p>
+    <p>Data consistency tests</p>
+    <p>class BaseTestCase {</p>
+    <p>public:</p>
+    <p>virtual int setup();</p>
+    <p>virtual int run();</p>
+    <p>virtual int check_test();</p>
+    <p>};</p>
+    <p>class Permuter {</p>
+    <p>public:</p>
+    <p>virtual void init_data(vector);</p>
+    <p>virtual bool gen_one_state(vector);</p>
+    <p>};</p>
+  </div>
+  <div class="page">
+    <p>Outline</p>
+    <p>Overview</p>
+    <p>How Consistency is Tested Today</p>
+    <p>Linux Writes</p>
+    <p>CrashMonkey</p>
+    <p>Preliminary Results</p>
+    <p>Future Plans</p>
+    <p>Conclusion</p>
+  </div>
+  <div class="page">
+    <p>Results So Far</p>
+    <p>Testing 100,000 unique disk states takes ~10 minutes</p>
+    <p>Test creates 10 1KB files in a 10MB ext4 file system</p>
+    <p>Majority of time spent running fsck</p>
+    <p>Profiling the workload takes ~1 minute</p>
+    <p>Happens only once per user-defined test</p>
+    <p>Want operations to write to disk naturally</p>
+    <p>sync() adds extra operations to those recorded</p>
+    <p>Must wait for writeback delay</p>
+    <p>Decrease delay through /proc file</p>
+  </div>
+  <div class="page">
+    <p>Outline</p>
+    <p>Overview</p>
+    <p>How Consistency is Tested Today</p>
+    <p>Linux Writes</p>
+    <p>CrashMonkey</p>
+    <p>Preliminary Results</p>
+    <p>Future Plans</p>
+    <p>Conclusion</p>
+  </div>
+  <div class="page">
+    <p>The Path Ahead</p>
+    <p>Identify interesting crash states</p>
+    <p>Focus on states which have reordered metadata</p>
+    <p>Huge search space from which to select crash states</p>
+    <p>Avoid testing equivalent crash states</p>
+    <p>Avoid generating write sequences that are equivalent</p>
+    <p>Generate write sequences then check for equivalence</p>
+    <p>Parallelize tests</p>
+    <p>Each crash state is independent of the others</p>
+    <p>Optimize test harness to run faster</p>
+    <p>Check only parts of file system for consistency</p>
+  </div>
+  <div class="page">
+    <p>Outline</p>
+    <p>Overview</p>
+    <p>How Consistency is Tested Today</p>
+    <p>Linux Writes</p>
+    <p>CrashMonkey</p>
+    <p>Preliminary Results</p>
+    <p>Future Plans</p>
+    <p>Conclusion</p>
+  </div>
+  <div class="page">
+    <p>Conclusion  Crash consistency is very important</p>
+    <p>Crash consistency is hard and complex to implement</p>
+    <p>Current crash consistency not well tested despite importance</p>
+    <p>CrashMonkey seeks to alleviate these problems</p>
+    <p>Efficient, systematic,file-system agnostic</p>
+    <p>Work in progress</p>
+    <p>Code available at https://github.com/utsaslab/crashmonkey</p>
+  </div>
+  <div class="page">
+    <p>Thank You!</p>
+    <p>Questions?</p>
+  </div>
+  <div class="page">
+    <p>Related Work</p>
+    <p>ALICE and BOB [Pillai et al. OSDI14]</p>
+    <p>Very narrow scope  explore how file systems crash</p>
+    <p>No attempt to explore or test crash consistency</p>
+    <p>Database Replay Framework [Zheng et al. OSDI14]</p>
+    <p>Specifically targets databases</p>
+    <p>Works only on SCSI drives</p>
+    <p>Not open source</p>
+    <p>Does not allow user defined tests</p>
+  </div>
+  <div class="page">
+    <p>Custom RAM Block Device</p>
+    <p>User Process</p>
+    <p>RAM Block Device</p>
+    <p>Metadata: inode</p>
+    <p>File data</p>
+    <p>File system writeKernel</p>
+    <p>User</p>
+  </div>
+  <div class="page">
+    <p>Custom RAM Block Device</p>
+    <p>Writable Snapshot</p>
+    <p>Metadata: inode</p>
+    <p>File data</p>
+    <p>RAM Block Device</p>
+    <p>Metadata: inode</p>
+    <p>File data</p>
+    <p>User Process</p>
+    <p>Kernel</p>
+    <p>User</p>
+    <p>Snapshot</p>
+  </div>
+  <div class="page">
+    <p>Custom RAM Block Device</p>
+    <p>Writable Snapshot</p>
+    <p>Metadata: inode</p>
+    <p>File data</p>
+    <p>RAM Block Device</p>
+    <p>Metadata: inode</p>
+    <p>File data</p>
+    <p>User Process</p>
+    <p>Kernel</p>
+    <p>User</p>
+    <p>Read original data</p>
+  </div>
+  <div class="page">
+    <p>Custom RAM Block Device</p>
+    <p>Writable Snapshot</p>
+    <p>Metadata: inode</p>
+    <p>New file data</p>
+    <p>RAM Block Device</p>
+    <p>Metadata: inode</p>
+    <p>File data</p>
+    <p>User Process</p>
+    <p>Kernel</p>
+    <p>User</p>
+    <p>Overwrite file data</p>
+  </div>
+  <div class="page">
+    <p>Custom RAM Block Device</p>
+    <p>Writable Snapshot</p>
+    <p>Metadata: inode</p>
+    <p>New file data</p>
+    <p>RAM Block Device</p>
+    <p>Metadata: inode</p>
+    <p>File data</p>
+    <p>User Process</p>
+    <p>Kernel</p>
+    <p>User</p>
+    <p>Write new data</p>
+    <p>Metadata: inode 2</p>
+    <p>File 2 data</p>
+  </div>
+  <div class="page">
+    <p>Custom RAM Block Device</p>
+    <p>Writable Snapshot</p>
+    <p>Metadata: inode</p>
+    <p>File data</p>
+    <p>RAM Block Device</p>
+    <p>Metadata: inode</p>
+    <p>File data</p>
+    <p>User Process</p>
+    <p>Kernel</p>
+    <p>User</p>
+    <p>Restore</p>
+  </div>
+</Presentation>

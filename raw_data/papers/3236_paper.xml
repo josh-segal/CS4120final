@@ -1,0 +1,735 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<TEI xmlns="http://www.tei-c.org/ns/1.0" 
+xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+xsi:schemaLocation="http://www.tei-c.org/ns/1.0 /Users/atharsefid/Desktop/grobid-0.5.3/grobid-home/schemas/xsd/Grobid.xsd"
+ xmlns:xlink="http://www.w3.org/1999/xlink">
+	<teiHeader xml:lang="en">
+		<encodingDesc>
+			<appInfo>
+				<application version="0.5.3" ident="GROBID" when="2019-03-26T16:44+0000">
+					<ref target="https://github.com/kermitt2/grobid">GROBID - A machine learning software for extracting information from scholarly documents</ref>
+				</application>
+			</appInfo>
+		</encodingDesc>
+		<fileDesc>
+			<titleStmt>
+				<title level="a" type="main">Avoiding Communication in Sparse Matrix Computations</title>
+			</titleStmt>
+			<publicationStmt>
+				<publisher/>
+				<availability status="unknown"><licence/></availability>
+			</publicationStmt>
+			<sourceDesc>
+				<biblStruct>
+					<analytic>
+						<author>
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">James</forename><surname>Demmel</surname></persName>
+							<email>demmel@eecs.berkeley.edu</email>
+							<affiliation key="aff0">
+								<orgName type="department">Department of Electrical Engineering and Computer Science</orgName>
+								<orgName type="institution">University of California at Berkeley</orgName>
+							</affiliation>
+						</author>
+						<author>
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Mark</forename><surname>Hoemmen</surname></persName>
+							<email>mhoemmen@eecs.berkeley.edu</email>
+							<affiliation key="aff0">
+								<orgName type="department">Department of Electrical Engineering and Computer Science</orgName>
+								<orgName type="institution">University of California at Berkeley</orgName>
+							</affiliation>
+						</author>
+						<author>
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Marghoob</forename><surname>Mohiyuddin</surname></persName>
+							<email>marghoob@eecs.berkeley.edu</email>
+							<affiliation key="aff0">
+								<orgName type="department">Department of Electrical Engineering and Computer Science</orgName>
+								<orgName type="institution">University of California at Berkeley</orgName>
+							</affiliation>
+						</author>
+						<author>
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Katherine</forename><surname>Yelick</surname></persName>
+							<email>yelick@eecs.berkeley.edu</email>
+							<affiliation key="aff0">
+								<orgName type="department">Department of Electrical Engineering and Computer Science</orgName>
+								<orgName type="institution">University of California at Berkeley</orgName>
+							</affiliation>
+						</author>
+						<title level="a" type="main">Avoiding Communication in Sparse Matrix Computations</title>
+					</analytic>
+					<monogr>
+						<imprint>
+							<date/>
+						</imprint>
+					</monogr>
+				</biblStruct>
+			</sourceDesc>
+		</fileDesc>
+		<profileDesc>
+			<abstract>
+				<p>The performance of sparse iterative solvers is typically limited by sparse matrix-vector multiplication, which is itself limited by memory system and network performance. As the gap between computation and communication speed continues to widen, these traditional sparse methods will suffer. In this paper we focus on an alternative building block for sparse iterative solvers, the &quot;matrix powers ker-nel&quot; [x, Ax, A 2 x,. .. , A k x], and show that by organizing computations around this kernel, we can achieve near-minimal communication costs. We consider communication very broadly as both network communication in parallel code and memory hierarchy access in sequential code. In particular, we introduce a parallel algorithm for which the number of messages (total latency cost) is independent of the power k, and a sequential algorithm, that reduces both the number and volume of accesses, so that it is independent of k in both latency and bandwidth costs. This is part of a larger project to develop &quot;communication-avoiding Krylov subspace methods,&quot; which also addresses the numerical issues associated with these methods. Our algorithms work for general sparse matrices that &quot;partition well&quot;. We introduce parallel performance models of matrices arising from 2D and 3D problems and show predicted speedups over a conventional algorithm of up to 7x on a Petaflop-scale machine and up to 22x on computation across the Grid. Analogous sequential performance models of the same problems predict speedups over a conventional algorithm of up to 10x on an out-of-core implementation , and up to 2.5x when we use our ideas to reduce off-chip latency and bandwidth to DRAM. Finally, we validate the model on an out-of-core sequential implementation and measured a speedup of over 3x, which is close to the predicted speedup.</p>
+			</abstract>
+		</profileDesc>
+	</teiHeader>
+	<text xml:lang="en">
+		<body>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="1">Introduction</head><p>Current technology trends show exponentially increasing gaps between peak arithmetic rate and both inverse bandwidth and latency of communication. A recent study of high performance computing shows floating point speeds increasing historically at 59%/year, but interprocessor bandwidth improving only 26%/year, and interprocessor latency improving only 15%/year <ref type="bibr" target="#b19">[20]</ref>. While clock speed increases have recently slowed, the number of cores per chip is now growing with transistor density, so the aggregate arithmetic rate of chips continues its growth at close to historical rates. On certain large distributed-computing platforms, like the Grid, latencies are already speed-of-light limited and on the order of milliseconds, as opposed to fractions of nanoseconds for floating point operations. Similarly, DRAM bandwidth is improving only at 23%/year, and DRAM latency at 5.5%/year. For out-of-core algorithms, with disk bandwidth and latency limited by the rotational speed of disks, the gaps are even larger. In general, latency improves much more slowly than bandwidth across many technologies <ref type="bibr" target="#b14">[15]</ref>.</p><p>These trends suggest that algorithms should be designed not to minimize arithmetic operations, as is traditional, but to minimize communication both within a local memory hierarchy and between processors. In this paper, we consider the computations that arise in the communicationintensive Krylov subspace methods (KSMs) used to solve large sparse linear systems or large sparse eigenvalue problems. On current machines, KSMs are limited by memory and network performance, because they execute only a small constant number of arithmetic operations per communicated data value. Our goal is to replace KSMs with "communication avoiding" versions that send fewer messages and read data less frequently from slow memory at the cost of slightly more arithmetic.</p><p>Conventional implementations of KSMs alternate multiplication of the sparse matrix A times a vector with other vector-vector operations. The matrix A is read (usually from slow memory) once for each matrix-vector multiply, and messages are sent for each of these multiply operations in the parallel case. Our algorithms use instead a matrix powers kernel that computes {x, Ax, . . . , A k x} as a single building block for iterative solvers. In related work <ref type="bibr" target="#b3">[4]</ref>, we describe numerically stable reorganizations of typical KSMs, such as GMRES and CG, that leverage a matrix powers kernel (or small variations) to advance k steps in one iteration. That work also describes support for preconditioning, which is essential to KSMs in practice.</p><p>We focus here on computing the kernel [x, Ax, A 2 x, . . . , A k x] with nearly minimal communication time, if the sparse matrix has a suitable (and common) sparsity structure described in Section 2. In the parallel case, "minimal" means that the required number of messages per processor is O(1) instead of Θ(k). In the sequential case, "minimal" means that both the matrix A and vectors <ref type="bibr">[x, Ax, .</ref> . . , A k x] only need to be moved between fast and slow memory 1 + o(1) times, instead of k times. Our communication avoiding approach complements and is more powerful than communication overlap techniques, which can at best halve the running time. Avoiding communication can achieve up to k-fold speedups when communication is dominant, and can be combined with overlap for an additional performance boost.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="1.1">Outline</head><p>The rest of this paper is organized as follows. Section 2 briefly discusses stencils. Section 3 describes our parallel algorithms, the simplest one (PA1) and then a more complicated one that reduces the surface-to-volume overhead by a factor of 2 (PA2). Section 4 briefly describes sequential algorithms SA1 and SA2, which are based on PA1. Section 5 uses performance models for 2D and 3D meshes to describe how to choose k optimally for asymptotically large problems. Section 6 presents detailed performance models for two parallel and two sequential machines. Section 7 describes the performance of our out-of-core implementation. After we discuss related work in Section 8, we summarize and draw conclusions in Section 9.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="2">Model Problems</head><p>Our techniques work for general sparse matrices, but the case of regular d-dimensional meshes with (2b + 1) d -point stencils illustrates potential performance gains for a representative class of matrices. We call b the bandwidth of the graph, and hope that the context distinguishes this from the communication bandwidth.</p><p>We call the surface of a mesh the number of points on the partition boundary. For an n × n (2D) mesh partitioned in to p equal sized squares with a 5-point stencil, the surface is 4 n p 1/2 . For an n × n × n (3D) mesh partitioned in to p equal sized cubes with a 7-point stencil, the surface is 6 n 2 p 2/3 . The volume of a mesh is the total number of points in each processor's partition, namely n 2 p and n 3 p in the 2D and 3D cases. The surface-to-volume ratio of a mesh is therefore 4 p 1/2 n in the 2D case and 6 p 1/3 n in the 3D case. (We assume all the above roots (like p 1/3 ) and fractions (like n p 1/2 ) are integers, for simplicity.)</p><p>The surface-to-volume ratio of a partition of a general sparse matrix is defined analogously. All our algorithms work best when the surface-to-volume ratio is small, as is the case for meshes with large n and sufficiently smaller p.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3">Parallel Algorithms</head><p>The conventional parallel algorithm for computing ω ≡ [Ax, A 2 x, . . . , A k x], which we call "PA0," consists of k applications of the usual parallel sparse matrix-vector multiplication algorithm.</p><p>Step j computes y j = A j x from y j−1 = A j−1 x by each processor receiving messages with the necessary remotely stored entries of y j−1 , and then computing its local components of y j .</p><p>In our first parallel algorithm, PA1, each processor first computes all elements of <ref type="bibr">[Ax, . . . , A k x]</ref> that can be computed without communication. Simultaneously, it begins sending all the components of x needed by the neighboring processors to compute their remaining components of <ref type="bibr">[Ax, . . . , A k x]</ref>. When all local computations have finished, each processor blocks until the remote components of x arrive, and then finishes computing its portion of <ref type="bibr">[Ax, . . . , A k x]</ref>. This algorithm maximizes the potential overlap of computation and communication, but performs more redundant work than necessary because some entries of ω near processor boundaries are computed by both processors. As a result, we developed PA2, which uses a similar communication pattern but minimizes redundant work.</p><p>In the second parallel approach, PA2, each processor computes the "least redundant" set of local values of <ref type="bibr">[Ax, ..., A k x]</ref> needed by the neighboring processors. This saves the neighbors some redundant computation. Then the processor sends these values to its neighbors, and simultaneously computes the remaining locally computable values. When all the locally computable values are complete, each processor blocks until the remote entries of <ref type="bibr">[Ax,. . . ,A k x]</ref> arrive, and completes the work. This minimizes redundant work, but permits slightly less overlap of computation and communication.</p><p>We estimate the cost of our parallel algorithms by measuring five quantities: Informally, it's clear that both PA1 and P2 minimize communication to within a constant factor. We ignore cancellation in any of the A j or A j x, so that the complexity only depends on the sparsity pattern of A. For simplicity of notation we assume all the nonzero entries of A and x are positive. Then, the set D of processors owning entries of x on which block row i of [Ax,A 2 x,. . . ,A k x] depends is just the set of processors owning those x j for which block row i of A + A 2 + · · · + A k has a nonzero j-th column. In both algorithms PA1 and PA2, the processor owning row block i receives exactly one message from each processor in D, which minimizes latency. Furthermore, PA1 only sends those entries of x in each message on which the answer depends, which minimizes the bandwidth cost. PA2 sends the same amount of data although different values so as to minimize redundant computation.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.1">1D meshes</head><p>We now illustrate the difference between PA0, PA1, and PA2, using the example of a 1D mesh with bandwidth b = 1, or a tridiagonal matrix.</p><p>In PA0, the computational cost is 2k messages, 2k words sent, and 5k n p flops (3 multiplies and 2 additions per vector component computed). The memory required per processor is 3 n p matrix entries and (k + 1) n p + 2 vector entries (for the local components of <ref type="bibr">[x, Ax, .., A k x]</ref> and for the values on neighboring processors). <ref type="figure" target="#fig_0">Figure 1</ref>(a) shows the operation of PA1 with k = 8. Each row of circles represents the entries of A j x, for j = 0 to j = 8. A subset of 30 components of each vector is shown, owned by 2 processors, one to the left of the vertical green line, and one to the right. (There are further components and processors not shown.) The diagonal and vertical lines show the dependencies: the three lines below each circle (component i of A j x) connect to the circles on which its value depends (components i − 1, i and i + 1 of A j−1 x). In the figure, the local dependencies of the left processor are all the circles that can be computed without communicating with the right processor. The remaining circles without attached lines to the left of the vertical green line require information from the right processor before they can to be computed. <ref type="figure" target="#fig_0">Figure 1</ref>(b) shows how to compute these remaining circles using PA1. The dependencies are again shown by diagonal and vertical lines below each circle, but now dependencies on data formally owned by the right processor are shown in red. All these values in turn depend on the k = 8 leftmost value of x (0) owned by the right processor, shown as black circles containing red asterisks in the bottom row. By sending these values from the right processor to the left processor, the left processor can compute all the circles whose dependencies are shown in <ref type="figure" target="#fig_0">Figure 1(b)</ref>. The black circles indicate computations ideally done only by the left processor, and the red circles show redundant computations, i.e., those also performed by the right processor.</p><p>We assume that k &lt; n p , so that only data from neighboring processors is needed, rather than more distant processors. Indeed, we expect that k n p in practice, which will mean that the number of extra flops (not to mention extra memory) will be negligible. We continue to make this assumption later without repeating it, and use it to simplify some expressions in <ref type="table" target="#tab_0">Table 1</ref>. <ref type="figure" target="#fig_0">Figure 1</ref>(c) illustrates PA2. We note that the blue circles owned by the right processor and attached to blue lines can be computed locally by the right processor. The 8 circles containing red asterisks can then be sent to the left processor to compute the remaining circles connected to black and/or red lines. This saves the redundant work represented by the blue circles, but leaves the redundant work to compute the red circles, about half the redundant work of PA1. PA2 takes roughly <ref type="bibr" target="#b4">5</ref> 2 k 2 more flops than PA0, which is half as many extra flops as PA1.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.2">Summary of Parallel Complexity of</head><p>Computing <ref type="bibr">[Ax, ..., A k x]</ref> on Meshes PA1 and PA2 can be extended to higher dimensions and different mesh bandwidths (and sparse matrices in general). There, the pictures of which regions are communicated and which are computed redundantly become more complicated, higher-dimensional polyhedra, but the essential algorithms remain the same. <ref type="table" target="#tab_0">Table 1</ref> in Section 3.2 summarizes all of the resulting costs for 1D, 2D, and 3D meshes.</p><p>In <ref type="table" target="#tab_0">Table 1</ref> which shows the summary for Parallel Algorithms, "Mess" is the number of messages sent per processor, "Words" is the total size of these messages, "Flops" is the number of floating point operations, "MMem" is the amount of memory needed per processor for the matrix entries, and "VMem" is the amount of memory needed per processor for the vector entries. Lower order terms are sometimes omitted for clarity.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.3">General Graphs</head><p>We now extend the approaches PA1 and PA2 to general sparse matrices. To do so we need some graph theoretic notation. It is natural to associate a directed graph (a) Locally computable components.  m when A jm = 0, and call this graph of n(k + 1) vertices G. (We will not need to construct all of G in practice, but using G makes it easy to describe our algorithms, in a fashion analogous to <ref type="figure" target="#fig_0">Figure 1</ref>.) We say that i is the level of vertex x (i) j . Each vertex will also have an affinity q, corresponding to the processor number where it is stored; we assume all vertices</p><formula xml:id="formula_0">x (0) j , x (1) j , ..., x (k)</formula><p>j have the same affinity, depending only on j.</p><p>We let G q denote the subset of vertices of G with affinity q, G (i) to mean the subest of vertices of G with level i, and</p><formula xml:id="formula_1">G (i)</formula><p>q to mean the subset with affinity q and level i. Let S be any subset of vertices of G. We let R(S) denote the set of vertices reachable by directed paths starting at vertices in S (so S ⊂ R(S)). We need R(S) to identify dependencies of sets of vertices on other vertices. We let R(S, m) denote vertices reachable by paths of length at most m starting at vertices in S. We write R q (S), R (i) (S) and R (i) q (S) as before to mean the subsets of R(S) with affinity q, level i, and both affinity q and level i, respectively.</p><p>Next we need to identify the locally computable components, that processor q can compute given only the values in G (0) q .</p><p>We denote the set of locally computable components by</p><formula xml:id="formula_2">L q ≡ {x ∈ G q : R(x) ⊂ G q }. As before L (i)</formula><p>q will denote the vertices in L q at level i.</p><p>Finally, for PA2 we need to identify the minimal subset B q,r of vertices (i.e. their values) that processor r needs to send processor q so that processor q can finish computing all its vertices G q (eg the 8 circles containing red asterisks in <ref type="figure">Figure 3</ref>): We say that x ∈ B q,r if and only if x ∈ L r , and there is a path from some y ∈ G q to x such that x is the first vertex of the path in L r . Given all this notation, we can finally state versions of PA0, PA1 and PA2 for general graphs and partitions among processors:</p><formula xml:id="formula_3">Problem Costs Conventional Approach Parallel Approach 1 Parallel Approach 2 Mess 2k 2 2 1D mesh Words 2bk 2bk 2bk b ≥ 1 Flops (4b + 1)k n p (4b + 1)(k n p + bk 2 ) (4b + 1)(k n p + bk 2 2 ) MMem (2b + 1) n p (2b + 1) n p + bk(4b + 2) (2b + 1) n p + bk(2b + 1) VMem (k + 1) n p + 2b (k + 1) n p + 2bk (k + 1) n p + 2bk Mess 8k 8 8 2D mesh Words 4bk( n p 1/2 + b) 4bk( n p 1/2 + bk) 4bk( n p 1/2 + 1.5bk) (2b + 1) 2 Flops (8b 2 + 8b + 1)k n 2 p (8b 2 + 8b + 1)· (8b 2 + 8b + 1)· pt (k n 2 p + 2bk 2 n p 1/2 + 4 3 b 2 k 3 ) (k n 2 p + bk 2 n p 1/2 + b 2 k 3 ) stencil MMem (2b + 1) 2 n 2 p (2b + 1) 2 ( n 2 p + 4bk n p 1/2 + 4b 2 k 2 ) (2b + 1) 2 ( n 2 p + 2bk n p 1/2 + b 2 k 2 ) VMem (k + 1) n 2 p + 4b n p 1/2 (k + 1) n 2 p + 4bk n p 1/2 (k + 1) n 2 p + 4bk n p 1/2 +4b 2 +4b 2 k 2 +6b 2 k 2 Mess 26k 26 26 3D mesh Words 6bk n 2 p 2/3 + 12b 2 k n p 1/3 6bk n 2 p 2/3 + 12b 2 k 2 n p 1/3 6bk n 2 p 2/3 + 12b 2 k 2 n p 1/3 (2b + 1) 3 +O(b 3 k) +O(b 3 k 3 ) +O(b 3 k 3 ) pt Flops (2(2b + 1) 3 − 1)k n 3 p (2(2b + 1) 3 − 1)· (2(2b + 1) 3 − 1)· stencil (k n 3 p + 3bk 2 n 2 p 2/3 + O(b 2 k 3 n p 1/3 )) (k n 3 p + 3 2 bk 2 n 2 p 2/3 + O(b 2 k 3 n p 1/3 )) MMem (2b + 1) 3 n 3 p (2b + 1) 3 · (2b + 1) 3 · ( n 3 p + 6bk n 2 p 2/3 + O(b 2 k 2 n p 1/3 )) ( n 3 p + 3bk n 2 p 2/3 + O(b 2 k 2 n p 1/3 )) VMem (k + 1) n 3 p + 6b n 2 p 2/3 (k + 1) n 3 p + 6bk n 2 p 2/3 (k + 1) n 3 p + 6bk n 2 p 2/3 +O(b 2 n p 1/3 ) +O(b 2 k 2 n p 1/3 ) +O(b 2 k 2 n p 1/3 )</formula><p>PA0 (Code for proc. q) PA1 (Code for proc. q)</p><formula xml:id="formula_4">for i = 1 to k do for all procs r = q do send all x (i−1) j in R (i−1) q (G (i)</formula><p>r ) to proc. r for all procs r = q do receive all</p><formula xml:id="formula_5">x (i−1) j in R (i−1) r (G (i) q ) from proc. r compute all x (i) j in L (i) q</formula><p>wait for receives to finish compute remaining x We illustrate the algorithm PA1 on the matrix A whose graph is in <ref type="figure" target="#fig_2">Figure 2(a)</ref>. The vertices represent rows and columns of A and the edges represent nonzeros; for simplicity we use a symmetric matrix so the edges can be undirected. The dotted orange lines separate vertices owned by different processors. We let q denote the processor owning the 9 gray vertices in the center of the figure. In other words, the gray vertices are G</p><formula xml:id="formula_6">(i) j in G (i) q − L (i) q for all procs r = q do send all x (0) j in R (0) q (Gr) to proc. r for all procs r = q do recv. all x (0) j in R (0) r (Gq) from proc. r for i = 1 to k do compute all x (i) j in Lq // ex:</formula><p>q . For all the neighboring processors r = q, the red vertices are R </p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="4">Sequential Algorithms</head><p>We briefly describe two sequential algorithms, both of which emulate the parallel algorithm PA1 (Section 3.3):</p><p>• Conventional Sequential Approach (SA0): We assume that the matrix does not fit in fast memory but the vectors do. This algorithm will keep all the components of [x, Ax, . . . , A k x] in fast memory, and read all the entries of A from slow to fast memory to compute each vector A j x, thereby reading A k times in all.</p><p>• Sequential Approach 1 (SA1): We assume that the matrix does not fit in fast memory but the vectors do. SA1 emulates PA1 by partitioning the matrix into p block rows, and looping from i = 1 to i = p, reading from slow memory those parts of the matrix needed to perform the same computations performed by processor i in PA1, and updating the appropriate components of [Ax, . . . , A k x] in fast memory. Since all components of [Ax, . . . , A k x] are in fast memory, no redundant computation is necessary. We choose p as small as possible, to minimize the number of slow memory accesses.</p><p>• Sequential Approach 2 (SA2): Now we assume that neither the matrix nor the vectors fit in memory. SA2 will still emulate PA1 by looping from i = 1 to i = p, but read from slow memory not just parts of the matrix but also those parts of the vectors needed to perform the same computations performed by processor i in PA1, and finally writing back to slow memory the corresponding components of [Ax, . . . , A k x]. Depending on the structure of A, redundant computation may or may not be necessary. We again choose p as small as possible.</p><p>An interesting problem that occurs in SA2 is when parts of x are needed from slow memory, they might not be contiguously placed. Thus, entries of the vector x and the matrix A may be reordered to minimize slow memory communication cost. One formulation of this reordering Problem can be posed as a Travelling Salesman problem (Section 3.5, <ref type="bibr" target="#b4">[5]</ref>).</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="5">Asymptotic Performance</head><p>An asymptotic performance model for the parallel algorithms suggests that when the latency α is large, the speedup is close to k as expected (Section 4, <ref type="bibr" target="#b4">[5]</ref>). When α is not so large, the best we could hope for is that k can be chosen so that the new running time is fast independent of α. The model shows that this is the case under two reasonable conditions:</p><p>1. The time it takes to send the entire local contents of a processor is dominated by bandwidth, not latency, and 2. The time to do O(N 1/d ) flops on each of the N elements stored on a processor exceeds α.</p><p>For the sequential algorithm SA2, if latency is small enough, then the asymptotic performance model suggests the following:</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="1.">The best speedup is bounded by 2 + (words/row),</head><p>where words/row is the number of 8-byte words per row of the matrix A-this includes the index entries too.</p><p>2. The optimal speedup is strongly dependent on the β/t f ratio. For the specific case of stencils, the optimal speedup is expected to be close to the upper bound in the previous item when β/t f is large.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="6">Detailed Performance Modeling</head><p>In this section we present detailed performance models of matrices with 2D ((2b + 1) 2 -point) and 3D ((2b + 1) 3 -point) stencil graphs for PA2 and SA2 using realistic machine parameters, in order to identify situations where significant speedups are likely. We assume that we can overlap communication and computation for the parallel algorithms. Although these are stencil graphs, we assume general sparse matrix storage, because our algorithms apply to general sparse matrices. As before, we assume that quantities like p 1/2 and n p 1/3 are integers. We model PA2 for two parallel machines called Peta (which is a model of a nominal 8100 processor petascale machine) and Grid (which is a model of 125 terascale machines connected over the internet). The two sequential machines for which we model SA2 are OOC (which models an out-of-core implementation, where fast memory is DRAM and slow memory is disk) and Clovertown (we call the model "CacheBlocked"), the Intel multicore processor (where fast memory is cache and slow memory is DRAM). This variety of models of course suggests that our techniques can be applied more than once, if there are several levels of memory hierarchy and possibly also parallelism.  </p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="6.1">Performance Modeling of PA2</head><p>We consider parallel machines with the following parameters:</p><formula xml:id="formula_8">p max :</formula><p>The maximum number of processors available. The actual number of processors used is p ≤ p max . We may choose p &lt; p max if that is faster. Thus the time to send m words between any pair of processors is modeled as α + βm.</p><p>We modeled machines with the following parameter values:</p><p>Peta: p max = 8100, t f = 2 · 10 −11 secs (1/t f = 50</p><p>GFlops/s), mem = 62. Note that each processor in Peta and Grid is a significant parallel computer itself, but we only model the parallelism between these processors, not within them. Again, one could potentially apply our techniques for each level of parallelism, but we have not modeled this here.</p><p>In Section 3.3 we described the three computational phases of PA2: Phase I must be done before any communication can be initiated, Phase II can be fully overlapped with communication, and Phase III can only begin after communication is complete. This justifies the performance model below, given the assumption of overlapping communication.</p><p>Let N I , N II , and N III respectively denote the flop counts for Phases I, II, and III of PA2-the formulas for these are shown in <ref type="table">Table 6</ref>.1. Let N w denote the total number of words sent by a processor. Let M denote the memory required per processor when p processors are used. Formulas for N w and M are only slightly more detailed than the entries in <ref type="table">Table I</ref>, so we do not show them here. Let T k,p denote the time taken for PA2. Since we assume all messages can be in-flight simultaneously while computation is occurring. So, we use</p><formula xml:id="formula_9">T k,p = (N I + N III ) · t f + max (N II · t f , α + β · N w ).</formula><p>For performance modeling, we find the optimal value of the parameter p within the range allowed for specific n, k, b values. This range is limited by two parameters-p max and mem. If p is made small, then the memory required per processor M might exceed the memory available per processor mem. Also, p can be at most p max . Another limit imposed on p is that the number of entries per dimension of the stencil should be be at least 2bk since our formulas assume this condition. We also round p down to the Problem Term Formula nearest perfect square or cube (depending on the problem).</p><formula xml:id="formula_10">N I (8b 2 + 8b + 1) · " n p 1/2 − bk " · (bk 2 − 2bk) 2D N II (8b 2 + 8b + 1) · " 3n 2 p − 9bkn p 1/2 + 7b 2 k 2 + 2b 2 " · k/3 N III (8b 2 + 8b + 1) · bk · " 9nk p 1/2 + 6n p 1/2 − bk 2 − 6bk − 8b " /3 N I (2(2b + 1) 3 − 1) · (bk 2 − 2bk) · " 6n 2 p 2/3 − 12bkn p 1/3 + 7b 2 k 2 − 2b 2 k " /4 3D N II (2(2b + 1) 3 − 1) · k · " 4n 3 p − 18bkn 2 p 2/3 + (28b 2 k 2 +8b 2 )n p 1/3 + O(b 3 k 3 ) " /4 N III (2(2b + 1) 3 − 1) · bk · " n 2 p 2/3 (18k + 12) − nb p 1/3 (4k 2 + 24k + 32) + O(b 2 k 3 ) " /4</formula><p>The optimal p is strongly problem dependent, e.g., for small problem sizes, p = 1 might be sufficient and better since it avoids the overhead of communication. Therefore, a good measure of how well PA2 performs with respect to the conventional algorithm is the speedup with respect to the conventional algorithm assuming optimal p values were used for each algorithm: speedup = min 1≤p≤pmax T1,p·k min 1≤p≤pmax T k,p</p><p>. We used T 1,p · k for the time taken for the conventional algorithm as the conventional algorithm turns out to be k invocations of PA2 with k = 1.</p><p>We now discuss the performance modeling results for each combination of machine (Peta or Grid) and stencil (2D or 3D with bandwidth b = 1):</p><p>1. 2D Stencil on Peta <ref type="figure">(Figure 3(a)</ref>): We see that for smaller n and k, the speedup is close to linear in k.</p><p>The best speedup is 6.9x, attained when n = 2 11 , k = 12. However, the algorithm has no benefit for large values of n, because computation totally dominates communication; in this case no optimization is necessary either. We also note that the speedup decreases as k is increased beyond a certain point, because the overhead of extra floating point operations exceeds the gains from reducing latency.</p><p>2. 2D Stencil on Grid <ref type="figure">(Figure 3(b)</ref>): The white region for n = 2 21 and n = 2 22 indicates that the problem needed too much memory to be solved by the machine.</p><p>We see that the algorithm is expected to obtain an impressive speedup of up to 22.22x for large matrices (n = 2 17 ). Indeed, speedup is still increasing for the maximum value of k shown (k = 30), and larger k might show further improvements. No speedups are expected for small values of n because the problem can be solved using only 1 processor and latency is too high to benefit from using more processors. As before, for very large problem sizes (n ≥ 2 20 ), we see no gains because computation dominates communication.</p><p>3. 3D Stencil on Peta <ref type="figure">(Figure 3(c)</ref>): In contrast to the 2D case, in the 3D case no speedup is possible using our new algorithm (with the exception of a 2% speedup for n = 2 9 and k = 2). This is because the conventional k = 1 algorithm is already completely dominated by computation.</p><p>4. 3D Stencil on Grid <ref type="figure">(Figure 3(d)</ref>): In this case we can get a speedup of 4.41x for n = 2 10 and k = 30.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="6.2">Performance Modeling of SA2</head><p>Here, we present a brief summary of the detailed performance modeling of the sequential algorithm SA2. We modeled two machines with the following parameters:</p><p>1. OOC: This out-of-core implementation models a 500</p><p>MFlop/s uniprocessor with 4 GB DRAM as fast memory and a 15000 RPM Seagate ST373307 disk as slow memory. The disk access latency is 5.7 ms and bandwidth is 62.5 MB/s.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>2.</head><p>CacheBlocked: This implementation models a single core of the quad-core Intel Clovertown chip, with 2 GFlops/s (based on measurements in <ref type="bibr" target="#b26">[27]</ref>) with onchip 8 MB cache as fast memory and DRAM as slow memory. The DRAM access latency is 200 ns and bandwidth is 5 GB/s.</p><p>The performance of SA2 was modeled for the specific case of 2D 9-point stencil and 3D 27-point stencil as the matrix A. Our model assumes no overlap of communication with computation, in order to compare with our implementation. <ref type="table" target="#tab_3">Table 3</ref> shows the predicted speedups:</p><p>In contrast to the parallel case, we see that significant speedups were attained for all problem sizes n, since bandwidth is always the bottleneck. In the table, "% Peak" is the ratio of the (modeled) running time of the algorithm on a zero latency / infinite bandwidth machine to the (modeled) true time. The closer this is to 100%, the more completely the algorithm masks the cost of slow memory access. On OOC, we see that we get high speedups, though we are not near peak performance. On CacheBlocked, our speedups are more modest, but still good, and we are closer to peak performance.   </p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="7">Measured Performance</head><p>We implemented PA1 and PA2 for general sparse matrices in UPC <ref type="bibr" target="#b7">[8]</ref>. We tested our implementation on the UC Berkeley CITRIS cluster 1 (Intel Itanium 2-based) and the NERSC Jacquard cluster 2 (AMD Opteron-based). However, since the network for these machines has low latency, there were no speedups from our parallel algorithms. Our sequential implementation, however, shows good speedups. So, we report the performance results for our implementation of SA2.</p><p>For the implementation of SA2, we needed to solve an ordering problem for the rows of x and A in order to minimize the communication cost (Section 4). This minimization problem corresponds to minimizing the number of words fetched from disk during the course of the algorithm. We used a simple random sampling strategy to choose the best ordering from a sequence of random orderings. This worked out well as the actual number of words transferred between disk and main memory was close to the lower bound for SA2 (within 2%). Another level of reordering was done on a per-block basis in our implementation. This allowed the computations in SA2 to be done as a sequence of k calls to separate, tuned sparse matrix multiplication (SpMV) routines. In our implementation we used the OSKI library <ref type="bibr" target="#b25">[26]</ref>. We tested our implementation on the UC Berkeley CIT-RIS cluster-a cluster of Itanium 2 nodes each with a theoretical peak performance of 5.2 GFlops/s. Each node has 2 Itanium processors with 4 gigabytes of memory per processor.</p><p>Our test problem was a matrix with a 27-point stencil on a 3D mesh (stored as a general sparse matrix) with n = 368 and p = 64 (the choice of n was limited by the available disk space). Thus the matrix had dimension 368 3 = 49, 836, 032 with 27 nonzeros in most rows, broken into 4 3 = 64 blocks of ( 368 4 ) 3 = 92 3 = 778, 688 rows each. The value of p was chosen to optimize performance.</p><p>For accurate performance modeling, we used measured values for all important machine parameters: time per floating point operation and disk bandwidth. The disk bandwidth differs significantly for reads and writes, so we augmented our model to distinguish reads and writes. Disk latency turned out to play a negligible role.</p><p>• t f = 3.12 ns (1/t f = 321 Mflops/s): This is the measured inverse flop rate for SA2. This was taken as the median of the flop rates observed for the computational phases in SA2.</p><p>• β r = 56 ns (1/β r = 143 MBytes/s): This is the measured inverse read bandwidth. We also compare the results to those on a hypothetical machine with infinite DRAM, so that the the entire computation can proceed in main memory. Such an algorithm obviously provides an upper bound on our speed. We go from running 20x slower than this algorithm at k = 1 to just 6x slower at k = 15 (these are measured values).</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="8">Related Work</head><p>The optimizations described in this paper belong to a collection of techniques for improving the performance of applying a stencil repeatedly to a regular discrete domain, or multiplying a vector repeatedly by a sparse matrix. They, in turn, are a subset of various methods known as tiling or blocking. They all involve decompositions of the ddimensional domain into d-dimensional subdomains, and rearranging the order of arithmetic operations in order to exploit the parallelism and/or temporal locality implicit in those subdomains.</p><p>Tiling research falls into three general categories. The first encompasses performance-oriented implementations and practical performance models. See, for example, <ref type="bibr" target="#b16">[17,</ref><ref type="bibr" target="#b15">16,</ref><ref type="bibr" target="#b9">10,</ref><ref type="bibr" target="#b27">28,</ref><ref type="bibr" target="#b17">18,</ref><ref type="bibr" target="#b13">14,</ref><ref type="bibr" target="#b20">21,</ref><ref type="bibr" target="#b28">29,</ref><ref type="bibr" target="#b6">7,</ref><ref type="bibr" target="#b21">22,</ref><ref type="bibr" target="#b5">6,</ref><ref type="bibr" target="#b29">30,</ref><ref type="bibr" target="#b24">25,</ref><ref type="bibr" target="#b11">12,</ref><ref type="bibr" target="#b10">11]</ref>. The second category consists of theoretical algorithms and asymptotic performance analyses. These are based on sequential or parallel processing models which account for the memory hierarchy and/or inter-processor communication costs. Works that specifically discuss stencils or more general sparse matrices include <ref type="bibr" target="#b8">[9]</ref>, <ref type="bibr" target="#b12">[13]</ref>, and <ref type="bibr" target="#b22">[23]</ref>. The third category contains suggested applications that call for repeated application of a stencil (resp. sparse matrix) to a domain (resp. vector). See, for example, <ref type="bibr" target="#b23">[24,</ref><ref type="bibr" target="#b18">19,</ref><ref type="bibr" target="#b1">2,</ref><ref type="bibr" target="#b2">3,</ref><ref type="bibr" target="#b0">1,</ref><ref type="bibr" target="#b21">22]</ref>.</p><p>The idea of using redundant computation to avoid communication or slow memory accesses in stencil codes may be as old as OOC stencil codes themselves. Leiserson et al. cite a reference from 1963 <ref type="bibr" target="#b12">[13,</ref><ref type="bibr" target="#b16">17]</ref>. Nevertheless, many tilings do not involve redundant computation. For example, Douglas et al. describe a parallel tiling algorithm that works on the interiors of the tiles in parallel, and then finishes the boundaries sequentially <ref type="bibr" target="#b6">[7]</ref>. Many sequential tilings do not require redundant computations <ref type="bibr" target="#b10">[11]</ref>; our SA1 algorithm does not.</p><p>However, at least in the parallel case, tilings with redundant computation have the advantage of requiring only a single round of messages, if the stencil is applied several times. The latency penalty is thus independent of the number of applications, though the bandwidth requirements increase. Furthermore, Strout et al. point out that the sequential fill-in of boundary regions suggested by Douglas et al. suffers from poor locality <ref type="bibr" target="#b21">[22]</ref>. Most importantly, redundant computation to save messages is becoming more and more acceptable, given the exponential divergence in performance between latency, bandwidth, and floating-point rate.</p><p>Extensions of stencil tiling to more general sparse matrices require runtime analysis of the sparse matrix structure, often using a graph partitioner. Finding an optimal partition is an NP-complete problem which must be approximated in practice, at nontrivial cost. Theoretical algorithms for the out-of-core sequential case already existed (see e.g., <ref type="bibr" target="#b12">[13]</ref>),  but Douglas et al. were apparently the first to attempt an implementation of parallel tiling of a general sparse matrix, in the context of repeated applications of a multigrid smoother <ref type="bibr" target="#b6">[7]</ref>. This was extended by Strout et al. into a sequential cache optimization which resembles our SA1 algorithm.</p><p>Our work differs from existing approaches in many ways. First, we developed our methods in tandem with an algorithmic justification: communication-avoiding or "sstep" Krylov subspace methods <ref type="bibr" target="#b3">[4]</ref>. Toledo had suggested an s-step variant of conjugate gradient iteration, based on a generalization of PA1, but he did not supply an implementation for matrices more general than tridiagonal matrices <ref type="bibr" target="#b22">[23]</ref>. We have a full implementation of PA1 for general sparse matrices, and have detailed theoretical models showing performance increases on a wide variety of platforms.</p><p>Douglas et al. and Strout developed their matrix powers kernel for classical iterations like Gauss-Seidel <ref type="bibr" target="#b6">[7,</ref><ref type="bibr" target="#b21">22]</ref>. However, these iterations' most common use in modern linear solvers are as multigrid smoothers. The payoff of applying a smoother k times in a row decreases rapidly with k; this is, in fact, why multigrid is used, rather than classical iterations such as Jacobi or Gauss-Seidel. Douglas et al. acknowledge that usually 1 ≤ k ≤ 5 <ref type="bibr" target="#b6">[7]</ref>. In contrast, communication-avoiding Krylov subspace methods are potentially much more scalable in k. Saad also suggested applying something like a matrix powers kernel to polynomial preconditioning, but here again, increasing the degree of the polynomial preconditioner has a decreasing payoff, in terms of the number of CG iterations required for convergence <ref type="bibr" target="#b18">[19]</ref>.</p><p>We have also expanded the space of possible algorithms by including PA2 and SA2. PA2 avoids some redundant computation, but offers less opportunity for overlapping communication and computation. SA2 extends SA1 for the case in which the vectors (as well as the matrix) do not fit entirely in fast memory. As far as we can tell, PA2 and SA2 are novel.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="9">Conclusions</head><p>To address both current and future gaps between computational speed and communication speed, we are developing a set of communication avoiding algorithms to minimize data movement within local memory hierarchies and between processors. In this paper we presented both serial and parallel algorithms for the matrix powers kernel, which can be used in place of individual sparse matrix vector multiplication in Krylov Subspace Methods and elsewhere. The powers kernel amortizes the bandwidth cost of reading the matrix A by breaking A into blocks that fit in a single processor or a fast memory system and taking multiple steps on those blocks. We present algorithms with minimal communication costs, which send a single message (or slow matrix read) for k matrix-vector products computed in the matrix powers kernel, compared to k such operations in the conventional approach. We also show variations of the algorithms that trade off communication cost for redundant work.</p><p>Our algorithms are of practical as well as theoretical interest. We developed detailed performance models for both serial and parallel algorithms, instantiating the parallel model with parameters that are expected to be typical for a Petascale machine and for computing across the Grid. The serial model is instantiated with numbers from a current processor memory hierarchy and for an out-of-core setting. Our detailed performance model predicts more than 4x speedups for high latency parallel machines (Grid) for moderate sized stencils. In the sequential case, our proposed algorithm avoids both latency and bandwidth (in contrast to the parallel machine, where only latency is avoided), which gives speedups for all problem sizes. The performance of our sequential implementation is promising indeed, with speedups of 3x over the conventional algorithm. In addition to the specific results in this paper, we believe this work reflects a shift in algorithm design that will be necessary for future systems; this approach carefully counts communication costs and may favor algorithms with higher computational cost if they avoid communication.</p></div><figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_0"><head>1 .</head><label>1</label><figDesc>Number of arithmetic operations per processor; 2. Number of floating-point numbers communicated per processor (the "bandwidth cost"); 3. Number of messages sent per processor (the "latency cost"); 4. Total memory required per processor for the matrix; and 5. Total memory required per processor for the vectors.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_2"><head>Type ( 2 )</head><label>2</label><figDesc>Remote Dependencies for k=8 (c) Remote dependencies in PA2.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_3"><head>Figure 1 .</head><label>1</label><figDesc>Figure 1. Dependencies for PA1 and PA2 for computing [Ax, ..., A 8 x] for tridiagonal matrix.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_5"><head>r</head><label></label><figDesc>(G q ) for k = 1, the red and green vertices together are R (0) r (G q ) for k = 2, and the red, green and blue vertices together are R (0) r (G q ) for k = 3. PA2 (Code for proc. q) for i = 1 to k do // Phase I compute x (i) j in ∪ r =q (R(Gr) ∩ Lq) // ex: blue circled ver- tices in Figure 1(c) for all procs r = q do send x (i) j in Br,q to proc. r // blue circled vertices containing red asterisks in Figure 1(c) for all procs r = q do recv. x (i) j in Br,q from proc. r // blue circled vertices con- taining red asterisks in Figure 1(c) for i = 1 to k do // Phase II compute x (i) j in Lq − ∪ r =q (R(Gr) ∩ Lq) // ex: locally computable vertices of right proc. minus blue circled vertices in Figure 1(c) wait for receives to finish for i = 1 to k do // Phase III compute remaining x (i) j in R(Gq) − Lq − ∪ r =q (R(Gq) ∩ Lr) // ex: black circled vertices in Figure 1(c) that are connected by lines The Phases in PA2 are referred to in Section 6. Fig- ures 2(b) and 2(c) illustrate algorithm PA2 on the same ma- trix (as the one used for PA1), just for the case k = 3. In Figure 2(b), the red vertices are B (0) q,r (the members of B q,r at level 0), and in Figure 2(c) the green vertices are B (1) q,r .</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_6"><head>(</head><label></label><figDesc>a) PA1 example: Red entries of x (0) are the ones needed when k = 1, green are the addi- tional ones needed when k = 2 and blue are the additional ones needed when k = 3. (b) PA2 example (k = 3): Entries of x (0) which need to be fetched are colored red. (c) PA2 example (k = 3): Entries of x (1) which need to be fetched are colored green.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_7"><head>Figure 2 . Example for PA1 and PA2. The dotted lines define the different blocks. Each block resides on a different processor. The example shows from the perspective of the processor holding the central block.</head><label>2</label><figDesc>Figure 2. Example for PA1 and PA2. The dotted lines define the different blocks. Each block resides on a different processor. The example shows from the perspective of the processor holding the central block.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_8"><head>t</head><label></label><figDesc>f : The time per floating-point operation (in units of sec- onds), modeled as 10% of machine peak value, a typi- cal value attainable for SpMV. mem: The memory available per processor (in units of 8-byte words). α: The network processor latency (in units of seconds). β: The inverse network bandwidth (in units of seconds/8- byte word).</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_9"><head>5</head><label>5</label><figDesc>· 10 9 words, α = 10 −5 secs, β = 2 · 10 −9 secs (1/β = 500 MWords/s = 4 GByte/s) Grid: p max = 125, t f = 10 −12 secs (1/t f = 1T F lop/s), mem = 1.2·10 12 words, α = 10 −1 secs, β = 25·10 −9 secs (1/β = 40 MWords/s = .32 GBytes/s) (estimated by dividing the Teragrid backbone bandwidth of 40 GBytes/s by p max .)</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_10"><head>(</head><label></label><figDesc>Figure 3. Performance modeling plots for Peta and Grid.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_11"><head></head><label></label><figDesc>Figures 4(a) and 4(b) show the results, both modeled and measured, which closely match. Figure 4(a) breaks the total runtime down into computation and communication, and Figure 4(b) shows the speedup, which reaches 3.2x at k = 15, and is at least 3x for k ≥ 8. We also compare the results to those on a hypothetical machine with infinite DRAM, so that the the entire computation can proceed in main memory. Such an algorithm obviously provides an upper bound on our speed. We go from running 20x slower than this algorithm at k = 1 to just 6x slower at k = 15 (these are measured values).</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_12"><head>(</head><label></label><figDesc>a) Measured vs. Modeled SA2 Performance. (b) Measured vs. Modeled SA2 speedup.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_13"><head>Figure 4 .</head><label>4</label><figDesc>Figure 4. Measured performance plots for SA2 on Itanium2 CITRIS cluster.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_0" validated="false"><head>Table 1 .</head><label>1</label><figDesc></figDesc><table>Summary Table for Parallel Algorithms (some lower order terms omitted) 
+
+</table></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_1" validated="false"><head>Table 2 .</head><label>2</label><figDesc></figDesc><table>Formulas for N I , N II and N III for PA2. 
+
+</table></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_3" validated="false"><head>Table 3 .</head><label>3</label><figDesc></figDesc><table>Performance modeling summary for SA2. 
+
+</table></figure>
+
+			<note place="foot" n="1"> The authors wish to acknowledge the contribution from Intel Corporation, Hewlett-Packard Corporation, IBM Corporation, and the National Science Foundation grant EIA-0303575 in making hardware and software available for the CITRIS Cluster which was used in producing these research results.</note>
+
+			<note place="foot" n="2"> This research used resources of the National Energy Research Scientific Computing Center, which is supported by the Office of Science of the U.S. Department of Energy under Contract No. DE-AC02-05CH11231.</note>
+		</body>
+		<back>
+			<div type="references">
+
+				<listBibl>
+
+<biblStruct xml:id="b0">
+	<analytic>
+		<title level="a" type="main">A Newton basis GMRES implementation</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Z</forename><surname>Bai</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Hu</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">L</forename><surname>Reichtel</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">IMA Journal of Numerical Analysis</title>
+		<imprint>
+			<biblScope unit="volume">14</biblScope>
+			<biblScope unit="page" from="563" to="581" />
+			<date type="published" when="1994" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b1">
+	<analytic>
+		<title level="a" type="main">Gear. s-step iterative methods for symmetric linear systems</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><forename type="middle">T</forename><surname>Chronopoulos</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><forename type="middle">W</forename></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">J. Comput. Appl. Math</title>
+		<imprint>
+			<biblScope unit="volume">25</biblScope>
+			<biblScope unit="issue">2</biblScope>
+			<biblScope unit="page" from="153" to="168" />
+			<date type="published" when="1989" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b2">
+	<analytic>
+		<title level="a" type="main">A parallel variant of GMRES(m)</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">E</forename><surname>De Sturler</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of the 13th IMACS World Congress on Computation and Applied Mathematics</title>
+		<editor>J. J. H. Miller and R. Vichnevetsky</editor>
+		<meeting>of the 13th IMACS World Congress on Computation and Applied Mathematics<address><addrLine>Dublin, Ireland</addrLine></address></meeting>
+		<imprint>
+			<publisher>Criterion Press</publisher>
+			<date type="published" when="1991" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b3">
+	<monogr>
+		<title level="m" type="main">Communication-avoiding variants of gmres and cg. Technical Report in preparation</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Demmel</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Hoemmen</surname></persName>
+		</author>
+		<imprint>
+			<date type="published" when="2007" />
+		</imprint>
+		<respStmt>
+			<orgName>Computer Science Department, University of California Berkeley</orgName>
+		</respStmt>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b4">
+	<monogr>
+		<title level="m" type="main">Avoiding communication in computing Krylov subspaces</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Demmel</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Hoemmen</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Mohiyuddin</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">K</forename><surname>Yelick</surname></persName>
+		</author>
+		<idno>UCB/EECS-2007-123</idno>
+		<imprint>
+			<date type="published" when="2007" />
+		</imprint>
+		<respStmt>
+			<orgName>Computer Science Department, University of California Berkeley</orgName>
+		</respStmt>
+	</monogr>
+<note type="report_type">Technical Report</note>
+</biblStruct>
+
+<biblStruct xml:id="b5">
+	<analytic>
+		<title level="a" type="main">A ghost cell expansion method for reducing communications in solving PDE problems</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Ding</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Y</forename><surname>He</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of SC01</title>
+		<meeting>of SC01</meeting>
+		<imprint>
+			<date type="published" when="2001-11" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b6">
+	<analytic>
+		<title level="a" type="main">Cache optimization for structured and unstructured grid multigrid</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><forename type="middle">C</forename><surname>Douglas</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Hu</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Kowarschik</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">U</forename><surname>Rüde</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Weiss</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Electronic Transaction on Numerical Analysis</title>
+		<imprint>
+			<biblScope unit="volume">10</biblScope>
+			<biblScope unit="page" from="21" to="40" />
+			<date type="published" when="2000-02" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b7">
+	<monogr>
+		<title level="m" type="main">UPC: Distributed Shared-Memory Programming</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">T</forename><surname>El-Ghazawi</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">W</forename><surname>Carlson</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">T</forename><surname>Sterling</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">K</forename><surname>Yelick</surname></persName>
+		</author>
+		<imprint>
+			<date type="published" when="2005-05" />
+			<publisher>WileyInterscience</publisher>
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b8">
+	<analytic>
+		<title level="a" type="main">I/O complexity: The red-blue pebble game</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J.-W</forename><surname>Hong</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">H</forename><forename type="middle">T</forename><surname>Kung</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. 13th Ann. ACM Symp. on Theory of Computing</title>
+		<meeting>13th Ann. ACM Symp. on Theory of Computing</meeting>
+		<imprint>
+			<date type="published" when="1981" />
+			<biblScope unit="page" from="326" to="333" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b9">
+	<analytic>
+		<title level="a" type="main">Supernode partitioning</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">F</forename><surname>Irigoin</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Triolet</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of the 15th ACM SIGPLAN-SIGACT Symp. on Principles of Programming Languages</title>
+		<meeting>of the 15th ACM SIGPLAN-SIGACT Symp. on Principles of Programming Languages</meeting>
+		<imprint>
+			<publisher>ACM Press</publisher>
+			<date type="published" when="1988" />
+			<biblScope unit="page" from="319" to="329" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b10">
+	<analytic>
+		<title level="a" type="main">Implicit and explicit optimizations for stencil computations</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Kamil</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">K</forename><surname>Datta</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Williams</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">L</forename><surname>Oliker</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Shalf</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">K</forename><surname>Yelick</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Memory Systems Performance and Correctness</title>
+		<meeting><address><addrLine>San Jose, CA</addrLine></address></meeting>
+		<imprint>
+			<date type="published" when="2006-10" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b11">
+	<analytic>
+		<title level="a" type="main">Impact of modern memory subsystems on cache optimizations for stencil computations</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Kamil</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>Husbands</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">L</forename><surname>Oliker</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Shalf</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">K</forename><surname>Yelick</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Ann. ACM SIGPLAN Workshop on Memory Systems Performance</title>
+		<imprint>
+			<date type="published" when="2005" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b12">
+	<analytic>
+		<title level="a" type="main">Efficient out-ofcore algorithms for linear relaxation using blocking covers (extended abstract)</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><forename type="middle">E</forename><surname>Leiserson</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Rao</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Toledo</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">IEEE Symp. on Foundations of Computer Science</title>
+		<imprint>
+			<date type="published" when="1993" />
+			<biblScope unit="page" from="704" to="713" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b13">
+	<monogr>
+		<title level="m" type="main">Time skewing: A valuebased approach to optimizing for memory locality</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Mccalpin</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Wonnacott</surname></persName>
+		</author>
+		<idno>DCS-TR-379</idno>
+		<imprint>
+			<date type="published" when="1999" />
+		</imprint>
+		<respStmt>
+			<orgName>Department of Computer Science, Rutgers University</orgName>
+		</respStmt>
+	</monogr>
+<note type="report_type">Technical Report</note>
+</biblStruct>
+
+<biblStruct xml:id="b14">
+	<monogr>
+				<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Patterson</surname></persName>
+		</author>
+		<title level="m">Latency lags bandwidth. CACM</title>
+		<imprint>
+			<date type="published" when="2004-10" />
+			<biblScope unit="volume">47</biblScope>
+			<biblScope unit="page" from="71" to="75" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b15">
+	<monogr>
+		<title level="m" type="main">Program partitioning and synchronization on multiprocessor systems</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J.-K</forename><surname>Peir</surname></persName>
+		</author>
+		<imprint>
+			<date type="published" when="1986-03" />
+		</imprint>
+		<respStmt>
+			<orgName>Department of Computer Science, University of Illinois at Urbana-Champaign</orgName>
+		</respStmt>
+	</monogr>
+<note type="report_type">PhD thesis</note>
+</biblStruct>
+
+<biblStruct xml:id="b16">
+	<analytic>
+		<title level="a" type="main">Data flow and storage allocation for the PDQ-5 program on the Philco-2000</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><forename type="middle">J</forename><surname>Pfeifer</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Communications of the ACM</title>
+		<imprint>
+			<biblScope unit="volume">6</biblScope>
+			<biblScope unit="issue">7</biblScope>
+			<biblScope unit="page" from="365" to="366" />
+			<date type="published" when="1963" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b17">
+	<monogr>
+		<title level="m" type="main">Fine-grained analysis of array computations</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">E</forename><forename type="middle">J</forename><surname>Rosser</surname></persName>
+		</author>
+		<imprint>
+			<date type="published" when="1998-09" />
+		</imprint>
+		<respStmt>
+			<orgName>Dept. of Computer Science, University of Maryland</orgName>
+		</respStmt>
+	</monogr>
+<note type="report_type">PhD thesis</note>
+</biblStruct>
+
+<biblStruct xml:id="b18">
+	<analytic>
+		<title level="a" type="main">Practical use of polynomial preconditionings for the conjugate gradient method</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Y</forename><surname>Saad</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">SIAM J. Sci. Stat. Comput</title>
+		<imprint>
+			<biblScope unit="volume">6</biblScope>
+			<biblScope unit="issue">4</biblScope>
+			<date type="published" when="1985-10" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b19">
+	<monogr>
+		<title level="m" type="main">Getting up to speed: The Future of Supercomputing. National Research Council</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Snir</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Graham</surname></persName>
+		</author>
+		<imprint>
+			<date type="published" when="2004" />
+			<biblScope unit="volume">227</biblScope>
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b20">
+	<analytic>
+		<title level="a" type="main">New tiling techniques to improve cache temporal locality</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Y</forename><surname>Song</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Z</forename><surname>Li</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. ACM SIGPLAN Conference on Programming Language Design and Implementation</title>
+		<meeting>ACM SIGPLAN Conference on Programming Language Design and Implementation<address><addrLine>GA</addrLine></address></meeting>
+		<imprint>
+			<date type="published" when="1999" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b21">
+	<analytic>
+		<title level="a" type="main">Rescheduling for locality in sparse matrix computations</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><forename type="middle">M</forename><surname>Strout</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">L</forename><surname>Carter</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Ferrante</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Lecture Notes in Computer Science</title>
+		<editor>V. N. Alexandrov and J. J. Dongarra</editor>
+		<imprint>
+			<date type="published" when="2001" />
+			<publisher>Springer</publisher>
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b22">
+	<monogr>
+		<title level="m" type="main">Quantitative performance modeling of scientific computations and creating locality in numerical algorithms</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Toledo</surname></persName>
+		</author>
+		<imprint>
+			<date type="published" when="1995-06" />
+		</imprint>
+		<respStmt>
+			<orgName>Massachusetts Institute of Technology</orgName>
+		</respStmt>
+	</monogr>
+<note type="report_type">PhD thesis</note>
+</biblStruct>
+
+<biblStruct xml:id="b23">
+	<analytic>
+		<title level="a" type="main">Minimizing inner product data dependence in conjugate gradient iteration</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Van Rosendale</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. IEEE Internat. Confer. Parallel Processing</title>
+		<meeting>IEEE Internat. Confer. Parallel essing</meeting>
+		<imprint>
+			<date type="published" when="1983" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b24">
+	<monogr>
+		<title level="m" type="main">Automatic Performance Tuning of Sparse Matrix Kernels</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Vuduc</surname></persName>
+		</author>
+		<imprint>
+			<date type="published" when="2003-12" />
+		</imprint>
+		<respStmt>
+			<orgName>University of California Berkeley</orgName>
+		</respStmt>
+	</monogr>
+<note type="report_type">PhD thesis</note>
+</biblStruct>
+
+<biblStruct xml:id="b25">
+	<analytic>
+		<title level="a" type="main">OSKI: A library of automatically tuned sparse matrix kernels</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Vuduc</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Demmel</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">K</forename><surname>Yelick</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of SciDAC 2005, J. of Physics: Conference Series. Institute of Physics Publishing</title>
+		<meeting>of SciDAC 2005, J. of Physics: Conference Series. Institute of Physics Publishing</meeting>
+		<imprint>
+			<date type="published" when="2005-06" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b26">
+	<analytic>
+		<title level="a" type="main">Optimization of sparse matrix-vector multiplication on emerging multicore platforms</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Williams</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">L</forename><surname>Oliker</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Vuduc</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Shalf</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">K</forename><surname>Yelick</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Demmel</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">SC07. IEEE</title>
+		<imprint>
+			<date type="published" when="2007" />
+		</imprint>
+	</monogr>
+	<note>to appear</note>
+</biblStruct>
+
+<biblStruct xml:id="b27">
+	<monogr>
+		<title level="m" type="main">Improving locality and parallelism in nested loops</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><forename type="middle">E</forename><surname>Wolf</surname></persName>
+		</author>
+		<imprint>
+			<date type="published" when="1992" />
+		</imprint>
+		<respStmt>
+			<orgName>Stanford University</orgName>
+		</respStmt>
+	</monogr>
+<note type="report_type">PhD thesis</note>
+</biblStruct>
+
+<biblStruct xml:id="b28">
+	<analytic>
+		<title level="a" type="main">Using time skewing to eliminate idle time due to memory bandwidth and network limitations</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Wonnacott</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of the 14th Int. Parallel and Distributed Processing Symp. (IPDPS)</title>
+		<meeting>of the 14th Int. Parallel and Distributed essing Symp. (IPDPS)</meeting>
+		<imprint>
+			<date type="published" when="2000" />
+			<biblScope unit="page" from="171" to="180" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b29">
+	<analytic>
+		<title level="a" type="main">Scaling the Teragrid by latency tolerant application design</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><forename type="middle">R</forename><surname>Woodward</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><forename type="middle">E</forename><surname>Anderson</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of NSF / Department of Energy Scaling Workshop</title>
+		<meeting>of NSF / Department of Energy Scaling Workshop<address><addrLine>Pittsburg, CA</addrLine></address></meeting>
+		<imprint>
+			<date type="published" when="2002-05" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+				</listBibl>
+			</div>
+		</back>
+	</text>
+</TEI>

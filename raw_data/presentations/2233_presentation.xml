@@ -1,0 +1,827 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>Jungle: Towards Dynamically Adjustable Key-Value Store by Combining LSM-Tree and Copy-On-Write B+Tree</p>
+    <p>Jung-Sang Ahn (junahn@ebay.com), Mohiuddin Abdul Qader, Woon-Hak Kang, Hieu Nguyen, Guogen Zhang, and Sami Ben-Romdhane</p>
+    <p>Platform Architecture &amp; Data Infrastructure, eBay Inc.</p>
+    <p>USENIX HotStorage 2019</p>
+  </div>
+  <div class="page">
+    <p>Outline  Background: LSM-tree overview  Write amplification  Tiering merge: trade-offs</p>
+    <p>Jungle  (Copy-on-write B+tree overview)</p>
+    <p>Combining LSM-tree and copy-on-write B+tree: why and how?</p>
+    <p>Brief evaluation</p>
+    <p>Whats next?</p>
+  </div>
+  <div class="page">
+    <p>Log-Structured Merge-Tree (LSM-Tree)  Lots of recent key-value stores &amp; databases are using it (or its variants)</p>
+    <p>Compared to B+tree  Better write performance  Relatively degraded (but acceptable) read performance</p>
+    <p>(P. ONeil et al. 1996)</p>
+  </div>
+  <div class="page">
+    <p>Log-Structured Merge-Tree (LSM-Tree)  Basic algorithm  write and merge</p>
+    <p>Log</p>
+    <p>Level-0</p>
+    <p>Level-1</p>
+    <p>MemTable</p>
+    <p>Each run has disjoint key range: no duplicate key in the same level</p>
+    <p>Duplicate keys may exist across different levels</p>
+    <p>Sorted runs: immutable once created</p>
+    <p>Logs: in chronological order</p>
+    <p>(P. ONeil et al. 1996)</p>
+  </div>
+  <div class="page">
+    <p>Log-Structured Merge-Tree (LSM-Tree)  Basic algorithm  write and merge</p>
+    <p>Log</p>
+    <p>Level-0</p>
+    <p>Level-1</p>
+    <p>MemTable</p>
+    <p>A single sorted run size is limited</p>
+    <p>Each level size is also limited (i.e., # of sorted runs) Level size limit increases exponentially</p>
+    <p>In this example:  Run size limit: 4 keys  Level-0: 2 runs  Level-1: 4 runs (2x)</p>
+    <p>(P. ONeil et al. 1996)</p>
+  </div>
+  <div class="page">
+    <p>Log-Structured Merge-Tree (LSM-Tree)  Basic algorithm  write and merge</p>
+    <p>Log</p>
+    <p>Level-0</p>
+    <p>Level-1</p>
+    <p>MemTable</p>
+    <p>In this example:  Run size limit: 4 keys  Level-0: 2 runs  Level-1: 4 runs (2x)</p>
+    <p>New updates: 29, 8, 21, 25</p>
+    <p>(P. ONeil et al. 1996)</p>
+  </div>
+  <div class="page">
+    <p>Log-Structured Merge-Tree (LSM-Tree)  Basic algorithm  write and merge</p>
+    <p>Log</p>
+    <p>Level-0</p>
+    <p>Level-1</p>
+    <p>MemTable</p>
+    <p>In this example:  Run size limit: 4 keys  Level-0: 2 runs  Level-1: 4 runs (2x)</p>
+    <p>Just append</p>
+    <p>(P. ONeil et al. 1996)</p>
+  </div>
+  <div class="page">
+    <p>Log-Structured Merge-Tree (LSM-Tree)  Basic algorithm  write and merge</p>
+    <p>Log</p>
+    <p>Level-0</p>
+    <p>Level-1</p>
+    <p>MemTable</p>
+    <p>In this example:  Run size limit: 4 keys  Level-0: 2 runs  Level-1: 4 runs (2x)</p>
+    <p>Now log size exceeds the limit</p>
+    <p>(P. ONeil et al. 1996)</p>
+  </div>
+  <div class="page">
+    <p>Log-Structured Merge-Tree (LSM-Tree)  Basic algorithm  write and merge</p>
+    <p>Log</p>
+    <p>Level-0</p>
+    <p>Level-1</p>
+    <p>MemTable</p>
+    <p>In this example:  Run size limit: 4 keys  Level-0: 2 runs  Level-1: 4 runs (2x)</p>
+    <p>Find all overlapping runs in next level</p>
+    <p>(P. ONeil et al. 1996)</p>
+  </div>
+  <div class="page">
+    <p>Log-Structured Merge-Tree (LSM-Tree)  Basic algorithm  write and merge</p>
+    <p>Log</p>
+    <p>Level-0</p>
+    <p>Level-1</p>
+    <p>MemTable</p>
+    <p>In this example:  Run size limit: 4 keys  Level-0: 2 runs  Level-1: 4 runs (2x)</p>
+    <p>Merge, sort, and write new runs</p>
+    <p>(P. ONeil et al. 1996)</p>
+  </div>
+  <div class="page">
+    <p>Log-Structured Merge-Tree (LSM-Tree)  Basic algorithm  write and merge</p>
+    <p>Log</p>
+    <p>Level-0</p>
+    <p>Level-1 2, 4, 5, 6 7, 9, 11, 13 15, 16, 19, 20 22, 27, 30, 31 Sorted run (a.k.a., Sorted String Table) In this example:</p>
+    <p>Run size limit: 4 keys  Level-0: 2 runs  Level-1: 4 runs (2x)</p>
+    <p>Remove old runs &amp; logs</p>
+    <p>(P. ONeil et al. 1996)</p>
+  </div>
+  <div class="page">
+    <p>Log-Structured Merge-Tree (LSM-Tree)  Basic algorithm  write and merge</p>
+    <p>Log</p>
+    <p>Level-0</p>
+    <p>Level-1 2, 4, 5, 6 7, 9, 11, 13 15, 16, 19, 20 22, 27, 30, 31 Sorted run (a.k.a., Sorted String Table) In this example:</p>
+    <p>Run size limit: 4 keys  Level-0: 2 runs  Level-1: 4 runs (2x)</p>
+    <p>Merge can be cascaded: now level-0 becomes full</p>
+    <p>(P. ONeil et al. 1996)</p>
+  </div>
+  <div class="page">
+    <p>Log-Structured Merge-Tree (LSM-Tree)  Basic algorithm  write and merge</p>
+    <p>Log</p>
+    <p>Level-0</p>
+    <p>Level-1 2, 4, 5, 6 7, 9, 11, 13 15, 16, 19, 20 22, 27, 30, 31 Sorted run (a.k.a., Sorted String Table) In this example:</p>
+    <p>Run size limit: 4 keys  Level-0: 2 runs  Level-1: 4 runs (2x)</p>
+    <p>Select a victim run</p>
+    <p>Find overlapping runs in next level</p>
+    <p>(P. ONeil et al. 1996)</p>
+  </div>
+  <div class="page">
+    <p>Log-Structured Merge-Tree (LSM-Tree)  Basic algorithm  write and merge</p>
+    <p>Log</p>
+    <p>Level-0</p>
+    <p>Level-1 2, 4, 5, 6 7, 9, 11, 13 15, 16, 19, 20 22, 27, 30, 31 Sorted run (a.k.a., Sorted String Table) In this example:</p>
+    <p>Run size limit: 4 keys  Level-0: 2 runs  Level-1: 4 runs (2x)</p>
+    <p>Merge, sort, and write new runs 15, 16, 17, 19 20, 21, 22, 25 27, 30, 31</p>
+    <p>(P. ONeil et al. 1996)</p>
+  </div>
+  <div class="page">
+    <p>Log-Structured Merge-Tree (LSM-Tree)  Basic algorithm  write and merge</p>
+    <p>Log</p>
+    <p>Level-0</p>
+    <p>Level-1 2, 4, 5, 6 7, 9, 11, 13 Sorted run (a.k.a., Sorted String Table) In this example:</p>
+    <p>Run size limit: 4 keys  Level-0: 2 runs  Level-1: 4 runs (2x)</p>
+    <p>Remove old runs</p>
+    <p>(P. ONeil et al. 1996)</p>
+  </div>
+  <div class="page">
+    <p>Log-Structured Merge-Tree (LSM-Tree)  Basic algorithm  write and merge</p>
+    <p>Log</p>
+    <p>Level-0</p>
+    <p>Level-1 2, 4, 5, 6 7, 9, 11, 13 Sorted run (a.k.a., Sorted String Table) In this example:</p>
+    <p>Run size limit: 4 keys  Level-0: 2 runs  Level-1: 4 runs (2x)</p>
+    <p>Remove old runs</p>
+    <p>(P. ONeil et al. 1996)</p>
+    <p>Sorted run is immutable once written  no overwrite</p>
+    <p>Each merge operation: re-write all overlapping runs</p>
+  </div>
+  <div class="page">
+    <p>Log-Structured Merge-Tree (LSM-Tree)  Basic algorithm  read</p>
+    <p>Log</p>
+    <p>Level-0</p>
+    <p>Level-1</p>
+    <p>MemTable Search key 6</p>
+    <p>Inner-level search: logarithmic  Inter-level search: linear</p>
+    <p>(P. ONeil et al. 1996)</p>
+  </div>
+  <div class="page">
+    <p>Log-Structured Merge-Tree (LSM-Tree)  Basic algorithm  read</p>
+    <p>Log</p>
+    <p>Level-0</p>
+    <p>Level-1</p>
+    <p>MemTable 1) Search MemTable (in-memory operation)  not found</p>
+    <p>Search key 6</p>
+    <p>Inner-level search: logarithmic  Inter-level search: linear</p>
+    <p>(P. ONeil et al. 1996)</p>
+  </div>
+  <div class="page">
+    <p>Log-Structured Merge-Tree (LSM-Tree)  Basic algorithm  read</p>
+    <p>Log</p>
+    <p>Level-0</p>
+    <p>Level-1</p>
+    <p>MemTable</p>
+    <p>Search key 6</p>
+    <p>Inner-level search: logarithmic  Inter-level search: linear</p>
+    <p>(P. ONeil et al. 1996)</p>
+  </div>
+  <div class="page">
+    <p>Log-Structured Merge-Tree (LSM-Tree)  Basic algorithm  read</p>
+    <p>Log</p>
+    <p>Level-0</p>
+    <p>Level-1</p>
+    <p>MemTable</p>
+    <p>Search each level one by one</p>
+    <p>Search key 6</p>
+    <p>Inner-level search: logarithmic  Inter-level search: linear</p>
+    <p>(P. ONeil et al. 1996)</p>
+  </div>
+  <div class="page">
+    <p>Log-Structured Merge-Tree (LSM-Tree)  Basic algorithm  read  Bloom filter: skip examining unnecessary runs</p>
+    <p>Log</p>
+    <p>Level-0</p>
+    <p>Level-1</p>
+    <p>MemTable Search key 6</p>
+    <p>BF BF</p>
+    <p>BF BF BF BF</p>
+    <p>Inner-level search: logarithmic  Inter-level search: linear</p>
+    <p>(P. ONeil et al. 1996)</p>
+  </div>
+  <div class="page">
+    <p>Log-Structured Merge-Tree (LSM-Tree)  Basic algorithm  read  Bloom filter: skip examining unnecessary runs</p>
+    <p>Log</p>
+    <p>Level-0</p>
+    <p>Level-1</p>
+    <p>MemTable Search key 6</p>
+    <p>BF BF</p>
+    <p>BF BF BF BFFalse positive rate: roughly 1%  3 hash functions  10 bits per key</p>
+    <p>Inner-level search: logarithmic  Inter-level search: linear</p>
+    <p>(P. ONeil et al. 1996)</p>
+  </div>
+  <div class="page">
+    <p>Write Amplification  Ratio between  Amount of data requested by user  Amount of data actually written to disk</p>
+    <p>Index processing</p>
+    <p>Write amplification: 3 5/16</p>
+  </div>
+  <div class="page">
+    <p>Write Amplification  Ratio between  Amount of data requested by user  Amount of data actually written to disk</p>
+    <p>LSM-tree: merge amplifies amount of writes</p>
+    <p>Level X</p>
+    <p>Level X-1 11-201-10</p>
+    <p>Wider range, less runs</p>
+    <p>Narrower range, more runs</p>
+    <p>Density difference</p>
+  </div>
+  <div class="page">
+    <p>Write Amplification  Ratio between  Amount of data requested by user  Amount of data actually written to disk</p>
+    <p>LSM-tree: merge amplifies amount of writes</p>
+    <p>Level X</p>
+    <p>Level X-1 11-201-10</p>
+    <p>Wider range, less runs</p>
+    <p>Narrower range, more runs</p>
+    <p>Victim run to merge</p>
+    <p>Density difference</p>
+  </div>
+  <div class="page">
+    <p>Write Amplification  Ratio between  Amount of data requested by user  Amount of data actually written to disk</p>
+    <p>LSM-tree: merge amplifies amount of writes</p>
+    <p>Level X</p>
+    <p>Level X-1 11-201-10</p>
+    <p>Wider range, less runs</p>
+    <p>Narrower range, more runs</p>
+    <p>Victim run to merge</p>
+    <p>Write 2 new runs after merge Write amplification: 2</p>
+    <p>Density difference</p>
+  </div>
+  <div class="page">
+    <p>Write Amplification  Ratio between  Amount of data requested by user  Amount of data actually written to disk</p>
+    <p>LSM-tree: merge amplifies amount of writes  T: size ratio of adjacent levels</p>
+    <p>Level 0</p>
+    <p>Level 1</p>
+    <p>Level 2</p>
+  </div>
+  <div class="page">
+    <p>Write Amplification  Ratio between  Amount of data requested by user  Amount of data actually written to disk</p>
+    <p>LSM-tree: merge amplifies amount of writes  T: size ratio of adjacent levels</p>
+    <p>Level 0</p>
+    <p>Level 1</p>
+    <p>Level 2</p>
+    <p>A single merge: T overlapping runs</p>
+  </div>
+  <div class="page">
+    <p>Write Amplification  Ratio between  Amount of data requested by user  Amount of data actually written to disk</p>
+    <p>LSM-tree: merge amplifies amount of writes  T: size ratio of adjacent levels</p>
+    <p>Level 0</p>
+    <p>Level 1</p>
+    <p>Level 2</p>
+    <p>A single merge: T overlapping runs</p>
+    <p>Merge can be cascaded: T overlapping runs for each level</p>
+  </div>
+  <div class="page">
+    <p>Write Amplification  Ratio between  Amount of data requested by user  Amount of data actually written to disk</p>
+    <p>LSM-tree: merge amplifies amount of writes  T: size ratio of adjacent levels</p>
+    <p>Level 0</p>
+    <p>Level 1</p>
+    <p>Level 2</p>
+    <p>Write amplification: T + T +  + T = O(L * T)</p>
+    <p>The number of levels (L)</p>
+    <p>A single merge: T overlapping runs</p>
+    <p>Merge can be cascaded: T overlapping runs for each level</p>
+  </div>
+  <div class="page">
+    <p>Write Amplification  Ratio between  Amount of data requested by user  Amount of data actually written to disk</p>
+    <p>LSM-tree: merge amplifies amount of writes  T: size ratio of adjacent levels  Write amplification: O(L * T)</p>
+    <p>Why write amplification matters?  User: put 2KB records at 10,000 records/sec rate (20MB/s)  Write amplification: 20</p>
+    <p>Actual traffic to disk: 400MB/s  Easily hit the upper bound of disk bandwidth  Affect read latency or throughput as well</p>
+  </div>
+  <div class="page">
+    <p>TieringMerge  Delay merge, and keep stacks of runs (for the same key range)</p>
+    <p>Log</p>
+    <p>Level-0 2, 7, 11, 15 21, 28, 30, 32</p>
+    <p>Log size exceeds the limit</p>
+    <p>Level-1</p>
+    <p>(H.V. Jagadish et al. VLDB 1997, PebblesDB SOSP 2017, Dostoevsky SIGMOD 2018)</p>
+  </div>
+  <div class="page">
+    <p>TieringMerge  Delay merge, and keep stacks of runs (for the same key range)</p>
+    <p>Log</p>
+    <p>Level-0 2, 7, 11, 15 21, 28, 30, 32</p>
+    <p>Add new runs to each key-range (stack), without re-writing existing runs</p>
+    <p>Level-1</p>
+    <p>(H.V. Jagadish et al. VLDB 1997, PebblesDB SOSP 2017, Dostoevsky SIGMOD 2018)</p>
+  </div>
+  <div class="page">
+    <p>TieringMerge  Delay merge, and keep stacks of runs (for the same key range)</p>
+    <p>Log</p>
+    <p>Level-0 2, 7, 11, 15 21, 28, 30, 32</p>
+    <p>Stack size limit: up to M runs</p>
+    <p>Level-1  Stack exceeds the limit: merge into next level</p>
+    <p>(H.V. Jagadish et al. VLDB 1997, PebblesDB SOSP 2017, Dostoevsky SIGMOD 2018)</p>
+  </div>
+  <div class="page">
+    <p>TieringMerge  Delay merge, and keep stacks of runs (for the same key range)</p>
+    <p>Log</p>
+    <p>Level-0</p>
+    <p>Level-1  21, 25, 27, 29 31, 34, 36, 37</p>
+    <p>Pick a victim stack</p>
+    <p>Find overlapping stacks</p>
+    <p>(H.V. Jagadish et al. VLDB 1997, PebblesDB SOSP 2017, Dostoevsky SIGMOD 2018)</p>
+  </div>
+  <div class="page">
+    <p>TieringMerge  Delay merge, and keep stacks of runs (for the same key range)</p>
+    <p>Log</p>
+    <p>Level-0</p>
+    <p>Level-1</p>
+    <p>Add new runs to each stack, without re-writing existing runs</p>
+    <p>(H.V. Jagadish et al. VLDB 1997, PebblesDB SOSP 2017, Dostoevsky SIGMOD 2018)</p>
+  </div>
+  <div class="page">
+    <p>TieringMerge  Delay merge, and keep stacks of runs (for the same key range)</p>
+    <p>Trade-offs  Stack size limit: up to M runs  Write cost</p>
+    <p>Can delay merge M times  M times smaller write amplification</p>
+    <p>Read cost  M times more searches  (even with Bloom filter, more searches upon false positive)</p>
+    <p>Space cost  M times more space</p>
+    <p>Level 0 1-100</p>
+    <p>Sorted run</p>
+    <p>Stack</p>
+    <p>up to M runs</p>
+    <p>Level 1 1-50 51-100 101-150 151-200</p>
+    <p>Write cost vs. read cost and space cost</p>
+    <p>T overlapping stacks</p>
+    <p>(H.V. Jagadish et al. VLDB 1997, PebblesDB SOSP 2017, Dostoevsky SIGMOD 2018)</p>
+  </div>
+  <div class="page">
+    <p>Jungle: Motivation  What if we can  Reduce write cost  Without sacrificing read cost</p>
+    <p>Trade-off change: 3-dimensional  2-dimensional</p>
+    <p>How?  Replace each stack with copy-on-write B+tree Read</p>
+    <p>Write</p>
+    <p>Space</p>
+    <p>Write</p>
+    <p>Space Trade-off</p>
+    <p>Trade-off</p>
+  </div>
+  <div class="page">
+    <p>Copy-On-Write (CoW) B+Tree  Logically the same, but about how to write B+tree nodes to disk  Out-of-update manner: no overwrite, but append</p>
+    <p>All nodes are immutable, written in chronological order</p>
+    <p>A</p>
+    <p>B C</p>
+    <p>D E F</p>
+    <p>Logical view</p>
+    <p>Flattened view (on disk) D E F B C A</p>
+    <p>B+tree node</p>
+  </div>
+  <div class="page">
+    <p>Copy-On-Write (CoW) B+Tree  Logically the same, but about how to write B+tree nodes to disk  Out-of-update manner: no overwrite, but append</p>
+    <p>All nodes are immutable, written in chronological order</p>
+    <p>A</p>
+    <p>B C</p>
+    <p>D E F</p>
+    <p>Logical view</p>
+    <p>Flattened view (on disk) D E F B C A</p>
+    <p>Update E  E</p>
+    <p>B+tree node</p>
+  </div>
+  <div class="page">
+    <p>Copy-On-Write (CoW) B+Tree  Logically the same, but about how to write B+tree nodes to disk  Out-of-update manner: no overwrite, but append</p>
+    <p>All nodes are immutable, written in chronological order</p>
+    <p>A</p>
+    <p>B C</p>
+    <p>D E F</p>
+    <p>Logical view</p>
+    <p>Flattened view (on disk) D E F B C A E</p>
+    <p>Append E  parent C also needs to be updated</p>
+    <p>E</p>
+    <p>B+tree node</p>
+  </div>
+  <div class="page">
+    <p>Copy-On-Write (CoW) B+Tree  Logically the same, but about how to write B+tree nodes to disk  Out-of-update manner: no overwrite, but append</p>
+    <p>All nodes are immutable, written in chronological order</p>
+    <p>A</p>
+    <p>B C</p>
+    <p>D E F</p>
+    <p>Logical view</p>
+    <p>Flattened view (on disk) D E F B C A E Append C</p>
+    <p>parent A also needs to be updated</p>
+    <p>E</p>
+    <p>C</p>
+    <p>C</p>
+    <p>B+tree node</p>
+  </div>
+  <div class="page">
+    <p>Copy-On-Write (CoW) B+Tree  Logically the same, but about how to write B+tree nodes to disk  Out-of-update manner: no overwrite, but append</p>
+    <p>All nodes are immutable, written in chronological order</p>
+    <p>A</p>
+    <p>B C</p>
+    <p>D E F</p>
+    <p>Logical view</p>
+    <p>Flattened view (on disk) D E F B C A E</p>
+    <p>E</p>
+    <p>C</p>
+    <p>C</p>
+    <p>A</p>
+    <p>A B+tree node</p>
+  </div>
+  <div class="page">
+    <p>Copy-On-Write (CoW) B+Tree  Batching + decoupling value from B+tree node  To reduce write amplification + to make B+tree compact  Append values first, and then append updated B+tree nodes</p>
+    <p>B+tree leaf nodes: contain {key, pointer to value} pairs</p>
+    <p>x K K: value of key x</p>
+    <p>x</p>
+    <p>y</p>
+    <p>z</p>
+    <p>B+tree node with key x, y, and z</p>
+    <p>Insert {10, A}, {15, B}, {27, C}, {50, D} 9/16</p>
+  </div>
+  <div class="page">
+    <p>Copy-On-Write (CoW) B+Tree  Batching + decoupling value from B+tree node  To reduce write amplification + to make B+tree compact  Append values first, and then append updated B+tree nodes</p>
+    <p>B+tree leaf nodes: contain {key, pointer to value} pairs</p>
+    <p>x K K: value of key x</p>
+    <p>x</p>
+    <p>y</p>
+    <p>z</p>
+    <p>B+tree node with key x, y, and z</p>
+    <p>Insert {10, A}, {15, B}, {27, C}, {50, D}</p>
+    <p>Append values (in key order)</p>
+  </div>
+  <div class="page">
+    <p>Copy-On-Write (CoW) B+Tree  Batching + decoupling value from B+tree node  To reduce write amplification + to make B+tree compact  Append values first, and then append updated B+tree nodes</p>
+    <p>B+tree leaf nodes: contain {key, pointer to value} pairs</p>
+    <p>x K K: value of key x</p>
+    <p>x</p>
+    <p>y</p>
+    <p>z</p>
+    <p>B+tree node with key x, y, and z</p>
+    <p>Insert {10, A}, {15, B}, {27, C}, {50, D}</p>
+    <p>Append B+tree node containing {key, pointer to value}</p>
+    <p>15</p>
+    <p>27</p>
+    <p>50</p>
+    <p>9/16</p>
+  </div>
+  <div class="page">
+    <p>Copy-On-Write (CoW) B+Tree  Batching + decoupling value from B+tree node  To reduce write amplification + to make B+tree compact  Append values first, and then append updated B+tree nodes</p>
+    <p>B+tree leaf nodes: contain {key, pointer to value} pairs</p>
+    <p>x K K: value of key x</p>
+    <p>x</p>
+    <p>y</p>
+    <p>z</p>
+    <p>B+tree node with key x, y, and z</p>
+    <p>Insert {10, A}, {15, B}, {27, C}, {50, D}</p>
+    <p>Append B+tree node containing {key, pointer to value}</p>
+    <p>15</p>
+    <p>27</p>
+    <p>50</p>
+    <p>Write batch</p>
+  </div>
+  <div class="page">
+    <p>Copy-On-Write (CoW) B+Tree  Batching + decoupling value from B+tree node  To reduce write amplification + to make B+tree compact  Append values first, and then append updated B+tree nodes</p>
+    <p>B+tree leaf nodes: contain {key, pointer to value} pairs</p>
+    <p>x K K: value of key x</p>
+    <p>x</p>
+    <p>y</p>
+    <p>z</p>
+    <p>B+tree node with key x, y, and z</p>
+    <p>Set {15, E}, {27, F}, {32, G}</p>
+    <p>15</p>
+    <p>27</p>
+    <p>50</p>
+    <p>Write batch</p>
+  </div>
+  <div class="page">
+    <p>Copy-On-Write (CoW) B+Tree  Batching + decoupling value from B+tree node  To reduce write amplification + to make B+tree compact  Append values first, and then append updated B+tree nodes</p>
+    <p>B+tree leaf nodes: contain {key, pointer to value} pairs</p>
+    <p>x K K: value of key x</p>
+    <p>x</p>
+    <p>y</p>
+    <p>z</p>
+    <p>B+tree node with key x, y, and z</p>
+    <p>Set {15, E}, {27, F}, {32, G}</p>
+    <p>15</p>
+    <p>27</p>
+    <p>50</p>
+    <p>15 E</p>
+    <p>Append values (in key order)</p>
+    <p>Write batch</p>
+  </div>
+  <div class="page">
+    <p>Copy-On-Write (CoW) B+Tree  Batching + decoupling value from B+tree node  To reduce write amplification + to make B+tree compact  Append values first, and then append updated B+tree nodes</p>
+    <p>B+tree leaf nodes: contain {key, pointer to value} pairs</p>
+    <p>x K K: value of key x</p>
+    <p>x</p>
+    <p>y</p>
+    <p>z</p>
+    <p>B+tree node with key x, y, and z</p>
+    <p>Set {15, E}, {27, F}, {32, G}</p>
+    <p>15</p>
+    <p>27</p>
+    <p>50</p>
+    <p>15 E</p>
+    <p>Append updated B+tree node</p>
+    <p>15</p>
+    <p>27</p>
+    <p>32</p>
+    <p>50</p>
+    <p>Write batch Write batch</p>
+    <p>Keys in the same node should be copied together although they are not updated</p>
+  </div>
+  <div class="page">
+    <p>Copy-On-Write (CoW) B+Tree  Batching + decoupling value from B+tree node  To reduce write amplification + to make B+tree compact  Append values first, and then append updated B+tree nodes</p>
+    <p>B+tree leaf nodes: contain {key, pointer to value} pairs</p>
+    <p>x K K: value of key x</p>
+    <p>x</p>
+    <p>y</p>
+    <p>z</p>
+    <p>B+tree node with key x, y, and z</p>
+    <p>Set {15, H}, {50, I}</p>
+    <p>15</p>
+    <p>27</p>
+    <p>50</p>
+    <p>15 E</p>
+    <p>15</p>
+    <p>27</p>
+    <p>32</p>
+    <p>50</p>
+    <p>Write batch Write batch</p>
+    <p>15</p>
+    <p>27</p>
+    <p>32</p>
+    <p>50</p>
+    <p>Write batch</p>
+  </div>
+  <div class="page">
+    <p>Copy-On-Write (CoW) B+Tree  Batching + decoupling value from B+tree node  To reduce write amplification + to make B+tree compact  Append values first, and then append updated B+tree nodes</p>
+    <p>B+tree leaf nodes: contain {key, pointer to value} pairs</p>
+    <p>x K K: value of key x</p>
+    <p>x</p>
+    <p>y</p>
+    <p>z</p>
+    <p>B+tree node with key x, y, and z</p>
+    <p>15</p>
+    <p>27</p>
+    <p>50</p>
+    <p>15 E</p>
+    <p>15</p>
+    <p>27</p>
+    <p>32</p>
+    <p>50</p>
+    <p>Write batch Write batch</p>
+    <p>15</p>
+    <p>27</p>
+    <p>32</p>
+    <p>50</p>
+    <p>Write batch</p>
+    <p>15</p>
+    <p>27</p>
+    <p>32</p>
+    <p>50</p>
+    <p>Compaction! 9/16</p>
+  </div>
+  <div class="page">
+    <p>Jungle: Replacing Stack with CoWB+Tree</p>
+    <p>Original LSM-tree (leveling)</p>
+    <p>Level X</p>
+    <p>Level X-1</p>
+    <p>Level X</p>
+    <p>Tiering merge LSM-tree</p>
+    <p>Level X-1</p>
+    <p>Our approach: Jungle</p>
+    <p>Level X-1 1-100 101-200</p>
+    <p>Stack</p>
+    <p>Sorted run</p>
+    <p>Cow B+tree</p>
+    <p>Write batch</p>
+    <p>Sorted run  stack</p>
+    <p>Stack  cow B+tree</p>
+  </div>
+  <div class="page">
+    <p>Jungle: Replacing Stack with CoWB+Tree  Similarities between tiering stack vs. cow B+tree  Stack  cow B+tree  Sorted run  write batch (if locally sorted in key order)</p>
+    <p>Immutable: no overwrite  Appended in chronological order</p>
+    <p>Level X</p>
+    <p>Stack</p>
+    <p>Sorted run</p>
+    <p>Cow B+tree</p>
+    <p>Write batch</p>
+    <p>Chronological order</p>
+    <p>Chronological order Tiering merge LSM-tree Jungle</p>
+  </div>
+  <div class="page">
+    <p>Jungle: Replacing Stack with CoWB+Tree  Differences between tiering stack vs. cow B+tree  Search: linear (stack) vs. logarithmic (cow B+tree)</p>
+    <p>Stack</p>
+    <p>Sorted run</p>
+    <p>Cow B+tree</p>
+    <p>Write batch</p>
+    <p>Search Search</p>
+    <p>Tiering merge LSM-tree Jungle</p>
+    <p>Affected by number of runs</p>
+    <p>Affected by number of unique keys  almost no read degradation</p>
+  </div>
+  <div class="page">
+    <p>Jungle: Replacing Stack with CoWB+Tree  Differences between tiering stack vs. cow B+tree  Search: linear (stack) vs. logarithmic (cow B+tree)</p>
+    <p>Stack</p>
+    <p>Sorted run</p>
+    <p>Cow B+tree</p>
+    <p>Write batch</p>
+    <p>Search Search</p>
+    <p>Tiering merge LSM-tree Jungle</p>
+    <p>Affected by number of runs</p>
+    <p>Affected by number of unique keys  almost no read degradation</p>
+    <p>With Bloom filter?  No stacking  M times smaller false positive rate</p>
+    <p>(or M times smaller false positive penalty)</p>
+  </div>
+  <div class="page">
+    <p>Jungle: Replacing Stack with CoWB+Tree  Differences between tiering stack vs. cow B+tree  Search: linear (stack) vs. logarithmic (cow B+tree)  Unit of limit: the number of runs (stack) vs. actual data size (cow B+tree)</p>
+    <p>Stack</p>
+    <p>Sorted run</p>
+    <p>Merge &amp; put new runs into overlapping stacks in next level</p>
+    <p>Level X-1</p>
+    <p>Level X</p>
+    <p>Tiering merge LSM-tree</p>
+    <p>Up to M runs regardless of size of each run</p>
+  </div>
+  <div class="page">
+    <p>Jungle: Replacing Stack with CoWB+Tree  Differences between tiering stack vs. cow B+tree  Search: linear (stack) vs. logarithmic (cow B+tree)  Unit of limit: the number of runs (stack) vs. actual data size (cow B+tree)</p>
+    <p>Level X-1</p>
+    <p>Level X</p>
+    <p>Jungle</p>
+    <p>Cow B+tree</p>
+    <p>Write batch</p>
+    <p>Based on actual size, the number of batches is flexible We can keep track of current live data size</p>
+    <p>in B+tree meta section</p>
+    <p>Jungle Compaction factor: C (1) Trigger in-place merge if  space usage / live (unique) data size &gt; C (2) Trigger inter-level merge if  live (unique) data size &gt; limit (C * original sorted run size limit)</p>
+  </div>
+  <div class="page">
+    <p>Jungle: Replacing Stack with CoWB+Tree  Differences between tiering stack vs. cow B+tree  Search: linear (stack) vs. logarithmic (cow B+tree)  Unit of limit: the number of runs (stack) vs. actual data size (cow B+tree)</p>
+    <p>Level X-1</p>
+    <p>Level X</p>
+    <p>Jungle Cow B+tree</p>
+    <p>Write batch</p>
+    <p>Victim cow B+tree</p>
+    <p>(1) Not much unique data  in-place merge</p>
+    <p>We can keep track of current live data size in B+tree meta section</p>
+    <p>Compaction factor: C (1) Trigger in-place merge if  space usage / live (unique) data size &gt; C (2) Trigger inter-level merge if  live (unique) data size &gt; limit (C * original sorted run size limit)</p>
+  </div>
+  <div class="page">
+    <p>Jungle: Replacing Stack with CoWB+Tree  Differences between tiering stack vs. cow B+tree  Search: linear (stack) vs. logarithmic (cow B+tree)  Unit of limit: the number of runs (stack) vs. actual data size (cow B+tree)</p>
+    <p>Level X-1</p>
+    <p>Level X</p>
+    <p>Jungle Cow B+tree</p>
+    <p>Write batch</p>
+    <p>Victim cow B+tree</p>
+    <p>Same as cow B+tree compaction</p>
+    <p>We can keep track of current live data size in B+tree meta section</p>
+    <p>Compaction factor: C (1) Trigger in-place merge if  space usage / live (unique) data size &gt; C (2) Trigger inter-level merge if  live (unique) data size &gt; limit (C * original sorted run size limit)</p>
+  </div>
+  <div class="page">
+    <p>Jungle: Replacing Stack with CoWB+Tree  Differences between tiering stack vs. cow B+tree  Search: linear (stack) vs. logarithmic (cow B+tree)  Unit of limit: the number of runs (stack) vs. actual data size (cow B+tree)</p>
+    <p>Level X-1</p>
+    <p>Level X</p>
+    <p>Jungle Cow B+tree</p>
+    <p>Write batch</p>
+    <p>Victim cow B+tree</p>
+    <p>Compaction factor: C (1) Trigger in-place merge if  space usage / live (unique) data size &gt; C (2) Trigger inter-level merge if  live (unique) data size &gt; limit (C * original sorted run size limit)</p>
+    <p>(2) Almost all data are unique  inter-level merge</p>
+    <p>We can keep track of current live data size in B+tree meta section</p>
+  </div>
+  <div class="page">
+    <p>Jungle: Replacing Stack with CoWB+Tree  Differences between tiering stack vs. cow B+tree  Search: linear (stack) vs. logarithmic (cow B+tree)  Unit of limit: the number of runs (stack) vs. actual data size (cow B+tree)</p>
+    <p>Level X-1</p>
+    <p>Level X</p>
+    <p>Jungle Cow B+tree</p>
+    <p>Write batch</p>
+    <p>Victim cow B+tree</p>
+    <p>Compaction factor: C (1) Trigger in-place merge if  space usage / live (unique) data size &gt; C (2) Trigger inter-level merge if  live (unique) data size &gt; limit (C * original sorted run size limit)</p>
+    <p>We can keep track of current live data size in B+tree meta section</p>
+    <p>Same as tiering merge: merge &amp; put new batches into overlapping cow B+trees in next level</p>
+  </div>
+  <div class="page">
+    <p>Jungle: Replacing Stack with CoWB+Tree  Differences between tiering stack vs. cow B+tree  Search: linear (stack) vs. logarithmic (cow B+tree)  Unit of limit: the number of runs (stack) vs. actual data size (cow B+tree)</p>
+    <p>Level X-1</p>
+    <p>Level X</p>
+    <p>Jungle Cow B+tree</p>
+    <p>Write batch</p>
+    <p>Compaction factor: C (1) Trigger in-place merge if  space usage / live (unique) data size &gt; C (2) Trigger inter-level merge if  live (unique) data size &gt; limit (C * original sorted run size limit)</p>
+    <p>We can keep track of current live data size in B+tree meta section</p>
+    <p>Same as tiering merge: merge &amp; put new batches into overlapping cow B+trees in next level</p>
+    <p>Smaller C  Frequent merge: more writes, less space</p>
+    <p>Bigger C  Infrequent merge: less writes, more space</p>
+    <p>Read cost remains (nearly) the same 12/16</p>
+  </div>
+  <div class="page">
+    <p>Jungle: Replacing Stack with CoWB+Tree  Differences between tiering stack vs. cow B+tree  Search: linear (stack) vs. logarithmic (cow B+tree)  Unit of limit: the number of runs (stack) vs. actual data size (cow B+tree)</p>
+    <p>Level X-1</p>
+    <p>Level X</p>
+    <p>M runs, where M &lt; T ?</p>
+    <p>T overlapping stacks</p>
+    <p>Tiering merge LSM-tree</p>
+  </div>
+  <div class="page">
+    <p>Jungle: Replacing Stack with CoWB+Tree  Differences between tiering stack vs. cow B+tree  Search: linear (stack) vs. logarithmic (cow B+tree)  Unit of limit: the number of runs (stack) vs. actual data size (cow B+tree)</p>
+    <p>Level X-1</p>
+    <p>Level X</p>
+    <p>M runs, where M &lt; T ?</p>
+    <p>New sorted run size: M/T of the original one</p>
+    <p>T overlapping stacks</p>
+    <p>Tiering merge LSM-tree</p>
+  </div>
+  <div class="page">
+    <p>Jungle: Replacing Stack with CoWB+Tree  Differences between tiering stack vs. cow B+tree  Search: linear (stack) vs. logarithmic (cow B+tree)  Unit of limit: the number of runs (stack) vs. actual data size (cow B+tree)</p>
+    <p>Level X-1</p>
+    <p>Level X</p>
+    <p>M runs, where M &lt; T ?</p>
+    <p>New sorted run size: M/T of the original one</p>
+    <p>Level X+1</p>
+    <p>Getting smaller  benefit of delaying merge will be small  Need to force M == T</p>
+    <p>T overlapping stacks</p>
+    <p>T overlapping stacks 12/16</p>
+    <p>Tiering merge LSM-tree</p>
+  </div>
+  <div class="page">
+    <p>Jungle: Replacing Stack with CoWB+Tree  Differences between tiering stack vs. cow B+tree  Search: linear (stack) vs. logarithmic (cow B+tree)  Unit of limit: the number of runs (stack) vs. actual data size (cow B+tree)</p>
+    <p>Locality?</p>
+    <p>HotCold Cold</p>
+    <p>Level X-1</p>
+    <p>Level X</p>
+    <p>Filled up</p>
+    <p>Merge &amp; put</p>
+    <p>(M == T) Tiering merge LSM-tree</p>
+  </div>
+  <div class="page">
+    <p>Jungle: Replacing Stack with CoWB+Tree  Differences between tiering stack vs. cow B+tree  Search: linear (stack) vs. logarithmic (cow B+tree)  Unit of limit: the number of runs (stack) vs. actual data size (cow B+tree)</p>
+    <p>Locality?</p>
+    <p>HotCold Cold</p>
+    <p>Level X-1</p>
+    <p>Level X</p>
+    <p>Filled up</p>
+    <p>Merge &amp; put</p>
+    <p>(M == T) Tiering merge LSM-tree</p>
+  </div>
+  <div class="page">
+    <p>Jungle: Replacing Stack with CoWB+Tree  Differences between tiering stack vs. cow B+tree  Search: linear (stack) vs. logarithmic (cow B+tree)  Unit of limit: the number of runs (stack) vs. actual data size (cow B+tree)</p>
+    <p>Locality?</p>
+    <p>HotCold Cold</p>
+    <p>Level X-1</p>
+    <p>Level X</p>
+    <p>Filled up</p>
+    <p>Cold range: will be filled up with small runs  benefit of delaying merge is small  cascaded: will make small runs in next level!</p>
+    <p>Merge &amp; put</p>
+    <p>(M == T) Tiering merge LSM-tree</p>
+  </div>
+  <div class="page">
+    <p>Jungle: Replacing Stack with CoWB+Tree  Differences between tiering stack vs. cow B+tree  Search: linear (stack) vs. logarithmic (cow B+tree)  Unit of limit: the number of runs (stack) vs. actual data size (cow B+tree)</p>
+    <p>Locality?</p>
+    <p>Level X-1</p>
+    <p>Level X</p>
+    <p>Cow B+tree</p>
+    <p>Write batch</p>
+    <p>HotCold Cold</p>
+    <p>Filled up, lots of unique keysBoth  number of batches, and  size of batch do not matter Inter-level merge</p>
+    <p>Jungle</p>
+  </div>
+  <div class="page">
+    <p>Jungle: Replacing Stack with CoWB+Tree  Differences between tiering stack vs. cow B+tree  Search: linear (stack) vs. logarithmic (cow B+tree)  Unit of limit: the number of runs (stack) vs. actual data size (cow B+tree)</p>
+    <p>Locality?</p>
+    <p>Level X-1</p>
+    <p>Level X</p>
+    <p>Cow B+tree</p>
+    <p>Write batch</p>
+    <p>HotCold Cold</p>
+    <p>Filled up, lots of unique keysBoth  number of batches, and  size of batch do not matter</p>
+    <p>Just append until it reaches threshold  avoid redundant merges</p>
+    <p>Inter-level merge</p>
+    <p>Jungle</p>
+  </div>
+  <div class="page">
+    <p>Brief Evaluation  To prove the concept of Jungle  Comparison against leveling (original LSM-tree) and tiering  Widely used LSM-based approaches: leveling</p>
+    <p>Environment  Samsung 860 QVO 1TB, Ext4  20M random key-value pairs</p>
+    <p>Key: 8 bytes, value 1024 KB</p>
+    <p>RAM size: limited to 2.5 GB  LSM-tree settings</p>
+    <p>Max sorted run size: 64MB, L0 size limit: 256MB  Size ratio between levels (T): 10  Max stack size of tiering (M): 10 runs (==T)  Bloom filter: 10 bits per key (~1% false positive rate)</p>
+  </div>
+  <div class="page">
+    <p>Brief Evaluation  Write and space amplification  Issued 400M uniform random updates</p>
+    <p>(no locality  best case for tiering)</p>
+    <p>Leveling C=2 C=3 C=5 C=10 Tiering</p>
+    <p>Write amplification</p>
+    <p>Leveling C=2 C=3 C=5 C=10 Tiering</p>
+    <p>Write amplification (zoomed in)</p>
+    <p>Leveling C=2 C=3 C=5 C=10 Tiering</p>
+    <p>Space amplification</p>
+    <p>Jungle with different parameters</p>
+  </div>
+  <div class="page">
+    <p>Brief Evaluation  Point read throughput and latencies  Issued random read operation on aged indexes</p>
+    <p>Leveling C=2 C=3 C=5 C=10 Tiering</p>
+    <p>Normalized read throughput</p>
+    <p>Leveling C=2 C=3 C=5 C=10 Tiering</p>
+    <p>Normalized read latencies</p>
+    <p>p50 p99 p99.9 p99.99 15/16</p>
+  </div>
+  <div class="page">
+    <p>Summary  Traditional LSM-tree trade-offs  Read, write, and space</p>
+    <p>Jungle  Transplant copy-on-write B+tree into LSM-tree  Get rid of read cost from the trade-off</p>
+    <p>Introduce a practical parameter to adjust write and space</p>
+    <p>Whats next?  Fundamental ways to re-think LSM-tree structure</p>
+    <p>More chances to deform or optimize</p>
+    <p>Read</p>
+    <p>Write</p>
+    <p>Space</p>
+    <p>Write</p>
+    <p>Space</p>
+    <p>Trade-off</p>
+    <p>Trade-off</p>
+  </div>
+  <div class="page">
+    <p>Thank You</p>
+  </div>
+</Presentation>

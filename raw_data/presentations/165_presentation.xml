@@ -1,0 +1,254 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>Interfacing Java to the Virtual Interfacing Java to the Virtual Interface ArchitectureInterface Architecture</p>
+    <p>Chi-Chao Chang Dept. of Computer Science</p>
+    <p>Cornell University</p>
+    <p>(joint work with Thorsten von Eicken)</p>
+  </div>
+  <div class="page">
+    <p>High-performance cluster computing with Java  on homogeneous clusters of workstations</p>
+    <p>User-level network interfaces  direct, protected access to network devices  Virtual Interface Architecture: industry standard</p>
+    <p>Giganets GNN-1000 adapter</p>
+    <p>Improving Java technology  Marmot: Java system with static bcx86 compiler</p>
+    <p>PreliminariesPreliminaries</p>
+    <p>RMI, RPC</p>
+    <p>Sockets</p>
+    <p>Active Messages, MPI, FM</p>
+    <p>VIA</p>
+    <p>Networking Devices</p>
+    <p>Apps</p>
+    <p>Java</p>
+    <p>C</p>
+    <p>Javia: A Java interface to VIA  bottom-up approach  minimizes unverified code  focus on data-transfer inefficiencies</p>
+  </div>
+  <div class="page">
+    <p>VIA and JavaVIA and Java</p>
+    <p>VIA Endpoint Structures  buffers, descriptors, send/recv Qs  pinned to physical memory</p>
+    <p>Key Points  direct DMA access: zero-copy  buffer mgmt (alloc, free, pin, unpin)</p>
+    <p>performed by application  buffer re-use amortizes pin/unpin</p>
+    <p>cost (~ 5K cycles on PII-450 W2K)</p>
+    <p>recvQsendQ</p>
+    <p>Adapter</p>
+    <p>DoorbellsDMA</p>
+    <p>Application Memory</p>
+    <p>Librarybuffers</p>
+    <p>descr</p>
+    <p>DMA</p>
+    <p>Memory management in Java is automatic...  no control over object location and lifetime</p>
+    <p>copying collector can move objects around</p>
+    <p>clear separation between Java heap (GC) and native heap (no GC)  crossing heap boundaries require copying data...</p>
+  </div>
+  <div class="page">
+    <p>Javia-IJavia-I</p>
+    <p>Basic Architecture  respects heap separation</p>
+    <p>buffer mgmt in native code</p>
+    <p>Marmot as an off-the-shelf system  copying GC disabled in native code</p>
+    <p>primitive array transfers only</p>
+    <p>Send/Recv API  non-blocking  blocking</p>
+    <p>bypass ring accesses  copying eliminated during send by</p>
+    <p>pinning array on-the-fly  recv allocates new array on-the-fly</p>
+    <p>cannot eliminate copying during recv</p>
+    <p>send/recv ticket ring</p>
+    <p>send/recv queue</p>
+    <p>descriptor</p>
+    <p>buffer</p>
+    <p>Java</p>
+    <p>C</p>
+    <p>byte array ref</p>
+    <p>Vi</p>
+    <p>GC heap</p>
+    <p>VIA</p>
+  </div>
+  <div class="page">
+    <p>Javia-I: PerformanceJavia-I: Performance</p>
+    <p>Kbytes</p>
+    <p>ms raw copy(s) pin(s) copy(s)+alloc(r) pin(s)+alloc(r)</p>
+    <p>Kbytes</p>
+    <p>MB/s</p>
+    <p>raw copy(s) pin(s) copy(s)+alloc(r) pin(s)+alloc(r)</p>
+    <p>Basic Costs (PII-450, Windows2000b3): VIA pin + unpin = (10 + 10)us</p>
+    <p>Marmot: native call = 0.28us, locks = 0.25us, array alloc = 0.75us</p>
+    <p>Latency: N = transfer size in bytes 16.5us + (25ns) * N raw</p>
+    <p>BW: 75% to 85% of raw, 6KByte switch over between copy and pin</p>
+  </div>
+  <div class="page">
+    <p>jbufsjbufs Motivation</p>
+    <p>hard separation between Java heap (GC) and native heap (no GC) leads to inefficiencies</p>
+    <p>Goal  provide buffer management capabilities to Java without violating</p>
+    <p>its safety properties</p>
+    <p>jbuf: exposes communication buffers to Java programmers 1. lifetime control: explicit allocation and de-allocation</p>
+    <p>heap separation becomes soft and user-controlled</p>
+  </div>
+  <div class="page">
+    <p>jbufs: Lifetime Control jbufs: Lifetime Control</p>
+    <p>public class jbuf {</p>
+    <p>public static jbuf alloc(int bytes);/* allocates jbuf outside of GC heap */</p>
+    <p>public void free() throws CannotFreeException; /* frees jbuf if it can */</p>
+    <p>}</p>
+    <p>jbuf</p>
+    <p>GC heap</p>
+    <p>handle</p>
+  </div>
+  <div class="page">
+    <p>jbufs: Efficient Access jbufs: Efficient Access</p>
+    <p>when can we ever free it?</p>
+    <p>when can we ever re-use it (e.g. change its reference type)? 8</p>
+    <p>public class jbuf {</p>
+    <p>/* alloc and free omitted */</p>
+    <p>public byte[] toByteArray() throws TypedException;/*hands out byte[] ref*/</p>
+    <p>public int[] toIntArray() throws TypedException; /*hands out int[] ref*/</p>
+    <p>. . .</p>
+    <p>}</p>
+    <p>jbuf</p>
+    <p>GC heap</p>
+    <p>Java byte[]</p>
+    <p>ref</p>
+  </div>
+  <div class="page">
+    <p>jbufs: Location Control jbufs: Location Control</p>
+    <p>Idea: Use GC to track references</p>
+    <p>unRef: application claims it has no references into the jbuf  jbuf is added to the GC heap  GC verifies the claim and notifies application through callback  application can now free or re-use the jbuf</p>
+    <p>Required GC support: change scope of GC heap dynamically</p>
+    <p>public class jbuf {</p>
+    <p>/* alloc, free, toArrays omitted */</p>
+    <p>public void unRef(CallBack cb); /* app intends to free/re-use jbuf */</p>
+    <p>}</p>
+    <p>jbuf</p>
+    <p>GC heap</p>
+    <p>Java byte[]</p>
+    <p>ref</p>
+    <p>jbuf</p>
+    <p>GC heap</p>
+    <p>Java byte[]</p>
+    <p>ref</p>
+    <p>jbuf</p>
+    <p>GC heap</p>
+    <p>Java byte[]</p>
+    <p>ref</p>
+    <p>unRef callBack</p>
+  </div>
+  <div class="page">
+    <p>jbufs: Runtime Checksjbufs: Runtime Checks</p>
+    <p>Type safety: ref and to-be-unref states parameterized by primitive type</p>
+    <p>GC* transition depends on the type of garbage collector  non-copying: transition only if all refs to array are dropped before GC  copying: transition occurs after every GC</p>
+    <p>Unref ref&lt;p&gt;</p>
+    <p>to-be unref&lt;p&gt;</p>
+    <p>to&lt;p&gt;Array</p>
+    <p>to&lt;p&gt;Array, GC</p>
+    <p>unRef</p>
+    <p>to&lt;p&gt;Array, unRef</p>
+    <p>GC*</p>
+    <p>alloc</p>
+    <p>free</p>
+  </div>
+  <div class="page">
+    <p>Javia-IIJavia-II</p>
+    <p>Exploiting jbufs  explicit pinning/unpinning of jbufs  only non-blocking send/recvs  additional checks to ensure correct</p>
+    <p>semantics</p>
+    <p>send/recv ticket ring</p>
+    <p>send/recv queue</p>
+    <p>descriptor</p>
+    <p>jbuf</p>
+    <p>Java</p>
+    <p>C</p>
+    <p>Vi</p>
+    <p>state</p>
+    <p>GC heap</p>
+    <p>array refs</p>
+    <p>VIA</p>
+  </div>
+  <div class="page">
+    <p>Javia-II: PerformanceJavia-II: Performance</p>
+    <p>Basic Costs allocation = 1.2us, to*Array = 0.8us, unRefs = 2.5 us</p>
+    <p>Latency (n = xfer size) 16.5us + (0.025us) * n raw</p>
+    <p>BW: within margin of error (&lt; 1%)</p>
+    <p>Kbytes</p>
+    <p>ms raw</p>
+    <p>jbufs</p>
+    <p>copy</p>
+    <p>pin</p>
+    <p>Kbytes</p>
+    <p>MB/s</p>
+    <p>raw</p>
+    <p>jbufs</p>
+    <p>copy</p>
+    <p>pin</p>
+  </div>
+  <div class="page">
+    <p>Active Messages II  maintains a pool of free recv</p>
+    <p>jbufs  jbuf passed to handler  unRef is invoked after</p>
+    <p>handler invocation  if pool is empty, alloc more</p>
+    <p>jbufs or reclaim existing ones</p>
+    <p>copying deferred to GC-time only if needed</p>
+    <p>class First extends AMHandler {</p>
+    <p>private int first;</p>
+    <p>void handler(AMJbuf buf, ) {</p>
+    <p>int[] tmp = buf.toIntArray();</p>
+    <p>first = tmp[0];</p>
+    <p>}</p>
+    <p>}</p>
+    <p>class Enqueue extends AMHandler {</p>
+    <p>private Queue q;</p>
+    <p>void handler(AMJbuf buf, ) {</p>
+    <p>int[] tmp = buf.toIntArray();</p>
+    <p>q.enq(tmp);</p>
+    <p>}</p>
+    <p>}</p>
+    <p>Exercising JbufsExercising Jbufs</p>
+  </div>
+  <div class="page">
+    <p>AM-II: Preliminary NumbersAM-II: Preliminary Numbers</p>
+    <p>ms</p>
+    <p>raw</p>
+    <p>Javia+jbufs</p>
+    <p>AM</p>
+    <p>Javia+copy</p>
+    <p>Kbytes</p>
+    <p>MBps</p>
+    <p>raw</p>
+    <p>Javia+jbufs</p>
+    <p>Javia+copy</p>
+    <p>AM</p>
+    <p>Latency about 15ms higher than Javia  synch access to buffer pool, endpoint header, flow control</p>
+    <p>checks, handler id lookup</p>
+    <p>room for improvement</p>
+    <p>BW within 3% of peak for 16KByte messages</p>
+  </div>
+  <div class="page">
+    <p>Exercising Jbufs againExercising Jbufs again in-place object unmarshaling</p>
+    <p>assumption: homogeneous cluster and JVMs  defer copying and allocation to GC-time if needed  jstreams = jbuf + object stream API</p>
+    <p>writeObject</p>
+    <p>NETWORK</p>
+    <p>GC heap typical</p>
+    <p>readObject</p>
+    <p>GC heap</p>
+    <p>in-place readObject</p>
+    <p>GC heap</p>
+  </div>
+  <div class="page">
+    <p>jstreams: Performancejstreams: Performance</p>
+    <p>readObject</p>
+    <p>P e</p>
+    <p>rO</p>
+    <p>b je</p>
+    <p>c t</p>
+    <p>O v</p>
+    <p>e rh</p>
+    <p>e a</p>
+    <p>d (</p>
+    <p>u s</p>
+    <p>)</p>
+    <p>Serial (MS JVM5.0) Serial (Marmot) jstream/Java jstream/C</p>
+    <p>readObject cost constant w.r.t. object size  about 1.5ms per object if written in C  pointer swizzling, type-checking, array-bounds checking</p>
+  </div>
+  <div class="page">
+    <p>SummarySummary</p>
+    <p>Research goal: Efficient, safe, and flexible interaction with network devices using a</p>
+    <p>safe language</p>
+    <p>Javia: Java Interface to VIA  native buffers as baseline implementation</p>
+    <p>can be implemented on off-the-shelf JVMs</p>
+    <p>jbufs: safe, explicit control over buffer placement and lifetime  ability to allocate primitive arrays on memory segments  ability to change scope of GC heap dynamically</p>
+    <p>building blocks for Java apps and communication software  parallel matrix multiplication  active messages  remote method invocation</p>
+  </div>
+</Presentation>

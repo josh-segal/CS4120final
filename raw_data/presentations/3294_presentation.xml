@@ -1,0 +1,358 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>Yue Cao</p>
+    <p>Off-Path TCP Exploits: Global Rate Limit Considered Dangerous</p>
+    <p>Yue Cao, Zhiyun Qian, Zhongjie Wang, Tuan Dao, Srikanth Krishnamurthy, Lisa M. Marvel</p>
+    <p>USENIX Security 2016 1</p>
+  </div>
+  <div class="page">
+    <p>Our TCP Attack</p>
+    <p>Discovered a subtle TCP side channel vulnerability in Linux 3.6+ (CVE-2016-5696)</p>
+    <p>Given any two arbitrary hosts on the internet, blind attacker can infer:  Existence of communication  Sequence number  ACK number</p>
+    <p>Can be used towards:  TCP connection termination attack  Malicious data injection attack</p>
+  </div>
+  <div class="page">
+    <p>Outline</p>
+    <p>Threat Model  Background  Vulnerability  Our Attacks  Evaluation  Defense &amp; Conclusion</p>
+  </div>
+  <div class="page">
+    <p>Outline</p>
+    <p>Threat Model  Background  Vulnerability  Our Attack  Evaluation  Defense &amp; Conclusion</p>
+  </div>
+  <div class="page">
+    <p>Threat Model</p>
+    <p>Consists of:  An arbitrary pair of client and server  A blind off-path attacker(no eavesdropping capability)</p>
+    <p>Assumption: the attacker can send spoofed packets with the victim (client or server)s IP address</p>
+    <p>Client Server</p>
+    <p>Attacker</p>
+    <p>Threat Model</p>
+  </div>
+  <div class="page">
+    <p>Outline</p>
+    <p>Thread Model  Background  History of RFC 5961  3 modifications in RFC 5961  Why does this vulnerability exist?  Vulnerability  Our Attack  Evaluation  Defense &amp; Conclusion</p>
+  </div>
+  <div class="page">
+    <p>Background  Traditional blind in-window attacks (brute force):  Connection termination &amp; data injection attack  Success requirement (spoofed packet with):  Known 4-tuple &lt;src IP, dst IP, src port, dst port&gt;  Guessed SEQ # is in-window (recv window)</p>
+    <p>RFC 5961 (Aug 2010)  Mitigate blind in-window attacks  Modification of receiving scheme  SYN receiving scheme  RST receiving scheme  Data receiving scheme</p>
+    <p>Ironically, Linux implementation introduced the side channel vulnerability</p>
+  </div>
+  <div class="page">
+    <p>SYN Receiving Scheme  Before RFC 5961: blind RST Attack by sending spoofed SYN packet</p>
+    <p>Sender Receiver</p>
+    <p>SYN</p>
+    <p>Out-of-Window ACK back</p>
+    <p>In_Window Reset Connection</p>
+    <p>After RFC 5961</p>
+    <p>Challenge ACK</p>
+    <p>Challenge ACK</p>
+    <p>RCV.NXT</p>
+    <p>RCV.NXT+RCV.WND</p>
+    <p>RCV_Window</p>
+    <p>SEQ # Space</p>
+    <p>Before RFC 5961SEQ #:</p>
+    <p>Challenge ACK: ask sender to confirm if it indeed restarted</p>
+  </div>
+  <div class="page">
+    <p>RST Receiving Scheme  Before RFC 5961: blind RST Attack by sending spoofed RST packet</p>
+    <p>RST</p>
+    <p>Out-of-Window Drop the Packet</p>
+    <p>In-Window Reset Connection</p>
+    <p>After RFC 5961</p>
+    <p>Exactly match</p>
+    <p>Drop the Packet</p>
+    <p>Challenge ACK</p>
+    <p>Reset Connection</p>
+    <p>Sender Receiver</p>
+    <p>RCV.NXT</p>
+    <p>RCV.NXT+RCV.WND</p>
+    <p>RCV_Window</p>
+    <p>SEQ # Space</p>
+    <p>Before RFC 5961SEQ #: 0/4G</p>
+    <p>Challenge ACK: tell sender to confirm if it indeed terminated the connection</p>
+  </div>
+  <div class="page">
+    <p>Data Receiving Scheme  Before RFC 5961: blind Data Injection Attack by injecting spoofed DATA packet</p>
+    <p>In-RCV_Window &gt; Check ACK #</p>
+    <p>After RFC 5961</p>
+    <p>In-Accpt_Window Process Data</p>
+    <p>Out-of-Window Drop</p>
+    <p>Challenge Window (Old ACK) Challenge ACK</p>
+    <p>Drop</p>
+    <p>Process Data SND.NXT</p>
+    <p>SND.UNA</p>
+    <p>Accept Window</p>
+    <p>SND.UNA-2G</p>
+    <p>Challenge Window</p>
+    <p>RCV.NXT</p>
+    <p>RCV.NXT+RCV.WND</p>
+    <p>RCV_Window</p>
+    <p>SEQ # Space</p>
+    <p>ACK # Space</p>
+    <p>Before RFC 5961</p>
+    <p>SEQ #:</p>
+    <p>ACK #:</p>
+  </div>
+  <div class="page">
+    <p>Why Does This Vulnerability Exist?</p>
+    <p>RFC 5961: a much stricter check on incoming packets  Challenge ACK is triggered in a established connection:  SYN packet with correct 4-tuples &lt;srcIP, dstIP, srcPort, dstPort&gt; (any SEQ #)  RST packet with 4-tuples, in-window SEQ #  Data packet with 4-tuples, in-window SEQ #, old ACK #(in challenge window)</p>
+    <p>Port number SEQ number ACK number</p>
+    <p>SYN-triggered challenge ACK</p>
+    <p>RST-triggered challenge ACK</p>
+    <p>ACK-triggered challenge ACK</p>
+    <p>Rate limit of challenge ACK (recommended by RFC 5961)</p>
+    <p>Linux followed faithfully</p>
+    <p>Side-Channel Side-Channel Side-Channel</p>
+    <p>SYN RST Data</p>
+  </div>
+  <div class="page">
+    <p>Outline</p>
+    <p>Thread Model  Background  Vulnerability  Side channel vulnerability  Guess-Then-Check Method  Optimizations  Our Attack  Evaluation  Defense &amp; Conclusion</p>
+  </div>
+  <div class="page">
+    <p>Side Channel Vulnerability</p>
+    <p>sysctl_tcp_challenge_ack_limit: implemented in Linux 3.6+  Global limit of all challenge ACK per sec, shared across all connections  Default value: 100 (reset per second)</p>
+    <p>llen ge A</p>
+    <p>CK</p>
+    <p>Client Server</p>
+    <p>Attacker</p>
+    <p>Side-Channel Vulnerability Example</p>
+    <p>Any OS at Client!</p>
+  </div>
+  <div class="page">
+    <p>Exploit The Vulnerability</p>
+    <p>Guess-then-Check method:  Send spoofed packets with guessed values  Example: to guess correct client-port number  If its a correct guess:</p>
+    <p>nge ACK</p>
+    <p>Client Server</p>
+    <p>Attacker</p>
+    <p>Spoo fed</p>
+    <p>SYN pack</p>
+    <p>ets w ith</p>
+    <p>clien ts IP</p>
+    <p>and a gu</p>
+    <p>esse d src</p>
+    <p>por t</p>
+    <p>Guess Phase</p>
+    <p>Check Phase</p>
+    <p>Port number Inference</p>
+    <p>SEQ number Inference</p>
+    <p>ACK number Inference</p>
+    <p>SYN-triggered challenge ACK</p>
+    <p>RST-triggered challenge ACK</p>
+    <p>Data-triggered challenge ACK</p>
+  </div>
+  <div class="page">
+    <p>Guess-Then-Check Method  Send spoofed packets with guessed values  Example: to guess correct client-port number  If its a wrong guess:</p>
+    <p>leng e AC</p>
+    <p>K</p>
+    <p>Spoo fed S</p>
+    <p>YN p acke</p>
+    <p>ts wi th</p>
+    <p>clien ts IP</p>
+    <p>and a gu</p>
+    <p>esse d src</p>
+    <p>port</p>
+    <p>No challenge ACK</p>
+    <p>Client Server</p>
+    <p>Attacker</p>
+  </div>
+  <div class="page">
+    <p>Guess-Then-Check Method</p>
+    <p>Challenge: expensive time cost  N: maximum spoofed probing packets in one second  Bandwidth dependent</p>
+    <p>Spoo fed</p>
+    <p>SYN pack</p>
+    <p>ets w ith</p>
+    <p>clien ts IP</p>
+    <p>and gue</p>
+    <p>ssed src</p>
+    <p>port</p>
+    <p>Client Server</p>
+    <p>Attacker</p>
+  </div>
+  <div class="page">
+    <p>Guess-Then-Check Method</p>
+    <p>Same process works for guessing SEQ number and ACK number</p>
+    <p>Correct guess:  SEQ number  ACK number</p>
+    <p>SEQ: Spoo</p>
+    <p>fed R ST Pa</p>
+    <p>ckets with</p>
+    <p>clien ts</p>
+    <p>IP, kn own</p>
+    <p>src p ort a</p>
+    <p>nd gu essed</p>
+    <p>SEQ</p>
+    <p>Client Server</p>
+    <p>Attacker</p>
+    <p>RST packet with correct 4-tuples, SEQ # in-window</p>
+    <p>Data packet with 4-tuples, SEQ # in-window, old ACK #</p>
+    <p>ACK: Spoo</p>
+    <p>fed R ST pa</p>
+    <p>ckets with</p>
+    <p>Clien ts</p>
+    <p>IP, kn own</p>
+    <p>src p ort, S</p>
+    <p>EQ a nd gu</p>
+    <p>essed ACKOR</p>
+    <p>Port number Inference</p>
+    <p>SEQ number Inference</p>
+    <p>ACK number Inference</p>
+    <p>SYN-triggered challenge ACK</p>
+    <p>RST-triggered challenge ACK</p>
+    <p>Data-triggered challenge ACK</p>
+  </div>
+  <div class="page">
+    <p>Guess-Then-Check Method</p>
+    <p>Guess is correct when:  Src Port  SEQ number  ACK number</p>
+    <p>Traditional brute-force attack: 104109109=1022 different combinations  Our attack: Time cost is additive instead of multiplicative</p>
+    <p>RST packet with correct 4-tuples, SEQ # in-window</p>
+    <p>Data packet with correct 4-tuples, SEQ # in-window, old ACK</p>
+    <p>SYN packet with correct 4-tuples(src Port)</p>
+    <p>Dst IP, Src IP Dst Port</p>
+    <p>Src Port 104</p>
+    <p>SEQ number 109</p>
+    <p>ACK number 109</p>
+    <p>Possible to finish within 1 minute!</p>
+  </div>
+  <div class="page">
+    <p>Optimizations</p>
+    <p>Binary-style search  Reduce the number of probing rounds  Multi-bin search  Further improvement  Redundancy-encoded search  Account for packet loss</p>
+  </div>
+  <div class="page">
+    <p>Binary-style Search  Send spoofed packet for all the ports in the 1st half range.  Narrow down the search space by half and proceed to the next round</p>
+    <p>If Challenge ACK # ==100If Challenge ACK # &lt; 100</p>
+    <p>If Challenge ACK # ==100If Challenge ACK # &lt; 100</p>
+    <p>Binary Search Algorithm</p>
+  </div>
+  <div class="page">
+    <p>Outline</p>
+    <p>Thread Model  Background  Vulnerability  Our Attack  Attack overview  Time synchronization  Inference of possible TCP connection  TCP connection termination attack  TCP hijacking attack  Evaluation  Defense &amp; Conclusion</p>
+  </div>
+  <div class="page">
+    <p>Attack Overview</p>
+    <p>Given client and server, we already know:  Src IP address: client IP  Dst IP address: server IP  Dst Port number: service at server(e.g. 80)</p>
+    <p>Pre-process: Time</p>
+    <p>Synchronization</p>
+    <p>Src Port Inference</p>
+    <p>SEQ number Inference</p>
+    <p>ACK number Inference</p>
+    <p>Inference of existence of a TCP connection</p>
+    <p>Connection Termination</p>
+    <p>Attack</p>
+    <p>Hijacking Attack</p>
+  </div>
+  <div class="page">
+    <p>Time Synchronization</p>
+    <p>Challenge:  Challenge ACK count resets each second  All the spoofed and non-spoofed packets</p>
+    <p>MUST be within the same 1-second interval at server</p>
+    <p>Our own method:  A time synchronization strategy based on</p>
+    <p>this side channel</p>
+    <p>.</p>
+    <p>RST .RST RST</p>
+    <p>Time synchronization example</p>
+  </div>
+  <div class="page">
+    <p>Inference Of Possible TCP Connection  Given src IP, dst IP and expected dst port:  To see if client opened a port</p>
+    <p>To infer src port:  1. Throughout all port number[probe N ports in 1 sec]</p>
+    <p>To infer connection exists or not  2. Find exact correct port number[Binary/Multi-bin search]</p>
+    <p>To be used for termination attacker or hijacking attack</p>
+    <p>Src Port #</p>
+    <p>Step1: Identify Port Range</p>
+    <p>Step2: Identify Exact Port</p>
+    <p>Src Port #</p>
+    <p>Range size: N</p>
+  </div>
+  <div class="page">
+    <p>TCP Connection Termination Attack  Given 4-tuples: src IP, dst IP, src Port, dst Port,  To send a RST packet with exactly matched SEQ #</p>
+    <p>Optimization: locate receive window first, then specific SEQ number</p>
+    <p>RCV.NXT</p>
+    <p>RCV.NXT +RCV.WND</p>
+    <p>RST SEQ Number Space RCV_Window</p>
+    <p>Step1: identify the window range Step2: narrow down to a single window Step3: probe RCV.NXT</p>
+    <p>RCV_WND RCV_WND RCV_WND</p>
+    <p>Find Receive Window Find Exact SEQ #</p>
+    <p>SEQ # Space</p>
+    <p>Range Size: N*Win_size</p>
+  </div>
+  <div class="page">
+    <p>TCP Hijacking Attack  Challenge: a RST packet with correct SYN packet will terminate the connection  Main idea (take a detour):  1. Locate rough SEQ # in-window (same as before)  2. Use Data-based probing to infer a rough ACK # in window  3. Use Data-based probing to infer exact SEQ #</p>
+    <p>Rough SEQ # Inference</p>
+    <p>Exact SEQ # Inference</p>
+    <p>Termination Attack:</p>
+    <p>Hijacking Attack:</p>
+    <p>RST-based Probing</p>
+    <p>Data-based Probing</p>
+    <p>Rough ACK # Inference</p>
+    <p>Exact SEQ # Inference</p>
+    <p>X</p>
+  </div>
+  <div class="page">
+    <p>Outline</p>
+    <p>Thread Model  Background  Vulnerability  Our Attack  Evaluation  Time micro-analysis  Case study: termination attack  Case study: hijacking attack  Defense &amp; Conclusion</p>
+  </div>
+  <div class="page">
+    <p>Evaluation: Time Cost  Time Micro-analysis:  Time cost differences in each step between Binary search and Multi-bin search  Time cost vs bandwidth</p>
+    <p>m e(</p>
+    <p>s)</p>
+    <p>Attack intensity (packets/sec) 2000 4000 6000</p>
+    <p>Binary search Multibin search</p>
+    <p>Ti m</p>
+    <p>e (s</p>
+    <p>)</p>
+    <p>Time Synchronization</p>
+    <p>Port Inference</p>
+    <p>Seq Inference</p>
+    <p>ACK Inference</p>
+    <p>Fig1. Time Breakdown Fig2. Attack intensity impact on time to succeed</p>
+  </div>
+  <div class="page">
+    <p>Case Study: Termination Attack</p>
+    <p>Setting: client and attacker at different part of campus  EC2: 8 different regions  Success rate: 96%  Attack time: ~42s</p>
+  </div>
+  <div class="page">
+    <p>Evaluation: Hijacking Attack</p>
+    <p>Setting: client and attacker at different part of campus  Tor: 8 different regions  Success rate: 89%  Attack time: ~61s</p>
+  </div>
+  <div class="page">
+    <p>Evaluation: Hijacking Attack</p>
+    <p>Target: long-lived TCP connection without using SSL/TLS  news website  advertisements connection</p>
+    <p>Behavior at USAToday:  Client refreshes data periodically(30s)  Requests may vary during time</p>
+    <p>Client Server</p>
+    <p>Request Response</p>
+  </div>
+  <div class="page">
+    <p>Evaluation: Hijacking Attack</p>
+    <p>Hijacking: the usatoday.com website  Desynchronization[1]  Injection</p>
+    <p>Client ServerAttacker</p>
+    <p>Request</p>
+    <p>Spoofed Request</p>
+    <p>Response</p>
+    <p>Spoofed Response</p>
+    <p>Spoofed Response</p>
+    <p>Spoofed Response</p>
+    <p>D e syn</p>
+    <p>ch ro</p>
+    <p>n ize</p>
+    <p>d</p>
+    <p>[1]ABRAMOV, R., AND HERZBERG, A. Tcp ack storm dos attacks. Journal Computers and Security (2013).</p>
+  </div>
+  <div class="page">
+    <p>Evaluation: Hijacking Attack</p>
+    <p>Hijacking: the usatoday.com website</p>
+    <p>Success rate of inferring the correct sequence and ACK number: 90%  Success rate of injecting the phishing window: 70%  Average Time Cost: 81.05s (with BW: 5000 pkt/s)</p>
+  </div>
+  <div class="page">
+    <p>Outline</p>
+    <p>Thread Model  Background  Vulnerability  Our Attack  Evaluation  Defense &amp; Conclusion</p>
+  </div>
+  <div class="page">
+    <p>Defense &amp; Conclusion</p>
+    <p>Our defense scheme:  Add random noise to the channel (global challenge ACK rate limit)  Eliminate the side channel  Set sysctl_tcp_challenge_ack_limit to extremly large value[temporary]</p>
+    <p>Conclusion  Discovered a subtle yet critical flaw in the design and implementation of TCP in</p>
+    <p>Linux 3.6+  Demonstrated blind off-path TCP attacks within ~1 minute  Proposed defense schemes</p>
+    <p>Patched in Linux kernel 4.7 in July 2016</p>
+  </div>
+  <div class="page">
+    <p>Thank you! Q &amp; A</p>
+    <p>Yue Cao ycao009@ucr.edu</p>
+  </div>
+</Presentation>

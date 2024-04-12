@@ -1,0 +1,236 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>TritonSort A Balanced Large-Scale</p>
+    <p>Sorting System Alex Rasmussen, George Porter, Michael Conley,</p>
+    <p>Radhika Niranjan Mysore, Amin Vahdat (UCSD) Harsha V. Madhyastha (UC Riverside)</p>
+    <p>Alexander Pucher (Vienna University of Technology)</p>
+  </div>
+  <div class="page">
+    <p>The Rise of Big Data Workloads</p>
+    <p>Very high I/O and storage requirements  Large-scale web and social graph mining  Business analytics  you may also like   Large-scale data science</p>
+    <p>Recent new approaches to data deluge: data intensive scalable computing (DISC) systems  MapReduce, Hadoop, Dryad,</p>
+  </div>
+  <div class="page">
+    <p>Performance via scalability  10,000+ node MapReduce clusters deployed</p>
+    <p>With impressive performance  Example: Yahoo! Hadoop Cluster Sort</p>
+    <p>3,452 nodes sorting 100TB in less than 3 hours  But</p>
+    <p>Less Than 3 MB/sec per node  Single disk: ~100 MB/sec</p>
+    <p>Not an isolated case  See Efficiency Matters!,</p>
+    <p>SIGOPS 2010</p>
+  </div>
+  <div class="page">
+    <p>Overcoming Inefficiency With Brute Force</p>
+    <p>Just add more machines!  But expensive, power-hungry</p>
+    <p>mega-datacenters!  What if we could go from</p>
+    <p>accomplishing the same task</p>
+    <p>or 10x higher throughput</p>
+  </div>
+  <div class="page">
+    <p>TritonSort Goals  Build a highly efficient DISC system that</p>
+    <p>improves per-node efficiency by an order of magnitude vs. existing systems  Through balanced hardware and software</p>
+    <p>Secondary goals:  Completely off-the-shelf components  Focus on I/O-driven workloads (Big Data)  Problems that dont come close to fitting in RAM  Initially sorting, but have since generalized</p>
+  </div>
+  <div class="page">
+    <p>Outline</p>
+    <p>Define hardware and software balance  TritonSort design</p>
+    <p>Highlighting tradeoffs to achieve balance  Evaluation with sorting as a case study</p>
+  </div>
+  <div class="page">
+    <p>Building a Balanced System  Balanced hardware drives</p>
+    <p>all resources as close to 100% as possible  Removing any resource</p>
+    <p>slows us down  Limited by commodity</p>
+    <p>configuration choices  Balanced software fully</p>
+    <p>exploits hardware resources</p>
+  </div>
+  <div class="page">
+    <p>Hardware Selection  Designed for I/O-heavy workloads</p>
+    <p>Not just sorting  Static selection of resources:</p>
+    <p>Network/disk balance  10 Gbps / 80 MBps  16 disks</p>
+    <p>CPU/disk balance  2 disks / core = 8 cores</p>
+    <p>CPU/memory  Originally ~1.5GB/core later 3 GB/core</p>
+  </div>
+  <div class="page">
+    <p>Resulting Hardware Platform 52 Nodes:  Xeon E5520, 8 cores</p>
+    <p>(16 with hyperthreading)  24 GB RAM  16 7200 RPM hard drives  10 Gbps NIC  Cisco Nexus 5020</p>
+  </div>
+  <div class="page">
+    <p>Software Architecture  Staged, pipeline-oriented dataflow system  Program expressed as digraph of stages</p>
+    <p>Data stored in buffers that move along edges  Stages work performed by worker threads</p>
+    <p>Platform for experimentation  Easily vary:</p>
+    <p>Stage implementation  Size and quantity of buffers  Worker threads per stage  CPU and memory allocation to each stage</p>
+  </div>
+  <div class="page">
+    <p>Why Sorting?</p>
+    <p>Easy to describe  Industrially applicable  Uses all cluster resources</p>
+  </div>
+  <div class="page">
+    <p>Current TritonSort Architecture</p>
+    <p>External sort  two reads, two writes*  Dont read and write to disk at same time</p>
+    <p>Partition disks into input and output  Two phases</p>
+    <p>Phase one: route tuples to appropriate on-disk partition (called a logical disk) on appropriate node</p>
+    <p>Phase two: sort all logical disks in parallel</p>
+    <p>* A. Aggarwal and J. S. Vitter. The input/output complexity of sorting and related problems. CACM, 1988.</p>
+  </div>
+  <div class="page">
+    <p>Architecture Phase One</p>
+    <p>Input Disks</p>
+    <p>Reader Node</p>
+    <p>Distributor Sender</p>
+  </div>
+  <div class="page">
+    <p>Architecture Phase One</p>
+    <p>Receiver LD</p>
+    <p>Distributor Coalescer Writer</p>
+    <p>Output Disks Disk 8</p>
+    <p>Disk 7</p>
+    <p>Disk 6</p>
+    <p>Disk 5</p>
+    <p>Disk 4</p>
+    <p>Disk 3</p>
+    <p>Disk 2</p>
+    <p>Disk 1</p>
+    <p>Linked list per partition</p>
+  </div>
+  <div class="page">
+    <p>Reader</p>
+    <p>100 MBps/disk * 8 disks = 800 MBps  No computation, entirely I/O and memory</p>
+    <p>operations  Expect most time spent in iowait  8 reader workers, one per input disk</p>
+    <p>All reader workers co-scheduled on a single core</p>
+    <p>Reader Node</p>
+    <p>Distributor Sender</p>
+    <p>Receiver L.D. Distributor Coalescer Writer</p>
+  </div>
+  <div class="page">
+    <p>NodeDistributor</p>
+    <p>Appends tuples onto a buffer per destination node</p>
+    <p>Memory scan + hash per tuple  300 MBps per worker</p>
+    <p>Need three workers to keep up with readers</p>
+    <p>Reader Node</p>
+    <p>Distributor Sender</p>
+    <p>Receiver L.D. Distributor Coalescer Writer</p>
+  </div>
+  <div class="page">
+    <p>Sender &amp; Receiver</p>
+    <p>800 MBps (from Reader) is 6.4 Gbps  All-to-all traffic</p>
+    <p>Must keep downstream disks busy  Dont let receive buffer get empty  Implies strict socket send time bound</p>
+    <p>Multiplex all senders on one core (single-threaded tight loop)  Visit every socket every 20 s  Didnt need epoll()/select()</p>
+    <p>Reader Node</p>
+    <p>Distributor Sender</p>
+    <p>Receiver L.D. Distributor Coalescer Writer</p>
+  </div>
+  <div class="page">
+    <p>Balancing at Scale</p>
+  </div>
+  <div class="page">
+    <p>t1 t0</p>
+    <p>Logical Disk Distributor</p>
+    <p>t0 t1 t2</p>
+    <p>N</p>
+    <p>H(t0) = 1 H(t1) = N</p>
+    <p>Reader Node</p>
+    <p>Distributor Sender</p>
+    <p>Receiver L.D. Distributor Coalescer Writer</p>
+  </div>
+  <div class="page">
+    <p>Logical Disk Distributor</p>
+    <p>Data non-uniform and bursty at short timescales  Big buffers + burstiness = head-of-line blocking  Need to use all your memory all the time</p>
+    <p>Solution: Read incoming data into smallest buffer possible, and form chains</p>
+    <p>Reader Node</p>
+    <p>Distributor Sender</p>
+    <p>Receiver L.D. Distributor Coalescer Writer</p>
+  </div>
+  <div class="page">
+    <p>Coalescer &amp; Writer</p>
+    <p>Copies tuples from LDBuffer chains into a single, sequential block of memory</p>
+    <p>Longer chains = larger write before seeking = faster writes  Also, more memory needed for LDBuffers</p>
+    <p>Buffer size limits maximum chain length  How big should this buffer be?</p>
+    <p>Reader Node</p>
+    <p>Distributor Sender</p>
+    <p>Receiver L.D. Distributor Coalescer Writer</p>
+  </div>
+  <div class="page">
+    <p>Writer</p>
+    <p>Reader Node</p>
+    <p>Distributor Sender</p>
+    <p>Receiver L.D. Distributor Coalescer Writer</p>
+  </div>
+  <div class="page">
+    <p>Architecture Phase Two</p>
+    <p>Reader Sorter Writer</p>
+    <p>Input Disks Output Disks</p>
+  </div>
+  <div class="page">
+    <p>Sort Benchmark Challenge</p>
+    <p>Started in 1980s by Jim Gray, now run by a committee of volunteers</p>
+    <p>Annual competition with many categories  GraySort: Sort 100 TB</p>
+    <p>Indy variant  10 byte key, 90 byte value  Uniform key distribution</p>
+  </div>
+  <div class="page">
+    <p>How balanced are we?</p>
+    <p>Worker Type Workers Total Throughput (MBps)</p>
+    <p>% Over Bottleneck</p>
+    <p>Stage</p>
+    <p>Reader 8 683 13% Node-Distributor 3 932 55% LD-Distributor 1 683 13% Coalescer 8 18,593 30,000% Writer 8 601 0% Reader 8 740 3.2% Sorter 4 1089 52% Writer 8 717 0%</p>
+  </div>
+  <div class="page">
+    <p>How balanced are we?</p>
+    <p>Phase Resource Utilization</p>
+    <p>CPU Memory Network Disk Phase</p>
+    <p>One 25% 100% 50% 82%</p>
+    <p>Phase Two</p>
+  </div>
+  <div class="page">
+    <p>Scalability</p>
+  </div>
+  <div class="page">
+    <p>Raw 100TB Indy Performance</p>
+    <p>Prev. Record Holder TritonSort</p>
+    <p>P er</p>
+    <p>fo rm</p>
+    <p>an ce</p>
+    <p>p er</p>
+    <p>N od</p>
+    <p>e</p>
+    <p>(T B</p>
+    <p>p er</p>
+    <p>m in</p>
+    <p>ut e)</p>
+  </div>
+  <div class="page">
+    <p>Impact of Faster Disks  7.2K RPM  15K RPM drives  Smaller capacity means fewer LDs  Examined effect of disk speed and # LDs  Removing a bottleneck moves the bottleneck</p>
+    <p>somewhere else</p>
+    <p>Intermediate Disk Speed</p>
+    <p>(RPM)</p>
+    <p>Logical Disks Per Physical</p>
+    <p>Disk</p>
+    <p>Phase One Throughput</p>
+    <p>(MBps)</p>
+    <p>Phase One Bottleneck</p>
+    <p>Stage</p>
+    <p>Average Write Size (MB)</p>
+  </div>
+  <div class="page">
+    <p>Impact of Increased RAM  Hypothesis that memory influences chain length,</p>
+    <p>and thus write speed  Doubling memory indeed increases chain length,</p>
+    <p>but the effect on performance was minimal  Increasing a non-bottleneck resource made it</p>
+    <p>faster, but not by much</p>
+    <p>RAM Per Node (GB)</p>
+    <p>Phase One Throughput (MBps)</p>
+    <p>Average Write Size (MB)</p>
+  </div>
+  <div class="page">
+    <p>Future Work  Generalization</p>
+    <p>We have a fast MapReduce implementation  Considering other applications and</p>
+    <p>programming paradigms  Automatic Tuning</p>
+    <p>Determine appropriate buffer size &amp; count, # workers per stage for reasonable performance  Different hardware  Different workloads</p>
+  </div>
+  <div class="page">
+    <p>TritonSort  Questions?  Proof-of-concept</p>
+    <p>balanced sorting system  6x improvement in per</p>
+    <p>node efficiency vs. previous record holder</p>
+    <p>Current top speed: 938 GB per minute</p>
+    <p>Future Work: Generalization, Automation</p>
+    <p>http://tritonsort.eng.ucsd.edu/</p>
+  </div>
+</Presentation>

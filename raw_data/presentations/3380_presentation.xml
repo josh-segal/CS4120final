@@ -1,0 +1,411 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>Inferring Fine-grained Control Flow Inside SGX Enclaves with</p>
+    <p>Branch Shadowing Sangho Lee Ming-Wei Shih Prasun Gera</p>
+    <p>Taesoo Kim Hyesoon Kim Marcus Peinado</p>
+    <p>August 17, 2017</p>
+  </div>
+  <div class="page">
+    <p>Intel Software Guard Extension (SGX)</p>
+    <p>User process Trusted enclave</p>
+    <p>System software (OS, hypervisor, )</p>
+    <p>Encrypt</p>
+    <p>Prohibited</p>
+    <p>ECALL</p>
+    <p>Decrypt</p>
+    <p>No cold-boot attack</p>
+    <p>OCALL/ Return</p>
+    <p>C a</p>
+    <p>ch e</p>
+    <p>Sensitive operations</p>
+    <p>Normal operations</p>
+  </div>
+  <div class="page">
+    <p>Intel Software Guard Extension (SGX)</p>
+    <p>User process Trusted enclave</p>
+    <p>System software (OS, hypervisor, )</p>
+    <p>Encrypt</p>
+    <p>Prohibited</p>
+    <p>ECALL</p>
+    <p>Decrypt</p>
+    <p>No cold-boot attack</p>
+    <p>OCALL/ Return</p>
+    <p>C a</p>
+    <p>ch e</p>
+    <p>Q: What about side-channel</p>
+    <p>attacks? 2</p>
+    <p>Sensitive operations</p>
+    <p>Normal operations</p>
+  </div>
+  <div class="page">
+    <p>Side-channel attacks against Intel SGX are getting attention</p>
+    <p>Monitor page-fault or page-access sequence (Oakland15, ASIACCS16, Security17)</p>
+    <p>Noise-free, but coarse-grained (page address)</p>
+    <p>Measure cache hit/miss timing (EuroSec17, DIMVA17, ATC17, WOOT17)</p>
+    <p>Fine-grained (cache line), but noisy</p>
+  </div>
+  <div class="page">
+    <p>Page-fault side channel (Oakland15)</p>
+    <p>Unmap all pages and monitor page fault sequences  Page 1-&gt;Page 2: A member  Page 1-&gt;Page 3: Not a member</p>
+    <p>if (is_member(person)) {</p>
+    <p>welcome();</p>
+    <p>} else {</p>
+    <p>bye();</p>
+    <p>}</p>
+    <p>Page1: is_member()</p>
+    <p>Page2: welcome() Page3: bye()</p>
+  </div>
+  <div class="page">
+    <p>Page-fault side channel (Oakland15)</p>
+    <p>Unmap all pages and monitor page fault sequences  Page 1-&gt;Page 2: A member  Page 1-&gt;Page 3: Not a member</p>
+    <p>if (is_member(person)) {</p>
+    <p>welcome();</p>
+    <p>} else {</p>
+    <p>bye();</p>
+    <p>}</p>
+    <p>Does not work when a sensitive control flow change occurs within the same page (or cache line)</p>
+    <p>Page1: is_member()</p>
+    <p>Page2: welcome() Page3: bye()</p>
+  </div>
+  <div class="page">
+    <p>Branch shadowing: A fine-grained sidechannel attack against Intel SGX</p>
+    <p>Can attack each branch instruction  Neither page nor cache-line granularity</p>
+    <p>Deterministically identify branch history  Either taken or not taken  Not about timing difference</p>
+    <p>Achieve high attack success rate  Recover 66% of a 1024-bit RSA private key from a single run</p>
+  </div>
+  <div class="page">
+    <p>Observation: SGX does not clear branch history!</p>
+    <p>CPU caches how each branch instruction has been executed for later prediction, even for SGX.</p>
+    <p>Either taken or not taken, as well as its target address</p>
+    <p>Does an attacker have a reliable way to extract branch history from SGX?</p>
+  </div>
+  <div class="page">
+    <p>Performance monitoring unit (PMU) is prohibited</p>
+    <p>PMUs to profile branch history  Last branch record (LBR) and processor trace (PT)  Prediction results (success/failure), target address,</p>
+    <p>Anti side channel inference (ASCI)  SGX doesnt publish hardware performance events to PMUs.</p>
+    <p>Malicious OS cannot directly use PMUs to get SGXs branch history.</p>
+  </div>
+  <div class="page">
+    <p>Branch collision timing attack works for SGX but has limitations</p>
+    <p>Mispredicted branch takes longer than a correctly predicted branch.</p>
+    <p>But, we cannot directly time a target branch inside SGX.</p>
+    <p>if (is_member(p)){</p>
+    <p>}</p>
+    <p>else {</p>
+    <p>}</p>
+    <p>MispredictionRollback&amp; Re-execute</p>
+  </div>
+  <div class="page">
+    <p>Branch collision timing attack works for SGX but has limitations</p>
+    <p>Colliding branches affect each others prediction (MICRO16).</p>
+    <p>e.g., if a branch has been taken, CPU will predict other colliding branches will also be taken.</p>
+    <p>ADDR[31:0] taken/not-taken target address 0xff12345678</p>
+    <p>Branch instructions with colliding addresses (CPU truncates higher bits to reduce storage overhead.)</p>
+  </div>
+  <div class="page">
+    <p>Branch collision timing attack works for SGX but has limitations</p>
+    <p>Branch execution inside SGX affects colliding branches outside of SGX (shadow branch).</p>
+    <p>We can time a shadow branch instead of the actual target to know whether it has been mispredicted, but</p>
+    <p>This attack has two critical limitations.  Suffer from high measurement noise  Difficult to synchronize target and shadow branches</p>
+  </div>
+  <div class="page">
+    <p>Limitation 1: High measurement noise</p>
+    <p>Mispredicted branch takes long to do rollback while suffering from high variance.</p>
+    <p>Mean Stdev</p>
+    <p>C yc</p>
+    <p>le</p>
+    <p>Prediction</p>
+    <p>Misprediction ~25 cycles</p>
+    <p>~800 cycles (depending on rollbacked instructions)</p>
+    <p>* 10,000 times. 120 NOPs at the fall-through path</p>
+  </div>
+  <div class="page">
+    <p>Limitation 2: Difficulty in synchronization</p>
+    <p>We need to time a shadow branch right after a target has been executed to avoid overwriting.</p>
+    <p>e.g., Skylakes branch target buffer: 4 ways x 1,024 sets  Worst case: Five branch executions would overwrite the target</p>
+    <p>branch history.</p>
+    <p>Synchronization is difficult because SGX does not allow single-stepping.</p>
+  </div>
+  <div class="page">
+    <p>How does branch shadowing overcome the two limitations?</p>
+    <p>Apply LBR to a shadow branch to identify branch prediction results instead of timing</p>
+    <p>No ASCI because a shadow branch is outside of SGX  Deterministic: Either correctly predicted or mispredicted</p>
+    <p>Realize near single-stepping by increasing timer interrupt frequency and disabling the cache</p>
+    <p>Can interrupt SGX enclaves for every ~5 cycles</p>
+  </div>
+  <div class="page">
+    <p>Threat model</p>
+    <p>Attacker knows the source code or binary of a target enclave.</p>
+    <p>Attacker can frequently interrupt the target enclaves execution to execute attack code.</p>
+    <p>Attacker prevents or disrupts the target enclave from accessing a trusted time source.</p>
+  </div>
+  <div class="page">
+    <p>Step 1: Prepare a shadow copy of an SGX program to monitor it with LBR</p>
+    <p>cmp</p>
+    <p>je L1</p>
+    <p>jmpq *rdx</p>
+    <p>SGX enclave</p>
+    <p>LBRASCI</p>
+  </div>
+  <div class="page">
+    <p>Step 1: Prepare a shadow copy of an SGX program to monitor it with LBR</p>
+    <p>cmp</p>
+    <p>je L1</p>
+    <p>jmpq *rdx</p>
+    <p>SGX enclave cmp rax,rax</p>
+    <p>je L1</p>
+    <p>(nop)</p>
+    <p>mov addr,rdx</p>
+    <p>jmpq *rdx</p>
+    <p>(nop)</p>
+    <p>Shadow code (outside of SGX)</p>
+    <p>LBR</p>
+    <p>Colliding branch instructions</p>
+    <p>ASCI</p>
+  </div>
+  <div class="page">
+    <p>Step 1: Prepare a shadow copy of an SGX program to monitor it with LBR</p>
+    <p>cmp</p>
+    <p>je L1</p>
+    <p>jmpq *rdx</p>
+    <p>SGX enclave cmp rax,rax</p>
+    <p>je L1</p>
+    <p>(nop)</p>
+    <p>mov addr,rdx</p>
+    <p>jmpq *rdx</p>
+    <p>(nop)</p>
+    <p>Shadow code (outside of SGX)</p>
+    <p>LBR</p>
+    <p>Colliding branch instructions</p>
+    <p>can monitor all branch executions</p>
+  </div>
+  <div class="page">
+    <p>Step 2: Interrupt SGX execution and monitor shadow code with LBR</p>
+    <p>cmp</p>
+    <p>je L1</p>
+    <p>jmpq *rdx</p>
+    <p>SGX enclave cmp rax,rax</p>
+    <p>je L1</p>
+    <p>(nop)</p>
+    <p>mov addr,rdx</p>
+    <p>jmpq *rdx</p>
+    <p>(nop)</p>
+    <p>Shadow code</p>
+    <p>execute</p>
+  </div>
+  <div class="page">
+    <p>Step 2: Interrupt SGX execution and monitor shadow code with LBR</p>
+    <p>cmp</p>
+    <p>je L1</p>
+    <p>jmpq *rdx</p>
+    <p>SGX enclave cmp rax,rax</p>
+    <p>je L1</p>
+    <p>(nop)</p>
+    <p>mov addr,rdx</p>
+    <p>jmpq *rdx</p>
+    <p>(nop)</p>
+    <p>Shadow code</p>
+    <p>execute</p>
+  </div>
+  <div class="page">
+    <p>Step 2: Interrupt SGX execution and monitor shadow code with LBR</p>
+    <p>cmp</p>
+    <p>je L1</p>
+    <p>jmpq *rdx</p>
+    <p>SGX enclave cmp rax,rax</p>
+    <p>je L1</p>
+    <p>(nop)</p>
+    <p>mov addr,rdx</p>
+    <p>jmpq *rdx</p>
+    <p>(nop)</p>
+    <p>Shadow code</p>
+    <p>execute execute while enabling LBR (predicted or</p>
+    <p>mispredicted?)</p>
+  </div>
+  <div class="page">
+    <p>Step 2: Interrupt SGX execution and monitor shadow code with LBR</p>
+    <p>cmp</p>
+    <p>je L1</p>
+    <p>jmpq *rdx</p>
+    <p>SGX enclave cmp rax,rax</p>
+    <p>je L1</p>
+    <p>(nop)</p>
+    <p>mov addr,rdx</p>
+    <p>jmpq *rdx</p>
+    <p>(nop)</p>
+    <p>Shadow code</p>
+    <p>execute resume</p>
+    <p>execute while enabling LBR (predicted or</p>
+    <p>mispredicted?)</p>
+  </div>
+  <div class="page">
+    <p>Step 2: Interrupt SGX execution and monitor shadow code with LBR</p>
+    <p>cmp</p>
+    <p>je L1</p>
+    <p>jmpq *rdx</p>
+    <p>SGX enclave cmp rax,rax</p>
+    <p>je L1</p>
+    <p>(nop)</p>
+    <p>mov addr,rdx</p>
+    <p>jmpq *rdx</p>
+    <p>(nop)</p>
+    <p>Shadow code</p>
+    <p>execute resume</p>
+    <p>execute while enabling LBR (predicted or</p>
+    <p>mispredicted?)</p>
+    <p>Whether or not shadow branches were correctly predicted reveals the history of target branches.</p>
+  </div>
+  <div class="page">
+    <p>Shadow conditional branch and prediction result</p>
+    <p>cmp rax, rax</p>
+    <p>Shadow code cmp $0, rax</p>
+    <p>SGX enclave</p>
+    <p>LBR does not report not-taken branches, so we make our shadow branch be always taken.</p>
+    <p>Always taken</p>
+    <p>?</p>
+    <p>collision</p>
+  </div>
+  <div class="page">
+    <p>Shadow conditional branch and prediction result</p>
+    <p>Our shadow branch should be taken, but how does CPU predict it with target branchs history?</p>
+    <p>If the target branch has been taken LBR: The shadow branch has been correctly predicted.</p>
+    <p>If the target branch has been not taken LBR: The shadow branch has been mispredicted.</p>
+  </div>
+  <div class="page">
+    <p>Shadow conditional branch and prediction result</p>
+    <p>Our shadow branch should be taken, but how does CPU predict it with target branchs history?</p>
+    <p>If the target branch has been taken LBR: The shadow branch has been correctly predicted.</p>
+    <p>If the target branch has been not taken LBR: The shadow branch has been mispredicted.</p>
+    <p>Deterministically identify whether a target conditional branch has been taken or not taken</p>
+  </div>
+  <div class="page">
+    <p>Shadow indirect branch and prediction result</p>
+    <p>mov 0xff*532,rdx</p>
+    <p>Shadow code</p>
+    <p>SGX enclave</p>
+    <p>Next instruction</p>
+    <p>For an indirect branch, LBR reports a target prediction result. We use its default target: Next instruction.</p>
+    <p>? collision</p>
+  </div>
+  <div class="page">
+    <p>Shadow indirect branch and prediction result</p>
+    <p>Our shadow branch will be correctly predicted unless the target branch updates cached destination.</p>
+    <p>If the target branch has been executed LBR: The shadow branch has been mispredicted.</p>
+    <p>If the target branch has been not executed LBR: The shadow branch has been correctly predicted.</p>
+  </div>
+  <div class="page">
+    <p>Shadow indirect branch and prediction result</p>
+    <p>Our shadow branch will be correctly predicted unless the target branch updates cached destination.</p>
+    <p>If the target branch has been executed LBR: The shadow branch has been mispredicted.</p>
+    <p>If the target branch has been not executed LBR: The shadow branch has been correctly predicted.</p>
+    <p>Deterministically identify whether a target indirect branch has been executed or not</p>
+  </div>
+  <div class="page">
+    <p>Near single-stepping: Frequent timer and disabled cache</p>
+    <p>Increase timer interrupt frequency  Adjust the timestamp counter value of the local APIC timer</p>
+    <p>using a model-specific register, MSR_IA32_TSC_DEADLINE</p>
+    <p>Disable the CPU cache  CD bit of the CR0 register (code?)</p>
+  </div>
+  <div class="page">
+    <p>Near single-stepping: Frequent timer and disabled cache</p>
+    <p>Increase timer interrupt frequency  Adjust the timestamp counter value of the local APIC timer</p>
+    <p>using a model-specific register, MSR_IA32_TSC_DEADLINE</p>
+    <p>Disable the CPU cache  CD bit of the CR0 register (code?)</p>
+    <p>~50 cycles</p>
+  </div>
+  <div class="page">
+    <p>Near single-stepping: Frequent timer and disabled cache</p>
+    <p>Increase timer interrupt frequency  Adjust the timestamp counter value of the local APIC timer</p>
+    <p>using a model-specific register, MSR_IA32_TSC_DEADLINE</p>
+    <p>Disable the CPU cache  CD bit of the CR0 register (code?)</p>
+    <p>~5 cycles</p>
+  </div>
+  <div class="page">
+    <p>Attack evaluation: Sliding-window exponentiation</p>
+    <p>/* X = A^E mod N */</p>
+    <p>mbedtls_mpi_exp_mod(X, A, E, N, _RR) {</p>
+    <p>while (1) {</p>
+    <p>// i-th bit of exponent</p>
+    <p>ei = (E-&gt;p[nblimbs] &gt;&gt; bufsize) &amp; 1;</p>
+    <p>if (ei == 0 &amp;&amp; state == 0) continue;</p>
+    <p>if (ei == 0 &amp;&amp; state == 1)</p>
+    <p>mpi_montmul(X, X, N, mm, &amp;T);</p>
+    <p>}</p>
+    <p>taken only when ei is one</p>
+  </div>
+  <div class="page">
+    <p>Attack evaluation: Sliding-window exponentiation</p>
+    <p>/* X = A^E mod N */</p>
+    <p>mbedtls_mpi_exp_mod(X, A, E, N, _RR) {</p>
+    <p>while (1) {</p>
+    <p>// i-th bit of exponent</p>
+    <p>ei = (E-&gt;p[nblimbs] &gt;&gt; bufsize) &amp; 1;</p>
+    <p>if (ei == 0 &amp;&amp; state == 0) continue;</p>
+    <p>if (ei == 0 &amp;&amp; state == 1)</p>
+    <p>mpi_montmul(X, X, N, mm, &amp;T);</p>
+    <p>}</p>
+    <p>taken only when ei is one We can recover 66% of a 1024-bit RSA private key from</p>
+    <p>a single run (~10 runs are enough to fully recover it).</p>
+  </div>
+  <div class="page">
+    <p>Attack demo</p>
+    <p>https://youtu.be/jf9PanlF374</p>
+  </div>
+  <div class="page">
+    <p>Hardware countermeasure: Flush branch history at SGX mode switch</p>
+    <p>Most effective, but need hardware modification  It would not be realized by microcode update.</p>
+    <p>Overhead depends on how frequently SGX mode switch occurs.</p>
+  </div>
+  <div class="page">
+    <p>Simulation result</p>
+    <p>bzip2 gcc mcf h264ref omnetpp astar gamess namd sphinx3 GMEAN</p>
+    <p>N o</p>
+    <p>rm a</p>
+    <p>li ze</p>
+    <p>d I</p>
+    <p>P C 100</p>
+    <p>Overhead was ~2% when mode switching occurs at every 100k cycles.</p>
+    <p>Ten times frequent than the timer interrupt of Windows 10 (generated for every 1M cycles @ 4GHz CPU)</p>
+  </div>
+  <div class="page">
+    <p>Software mitigation: Branch obfuscation</p>
+    <p>Replace a set of branches with a single indirect branch plus conditional move instructions</p>
+    <p>Indirect branch only reveals when and whether it has been executed, not its target.</p>
+    <p>Conditional move is used to conditionally update the indirect branchs target.</p>
+    <p>Modify LLVM for automatic transformation  Average overhead: Below 1.3x (nbench)</p>
+  </div>
+  <div class="page">
+    <p>Example of branch obfuscation</p>
+    <p>L0:cmp $0,$a</p>
+    <p>je L2</p>
+    <p>L1:</p>
+    <p>L2:</p>
+    <p>Can identify whether L1 or L2 has been executed</p>
+  </div>
+  <div class="page">
+    <p>Example of branch obfuscation</p>
+    <p>L0:cmp $0,$a</p>
+    <p>je L2</p>
+    <p>L1:</p>
+    <p>L2:</p>
+    <p>Can identify whether L1 or L2 has been executed</p>
+    <p>Can identify whether Z1 has been executed but not its target</p>
+    <p>transformation</p>
+    <p>L0: mov $L1,r15</p>
+    <p>cmp $0,$a</p>
+    <p>cmov $L2,r15</p>
+    <p>jmp Z1</p>
+    <p>L1:</p>
+    <p>L2:</p>
+    <p>Z1: jmpq *r15</p>
+  </div>
+  <div class="page">
+    <p>Conclusion</p>
+    <p>Branch shadowing: Fine-grained and deterministic side-channel attack on SGX</p>
+    <p>Reveal direction and/or execution of individual branch instrs</p>
+    <p>Proposed hardware- and software-based countermeasures</p>
+    <p>Branch history flushing and obfuscation</p>
+    <p>Thanks for listening! Sangho Lee (sangho@gatech.edu)</p>
+  </div>
+</Presentation>

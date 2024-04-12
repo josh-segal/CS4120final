@@ -1,0 +1,609 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>Designing an Efficient Replicated Log Store with Consensus Protocol</p>
+    <p>Jung-Sang Ahn (junahn@ebay.com), Woon-Hak Kang, Kun Ren, Guogen Zhang, and Sami Ben-Romdhane</p>
+    <p>Platform Architecture &amp; Data Infrastructure, eBay Inc.</p>
+    <p>USENIX HotCloud 2019</p>
+  </div>
+  <div class="page">
+    <p>Outline  Purpose &amp; Requirement</p>
+    <p>Challenging Issue?</p>
+    <p>Our Approach</p>
+    <p>Brief Evaluation</p>
+    <p>Whats Next?</p>
+  </div>
+  <div class="page">
+    <p>Log Store  Strict ordering  Determining global order of execution  Useful for distributed transaction</p>
+    <p>GRIT (ICDE 2019, our work)  Tango (SOSP 2013), CORFU (NSDI 2012)  Calvin (SIGMOD 2012), FaunaDB  ...</p>
+    <p>Should be  Highly available: multiple replicas  Highly efficient: lots of subscribers</p>
+    <p>Globally shared logs Writers</p>
+    <p>Shard 1 Shard 2 Shard N</p>
+    <p>Same order of execution, without any coordination.</p>
+  </div>
+  <div class="page">
+    <p>Requirements  Each user payload  unique log sequence number (LSN)  Non-zero positive number</p>
+    <p>All replicas: same data + same LSN order  Even after failure and recovery</p>
+    <p>No empty LSN in the middle  All LSNs should be continuous</p>
+    <p>Clients can send payloads in batch  Client batch (a set of LSNs) should be committed atomically  Partial commit is not allowed</p>
+  </div>
+  <div class="page">
+    <p>Problems  Apache Kafka  Can be used as a log store (G. Wang et al. VLDB 2015)  No group commit for a single topic</p>
+    <p>Multiple clients: one is blocked by previous replication from other client</p>
+    <p>What if we use consensus protocol?  Multi-Paxos (L. Lamport 2001), Raft (ATC 2014), etc.  Raft guarantees aforementioned requirements</p>
+  </div>
+  <div class="page">
+    <p>Log Store with Raft  Raft protocol overview</p>
+    <p>State machine</p>
+    <p>S1 (leader)</p>
+    <p>State machine</p>
+    <p>S2</p>
+    <p>State machine</p>
+    <p>S3</p>
+    <p>Log: mutate operation  State machine: back-end DB</p>
+    <p>Committed log</p>
+    <p>Uncommitted log</p>
+  </div>
+  <div class="page">
+    <p>Log Store with Raft  Raft protocol overview</p>
+    <p>State machine</p>
+    <p>S1 (leader)</p>
+    <p>State machine</p>
+    <p>S2</p>
+    <p>State machine</p>
+    <p>S3</p>
+    <p>Log: mutate operation  State machine: back-end DB</p>
+    <p>Committed log</p>
+    <p>Uncommitted log</p>
+    <p>New append request</p>
+  </div>
+  <div class="page">
+    <p>Log Store with Raft  Raft protocol overview</p>
+    <p>State machine</p>
+    <p>S1 (leader)</p>
+    <p>State machine</p>
+    <p>S2</p>
+    <p>State machine</p>
+    <p>S3</p>
+    <p>Log: mutate operation  State machine: back-end DB</p>
+    <p>Committed log</p>
+    <p>Uncommitted log</p>
+    <p>Replicate log 5, commit log 4</p>
+  </div>
+  <div class="page">
+    <p>Log Store with Raft  Raft protocol overview</p>
+    <p>State machine</p>
+    <p>S1 (leader)</p>
+    <p>State machine</p>
+    <p>S2</p>
+    <p>State machine</p>
+    <p>S3</p>
+    <p>Log: mutate operation  State machine: back-end DB</p>
+    <p>Committed log</p>
+    <p>Uncommitted log</p>
+  </div>
+  <div class="page">
+    <p>Log Store with Raft  Raft protocol overview</p>
+    <p>State machine</p>
+    <p>S1 (leader)</p>
+    <p>State machine</p>
+    <p>S2</p>
+    <p>State machine</p>
+    <p>S3</p>
+    <p>Log: mutate operation  State machine: back-end DB</p>
+    <p>Committed log</p>
+    <p>Uncommitted log</p>
+    <p>Ack</p>
+  </div>
+  <div class="page">
+    <p>Log Store with Raft  Raft protocol overview</p>
+    <p>State machine</p>
+    <p>S1 (leader)</p>
+    <p>State machine</p>
+    <p>S2</p>
+    <p>State machine</p>
+    <p>S3</p>
+    <p>Log: mutate operation  State machine: back-end DB</p>
+    <p>Committed log</p>
+    <p>Uncommitted log</p>
+    <p>Commit log 5</p>
+    <p>Execute log 5</p>
+  </div>
+  <div class="page">
+    <p>Log Store with Raft  Raft protocol overview</p>
+    <p>State machine</p>
+    <p>S1 (leader)</p>
+    <p>State machine</p>
+    <p>S2</p>
+    <p>State machine</p>
+    <p>S3</p>
+    <p>Log: mutate operation  State machine: back-end DB</p>
+    <p>Committed log</p>
+    <p>Uncommitted log</p>
+    <p>Commit of followers is done by  Next replication (pipelining)  Heartbeat (if no replication meanwhile)</p>
+  </div>
+  <div class="page">
+    <p>Log Store with Raft  Raft protocol overview</p>
+    <p>State machine</p>
+    <p>S1 (leader)</p>
+    <p>State machine</p>
+    <p>S2</p>
+    <p>State machine</p>
+    <p>S3</p>
+    <p>Log: mutate operation  State machine: back-end DB</p>
+    <p>Committed log</p>
+    <p>Uncommitted log</p>
+    <p>Commit of followers is done by  Next replication (pipelining)  Heartbeat (if no replication meanwhile)</p>
+    <p>New append request</p>
+  </div>
+  <div class="page">
+    <p>Log Store with Raft  Raft protocol overview</p>
+    <p>State machine</p>
+    <p>S1 (leader)</p>
+    <p>State machine</p>
+    <p>S2</p>
+    <p>State machine</p>
+    <p>S3</p>
+    <p>Log: mutate operation  State machine: back-end DB</p>
+    <p>Committed log</p>
+    <p>Uncommitted log</p>
+    <p>Commit of followers is done by  Next replication (pipelining)  Heartbeat (if no replication meanwhile)</p>
+    <p>Replicate log 6, commit log 5</p>
+  </div>
+  <div class="page">
+    <p>Log Store with Raft  Raft protocol overview</p>
+    <p>State machine</p>
+    <p>S1 (leader)</p>
+    <p>State machine</p>
+    <p>S2</p>
+    <p>State machine</p>
+    <p>S3</p>
+    <p>Log: mutate operation  State machine: back-end DB</p>
+    <p>Committed log</p>
+    <p>Uncommitted log</p>
+    <p>Commit of followers is done by  Next replication (pipelining)  Heartbeat (if no replication meanwhile)</p>
+    <p>Execute</p>
+    <p>Execute</p>
+  </div>
+  <div class="page">
+    <p>Log Store with Raft  Option 1: log store based on Raft  State machine: another append-only logs</p>
+    <p>S1 (leader)</p>
+  </div>
+  <div class="page">
+    <p>Log Store with Raft  Option 1: log store based on Raft  State machine: another append-only logs</p>
+    <p>S1 (leader)</p>
+    <p>New append request</p>
+  </div>
+  <div class="page">
+    <p>Log Store with Raft  Option 1: log store based on Raft  State machine: another append-only logs</p>
+    <p>S1 (leader)</p>
+    <p>Replicate &amp; consensus</p>
+  </div>
+  <div class="page">
+    <p>Log Store with Raft  Option 1: log store based on Raft  State machine: another append-only logs</p>
+    <p>S1 (leader)</p>
+    <p>Commit &amp; execute5</p>
+  </div>
+  <div class="page">
+    <p>Log Store with Raft  Option 1: log store based on Raft  State machine: another append-only logs</p>
+    <p>S1 (leader)</p>
+    <p>Exactly duplicate logs!  Double the space  Double disk writes</p>
+  </div>
+  <div class="page">
+    <p>Log Store with Raft  Option 1: log store based on Raft  State machine: another append-only logs</p>
+    <p>Option 2: directly using Raft logs as actual logs  LSN == Raft log number  Granularity difference</p>
+    <p>Cannot guarantee atomic commit of a batch  Basic unit of replication, consensus, recovery, and commit: a Raft log</p>
+    <p>Empty</p>
+    <p>Raft: replicate 4 only  out of control</p>
+  </div>
+  <div class="page">
+    <p>Log Store with Raft  Option 1: log store based on Raft  State machine: another append-only logs</p>
+    <p>Option 2: directly using Raft logs as actual logs  LSN == Raft log number  Granularity difference</p>
+    <p>Cannot guarantee atomic commit of a batch  Basic unit of replication, consensus, recovery, and commit: a Raft log</p>
+    <p>System logs in the middle  Not continuous LSN</p>
+    <p>Empty</p>
+    <p>System log by membership or configuration change</p>
+  </div>
+  <div class="page">
+    <p>Our Approach: Log Sharing Scheme</p>
+  </div>
+  <div class="page">
+    <p>Log Sharing Scheme  Data log store (state machine)  Stores user payloads  Assigns LSN to each payload</p>
+    <p>Raft log store  Stores Raft logs</p>
+    <p>References to data log store</p>
+    <p>Each payload is written to disk only once</p>
+    <p>Granularity difference  Raft log: multiple references to data log 1 2 3 4</p>
+    <p>Data log store (state machine)</p>
+    <p>Raft log store</p>
+  </div>
+  <div class="page">
+    <p>Log Sharing Scheme  Data log store (state machine)  Stores user payloads  Assigns LSN to each payload</p>
+    <p>Raft log store  Stores Raft logs</p>
+    <p>References to data log store</p>
+    <p>Each payload is written to disk only once</p>
+    <p>Granularity difference  Raft log: multiple references to data log</p>
+    <p>foo bar</p>
+    <p>User payloads</p>
+    <p>Data log store (state machine)</p>
+    <p>Raft log store</p>
+  </div>
+  <div class="page">
+    <p>Log Sharing Scheme  Data log store (state machine)  Stores user payloads  Assigns LSN to each payload</p>
+    <p>Raft log store  Stores Raft logs</p>
+    <p>References to data log store</p>
+    <p>Each payload is written to disk only once</p>
+    <p>Granularity difference  Raft log: multiple references to data log</p>
+    <p>foo bar</p>
+    <p>User payloads</p>
+    <p>Data log store (state machine)</p>
+    <p>Raft log store</p>
+    <p>Write to state machine without commit: assign LSN 5 and 6 7/12</p>
+  </div>
+  <div class="page">
+    <p>Log Sharing Scheme  Data log store (state machine)  Stores user payloads  Assigns LSN to each payload</p>
+    <p>Raft log store  Stores Raft logs</p>
+    <p>References to data log store</p>
+    <p>Each payload is written to disk only once</p>
+    <p>Granularity difference  Raft log: multiple references to data log</p>
+    <p>foo bar</p>
+    <p>User payloads</p>
+    <p>Data log store (state machine)</p>
+    <p>Raft log store</p>
+    <p>Write to state machine without commit: assign LSN 5 and 6</p>
+    <p>Append a Raft log containing references</p>
+  </div>
+  <div class="page">
+    <p>Log Sharing Scheme  Data log store (state machine)  Stores user payloads  Assigns LSN to each payload</p>
+    <p>Raft log store  Stores Raft logs</p>
+    <p>References to data log store</p>
+    <p>Each payload is written to disk only once</p>
+    <p>Granularity difference  Raft log: multiple references to data log</p>
+    <p>foo bar</p>
+    <p>User payloads</p>
+    <p>Data log store (state machine)</p>
+    <p>Raft log store</p>
+    <p>Last committed log</p>
+  </div>
+  <div class="page">
+    <p>Log Sharing Scheme  Data log store (state machine)  Stores user payloads  Assigns LSN to each payload</p>
+    <p>Raft log store  Stores Raft logs</p>
+    <p>References to data log store</p>
+    <p>Each payload is written to disk only once</p>
+    <p>Granularity difference  Raft log: multiple references to data log</p>
+    <p>foo bar</p>
+    <p>User payloads</p>
+    <p>Data log store (state machine)</p>
+    <p>Raft log store</p>
+    <p>Last committed log</p>
+    <p>foo bar</p>
+    <p>Reconstruct original payloads</p>
+    <p>Replicate Raft log 3</p>
+  </div>
+  <div class="page">
+    <p>Log Sharing Scheme  Data log store (state machine)  Stores user payloads  Assigns LSN to each payload</p>
+    <p>Raft log store  Stores Raft logs</p>
+    <p>References to data log store</p>
+    <p>Each payload is written to disk only once</p>
+    <p>Granularity difference  Raft log: multiple references to data log</p>
+    <p>foo bar</p>
+    <p>User payloads</p>
+    <p>Data log store (state machine)</p>
+    <p>Raft log store</p>
+    <p>Last committed log</p>
+    <p>Commit Raft log 3</p>
+  </div>
+  <div class="page">
+    <p>Log Sharing Scheme  Data log store (state machine)  Stores user payloads  Assigns LSN to each payload</p>
+    <p>Raft log store  Stores Raft logs</p>
+    <p>References to data log store</p>
+    <p>Each payload is written to disk only once</p>
+    <p>Granularity difference  Raft log: multiple references to data log</p>
+    <p>foo bar</p>
+    <p>User payloads</p>
+    <p>Data log store (state machine)</p>
+    <p>Raft log store</p>
+    <p>Last committed log</p>
+    <p>Commit Raft log 3</p>
+    <p>Execution</p>
+  </div>
+  <div class="page">
+    <p>Log Sharing Scheme  Data log store (state machine)  Stores user payloads  Assigns LSN to each payload</p>
+    <p>Raft log store  Stores Raft logs</p>
+    <p>References to data log store</p>
+    <p>Each payload is written to disk only once</p>
+    <p>Granularity difference  Raft log: multiple references to data log</p>
+    <p>foo bar</p>
+    <p>User payloads</p>
+    <p>Data log store (state machine)</p>
+    <p>Raft log store</p>
+    <p>Last committed log</p>
+    <p>Commit Raft log 3</p>
+    <p>Execution</p>
+    <p>Commit process should be atomic 7/12</p>
+  </div>
+  <div class="page">
+    <p>Log Sharing Scheme  Payloads are written to state machine before commit  Inconsistency?</p>
+    <p>S2 S3 8/12</p>
+  </div>
+  <div class="page">
+    <p>Log Sharing Scheme  Payloads are written to state machine before commit  Inconsistency?</p>
+    <p>S2 S3</p>
+    <p>Append 3 payloads: Raft log 2 with LSN 2, 3, and 4</p>
+  </div>
+  <div class="page">
+    <p>Log Sharing Scheme  Payloads are written to state machine before commit  Inconsistency?</p>
+    <p>S2 S3</p>
+    <p>Replication of Raft log 2 fails, leader crashes</p>
+  </div>
+  <div class="page">
+    <p>Log Sharing Scheme  Payloads are written to state machine before commit  Inconsistency?</p>
+    <p>S2 (leader) S3</p>
+    <p>S2 is elected as a new leader 8/12</p>
+  </div>
+  <div class="page">
+    <p>Log Sharing Scheme  Payloads are written to state machine before commit  Inconsistency?</p>
+    <p>S2 (leader) S3</p>
+    <p>Append 2 payloads, assign LSN 2 and 3, and commit Raft log 2</p>
+  </div>
+  <div class="page">
+    <p>Log Sharing Scheme  Payloads are written to state machine before commit  Inconsistency?</p>
+    <p>S2 (leader) S3</p>
+    <p>Previous leader is back</p>
+  </div>
+  <div class="page">
+    <p>Log Sharing Scheme  Payloads are written to state machine before commit  Inconsistency?</p>
+    <p>S2 (leader) S3</p>
+    <p>Replicate Raft log 2 with 2 new payloads</p>
+  </div>
+  <div class="page">
+    <p>Log Sharing Scheme  Payloads are written to state machine before commit  Inconsistency?</p>
+    <p>S2 (leader) S3</p>
+    <p>Assign 5 and 6, and overwrite Raft log 2  inconsistency</p>
+  </div>
+  <div class="page">
+    <p>Log Sharing Scheme  Payloads are written to state machine before commit  Inconsistency?</p>
+    <p>S2 (leader) S3</p>
+    <p>Special hook: detect Raft log overwrite  rollback state machine</p>
+  </div>
+  <div class="page">
+    <p>Log Sharing Scheme  Payloads are written to state machine before commit  Inconsistency?</p>
+    <p>S2 (leader) S3</p>
+    <p>Special hook: detect Raft log overwrite  rollback state machine</p>
+  </div>
+  <div class="page">
+    <p>Log Sharing Scheme</p>
+    <p>S2 (leader) S3</p>
+    <p>Assign 2 and 3, overwrite Raft log 2</p>
+    <p>Payloads are written to state machine before commit  Inconsistency?</p>
+  </div>
+  <div class="page">
+    <p>Log Sharing Scheme</p>
+    <p>S2 (leader) S3</p>
+    <p>Assign 2 and 3, overwrite Raft log 2</p>
+    <p>Payloads are written to state machine before commit  Inconsistency?</p>
+    <p>Rollback is easily doable  Log stores state machine: log-structured format</p>
+    <p>What if state machine is general database or key-value store?  Un-do logs for rollback?  cancel the benefit of log sharing  Not easy</p>
+  </div>
+  <div class="page">
+    <p>Group Commit &amp; Pipelining  To maximize throughput</p>
+    <p>Accept new payloads while previous replication is in flight</p>
+    <p>Commit multiple user batches at once</p>
+    <p>S1 (leader)</p>
+    <p>Time</p>
+  </div>
+  <div class="page">
+    <p>Group Commit &amp; Pipelining  To maximize throughput</p>
+    <p>Accept new payloads while previous replication is in flight</p>
+    <p>Commit multiple user batches at once</p>
+    <p>S1 (leader)</p>
+    <p>Send 1-2 to S2</p>
+    <p>Time</p>
+  </div>
+  <div class="page">
+    <p>Group Commit &amp; Pipelining  To maximize throughput</p>
+    <p>Accept new payloads while previous replication is in flight</p>
+    <p>Commit multiple user batches at once</p>
+    <p>S1 (leader)</p>
+    <p>Send 1-3 to S3</p>
+    <p>Send 1-2 to S2</p>
+    <p>Time</p>
+  </div>
+  <div class="page">
+    <p>Group Commit &amp; Pipelining  To maximize throughput</p>
+    <p>Accept new payloads while previous replication is in flight</p>
+    <p>Commit multiple user batches at once</p>
+    <p>S1 (leader)</p>
+    <p>Send 1-3 to S3</p>
+    <p>Send 1-2 to S2</p>
+    <p>Ack</p>
+    <p>Time</p>
+  </div>
+  <div class="page">
+    <p>Group Commit &amp; Pipelining  To maximize throughput</p>
+    <p>Accept new payloads while previous replication is in flight</p>
+    <p>Commit multiple user batches at once</p>
+    <p>S1 (leader)</p>
+    <p>Send 1-3 to S3</p>
+    <p>Send 1-2 to S2</p>
+    <p>Ack</p>
+    <p>Now majority of servers (S1 and S2) have logs up to 2</p>
+    <p>Time</p>
+  </div>
+  <div class="page">
+    <p>Group Commit &amp; Pipelining  To maximize throughput</p>
+    <p>Accept new payloads while previous replication is in flight</p>
+    <p>Commit multiple user batches at once</p>
+    <p>S1 (leader)</p>
+    <p>Send 1-3 to S3</p>
+    <p>Send 1-2 to S2</p>
+    <p>Ack</p>
+    <p>Now majority of servers (S1 and S2) have logs up to 2</p>
+    <p>Send 3-8 to S2</p>
+    <p>Time</p>
+  </div>
+  <div class="page">
+    <p>Group Commit &amp; Pipelining  To maximize throughput</p>
+    <p>Accept new payloads while previous replication is in flight</p>
+    <p>Commit multiple user batches at once</p>
+    <p>S1 (leader)</p>
+    <p>Send 1-3 to S3</p>
+    <p>Send 1-2 to S2</p>
+    <p>Ack</p>
+    <p>Send 3-8 to S2</p>
+    <p>Ack</p>
+    <p>Time</p>
+  </div>
+  <div class="page">
+    <p>Group Commit &amp; Pipelining  To maximize throughput</p>
+    <p>Accept new payloads while previous replication is in flight</p>
+    <p>Commit multiple user batches at once</p>
+    <p>S1 (leader)</p>
+    <p>Send 1-3 to S3</p>
+    <p>Send 1-2 to S2</p>
+    <p>Ack</p>
+    <p>Send 3-8 to S2</p>
+    <p>Ack</p>
+    <p>Now majority of servers (S1 and S3) have logs up to 3</p>
+    <p>Time</p>
+  </div>
+  <div class="page">
+    <p>Group Commit &amp; Pipelining  To maximize throughput</p>
+    <p>Accept new payloads while previous replication is in flight</p>
+    <p>Commit multiple user batches at once</p>
+    <p>S1 (leader)</p>
+    <p>Send 1-3 to S3</p>
+    <p>Send 1-2 to S2</p>
+    <p>Ack</p>
+    <p>Ack</p>
+    <p>Now majority of servers (S1 and S3) have logs up to 3</p>
+    <p>Send 4-10 to S3</p>
+    <p>Send 3-8 to S2</p>
+    <p>Time</p>
+  </div>
+  <div class="page">
+    <p>Group Commit &amp; Pipelining  To maximize throughput</p>
+    <p>Accept new payloads while previous replication is in flight</p>
+    <p>Commit multiple user batches at once</p>
+    <p>S1 (leader)</p>
+    <p>Send 1-3 to S3</p>
+    <p>Send 1-2 to S2</p>
+    <p>Ack</p>
+    <p>Ack</p>
+    <p>Send 4-10 to S3</p>
+    <p>Send 3-8 to S2</p>
+    <p>Time</p>
+  </div>
+  <div class="page">
+    <p>Group Commit &amp; Pipelining  To maximize throughput</p>
+    <p>Accept new payloads while previous replication is in flight</p>
+    <p>Commit multiple user batches at once</p>
+    <p>S1 (leader)</p>
+    <p>Send 1-3 to S3</p>
+    <p>Send 1-2 to S2</p>
+    <p>Ack</p>
+    <p>Ack</p>
+    <p>Send 4-10 to S3</p>
+    <p>Send 3-8 to S2</p>
+    <p>Send 3-14 to S2</p>
+    <p>Time</p>
+  </div>
+  <div class="page">
+    <p>Group Commit &amp; Pipelining  To maximize throughput</p>
+    <p>Accept new payloads while previous replication is in flight</p>
+    <p>Commit multiple user batches at once</p>
+    <p>S1 (leader)</p>
+    <p>Send 1-3 to S3</p>
+    <p>Send 1-2 to S2</p>
+    <p>Ack</p>
+    <p>Ack</p>
+    <p>Send 4-10 to S3</p>
+    <p>Send 3-8 to S2</p>
+    <p>Send 3-14 to S2</p>
+    <p>Ack</p>
+    <p>Now majority of servers (S1 and S3) have logs up to 10</p>
+    <p>Time</p>
+  </div>
+  <div class="page">
+    <p>Group Commit &amp; Pipelining  To maximize throughput</p>
+    <p>Accept new payloads while previous replication is in flight</p>
+    <p>Commit multiple user batches at once</p>
+    <p>S1 (leader)</p>
+    <p>Send 1-3 to S3</p>
+    <p>Send 1-2 to S2</p>
+    <p>Ack</p>
+    <p>Ack</p>
+    <p>Send 4-10 to S3</p>
+    <p>Send 3-8 to S2</p>
+    <p>Ack</p>
+    <p>Now majority of servers (S1 and S3) have logs up to 10</p>
+    <p>Send 11-16 to S3</p>
+    <p>Send 3-14 to S2</p>
+    <p>Time</p>
+  </div>
+  <div class="page">
+    <p>Group Commit &amp; Pipelining  To maximize throughput</p>
+    <p>Accept new payloads while previous replication is in flight</p>
+    <p>Commit multiple user batches at once</p>
+    <p>S1 (leader)</p>
+    <p>Send 1-3 to S3</p>
+    <p>Send 1-2 to S2</p>
+    <p>Ack</p>
+    <p>Ack</p>
+    <p>Send 4-10 to S3</p>
+    <p>Send 3-8 to S2</p>
+    <p>Ack</p>
+    <p>Now majority of servers (S1 and S3) have logs up to 10</p>
+    <p>Send 11-16 to S3</p>
+    <p>Send 3-14 to S2</p>
+    <p>Time</p>
+    <p>Replication to each server: batched &amp; pipelined independently</p>
+    <p>Do not wait for commit of previous replication</p>
+    <p>No empty LSN: only dealing with the last successful LSN</p>
+  </div>
+  <div class="page">
+    <p>Implementation  Written in C++  Raft: 5,578 lines of code  Core logic: 20,196 lines of code</p>
+    <p>gRPC service: 7,494 lines of code</p>
+    <p>Deployed as a service</p>
+    <p>gRPC Service</p>
+    <p>Raft Core</p>
+    <p>Local Log Store</p>
+    <p>Disk</p>
+    <p>H TT</p>
+    <p>P Se</p>
+    <p>rv er</p>
+    <p>Same process</p>
+    <p>Data path (gRPC)</p>
+    <p>Control path (RESTful API)</p>
+  </div>
+  <div class="page">
+    <p>Brief Evaluation  3 replicas in the same DC</p>
+    <p>Not powerful: 2.5 cores each</p>
+    <p>Client: different node in the same DC  Send traffic using gRPC stream</p>
+    <p>Max network throughput (per stream): 85-90 MB/s</p>
+    <p>Th ro</p>
+    <p>ug hp</p>
+    <p>ut (M</p>
+    <p>B/ s)</p>
+    <p>Input traffic (payloads/sec)</p>
+    <p>Throughput According to Traffic</p>
+    <p>Write &amp; Space Amplification</p>
+    <p>Write amplification Space amplification</p>
+    <p>Th ro</p>
+    <p>ug hp</p>
+    <p>ut (M</p>
+    <p>B/ s)</p>
+    <p>Batch size</p>
+    <p>Throughput According to Batch Size</p>
+  </div>
+  <div class="page">
+    <p>Summary  State machine-based replication for log store  End up with duplicate log issue</p>
+    <p>Log sharing scheme  Using characteristics of log-structured state machine  Group commit + pipelining on top of it</p>
+    <p>Whats next?  Distributed (sharded) log store</p>
+    <p>Scaling out over multiple shards (partitions, share nothing)  How can we guarantee global ordering?</p>
+    <p>Generalization: based on other consensus protocol, not Raft?  What if we allow empty LSN in the middle?</p>
+    <p>Extending log sharing scheme for general databases  Rollback of indexes without un-do logs? 12/12</p>
+  </div>
+  <div class="page">
+    <p>Thank You</p>
+  </div>
+</Presentation>

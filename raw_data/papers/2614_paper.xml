@@ -1,0 +1,956 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<TEI xmlns="http://www.tei-c.org/ns/1.0" 
+xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+xsi:schemaLocation="http://www.tei-c.org/ns/1.0 /Users/atharsefid/Desktop/grobid-0.5.3/grobid-home/schemas/xsd/Grobid.xsd"
+ xmlns:xlink="http://www.w3.org/1999/xlink">
+	<teiHeader xml:lang="en">
+		<encodingDesc>
+			<appInfo>
+				<application version="0.5.3" ident="GROBID" when="2019-03-26T16:42+0000">
+					<ref target="https://github.com/kermitt2/grobid">GROBID - A machine learning software for extracting information from scholarly documents</ref>
+				</application>
+			</appInfo>
+		</encodingDesc>
+		<fileDesc>
+			<titleStmt>
+				<title level="a" type="main">N-best Reranking by Multitask Learning</title>
+			</titleStmt>
+			<publicationStmt>
+				<publisher/>
+				<availability status="unknown"><licence/></availability>
+			</publicationStmt>
+			<sourceDesc>
+				<biblStruct>
+					<analytic>
+						<author>
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Kevin</forename><surname>Duh</surname></persName>
+							<affiliation key="aff0">
+								<orgName type="institution">NTT Communication Science Laboratories</orgName>
+								<address>
+									<addrLine>2-4 Hikaridai, Seika-cho, Soraku-gun</addrLine>
+									<postCode>619-0237</postCode>
+									<settlement>Kyoto</settlement>
+									<country key="JP">Japan</country>
+								</address>
+							</affiliation>
+						</author>
+						<author>
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Katsuhito</forename><surname>Sudoh</surname></persName>
+							<affiliation key="aff0">
+								<orgName type="institution">NTT Communication Science Laboratories</orgName>
+								<address>
+									<addrLine>2-4 Hikaridai, Seika-cho, Soraku-gun</addrLine>
+									<postCode>619-0237</postCode>
+									<settlement>Kyoto</settlement>
+									<country key="JP">Japan</country>
+								</address>
+							</affiliation>
+						</author>
+						<author>
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Hajime</forename><surname>Tsukada</surname></persName>
+							<affiliation key="aff0">
+								<orgName type="institution">NTT Communication Science Laboratories</orgName>
+								<address>
+									<addrLine>2-4 Hikaridai, Seika-cho, Soraku-gun</addrLine>
+									<postCode>619-0237</postCode>
+									<settlement>Kyoto</settlement>
+									<country key="JP">Japan</country>
+								</address>
+							</affiliation>
+						</author>
+						<author role="corresp">
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Hideki</forename><surname>Isozaki</surname></persName>
+							<email>isozaki@cslab.kecl.ntt.co.jpnagata.masaaki@lab.ntt.co.jp</email>
+							<affiliation key="aff0">
+								<orgName type="institution">NTT Communication Science Laboratories</orgName>
+								<address>
+									<addrLine>2-4 Hikaridai, Seika-cho, Soraku-gun</addrLine>
+									<postCode>619-0237</postCode>
+									<settlement>Kyoto</settlement>
+									<country key="JP">Japan</country>
+								</address>
+							</affiliation>
+						</author>
+						<author>
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Masaaki</forename><surname>Nagata</surname></persName>
+							<affiliation key="aff0">
+								<orgName type="institution">NTT Communication Science Laboratories</orgName>
+								<address>
+									<addrLine>2-4 Hikaridai, Seika-cho, Soraku-gun</addrLine>
+									<postCode>619-0237</postCode>
+									<settlement>Kyoto</settlement>
+									<country key="JP">Japan</country>
+								</address>
+							</affiliation>
+						</author>
+						<title level="a" type="main">N-best Reranking by Multitask Learning</title>
+					</analytic>
+					<monogr>
+						<imprint>
+							<date/>
+						</imprint>
+					</monogr>
+				</biblStruct>
+			</sourceDesc>
+		</fileDesc>
+		<profileDesc>
+			<abstract>
+				<p>We propose a new framework for N-best reranking on sparse feature sets. The idea is to reformulate the reranking problem as a Multitask Learning problem, where each N-best list corresponds to a distinct task. This is motivated by the observation that N-best lists often show significant differences in feature distributions. Training a single reranker directly on this heteroge-nous data can be difficult. Our proposed meta-algorithm solves this challenge by using multitask learning (such as ℓ 1 /ℓ 2 regularization) to discover common feature representations across N-best lists. This meta-algorithm is simple to implement, and its modular approach allows one to plug-in different learning algorithms from existing literature. As a proof of concept, we show statistically significant improvements on a machine translation system involving millions of features.</p>
+			</abstract>
+		</profileDesc>
+	</teiHeader>
+	<text xml:lang="en">
+		<body>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="1">Introduction</head><p>Many natural language processing applications, such as machine translation (MT), parsing, and language modeling, benefit from the N-best reranking framework ( <ref type="bibr" target="#b30">Shen et al., 2004;</ref><ref type="bibr" target="#b11">Collins and Koo, 2005;</ref><ref type="bibr" target="#b29">Roark et al., 2007)</ref>. The advantage of N-best reranking is that it abstracts away the complexities of first-pass decoding, allowing the researcher to try new features and learning algorithms with fast experimental turnover.</p><p>In the N-best reranking scenario, the training data consists of sets of hypotheses (i.e. N-best lists) generated by a first-pass system, along with their labels. Given a new N-best list, the goal is to rerank it such that the best hypothesis appears near the top of the list. Existing research have focused on training a single reranker directly on the entire data. This approach is reasonable if the data is homogenous, but it fails when features vary significantly across different N-best lists. In particular, when one employs sparse feature sets, one seldom finds features that are simultaneously active on multiple N-best lists.</p><p>In this case, we believe it is more advantageous to view the N-best reranking problem as a multitask learning problem, where each N-best list corresponds to a distinct task. Multitask learning, a subfield of machine learning, focuses on how to effectively train on a set of different but related datasets (tasks). Our heterogenous N-best list data fits nicely with this assumption.</p><p>The contribution of this work is three-fold:</p><p>1. We introduce the idea of viewing N-best reranking as a multitask learning problem. This view is particularly apt to any general reranking problem with sparse feature sets.</p><p>2. We propose a simple meta-algorithm that first discovers common feature representations across N-bests (via multitask learning) before training a conventional reranker. Thus it is easily applicable to existing systems.</p><p>3. We demonstrate that our proposed method outperforms the conventional reranking approach on a English-Japanese biomedical machine translation task involving millions of features.</p><p>The paper is organized as follows: Section 2 describes the feature sparsity problem and Section 3 presents our multitask solution. The effectiveness of our proposed approach is validated by experiments demonstrated in Section 4. Finally, Sections 5 and 6 discuss related work and conclusions.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="2">The Problem of Sparse Feature Sets</head><p>For concreteness, we will describe N-best reranking in terms of machine translation (MT), though our approach is agnostic to the application. In MT reranking, the goal is to translate a foreign language sentence f into an English sentence e by picking from a set of likely translations. A standard approach is to use a linear model:</p><formula xml:id="formula_0">ˆ e = arg max e∈N (f ) w T · h(e, f )<label>(1)</label></formula><p>where h(e, f ) is a D-dimensional feature vector, w is the weight vector to be trained, and N (f ) is the set of likely translations of f , i.e. the N-best list. The feature h(e, f ) can be any quantity defined in terms of the sentence pair, such as translation model and language model probabilities.</p><p>Here we are interested in situations where the feature definitions can be quite sparse. A common methodology in reranking is to first design feature templates based on linguistic intuition and domain knowledge. Then, numerous features are instantiated based on the training data seen. For example, the work of ( <ref type="bibr" target="#b32">Watanabe et al., 2007</ref>) defines feature templates based on bilingual word alignments, which lead to extraction of heavilylexicalized features of the form:</p><formula xml:id="formula_1">h(e, f ) =        1 if foreign word "Monsieur"</formula><p>and English word "Mr." co-occur in e,f 0 otherwise (2) One can imagine that such features are sparse because it may only fire for input sentences that contain the word "Monsieur". For all other input sentences, it is an useless, inactive feature.</p><p>Another common feature involves word ngram templates, for example:</p><formula xml:id="formula_2">h(e, f ) =    1 if English trigram "Mr.</formula><p>Smith said" occurs in e 0 otherwise (3) In this case, all possible trigrams seen in the Nbest list are extracted as features. One can see that this kind of feature can be very sensitive to the first-pass decoder: if the decoder has loose reordering constraints, then we may extract exponentially many nonsense ngram features such as "Smith said Mr." and "said Smith Mr.". Granted, the reranker training algorithm may learn that these nonsense ngrams are indicative of poor hypotheses, but it is unlikely that the exact same nonsense ngrams will appear given a different test sentence.</p><p>In summary, the following issues compound to create extremely sparse feature sets:</p><p>1. Feature templates are heavily-lexicalized, which causes the number of features to grow unbounded as the the amount of data increases.</p><p>2. The input (f ) has high variability (e.g. large vocabulary size), so that features for different inputs are rarely shared.</p><p>3. The N-best list output also exhibits high variability (e.g. many different word reorderings). Larger N may improve reranking performance, but may also increase feature sparsity.</p><p>When the number of features is too large, even popular reranking algorithms such as SVM ( <ref type="bibr" target="#b30">Shen et al., 2004</ref>) and MIRA ( <ref type="bibr" target="#b32">Watanabe et al., 2007;</ref><ref type="bibr" target="#b9">Chiang et al., 2009</ref>) may fail. Our goal here is to address this situation.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3">Proposed Reranking Framework</head><p>In the following, we first give an intuitive comparison between single vs. multiple task learning (Section 3.1), before presenting the general metaalgorithm (Section 3.2) and particular instantiations (Section 3.3).</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.1">Single vs. Multiple Tasks</head><p>Given a set of I input sentences {f i }, the training data for reranking consists of a set of I N-best lists {(H i , y i )} i=1,...,I , where H i are features and y i are labels.</p><p>To clarify the notation: 1 for an input sentence f i , there is a N-best list N (f i ). For a N-best list N (f i ), there are N feature vectors corresponding to the N hypotheses, each with dimension D. The collection of feature vectors for N (f i ) is represented by H i , which can be seen as a D × N matrix. Finally, the N -dimensional vector of labels y i indicates the translation quality of each hypothesis in N (f i ). The purpose of the reranker training algorithm is to find good parameters from {(H i , y i )}.</p><p>The conventional method of training a single reranker (single task formulation) involves optimizing a generic objective such as:</p><formula xml:id="formula_3">arg min w I i=1 L(w, H i , y i ) + λΩ(w)<label>(4)</label></formula><p>where w ∈ R D is the reranker trained on all lists, and L(·) is some loss function. Ω(w) is an optional regularizer, whose effect is traded-off by the constant λ. For example, the SVM reranker for MT <ref type="bibr" target="#b30">(Shen et al., 2004</ref>) defines L(·) to be some function of sentence-level BLEU score, and Ω(w) to be the large margin regularizer. <ref type="bibr">2</ref> On the other hand, multitask learning involves solving for multiple weights, w 1 , w 2 , . . . , w I , one for each N-best list. One class of multitask learning algorithms, Joint Regularization, solves the following objective:</p><formula xml:id="formula_4">arg min w 1 ,..,w I I i=1 L(w i , H i , y i ) + λΩ(w 1 , .., w I ) (5)</formula><p>The loss decomposes by task but the joint regularizer Ω(w 1 , .., w I ) couples together the different weight parameters. The key is to note that multiple weights allow the algorithm to fit the heterogenous data better, compared to a single weight vector. Yet these weights are still tied together so that some information can be shared across N-best lists (tasks).</p><p>One instantiation of Eq. 5 is ℓ 1 /ℓ 2 regularization: In MT, evaluation metrics like BLEU do not exactly decompose across sentences, so for some training algorithms this loss is an approximation.</p><formula xml:id="formula_5">Ω(w 1 , .., w I ) ||W|| 1,2 , where W = [w 1 |w 2 | . . . |w I ] T</formula></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.2">Proposed Meta-algorithm</head><p>We are now ready to present our general reranking meta-algorithm (see Algorithm 1), termed Reranking by Multitask Learning (RML).</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>Algorithm 1 Reranking by Multitask Learning</head><formula xml:id="formula_6">Input: N-best data {(H i , y i )} i=1,...,I Output: Common feature representation h c (e, f )</formula><p>and weight vector w c</p><formula xml:id="formula_7">1: [optional] RandomHashing({H i }) 2: W = MultitaskLearn({(H i , y i )}) 3: h c = ExtractCommonFeature(W) 4: {H i c } = RemapFeature({H i }, h c ) 5: w c = ConventionalReranker({(H i c , y i )})</formula><p>The first step, random hashing, is optional. Random hashing is an effective trick for reducing the dimension of sparse feature sets without suffering losses in fidelity <ref type="bibr" target="#b33">(Weinberger et al., 2009;</ref><ref type="bibr" target="#b16">Ganchev and Dredze, 2008)</ref>. It works by collapsing random subsets of features. This step can be performed to speed-up multitask learning later. In some cases, the original feature dimension may be so large that hashed representations may be necessary.</p><p>The next two steps are key. A multitask learning algorithm is run on the N-best lists, and a common feature space shared by all lists is extracted. For example, if one uses the multitask objective of Eq. 5, the result of step 2 is a set of weights W. ExtractCommonFeature(W) then returns the feature id's (either from original or hashed representation) that receive nonzero weight in any of W. <ref type="bibr">3</ref> The new features h c (e, f ) are expected to have lower dimension than the original features h(e, f ). Section 3.3 describes in detail different multitask methods that can be plugged-in to this step.</p><p>The final two steps involve a conventional reranker. In step 4, we remap the N-best list data according to the new feature representations h c (e, f ). In step 5, we train a conventional reranker on this common representation, which by now should have overcome sparsity issues. Using a conventional reranker at the end allows us to exploit existing rerankers designed for specific NLP applications. In a sense, our meta-algorithm simply involves a change of representation for the conventional reranking scenario, where the new representation is found by multitask methods which are well-suited to heterogenous data.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.3">Multitask Objective Functions</head><p>Here, we describe various multitask methods that can be plugged in Step 2 of Algorithm 1. Our goal is to demonstrate that a wide range of existing methods from the multitask learning literature can be brought to our problem. We categorize multitask methods into two major approaches:</p><p>1. Joint Regularization: Eq. 5 is an example of joint regularization, with ℓ 1 /ℓ 2 norm being a particular regularizer. The idea is to use the regularizer to ensure that the learned functions of related tasks are close to each other. The popular ℓ 1 /ℓ 2 objective can be optimized by various methods, such as boosting ( <ref type="bibr" target="#b23">Obozinski et al., 2009</ref>) and convex programming ( <ref type="bibr" target="#b2">Argyriou et al., 2008</ref>). Yet another regularizer is the ℓ 1 /ℓ ∞ norm ( <ref type="bibr" target="#b27">Quattoni et al., 2009</ref>), which replaces the 2-norm with a max.</p><p>One could also define a regularizer to ensure that each task-specific w i is close to some average parameter, e.g.</p><formula xml:id="formula_8">i ||w i − w avg || 2 .</formula><p>If we interpret w avg as a prior, we begin to see links to Hierarchical Bayesian methods for multitask learning <ref type="bibr" target="#b15">(Finkel and Manning, 2009;</ref><ref type="bibr" target="#b13">Daume, 2009)</ref>.</p><p>2. Shared Subspace: This approach assumes that there is an underlying feature subspace that is common to all tasks. Early works on multitask learning implement this by neural networks, where different tasks have different output layers but share the same hidden layer <ref type="bibr" target="#b7">(Caruana, 1997)</ref>.</p><p>Another method is to write the weight vector as two parts w = [u; v] and let the task-specific function be <ref type="bibr" target="#b1">and Zhang, 2005)</ref></p><formula xml:id="formula_9">u T · h(e, f ) + v T · Θ · h(e, f ) (Ando</formula><note type="other">. Θ is a D ′ × D matrix that maps the original features to a subspace common to all tasks. The new feature representation is computed by the projection h</note><formula xml:id="formula_10">c (e, f ) Θ · h(e, f ).</formula><p>Multitask learning is a vast field and relates to areas like collaborative filtering ( <ref type="bibr" target="#b34">Yu and Tresp, 2005</ref>) and domain adaptation. Most methods assume some common representation and is thus applicable to our framework. The reader is urged to refer to citations in, e.g. ( <ref type="bibr" target="#b2">Argyriou et al., 2008</ref>) for a survey.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="4">Experiments and Results</head><p>As a proof of concept, we perform experiments on a MT system with millions of features. We use a hierarchical phrase-based system (Chiang, 2007) to generate N-best lists (N=100). Sparse features used in reranking are extracted according to <ref type="bibr" target="#b32">(Watanabe et al., 2007)</ref>. Specifically, the majority are lexical features involving joint occurrences of words within the N-best lists and source sentences.</p><p>It is worth noting that the fact that the first pass system is a hierarchical system is not essential to the feature extraction step; similar features can be extracted with other systems as first-pass, e.g. a phrase-based system. That said, the extent of the feature sparsity problem may depend on the performance of the first-pass system.</p><p>We experiment with medical domain MT, where large numbers of technical vocabulary cause sparsity challenges. Our corpora consists of English abstracts from PubMed 4 with their Japanese translations. The first-pass system is built on hierarchical phrases extracted from 17k sentence pairs and target (Japanese) language models trained on 800k medical-domain sentences. For our reranking experiments, we used 500 lists as the training set 5 , 500 lists as held-out, and another 500 for test.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="4.1">Data Characteristics</head><p>We present some statistics to illustrate the feature sparsity problem: From 500 N-best lists, we extracted a total of 2.4 million distinct features. By type, 75% of these features occur in only one Nbest list in the dataset. Less than 3% of features occur in ten or more lists. The distribution of feature occurrence is clearly Zipfian, as seen in the power-law plot in <ref type="figure" target="#fig_1">Figure 1</ref>.</p><p>We can also observe the feature growth rate (Table 1). This is the number of new features introduced when an additional N-best list is seen. It is important to note that on average, 2599 new features are added everytime a new N-best list is seen. This is as much as 2599/4188 = 62% of the active features. Imagine an online training algorithm (e.g. MIRA or perceptron) on this kind of data: whenever a loss occurs and we update the weight vector, less than half of the weight vector update applies to data we have seen thus far. Herein lies the potential for overfitting.</p><p>From observing the feature grow rate, one may hypothesize that adding large numbers of N-best lists to the training set (500 in the experiments here) may not necessarily improve results. While adding data potentially improves the estimation process, it also increases the feature space dramatically. Thus we see the need for a feature extraction procedure.</p><p>( <ref type="bibr" target="#b32">Watanabe et al., 2007</ref>) also reports the possibility of overfitting in their dataset (Arabic-English newswire translation), especially when domain differences are present. Here we observe this tendency already on the same domain, which is likely due to the highly-specialized vocabulary and the complex sentence structures common in research paper abstracts.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="4.2">MT Results</head><p>Our goal is to compare different feature representations in reranking: The baseline reranker uses the original sparse feature representation. This is compared to feature representations discovered by three different multitask learning methods:</p><p>• Joint Regularization ( <ref type="bibr" target="#b23">Obozinski et al., 2009)</ref> • Shared Subspace ( <ref type="bibr" target="#b1">Ando and Zhang, 2005)</ref> • Unsupervised Multitask Feature Selection ( <ref type="bibr" target="#b0">Abernethy et al., 2007)</ref>. <ref type="bibr">6</ref> We use existing implementations of the above methods. <ref type="bibr">7</ref> The conventional reranker (Step 5, Al- <ref type="table" target="#tab_2">1  3900  3900  3900  2  7535  11435  7913  3  6078  17513  7087  4  3868  21381  4747  5  1896  23277  2645  6  3542  26819</ref>  combined with the 3900 from N-best 1, the total features so far is 11435.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>Nbest id #NewFt #SoFar #Active</head><p>gorithm 1) used in all cases is SVM rank . 8 Our initial experiments show that the SVM baseline performance is comparable to MIRA training, so we use SVM throughout. The labels for the SVM are derived as in <ref type="bibr" target="#b30">(Shen et al., 2004</ref>), where top 10% of hypotheses by smoothed sentence-BLEU is ranked before the bottom 90%. All multitask learning methods work on hashed features of dimension 4000 (Step 1, Algorithm 1). This speeds up the training process. All hyperparameters of the multitask method are tuned on the held-out set. In particular, the most important is the number of common features to extract, which we pick from {250, 500, 1000}. <ref type="table" target="#tab_2">Table 2</ref> shows the results by BLEU ( <ref type="bibr" target="#b25">Papineni et al., 2002</ref>) and PER. The Oracle results are obtained by choosing the best hypothesis per N-best list by sentence-level BLEU, which achieved 36.9 BLEU in both Train and Test. A summary of our observations is:</p><p>1. The baseline (All sparse features) overfits. It achieves the oracle BLEU score on the train set (36.9) but performs poorly on the test (28.6).</p><p>2. Similar overfitting occurs when traditional ℓ 1 regularization is used to select features on the sparse feature representation 9 . ℓ 1 regularization is a good method of handling sparse features for classification problems, but in reranking the lack of tying between lists makes this regularizer inappropriate. A small set of around 1200 features are chosen: they perform well independently on each task in the training data, but there is little sharing with the test data.</p><p>3. All three multitask methods obtained features that outperformed the baseline. The BLEU scores are 28.8, 28.9, 29.1 for Unsupervised Feature Selection, Joint Regularization, and Shared Subspace, respectively, which all outperform the 28.6 baseline. All improvements are statistically significant by bootstrap sampling test (1000 samples, p &lt; 0.05) ( <ref type="bibr" target="#b35">Zhang et al., 2004</ref>).</p><p>4. Shared Subspace performed the best. We conjecture this is because its feature projection can create new feature combinations that is more expressive than the feature selection used by the two other methods.</p><p>5. PER results are qualitatively similar to BLEU results.</p><p>6. As a further analysis, we are interested in seeing whether multitask learning extracts novel features, especially those that have low frequency. Thus, we tried an additional feature representation (feature threshold) which only keeps features that occur in more than x Nbests, and concatenate these high-frequency features to the multitask features. The feature threshold alone achieves nice BLEU results (29.0 for x &gt; 10), but the combination outperforms it by statistically significant margins <ref type="bibr">(29.3-29.6</ref>). This implies that multitask learning is extracting features that complement well with high frequency features.</p><p>For the multitask features, improvements of 0.2 to 1.0 BLEU are modest but consistent. <ref type="figure" target="#fig_2">Figure  2</ref> shows the BLEU of bootstrap samples obtained as part of the statistical significance test. We see that multitask almost never underperform baseline in any random sampling of the data. This implies that the proposed meta-algorithm is very sta-ble, i.e. it is not a method that sometimes improves and sometimes degrades.</p><p>Finally, a potential question to ask is: what kinds of features are being selected by the multitask learning algorithms? We found that that two kinds of features are usually selected: one is general features that are not lexicalized, such as "count of phrases", "count of deletions/insertions", "number of punctuation marks". The other kind is lexicalized features, such as those in Equations 2 and 3, but involving functions words (like the Japanese characters "wa", "ga", "ni", "de") or special characters (such as numeral symbol and punctuation). These are features that can be expected to be widely applicable, and it is promising that multitask learning is able to recover these from the millions of potential features. 10 </p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="5">Related Work in NLP</head><p>Previous reranking work in NLP can be classified into two different research focuses:</p><p>1. Engineering better features: In MT, (Och and others, 2004) investigates features extracted from a wide variety of syntactic representations, such as parse tree probability on the outputs. Although their results show that the proposed syntactic features gave little improvements, they point to some potential reasons, such as domain mismatch for the parser and overfitting by the reranking 10 Note: In order to do this analysis, we needed to run Joint Regularization on the original feature representation, since the hashed representations are less interpretable. This turns out to be computationally prohibitive in the time being so we only ran on a smaller data set of 50 lists. Recently new optimization methods that are orders of magnitude faster have been developed ( <ref type="bibr" target="#b21">Liu et al., 2009)</ref>, which makes larger-scale experiments possible.  2. Designing better training algorithms: Nbest reranking can be seen as a subproblem of structured prediction, so many general structured prediction algorithms (c.f. ( <ref type="bibr" target="#b3">Bakir et al., 2007)</ref>) can be applied. In fact, some structured prediction algorithms, such as the MIRA algorithm used in dependency parsing ( <ref type="bibr" target="#b22">McDonald et al., 2005</ref>) and MT ( <ref type="bibr" target="#b32">Watanabe et al., 2007</ref>) uses iterative sets of N-best lists in its training process. Other training algorithms include perceptron-style algorithms ( <ref type="bibr" target="#b20">Liang et al., 2006</ref>), MaxEnt <ref type="bibr" target="#b8">(Charniak and Johnson, 2005)</ref>, and boosting variants ( <ref type="bibr" target="#b18">Kudo et al., 2005</ref>).</p><p>The division into two research focuses is convenient, but may be suboptimal if the training algorithm and features do not match well together. Our work can be seen as re-connecting the two focuses, where the training algorithm is explicitly used to help discover better features.</p><p>Multitask learning is currently an active subfield within machine learning. There has already been some applications in NLP: For example, <ref type="bibr">(Col- lobert and Weston, 2008</ref>) uses a deep neural network architecture for multitask learning on partof-speech tagging, chunking, semantic role labeling, etc. They showed that jointly learning these related tasks lead to overall improvements. <ref type="bibr">(De- selaers et al., 2009</ref>) applies similar methods for machine transliteration. In information extraction, learning different relation types can be naturally cast as a multitask problem <ref type="bibr" target="#b17">(Jiang, 2009;</ref><ref type="bibr" target="#b6">Carlson et al., 2009</ref>). Our work can be seen as following the same philosophy, but applied to N-best lists. In other areas, ( <ref type="bibr" target="#b28">Reichart et al., 2008</ref>) introduced an active learning strategy for annotating multitask linguistic data. <ref type="bibr" target="#b4">(Blitzer et al., 2006</ref>) applies the multitask algorithm of ( <ref type="bibr" target="#b1">Ando and Zhang, 2005)</ref> to domain adaptation problems in NLP. We expect that more novel applications of multitask learning will appear in NLP as the techniques become scalable and standard.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="6">Discussion and Conclusion</head><p>N-best reranking is a beneficial framework for experimenting with large feature sets, but unfortunately feature sparsity leads to overfitting. We addressed this by re-casting N-best lists as multitask learning data. Our MT experiments show consistent statistically significant improvements.</p><p>From the Bayesian view, multitask formulation of N-best lists is actually very natural: Each Nbest is generated by a different data-generating distribution since the input sentences are different, i.e. p(e|f 1 ) 񮽙 = p(e|f 2 ). Yet these N-bests are related since the general p(e|f ) distribution depends on the same first-pass models.</p><p>The multitask learning perspective opens up interesting new possibilities for future work, e.g.:</p><p>• Different ways to partition data into tasks, e.g. clustering lists by document structure, or hierarchical clustering of data</p><p>• Multitask learning on lattices or N-best lists with larger N. It is possible that a larger hypothesis space may improve the estimation of task-specific weights.</p><p>• Comparing multitask learning to sparse online learning of batch data, e.g. ( <ref type="bibr" target="#b31">Tsuruoka et al., 2009</ref>).</p><p>• Modifying the multitask objective to incorporate application-specific loss/decoding, such as Minimum Bayes Risk ( <ref type="bibr" target="#b19">Kumar and Byrne, 2004)</ref> • Using multitask learning to aid large-scale feature engineering and visualization.</p></div><figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_0"><head></head><label></label><figDesc>is a I-by-D matrix of stacked weight vectors. The norm is computed by first tak- ing the 2-norm on columns of W, then taking a 1-norm on the resulting D-length vector. This en- courages the optimizer to choose a small subset of features that are useful across all tasks. For example, suppose two different sets of weight vectors W a and W b for a 2 lists, 4 fea- tures reranking problem. The ℓ 1 /ℓ 2 norm for W a is 14; the ℓ 1 /ℓ 2 norm for W b is 12. If both have the same loss L(·) in Eq. 5, the multitask opti- mizer would prefer W b since more features are shared:</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_1"><head>Figure 1 :</head><label>1</label><figDesc>Figure 1: This log-log plot shows that there are many rare features and few common features. The probability that a feature occurs in x number of Nbest lists behaves according to the power-law x −α , where α = 2.28.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_2"><head>Figure 2 :</head><label>2</label><figDesc>Figure 2: BLEU difference of 1000 bootstrap samples. 95% confidence interval is [.15, .90] The proposed approach therefore seems to be a stable method.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_1" validated="false"><head>Train Test</head><label>Train</label><figDesc></figDesc><table>Test 
+Feature Representation 
+#Feature BLEU BLEU PER 
+(baselines) 
+First pass 
+20 29.5 
+28.5 
+38.3 
+All sparse features (Main baseline) 
+2.4M 36.9 
+28.6 
+38.2 
+All sparse features w/ ℓ 1 regularization 
+1200 36.5 
+28.5 
+38.6 
+Random hash representation 
+4000 33.0 
+28.5 
+38.2 
+(multitask learning) 
+Unsupervised FeatureSelect 
+500 32.0 
+28.8 
+37.7 
+Joint Regularization 
+250 31.8 
+28.9 
+37.5 
+Shared Subspace 
+1000 32.9 
+29.1 
+37.3 
+(combination w/ high-frequency features) 
+(a) Feature threshold x &gt; 100 
+3k 31.7 
+27.9 
+38.2 
+(b) Feature threshold x &gt; 10 
+60k 35.8 
+29.0 
+37.9 
+Unsupervised FeatureSelect + (b) 
+60.5k 36.2 
+29.3 
+37.6 
+Joint Regularization + (b) 
+60.25k 36.1 
+29.4 
+37.5 
+Shared Subspace + (b) 
+61k 36.2 
+29.6 
+37.3 
+Oracle (best possible) 
+-36.9 
+36.9 
+33.1 
+
+</table></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_2" validated="false"><head>Table 2 :</head><label>2</label><figDesc></figDesc><table>Results for different feature sets, with corresponding feature size and train/test BLEU/PER. All 
+multitask features give statistically significant improvements over the baselines (boldfaced), e.g. Shared 
+Subspace: 29.1 BLEU vs Baseline: 28.6 BLEU. Combinations of multitask features with high frequency 
+features also give significant improvements over the high frequency features alone. 
+
+method. Recent work by (Chiang et al., 2009) de-
+scribes new features for hierarchical phrase-based 
+MT, while (Collins and Koo, 2005) describes 
+features for parsing. Evaluation campaigns like 
+WMT (Callison-Burch et al., 2009) and IWSLT 
+(Paul, 2009) also contains a wealth of information 
+for feature engineering in various MT tasks. 
+</table></figure>
+
+			<note place="foot" n="1"> Generally we use bold font h to represent a vector, boldcapital font H to represent a matrix. Script h and h(·) may be scalar, function, or sentence (depends on context).</note>
+
+			<note place="foot" n="3"> For example in W b , features 1-3 have nonzero weights and are extracted. Feature 4 is discarded.</note>
+
+			<note place="foot" n="4"> A database of the U.S. National Library of Medicine. 5 In MT, training data for reranking is sometimes referred to as &quot;dev set&quot; to distinguish from the data used in first-pass. Also, while the 17k bitext may seem small compared to other MT work, we note that 1st pass translation quality (around 28 BLEU) is high enough to evaluate reranking methods.</note>
+
+			<note place="foot" n="6"> This is not a standard multitask algorithm since most multitask algorithms are supervised. We include it to see if unsupervised or semi-supervised multitask algorithms is promising. Intuitively, the method tries to select subsets of features that are correlated across multiple tasks using random sampling (MCMC). Features that co-occur in different tasks form a high probability path. 7 Available at http://multitask.cs.berkeley.edu</note>
+
+			<note place="foot" n="8"> Available at http://svmlight.joachims.org</note>
+
+			<note place="foot" n="9"> Optimized by the Vowpal Wabbit toolkit: http://hunch.net/vw/</note>
+		</body>
+		<back>
+
+			<div type="acknowledgement">
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>Acknowledgments</head><p>We have received numerous helpful comments throughout the course of this work. In particular, we would like to thank Albert Au Yeung, Jun Suzuki, Shinji Watanabe, and the three anonymous reviewers for their valuable suggestions.</p></div>
+			</div>
+
+			<div type="references">
+
+				<listBibl>
+
+<biblStruct xml:id="b0">
+	<monogr>
+		<title level="m" type="main">Multitask learning with expert advice</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Jacob</forename><surname>Abernethy</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Peter</forename><surname>Bartlett</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Alexander</forename><surname>Rakhlin</surname></persName>
+		</author>
+		<imprint>
+			<date type="published" when="2007" />
+			<pubPlace>In COLT</pubPlace>
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b1">
+	<monogr>
+		<title level="m" type="main">A framework for learning predictive structures from multiple tasks and unlabeled data</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Rie</forename><surname>Ando</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Tong</forename><surname>Zhang</surname></persName>
+		</author>
+		<imprint>
+			<date type="published" when="2005" />
+			<publisher>JMLR</publisher>
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b2">
+	<analytic>
+		<title level="a" type="main">Convex multitask feature learning</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Andreas</forename><surname>Argyriou</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Theodoros</forename><surname>Evgeniou</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Massimiliano</forename><surname>Pontil</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Machine Learning</title>
+		<imprint>
+			<date type="published" when="2008" />
+			<biblScope unit="page">73</biblScope>
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b3">
+	<monogr>
+		<title level="m" type="main">Predicting structured data</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">G</forename><surname>Bakir</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">T</forename><surname>Hofmann</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">B</forename><surname>Scholkopf</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Smola</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">B</forename><surname>Taskar</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><forename type="middle">V N</forename><surname>Vishwanathan</surname></persName>
+		</author>
+		<imprint>
+			<date type="published" when="2007" />
+			<publisher>MIT Press</publisher>
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b4">
+	<analytic>
+		<title level="a" type="main">Domain adaptation with structural correspondence learning</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Blitzer</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Mcdonald</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">F</forename><surname>Pereira</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">EMNLP</title>
+		<imprint>
+			<date type="published" when="2006" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b5">
+	<analytic>
+		<title level="a" type="main">Findings of the 2009 workshop on statistical machine translation</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Chris</forename><surname>Callison-Burch</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Philipp</forename><surname>Koehn</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Christof</forename><surname>Monz</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Josh</forename><surname>Schroeder</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">WMT</title>
+		<imprint>
+			<date type="published" when="2009" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b6">
+	<analytic>
+		<title level="a" type="main">Coupling semi-supervised learning of categories and relations</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Andrew</forename><surname>Carlson</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Justin</forename><surname>Betteridge</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Estevam</forename><surname>Hruschka</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Tom</forename><surname>Mitchell</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">NAACL Workshop on Semi-supervised learning for NLP (SSLNLP)</title>
+		<imprint>
+			<date type="published" when="2009" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b7">
+	<analytic>
+		<title level="a" type="main">Multitask learning</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Rich</forename><surname>Caruana</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Machine Learning</title>
+		<imprint>
+			<date type="published" when="1997" />
+			<biblScope unit="page">28</biblScope>
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b8">
+	<analytic>
+		<title level="a" type="main">Coarseto-fine n-best parsing and maxent discriminative reranking</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Eugene</forename><surname>Charniak</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Mark</forename><surname>Johnson</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">ACL</title>
+		<imprint>
+			<date type="published" when="2005" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b9">
+	<analytic>
+		<title level="a" type="main">11,001 new features for statistical machine translation</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">David</forename><surname>Chiang</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Wei</forename><surname>Wang</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Kevin</forename><surname>Knight</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">NAACL</title>
+		<imprint>
+			<date type="published" when="2009" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b10">
+	<analytic>
+		<title level="a" type="main">Hierarchical phrase-based translation</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">David</forename><surname>Chiang</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Computational Linguistics</title>
+		<imprint>
+			<biblScope unit="issue">2</biblScope>
+			<biblScope unit="page">33</biblScope>
+			<date type="published" when="2007" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b11">
+	<analytic>
+		<title level="a" type="main">Discriminative reranking for natural langauge parsing</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Michael</forename><surname>Collins</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Terry</forename><surname>Koo</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Computational Linguistics</title>
+		<imprint>
+			<biblScope unit="issue">1</biblScope>
+			<biblScope unit="page">31</biblScope>
+			<date type="published" when="2005" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b12">
+	<analytic>
+		<title level="a" type="main">A unified architecture for natural language processing: deep neural networks with multitask learning</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Ronan</forename><surname>Collobert</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Jason</forename><surname>Weston</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">ICML</title>
+		<imprint>
+			<date type="published" when="2008" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b13">
+	<analytic>
+		<title level="a" type="main">Bayesian multitask learning with latent hierarchies</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Hal</forename><surname>Daume</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">UAI</title>
+		<imprint>
+			<date type="published" when="2009" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b14">
+	<analytic>
+		<title level="a" type="main">A deep learning approach to machine transliteration</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Thomas</forename><surname>Deselaers</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Sasa</forename><surname>Hasan</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Oliver</forename><surname>Bender</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Hermann</forename><surname>Ney</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">WMT</title>
+		<imprint>
+			<date type="published" when="2009" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b15">
+	<analytic>
+		<title level="a" type="main">Hierarchical Bayesian domain adaptation</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Jenny</forename><forename type="middle">Rose</forename><surname>Finkel</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Chris</forename><surname>Manning</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">NAACL-HLT</title>
+		<imprint>
+			<date type="published" when="2009" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b16">
+	<analytic>
+		<title level="a" type="main">Small statistical models by random feature mixing</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Kuzman</forename><surname>Ganchev</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Mark</forename><surname>Dredze</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">ACL-2008 Workshop on Mobile Language Processing</title>
+		<imprint>
+			<date type="published" when="2008" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b17">
+	<analytic>
+		<title level="a" type="main">Multitask transfer learning for weakly-supervised relation extraction</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Jing</forename><surname>Jiang</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">ACL</title>
+		<imprint>
+			<date type="published" when="2009" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b18">
+	<analytic>
+		<title level="a" type="main">Boosting-based parse reranking with subtree features</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Taku</forename><surname>Kudo</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Jun</forename><surname>Suzuki</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Hideki</forename><surname>Isozaki</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">ACL</title>
+		<imprint>
+			<date type="published" when="2005" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b19">
+	<analytic>
+		<title level="a" type="main">Minimum bayes-risk decoding for statistical machine translation</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Shankar</forename><surname>Kumar</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">William</forename><surname>Byrne</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">HLT-NAACL</title>
+		<imprint>
+			<date type="published" when="2004" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b20">
+	<analytic>
+		<title level="a" type="main">An end-to-end discriminative approach to machine translation</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>Liang</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Bouchard-Cote</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Klein</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">B</forename><surname>Taskar</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">ACL</title>
+		<imprint>
+			<date type="published" when="2006" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b21">
+	<analytic>
+		<title level="a" type="main">Multi-task feature learning via efficient l2,1-norm minimization</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Liu</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Ji</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Ye</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">UAI</title>
+		<imprint>
+			<date type="published" when="2009" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b22">
+	<analytic>
+		<title level="a" type="main">Online large margin training of dependency parsers</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Ryan</forename><surname>Mcdonald</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Koby</forename><surname>Crammer</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Fernando</forename><surname>Pereira</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">ACL</title>
+		<imprint>
+			<date type="published" when="2005" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b23">
+	<analytic>
+		<title level="a" type="main">Joint covariate selection and joint subspace selection for multiple classification problems</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Guillaume</forename><surname>Obozinski</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Ben</forename><surname>Taskar</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Michael</forename><surname>Jordan</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Statistics and Computing</title>
+		<imprint>
+			<date type="published" when="2009" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b24">
+	<analytic>
+		<title level="a" type="main">A smorgasbord of features for statistical machine translation</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">F</forename><forename type="middle">J</forename><surname>Och</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">HLT/NAACL</title>
+		<imprint>
+			<date type="published" when="2004" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b25">
+	<analytic>
+		<title level="a" type="main">BLEU: A method for automatic evaluation of machine translation</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Kishore</forename><surname>Papineni</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Salim</forename><surname>Roukos</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Todd</forename><surname>Ward</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Weijing</forename><surname>Zhu</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">ACL</title>
+		<imprint>
+			<date type="published" when="2002" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b26">
+	<analytic>
+		<title level="a" type="main">Overview of the iwslt 2009 evaluation campaign</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Michael</forename><surname>Paul</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">IWSLT</title>
+		<imprint>
+			<date type="published" when="2009" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b27">
+	<analytic>
+		<title level="a" type="main">An efficient projection for L1-Linfinity regularization</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Ariadna</forename><surname>Quattoni</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Xavier</forename><surname>Carreras</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Michael</forename><surname>Collins</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Trevor</forename><surname>Darrell</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">ICML</title>
+		<imprint>
+			<date type="published" when="2009" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b28">
+	<analytic>
+		<title level="a" type="main">Multi-task active learning for linguistic annotations</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Roi</forename><surname>Reichart</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Katrin</forename><surname>Tomanek</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Udo</forename><surname>Hahn</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Ari</forename><surname>Rappoport</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">ACL</title>
+		<imprint>
+			<date type="published" when="2008" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b29">
+	<analytic>
+		<title level="a" type="main">Discriminative n-gram language modeling</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Brian</forename><surname>Roark</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Murat</forename><surname>Saraclar</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Michael</forename><surname>Collins</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Computer Speech and Language</title>
+		<imprint>
+			<biblScope unit="volume">21</biblScope>
+			<biblScope unit="issue">2</biblScope>
+			<date type="published" when="2007" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b30">
+	<analytic>
+		<title level="a" type="main">Discriminative reranking for machine translation</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Libin</forename><surname>Shen</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Anoop</forename><surname>Sarkar</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Franz</forename><surname>Och</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">HLT-NAACL</title>
+		<imprint>
+			<date type="published" when="2004" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b31">
+	<analytic>
+		<title level="a" type="main">Stochastic gradient descent training for l1-regularized log-linear models with cumulative penalty</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Yoshimasa</forename><surname>Tsuruoka</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Sophia</forename><surname>Jun&amp;apos;ichi Tsujii</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><surname>Ananiadou</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">ACL-IJCNLP</title>
+		<imprint>
+			<date type="published" when="2009" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b32">
+	<analytic>
+		<title level="a" type="main">Online large-margin training for statistical machine translation</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Taro</forename><surname>Watanabe</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Jun</forename><surname>Suzuki</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Hajime</forename><surname>Tsukada</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Hideki</forename><surname>Isozaki</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">EMNLPCoNLL</title>
+		<imprint>
+			<date type="published" when="2007" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b33">
+	<analytic>
+		<title level="a" type="main">Feature hashing for large scale multitask learning</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Kilian</forename><surname>Weinberger</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Anirban</forename><surname>Dasgupta</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">John</forename><surname>Langford</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Alex</forename><surname>Smola</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Josh</forename><surname>Attenberg</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">ICML</title>
+		<imprint>
+			<date type="published" when="2009" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b34">
+	<analytic>
+		<title level="a" type="main">Learning to learn and collaborative filtering</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Kai</forename><surname>Yu</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Volker</forename><surname>Tresp</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">NIPS-2005 Workshop on Inductive Transfer</title>
+		<imprint>
+			<date type="published" when="2005" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b35">
+	<analytic>
+		<title level="a" type="main">Interpreting BLEU/NIST scores: How much improvement do we need to have a better system</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Ying</forename><surname>Zhang</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Stephan</forename><surname>Vogel</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Alex</forename><surname>Waibel</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">LREC</title>
+		<imprint>
+			<date type="published" when="2004" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+				</listBibl>
+			</div>
+		</back>
+	</text>
+</TEI>

@@ -1,0 +1,846 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>Speculative Encryption on GPU Applied Speculative Encryption on GPU Applied to Cryptographic File Systemsto Cryptographic File Systems</p>
+    <p>Vandeir EduardoVandeir Eduardo1,21,2, Wagner M. Nunan Zola, Wagner M. Nunan Zola11,, and Luis C. Erpen de Bona and Luis C. Erpen de Bona11</p>
+  </div>
+  <div class="page">
+    <p>Introduction and motivationIntroduction and motivation</p>
+    <p>Rationale:Rationale:</p>
+    <p>Cryptographic File Systems (CFSs), CBC and CTR encryption mode, Cryptographic File Systems (CFSs), CBC and CTR encryption mode,</p>
+    <p>file system EncFS (user space) and GPU library WAESlibfile system EncFS (user space) and GPU library WAESlib</p>
+    <p>CTR encryption mode applied to CFSs CTR encryption mode applied to CFSs (in file system EncFS++ )(in file system EncFS++ )</p>
+    <p>Generation and storage of nonces Generation and storage of nonces</p>
+    <p>Spawning parallel encryption tasks in EncFS++ Spawning parallel encryption tasks in EncFS++ (Challenges in organization and management of encryption contexts) (Challenges in organization and management of encryption contexts)</p>
+    <p>Experimental Performance Analysis EncFS++ Experimental Performance Analysis EncFS++</p>
+    <p>Conclusions Conclusions</p>
+    <p>AgendaAgenda</p>
+  </div>
+  <div class="page">
+    <p>Security in data storage: Security in data storage: especially in the era of computing in the cloud. especially in the era of computing in the cloud.</p>
+    <p>Natural evolution: integration of Natural evolution: integration of encryptionencryption in File Systems: in File Systems: FSs  CFSs FSs  CFSs</p>
+    <p>Use of symmetric block ciphers (good security/speed ratio)Use of symmetric block ciphers (good security/speed ratio)</p>
+    <p>Problems: Larger data volumes Problems: Larger data volumes + faster media + faster media + alternative ciphers + alternative ciphers + larger keys + larger keys</p>
+    <p>= increase in CPU utilization= increase in CPU utilization</p>
+    <p>Introduction and motivationIntroduction and motivation</p>
+  </div>
+  <div class="page">
+    <p>Wanted: Using parallel processors for the task (e.g with GPUs) Wanted: Using parallel processors for the task (e.g with GPUs) (or with multicore processors)(or with multicore processors)</p>
+    <p>Previous study of acceleration of AES in GPU Previous study of acceleration of AES in GPU GPU kernel WAES and WAESlib: exploring CTR mode GPU kernel WAES and WAESlib: exploring CTR mode  defines priorities for generation of  defines priorities for generation of encryption masksencryption masks</p>
+    <p>Current work: Explore advantages of CTR mode in the context of CFSs, Current work: Explore advantages of CTR mode in the context of CFSs, with parallel multicore or manycore processors: with parallel multicore or manycore processors: - using GPU cryptographic functions - using GPU cryptographic functions (current work)(current work)</p>
+    <p>- get higher throughput with more efficient CPU usage - get higher throughput with more efficient CPU usage</p>
+    <p>- extend to other accelerators, multicore or heterogeneous- extend to other accelerators, multicore or heterogeneous (future work) (future work)</p>
+    <p>Motivation Motivation (cont.)(cont.)</p>
+  </div>
+  <div class="page">
+    <p>User space Kernel space</p>
+    <p>Application VFS File system Device mapper Storage</p>
+    <p>device</p>
+    <p>eCryptfs</p>
+    <p>Block I/O</p>
+    <p>FUSE EncFS libfuse</p>
+    <p>dm-crypt User space Kernel space</p>
+    <p>Application VFS File system Device mapper Storage</p>
+    <p>device</p>
+    <p>eCryptfs</p>
+    <p>Block I/O</p>
+    <p>FUSE EncFS libfuse</p>
+    <p>dm-crypt</p>
+    <p>Integrated at different system levels:Integrated at different system levels:</p>
+    <p>User Space: FUSE-based CFSsUser Space: FUSE-based CFSs</p>
+    <p>Kernel Space: CFSs  VFSKernel Space: CFSs  VFS</p>
+    <p>Kernel Space: Cryptographic Systems  I / O BlocksKernel Space: Cryptographic Systems  I / O Blocks</p>
+    <p>Cryptographic FILE SystemsCryptographic FILE Systems</p>
+  </div>
+  <div class="page">
+    <p>Detailed in NIST Detailed in NIST document SP 800-38A document SP 800-38A</p>
+    <p>Sequential encryption Sequential encryption (data dependency) (data dependency)</p>
+    <p>Security requirement:Security requirement:</p>
+    <p>necessary to use an necessary to use an unpredictable unpredictable Initialization VectorInitialization Vector (IV) (IV)</p>
+    <p>usually: CBC mode of operationusually: CBC mode of operation</p>
+    <p>Decryption</p>
+    <p>Clear text 1</p>
+    <p>Cipher text 1</p>
+    <p>Encrypt (AES)</p>
+    <p>Clear text 2</p>
+    <p>Cipher text 2</p>
+    <p>Encrypt (AES)</p>
+    <p>Clear text N</p>
+    <p>Cipher text N</p>
+    <p>Encrypt (AES)</p>
+    <p>...</p>
+    <p>Cipher textN-1 IV</p>
+    <p>Key Key Key</p>
+    <p>Encryption</p>
+    <p>Cipher text 1</p>
+    <p>Clear text 1</p>
+    <p>Decrypt (AES)</p>
+    <p>Cipher text 2</p>
+    <p>Clear text 2</p>
+    <p>Decrypt (AES)</p>
+    <p>Cipher text N</p>
+    <p>Clear text N</p>
+    <p>Decrypt (AES)...</p>
+    <p>Cipher textN-1</p>
+    <p>Key Key Key</p>
+    <p>IV</p>
+    <p>Decryption</p>
+    <p>Clear text 1</p>
+    <p>Cipher text 1</p>
+    <p>Encrypt (AES)</p>
+    <p>Clear text 2</p>
+    <p>Cipher text 2</p>
+    <p>Encrypt (AES)</p>
+    <p>Clear text N</p>
+    <p>Cipher text N</p>
+    <p>Encrypt (AES)</p>
+    <p>...</p>
+    <p>Cipher textN-1 IV</p>
+    <p>Key Key Key</p>
+    <p>Encryption</p>
+    <p>Cipher text 1</p>
+    <p>Clear text 1</p>
+    <p>Decrypt (AES)</p>
+    <p>Cipher text 2</p>
+    <p>Clear text 2</p>
+    <p>Decrypt (AES)</p>
+    <p>Cipher text N</p>
+    <p>Clear text N</p>
+    <p>Decrypt (AES)...</p>
+    <p>Cipher textN-1</p>
+    <p>Key Key Key</p>
+    <p>IV</p>
+  </div>
+  <div class="page">
+    <p>ParallelizableParallelizable</p>
+    <p>Possibility of encryption Possibility of encryption Anticipation (of Anticipation (of encryption masks) encryption masks)</p>
+    <p>Security requirement:Security requirement: (uniqueness requirement)(uniqueness requirement)</p>
+    <p>necessary to use a given necessary to use a given (key, IV) pair only once (key, IV) pair only once at any at any encryption encryption</p>
+    <p>IV is called Nonce IV is called Nonce</p>
+    <p>Encryption</p>
+    <p>Counter: 1</p>
+    <p>Encrypt (AES)</p>
+    <p>Clear text 1</p>
+    <p>Cipher text 1</p>
+    <p>Encrypt (AES)</p>
+    <p>Clear text 2</p>
+    <p>Cipher text 2</p>
+    <p>Encrypt (AES)</p>
+    <p>Clear text N</p>
+    <p>Cipher text N</p>
+    <p>...</p>
+    <p>Counter: 2 Counter: N</p>
+    <p>Key Key Key</p>
+    <p>Decryption</p>
+    <p>Counter: 1</p>
+    <p>Encrypt (AES)</p>
+    <p>Cipher text 1</p>
+    <p>Clear text 1</p>
+    <p>Encrypt (AES)</p>
+    <p>Cipher text 2</p>
+    <p>Clear text 2</p>
+    <p>Encrypt (AES)</p>
+    <p>Cipher text N</p>
+    <p>Clear text N</p>
+    <p>...</p>
+    <p>Counter: 2 Counter: N</p>
+    <p>Key Key Key</p>
+    <p>Encryption</p>
+    <p>Counter: 1</p>
+    <p>Encrypt (AES)</p>
+    <p>Clear text 1</p>
+    <p>Cipher text 1</p>
+    <p>Encrypt (AES)</p>
+    <p>Clear text 2</p>
+    <p>Cipher text 2</p>
+    <p>Encrypt (AES)</p>
+    <p>Clear text N</p>
+    <p>Cipher text N</p>
+    <p>...</p>
+    <p>Counter: 2 Counter: N</p>
+    <p>Key Key Key</p>
+    <p>Decryption</p>
+    <p>Counter: 1</p>
+    <p>Encrypt (AES)</p>
+    <p>Cipher text 1</p>
+    <p>Clear text 1</p>
+    <p>Encrypt (AES)</p>
+    <p>Cipher text 2</p>
+    <p>Clear text 2</p>
+    <p>Encrypt (AES)</p>
+    <p>Cipher text N</p>
+    <p>Clear text N</p>
+    <p>...</p>
+    <p>Counter: 2 Counter: N</p>
+    <p>Key Key Key</p>
+    <p>Wanted: work with CTR ModeWanted: work with CTR Mode</p>
+  </div>
+  <div class="page">
+    <p>based on FUSE based on FUSE</p>
+    <p>works in works in user space  facilitates development / testinguser space  facilitates development / testing</p>
+    <p>allows easier allows easier GPU library Integration in EncFS++ GPU library Integration in EncFS++  CUDA API and libfuse are in user spaceCUDA API and libfuse are in user space  IF using kernel space FS module: IF using kernel space FS module:</p>
+    <p>needed an intermediate process to use CUDA API needed an intermediate process to use CUDA API</p>
+    <p>(+ complexity, + latency) (+ complexity, + latency)</p>
+    <p>EncFS file system: EncFS file system: (some Features)(some Features)</p>
+  </div>
+  <div class="page">
+    <p>based on FUSE / space user facilitates development / testingbased on FUSE / space user facilitates development / testing</p>
+    <p>uses OpenSSL (CPU)uses OpenSSL (CPU)</p>
+    <p>file content encrypted in data blocksfile content encrypted in data blocks</p>
+    <p>uses uses CBCCBC for each data block for each data block</p>
+    <p>vK = volume KeyvK = volume Key</p>
+    <p>IVV = Volume IVIVV = Volume IV</p>
+    <p>IVA = File IVIVA = File IV</p>
+    <p>IVB = data Block IVIVB = data Block IV</p>
+    <p>data Block data Block IV (IVB) =IV (IVB) = HMAC_CTX (vHMAC_CTX (vKK, , IVVIVV || ( || (NumBlockNumBlock  IVAIVA))))</p>
+    <p>EncFS FeaturesEncFS Features</p>
+    <p>* * data block IVdata block IV calculated dynamically with calculated dynamically with encryption hash (no need to store) encryption hash (no need to store) * reusable in block rewriting * reusable in block rewriting</p>
+    <p>Block 0 Block 1 Block n</p>
+    <p>IVA Data ...</p>
+    <p>File format</p>
+    <p>Header</p>
+    <p>DataData</p>
+    <p>Block 0 Block 1 Block n</p>
+    <p>IVA Data ...</p>
+    <p>File format</p>
+    <p>Header</p>
+    <p>DataData</p>
+    <p>IV useIV use unpredictability requirement: unpredictability requirement:</p>
+  </div>
+  <div class="page">
+    <p>Extensively studied: for varous symmetric ciphers such as Extensively studied: for varous symmetric ciphers such as AES, Blowfish, IDEA, Camellia, etc. AES, Blowfish, IDEA, Camellia, etc.</p>
+    <p>Related work: acceleration of cryptographic functions in some Related work: acceleration of cryptographic functions in some applications:applications:  User space: Engine-CUDA, CrystalGPU, CRSFS  User space: Engine-CUDA, CrystalGPU, CRSFS</p>
+    <p>kernel space: OCF, Gdev, GPUStorekernel space: OCF, Gdev, GPUStore</p>
+    <p>Usually: Usually: using CBC+GPU  usually only compensates for larger using CBC+GPU  usually only compensates for larger requests (&gt; 16 KiB) requests (&gt; 16 KiB)</p>
+    <p>Applied to CFSs: Applied to CFSs: no previous work have exploited the benefits of CTR mode no previous work have exploited the benefits of CTR mode</p>
+    <p>GPU Encryption AccelerationGPU Encryption Acceleration</p>
+  </div>
+  <div class="page">
+    <p>CTR Mode:CTR Mode:  parallelizable parallelizable  allows speculative encryption  allows speculative encryption (creation encryption masks ahead of time) (creation encryption masks ahead of time)  XOR on CPU (avoids CPU  GPU data transfer) XOR on CPU (avoids CPU  GPU data transfer)  As safe as CBC As safe as CBC</p>
+    <p>Previous library available in previous work: WAESlibPrevious library available in previous work: WAESlib  Reduces GPU processing complexity Reduces GPU processing complexity</p>
+    <p>Aggregation of small (4 KiB) contexts :Aggregation of small (4 KiB) contexts :</p>
+    <p>fewer WAES kernel activationsfewer WAES kernel activations  higher throughput (GPU  CPU) higher throughput (GPU  CPU)  more control in the order of production of masks (with priorities) more control in the order of production of masks (with priorities)</p>
+    <p>Why CTR?Why CTR?</p>
+  </div>
+  <div class="page">
+    <p>Each recording and rewriting of a block requires a new nonce Each recording and rewriting of a block requires a new nonce (due to: the uniqueness requirement)(due to: the uniqueness requirement)</p>
+    <p>Problem: Necessary to store a nonce per block Problem: Necessary to store a nonce per block (same unique (same unique nonce used in encryption is necessary in decryption)nonce used in encryption is necessary in decryption)</p>
+    <p>Overhead of nonce storage could negatively impact CFS Overhead of nonce storage could negatively impact CFS performanceperformance</p>
+    <p>Nonce storage format AND Access mechanism AND granularity Nonce storage format AND Access mechanism AND granularity are important for performanceare important for performance</p>
+    <p>Challenges of using CTR in CFSsChallenges of using CTR in CFSs</p>
+  </div>
+  <div class="page">
+    <p>CFS Global Counter</p>
+    <p>NonceNonce nodes nodes file formatfile format</p>
+    <p>(loaded when CFS (loaded when CFS is mounted)is mounted)524.128 bits524.128 bits</p>
+    <p>Number of nnodes used</p>
+    <p>Occupation map Nonce Node 0</p>
+    <p>Nonce Node 1</p>
+    <p>... Nonce Node n</p>
+    <p>Inode number</p>
+    <p>Nonce 0</p>
+    <p>Nonce 1</p>
+    <p>Nonce 15</p>
+    <p>...</p>
+    <p>NonceNonce node node formatformat</p>
+    <p>Value obtained from CFS Global Counter</p>
+    <p>NonceNonce</p>
+    <p>CTR internal counter</p>
+    <p>bits reserved for CTR bits reserved for CTR internal counterinternal counter</p>
+    <p>Nonce Group 0</p>
+    <p>Nonce Group 1</p>
+    <p>Nonce Group N</p>
+    <p>...</p>
+    <p>Exclusive Exclusive nonces nonces file formatfile format Only for files &gt; 64 KiB (16 * 4 KiB)Only for files &gt; 64 KiB (16 * 4 KiB)</p>
+    <p>(loaded when file is opened)(loaded when file is opened)</p>
+    <p>Nnodes:Nnodes: how nonce Nodes are how nonce Nodes are stored stored in EncFSin EncFS++++</p>
+  </div>
+  <div class="page">
+    <p>Managing encryption contextsManaging encryption contexts  How to organize the encryption contexts within the FS application? How to organize the encryption contexts within the FS application?  How to use these contexts in the different CFS operations? How to use these contexts in the different CFS operations?</p>
+    <p>When is the best time to trigger the generation of encryption masks When is the best time to trigger the generation of encryption masks (define contexts)?(define contexts)?</p>
+    <p>How to take advantage of the priority feature?How to take advantage of the priority feature?</p>
+    <p>Challenges in using speculative encryption in CFSsChallenges in using speculative encryption in CFSs</p>
+  </div>
+  <div class="page">
+    <p>Used for sequential and random writing Used for sequential and random writing (only one write context POOL needed per CFS)(only one write context POOL needed per CFS)</p>
+    <p>Contexts initially defined at CFS mount operationContexts initially defined at CFS mount operation  Contexts in this POOL are redefined as masks are consumed (uses lower priority)Contexts in this POOL are redefined as masks are consumed (uses lower priority)  Implemented as a virtual circular queue (no storage  performance)Implemented as a virtual circular queue (no storage  performance)</p>
+    <p>Write Context pool: Write Context pool: maintained for encryption+writingmaintained for encryption+writing</p>
+    <p>CFS Global Counter value:CFS Global Counter value: 00</p>
+    <p>Pool beginning indicatorPool beginning indicator (next mask to be consumed)(next mask to be consumed)</p>
+    <p>Nonces used Nonces used in ahead of in ahead of time masks time masks productionproduction</p>
+    <p>CFS Global Counter value:CFS Global Counter value: 256256</p>
+    <p>Nonce used in Nonce used in production of a new production of a new</p>
+    <p>mask after a mask mask after a mask consumptionconsumption</p>
+    <p>Before a block encryptionBefore a block encryption</p>
+    <p>Pool beginning Pool beginning indicatorindicator (next mask to be (next mask to be consumed)consumed)</p>
+    <p>Context indexesContext indexes</p>
+    <p>After a block encryptionAfter a block encryption encrypt+write op</p>
+  </div>
+  <div class="page">
+    <p>Used for sequential and random reading (1 per file)Used for sequential and random reading (1 per file)  Contexts initially defined in each file open operation (decreasing priority according to position)Contexts initially defined in each file open operation (decreasing priority according to position)  Contexts redefined as masks are consumed (uses lower priority)Contexts redefined as masks are consumed (uses lower priority)</p>
+    <p>Context pool for decryption / read (seq.)Context pool for decryption / read (seq.)</p>
+    <p>Window move direction Window move direction</p>
+    <p>New masks New masks being being producedproduced</p>
+    <p>Masks being Masks being consumedconsumed</p>
+    <p>Context indexesContext indexes n File blocksFile blocks</p>
+    <p>n Contexts Contexts with nonceswith nonces</p>
+    <p>(virtual)</p>
+    <p>rotation on indexes (modulo window size)</p>
+  </div>
+  <div class="page">
+    <p>Use of Use of priorities!priorities!</p>
+    <p>Total window displacementTotal window displacement</p>
+    <p>Partial Window ShiftPartial Window Shift</p>
+    <p>Context pool for decryption / read (random)Context pool for decryption / read (random)</p>
+    <p>xxyy</p>
+    <p>zz</p>
+    <p>Old start positionOld start positionNew start positionNew start position</p>
+    <p>Window move direction Window move direction</p>
+    <p>Old windowOld windowNew windowNew window</p>
+    <p>(x-y)&gt;z(x-y)&gt;z</p>
+    <p>yyxx New start positionNew start positionOld start positionOld start position</p>
+    <p>Reused masksReused masks</p>
+    <p>Window move direction Window move direction</p>
+    <p>Old windowOld window</p>
+    <p>New windowNew window</p>
+    <p>New masks producedNew masks produced</p>
+    <p>(y-x)&lt;=z(y-x)&lt;=z</p>
+    <p>restarart all contexts in pool (hygher speculation overhead)</p>
+  </div>
+  <div class="page">
+    <p>Performance comparisons between EncFS (CBC), eCryptfs (CBC) Performance comparisons between EncFS (CBC), eCryptfs (CBC) and EncFS++ (CPU / GPU) and AESNI in eCryptFS (kernel mode)and EncFS++ (CPU / GPU) and AESNI in eCryptFS (kernel mode)</p>
+    <p>Microbenchmark with measuring flow in sequential and random read Microbenchmark with measuring flow in sequential and random read and write operations (requests: 4, 64 and 128 KiB in a big 16 GiB file)and write operations (requests: 4, 64 and 128 KiB in a big 16 GiB file)</p>
+    <p>Macrobenchmark using filebench workloads with variation in number Macrobenchmark using filebench workloads with variation in number of threads (fileserver.f and webserver.f)of threads (fileserver.f and webserver.f)</p>
+    <p>Linux kernel 4.10.0, Intel Core i7-7700HQ at 2.8 GHz (fixed Linux kernel 4.10.0, Intel Core i7-7700HQ at 2.8 GHz (fixed frequency), 32 GiB RAM, SSD disk (500 MB / s) and ramdisk (/ run / frequency), 32 GiB RAM, SSD disk (500 MB / s) and ramdisk (/ run / shm), libfuse 2.9.4, OpenSSL 1.0 .2g, WAESlib 2.01g0, ext4 base shm), libfuse 2.9.4, OpenSSL 1.0 .2g, WAESlib 2.01g0, ext4 base FS, NVIDIA GeForce GTX 1070 mobile (Pascal Architecture)FS, NVIDIA GeForce GTX 1070 mobile (Pascal Architecture)</p>
+    <p>Performance AnalysisPerformance Analysis</p>
+  </div>
+  <div class="page">
+    <p>Sequencial Read+Decrypt (SSD)</p>
+    <p>EncFS++/EncFS</p>
+    <p>Req. Size (KiB)</p>
+    <p>EncFS (CBC, CPU)</p>
+    <p>EncFS++ (CTR, GPU)</p>
+    <p>Thrput (MB/s)</p>
+    <p>CPU (%)</p>
+    <p>Thrput (MB/s)</p>
+    <p>CPU (%)</p>
+    <p>Thrput Var. (%)</p>
+    <p>CPU use efficiency</p>
+    <p>Sequencial Read+Decrypt (SSD)</p>
+    <p>EncFS++/EncFS</p>
+    <p>Req. Size (KiB)</p>
+    <p>EncFS (CBC, CPU)</p>
+    <p>EncFS++ (CTR, GPU)</p>
+    <p>Thrput (MB/s)</p>
+    <p>CPU (%)</p>
+    <p>Thrput (MB/s)</p>
+    <p>CPU (%)</p>
+    <p>Thrput Var. (%)</p>
+    <p>CPU use efficiency</p>
+    <p>Sequencial Read+Decrypt (Memory)</p>
+    <p>EncFS++/EncFS</p>
+    <p>Req. Size (KiB)</p>
+    <p>EncFS (CBC, CPU)</p>
+    <p>EncFS++ (CTR, GPU)</p>
+    <p>Thrput (MB/s)</p>
+    <p>CPU (%)</p>
+    <p>Thrput (MB/s)</p>
+    <p>CPU (%)</p>
+    <p>Thrput Var. (%)</p>
+    <p>CPU use efficiency</p>
+    <p>Sequencial Read+Decrypt (Memory)</p>
+    <p>EncFS++/EncFS</p>
+    <p>Req. Size (KiB)</p>
+    <p>EncFS (CBC, CPU)</p>
+    <p>EncFS++ (CTR, GPU)</p>
+    <p>Thrput (MB/s)</p>
+    <p>CPU (%)</p>
+    <p>Thrput (MB/s)</p>
+    <p>CPU (%)</p>
+    <p>Thrput Var. (%)</p>
+    <p>CPU use efficiency</p>
+    <p>Microbenchmark (sequencial Read Microbenchmark (sequencial Read +Decrypt+Decrypt))</p>
+    <p>EncFS (CBC, CPU) EncFS++ (CTR, GPU) EncFS++/EncFS</p>
+    <p>Request size (KiB)</p>
+    <p>T h ro</p>
+    <p>u g h p u t (M</p>
+    <p>B /s</p>
+    <p>)</p>
+    <p>T h ro</p>
+    <p>u g h p u t v a ri a tio</p>
+    <p>n (</p>
+    <p>% )</p>
+    <p>EncFS (CBC, CPU) EncFS++ (CTR, GPU) EncFS++/EncFS</p>
+    <p>Request size (KiB)</p>
+    <p>T h ro</p>
+    <p>u g h</p>
+    <p>p u t</p>
+    <p>(M B</p>
+    <p>/s )</p>
+    <p>T h</p>
+    <p>ro u g h p u t v a ri a tio</p>
+    <p>n (</p>
+    <p>% )</p>
+    <p>Sequencial Read+Decrypt (Memory)</p>
+    <p>EncFS (CBC, CPU) EncFS++ (CTR, GPU) EncFS++/EncFS</p>
+    <p>Request size (KiB)</p>
+    <p>T h ro</p>
+    <p>u g h p u t (M</p>
+    <p>B /s</p>
+    <p>)</p>
+    <p>T h ro</p>
+    <p>u g h</p>
+    <p>p u t</p>
+    <p>v a ri a tio</p>
+    <p>n (</p>
+    <p>% )</p>
+    <p>Sequencial Read+Decrypt (Memory)</p>
+    <p>EncFS (CBC, CPU) EncFS++ (CTR, GPU) EncFS++/EncFS</p>
+    <p>Request size (KiB)</p>
+    <p>T h ro</p>
+    <p>u g</p>
+    <p>h p u</p>
+    <p>t (M</p>
+    <p>B /s</p>
+    <p>)</p>
+    <p>T h ro</p>
+    <p>u g h p u t v a ri a tio</p>
+    <p>n (</p>
+    <p>% )</p>
+  </div>
+  <div class="page">
+    <p>Sequencial Write+Encrypt (Memory)</p>
+    <p>EncFS++/EncFS</p>
+    <p>Req. Size (KiB)</p>
+    <p>EncFS (CBC, CPU)</p>
+    <p>EncFS++ (CTR, GPU)</p>
+    <p>Thrput (MB/s)</p>
+    <p>CPU (%)</p>
+    <p>Thrput (MB/s)</p>
+    <p>CPU (%)</p>
+    <p>Thrput Var. (%)</p>
+    <p>CPU use efficiency</p>
+    <p>Sequencial Write+Encrypt (Memory)</p>
+    <p>EncFS++/EncFS</p>
+    <p>Req. Size (KiB)</p>
+    <p>EncFS (CBC, CPU)</p>
+    <p>EncFS++ (CTR, GPU)</p>
+    <p>Thrput (MB/s)</p>
+    <p>CPU (%)</p>
+    <p>Thrput (MB/s)</p>
+    <p>CPU (%)</p>
+    <p>Thrput Var. (%)</p>
+    <p>CPU use efficiency</p>
+    <p>Sequencial Write+Encrypt (SSD)</p>
+    <p>EncFS++/EncFS</p>
+    <p>Req. Size (KiB)</p>
+    <p>EncFS (CBC, CPU)</p>
+    <p>EncFS++ (CTR, GPU)</p>
+    <p>Thrput (MB/s)</p>
+    <p>CPU (%)</p>
+    <p>Thrput (MB/s)</p>
+    <p>CPU (%)</p>
+    <p>Thrput Var. (%)</p>
+    <p>CPU use efficiency</p>
+    <p>Sequencial Write+Encrypt (SSD)</p>
+    <p>EncFS++/EncFS</p>
+    <p>Req. Size (KiB)</p>
+    <p>EncFS (CBC, CPU)</p>
+    <p>EncFS++ (CTR, GPU)</p>
+    <p>Thrput (MB/s)</p>
+    <p>CPU (%)</p>
+    <p>Thrput (MB/s)</p>
+    <p>CPU (%)</p>
+    <p>Thrput Var. (%)</p>
+    <p>CPU use efficiency</p>
+    <p>EncFS (CBC, CPU) EncFS++ (CTR, GPU) EncFS++/EncFS</p>
+    <p>Request size (KiB)</p>
+    <p>T h ro</p>
+    <p>u g h p u t (M</p>
+    <p>B /s</p>
+    <p>)</p>
+    <p>T h ro</p>
+    <p>u g h p u t v a ri a tio</p>
+    <p>n (</p>
+    <p>% )</p>
+    <p>EncFS (CBC, CPU) EncFS++ (CTR, GPU) EncFS++/EncFS</p>
+    <p>Request size (KiB)</p>
+    <p>T h ro</p>
+    <p>u g</p>
+    <p>h p u</p>
+    <p>t (M</p>
+    <p>B /s</p>
+    <p>)</p>
+    <p>T h ro</p>
+    <p>u g h</p>
+    <p>p u t</p>
+    <p>v a ri a tio</p>
+    <p>n (</p>
+    <p>% )</p>
+    <p>EncFS (CBC, CPU) EncFS++ (CTR, GPU) EncFS++/EncFS</p>
+    <p>Request size (KiB)</p>
+    <p>T h ro</p>
+    <p>u g h p u t (M</p>
+    <p>B /s</p>
+    <p>)</p>
+    <p>T h ro</p>
+    <p>u g h p u t v a ri a tio</p>
+    <p>n (</p>
+    <p>% )</p>
+    <p>EncFS (CBC, CPU) EncFS++ (CTR, GPU) EncFS++/EncFS</p>
+    <p>Request size (KiB)</p>
+    <p>T h ro</p>
+    <p>u g h p u t (M</p>
+    <p>B /s</p>
+    <p>)</p>
+    <p>T h</p>
+    <p>ro u g h p u t v a ri a tio</p>
+    <p>n (</p>
+    <p>% )</p>
+    <p>Microbenchmark (sequencial write Microbenchmark (sequencial write +encrypt+encrypt))</p>
+  </div>
+  <div class="page">
+    <p>Random Read+Decrypt (Memory)</p>
+    <p>EncFS++/EncFS</p>
+    <p>Req. Size (KiB)</p>
+    <p>EncFS (CBC, CPU)</p>
+    <p>EncFS++ (CTR, GPU)</p>
+    <p>Thrput (MB/s)</p>
+    <p>CPU (%)</p>
+    <p>Thrput (MB/s)</p>
+    <p>CPU (%)</p>
+    <p>Thrput Var. (%)</p>
+    <p>CPU use efficiency</p>
+    <p>Random Read+Decrypt (Memory)</p>
+    <p>EncFS++/EncFS</p>
+    <p>Req. Size (KiB)</p>
+    <p>EncFS (CBC, CPU)</p>
+    <p>EncFS++ (CTR, GPU)</p>
+    <p>Thrput (MB/s)</p>
+    <p>CPU (%)</p>
+    <p>Thrput (MB/s)</p>
+    <p>CPU (%)</p>
+    <p>Thrput Var. (%)</p>
+    <p>CPU use efficiency</p>
+    <p>Random Read+Decrypt (SSD)</p>
+    <p>EncFS++/EncFS</p>
+    <p>Req. Size (KiB)</p>
+    <p>EncFS (CBC, CPU)</p>
+    <p>EncFS++ (CTR, GPU)</p>
+    <p>Thrput (MB/s)</p>
+    <p>CPU (%)</p>
+    <p>Thrput (MB/s)</p>
+    <p>CPU (%)</p>
+    <p>Thrput Var. (%)</p>
+    <p>CPU use efficiency</p>
+    <p>Random Read+Decrypt (SSD)</p>
+    <p>EncFS++/EncFS</p>
+    <p>Req. Size (KiB)</p>
+    <p>EncFS (CBC, CPU)</p>
+    <p>EncFS++ (CTR, GPU)</p>
+    <p>Thrput (MB/s)</p>
+    <p>CPU (%)</p>
+    <p>Thrput (MB/s)</p>
+    <p>CPU (%)</p>
+    <p>Thrput Var. (%)</p>
+    <p>CPU use efficiency</p>
+    <p>-100</p>
+    <p>-50</p>
+    <p>EncFS (CBC, CPU) EncFS++ (CTR, GPU) EncFS++/EncFS</p>
+    <p>Request size (KiB)</p>
+    <p>T h ro</p>
+    <p>u g h p u t (M</p>
+    <p>B /s</p>
+    <p>)</p>
+    <p>T h ro</p>
+    <p>u g h p u t v a ri a tio</p>
+    <p>n (</p>
+    <p>% )</p>
+    <p>-100</p>
+    <p>-50</p>
+    <p>EncFS (CBC, CPU) EncFS++ (CTR, GPU) EncFS++/EncFS</p>
+    <p>Request size (KiB)</p>
+    <p>T h ro</p>
+    <p>u g h</p>
+    <p>p u t</p>
+    <p>(M B</p>
+    <p>/s )</p>
+    <p>T h ro</p>
+    <p>u g h</p>
+    <p>p u t</p>
+    <p>v a ri a tio</p>
+    <p>n (</p>
+    <p>% )</p>
+    <p>EncFS (CBC, CPU) EncFS++ (CTR, GPU) EncFS++/EncFS</p>
+    <p>Request size (KiB)</p>
+    <p>T h ro</p>
+    <p>u g h p u t (M</p>
+    <p>B /s</p>
+    <p>)</p>
+    <p>T h ro</p>
+    <p>u g h p u t v a ri a tio</p>
+    <p>n (</p>
+    <p>% )</p>
+    <p>EncFS (CBC, CPU) EncFS++ (CTR, GPU) EncFS++/EncFS</p>
+    <p>Request size (KiB)</p>
+    <p>T h ro</p>
+    <p>u g h p u t (M</p>
+    <p>B /s</p>
+    <p>)</p>
+    <p>T h</p>
+    <p>ro u g h p u t v a ri a tio</p>
+    <p>n (</p>
+    <p>% )</p>
+    <p>Microbenchmark (random read Microbenchmark (random read +decrypt+decrypt))</p>
+  </div>
+  <div class="page">
+    <p>Random Write+Encrypt (Memory)</p>
+    <p>EncFS++/EncFS</p>
+    <p>Req. Size (KiB)</p>
+    <p>EncFS (CBC, CPU)</p>
+    <p>EncFS++ (CTR, GPU)</p>
+    <p>Thrput (MB/s)</p>
+    <p>CPU (%)</p>
+    <p>Thrput (MB/s)</p>
+    <p>CPU (%)</p>
+    <p>Thrput Var. (%)</p>
+    <p>CPU use efficiency</p>
+    <p>Random Write+Encrypt (Memory)</p>
+    <p>EncFS++/EncFS</p>
+    <p>Req. Size (KiB)</p>
+    <p>EncFS (CBC, CPU)</p>
+    <p>EncFS++ (CTR, GPU)</p>
+    <p>Thrput (MB/s)</p>
+    <p>CPU (%)</p>
+    <p>Thrput (MB/s)</p>
+    <p>CPU (%)</p>
+    <p>Thrput Var. (%)</p>
+    <p>CPU use efficiency</p>
+    <p>Random Write+Encrypt (SSD)</p>
+    <p>EncFS++/EncFS</p>
+    <p>Req. Size (KiB)</p>
+    <p>EncFS (CBC, CPU)</p>
+    <p>EncFS++ (CTR, GPU)</p>
+    <p>Thrput (MB/s)</p>
+    <p>CPU (%)</p>
+    <p>Thrput (MB/s)</p>
+    <p>CPU (%)</p>
+    <p>Thrput Var. (%)</p>
+    <p>CPU use efficiency</p>
+    <p>Random Write+Encrypt (SSD)</p>
+    <p>EncFS++/EncFS</p>
+    <p>Req. Size (KiB)</p>
+    <p>EncFS (CBC, CPU)</p>
+    <p>EncFS++ (CTR, GPU)</p>
+    <p>Thrput (MB/s)</p>
+    <p>CPU (%)</p>
+    <p>Thrput (MB/s)</p>
+    <p>CPU (%)</p>
+    <p>Thrput Var. (%)</p>
+    <p>CPU use efficiency</p>
+    <p>EncFS (CBC, CPU) EncFS++ (CTR, GPU) EncFS++/EncFS</p>
+    <p>Request size (KiB)</p>
+    <p>T h ro</p>
+    <p>u g h p u t (M</p>
+    <p>B /s</p>
+    <p>)</p>
+    <p>T h ro</p>
+    <p>u g h p u t v a ri a tio</p>
+    <p>n (</p>
+    <p>% )</p>
+    <p>EncFS (CBC, CPU) EncFS++ (CTR, GPU) EncFS++/EncFS</p>
+    <p>Request size (KiB)</p>
+    <p>T h ro</p>
+    <p>u g h</p>
+    <p>p u t</p>
+    <p>(M B</p>
+    <p>/s )</p>
+    <p>T h ro</p>
+    <p>u g h p u t v a ri a tio</p>
+    <p>n (</p>
+    <p>% )</p>
+    <p>EncFS (CBC, CPU) EncFS++ (CTR, GPU) EncFS++/EncFS</p>
+    <p>Request size (KiB)</p>
+    <p>T h ro</p>
+    <p>u g h p u t (M</p>
+    <p>B /s</p>
+    <p>)</p>
+    <p>T h ro</p>
+    <p>u g h p u t v a ri a tio</p>
+    <p>n (</p>
+    <p>% )</p>
+    <p>EncFS (CBC, CPU) EncFS++ (CTR, GPU) EncFS++/EncFS</p>
+    <p>Request size (KiB)</p>
+    <p>T h</p>
+    <p>ro u g h p u t (M</p>
+    <p>B /s</p>
+    <p>)</p>
+    <p>T h</p>
+    <p>ro u g h p u t v a ri a tio</p>
+    <p>n (</p>
+    <p>% )</p>
+    <p>Microbenchmark (random write Microbenchmark (random write +encrypt+encrypt))</p>
+  </div>
+  <div class="page">
+    <p>Th re</p>
+    <p>ad s</p>
+    <p>EncFS (CBC, CPU)</p>
+    <p>eCryptfs (CBC, CPU)</p>
+    <p>eCryptfs (CBC, CPU, AESNI)</p>
+    <p>EncFS++ (CTR, GPU)</p>
+    <p>EncFS++/ EncFS (CBC)</p>
+    <p>EncFS++/ Ecryptfs (CPU)</p>
+    <p>EncFS++/eCryptfs (CPU, AESNI)</p>
+    <p>Thrput (MB/s)</p>
+    <p>CPU (%)</p>
+    <p>Thrput (MB/s)</p>
+    <p>CPU (%)</p>
+    <p>Thrput (MB/s)</p>
+    <p>CPU (%)</p>
+    <p>Thrput (MB/s)</p>
+    <p>CPU (%)</p>
+    <p>GPU (%)</p>
+    <p>Thrput Var. (%)</p>
+    <p>CPU Effic.</p>
+    <p>Thrput Var. (%)</p>
+    <p>CPU Effic.</p>
+    <p>Thrput Var. (%)</p>
+    <p>CPU Effic.</p>
+    <p>Th re</p>
+    <p>ad s</p>
+    <p>EncFS (CBC, CPU)</p>
+    <p>eCryptfs (CBC, CPU)</p>
+    <p>eCryptfs (CBC, CPU, AESNI)</p>
+    <p>EncFS++ (CTR, GPU)</p>
+    <p>EncFS++/ EncFS (CBC)</p>
+    <p>EncFS++/ Ecryptfs (CPU)</p>
+    <p>EncFS++/eCryptfs (CPU, AESNI)</p>
+    <p>Thrput (MB/s)</p>
+    <p>CPU (%)</p>
+    <p>Thrput (MB/s)</p>
+    <p>CPU (%)</p>
+    <p>Thrput (MB/s)</p>
+    <p>CPU (%)</p>
+    <p>Thrput (MB/s)</p>
+    <p>CPU (%)</p>
+    <p>GPU (%)</p>
+    <p>Thrput Var. (%)</p>
+    <p>CPU Effic.</p>
+    <p>Thrput Var. (%)</p>
+    <p>CPU Effic.</p>
+    <p>Thrput Var. (%)</p>
+    <p>CPU Effic.</p>
+    <p>Macrobenchmark (fileserver.f)Macrobenchmark (fileserver.f)</p>
+    <p>EncFS (CBC, CPU) EncFS++ (CTR, GPU) eCryptfs (CBC, CPU) eCryptfs (CBC, CPU, AESNI)</p>
+    <p>T h ro</p>
+    <p>u g h p u t (M</p>
+    <p>B /s</p>
+    <p>) 1 thread 2 threads 4 threads</p>
+    <p>EncFS (CBC, CPU) EncFS++ (CTR, GPU) eCryptfs (CBC, CPU) eCryptfs (CBC, CPU, AESNI)</p>
+    <p>T h ro</p>
+    <p>u g h p u t (M</p>
+    <p>B /s</p>
+    <p>)</p>
+  </div>
+  <div class="page">
+    <p>Th re</p>
+    <p>ad s</p>
+    <p>EncFS (CBC, CPU)</p>
+    <p>eCryptfs (CBC, CPU)</p>
+    <p>eCryptfs (CBC, CPU, AESNI)</p>
+    <p>EncFS++ (CTR, GPU)</p>
+    <p>EncFS++/ EncFS (CBC)</p>
+    <p>EncFS++/ Ecryptfs (CPU)</p>
+    <p>EncFS++/eCryptfs (CPU, AESNI)</p>
+    <p>Thrput (MB/s)</p>
+    <p>CPU (%)</p>
+    <p>Thrput (MB/s)</p>
+    <p>CPU (%)</p>
+    <p>Thrput (MB/s)</p>
+    <p>CPU (%)</p>
+    <p>Thrput (MB/s)</p>
+    <p>CPU (%)</p>
+    <p>GPU (%)</p>
+    <p>Thrput Var. (%)</p>
+    <p>CPU Effic.</p>
+    <p>Thrput Var. (%)</p>
+    <p>CPU Effic.</p>
+    <p>Thrput Var. (%)</p>
+    <p>CPU Effic.</p>
+    <p>Th re</p>
+    <p>ad s</p>
+    <p>EncFS (CBC, CPU)</p>
+    <p>eCryptfs (CBC, CPU)</p>
+    <p>eCryptfs (CBC, CPU, AESNI)</p>
+    <p>EncFS++ (CTR, GPU)</p>
+    <p>EncFS++/ EncFS (CBC)</p>
+    <p>EncFS++/ Ecryptfs (CPU)</p>
+    <p>EncFS++/eCryptfs (CPU, AESNI)</p>
+    <p>Thrput (MB/s)</p>
+    <p>CPU (%)</p>
+    <p>Thrput (MB/s)</p>
+    <p>CPU (%)</p>
+    <p>Thrput (MB/s)</p>
+    <p>CPU (%)</p>
+    <p>Thrput (MB/s)</p>
+    <p>CPU (%)</p>
+    <p>GPU (%)</p>
+    <p>Thrput Var. (%)</p>
+    <p>CPU Effic.</p>
+    <p>Thrput Var. (%)</p>
+    <p>CPU Effic.</p>
+    <p>Thrput Var. (%)</p>
+    <p>CPU Effic.</p>
+    <p>EncFS (CBC, CPU) EncFS++ (CTR, GPU) eCryptfs (CBC, CPU) eCryptfs (CBC, CPU, AESNI)</p>
+    <p>T h ro</p>
+    <p>u g h p u t (M</p>
+    <p>B /s</p>
+    <p>) 1 thread 2 threads 4 threads</p>
+    <p>EncFS (CBC, CPU) EncFS++ (CTR, GPU) eCryptfs (CBC, CPU) eCryptfs (CBC, CPU, AESNI)</p>
+    <p>T h ro</p>
+    <p>u g h</p>
+    <p>p u t</p>
+    <p>(M B</p>
+    <p>/s )</p>
+    <p>Macrobenchmark (webserver.f)Macrobenchmark (webserver.f)</p>
+  </div>
+  <div class="page">
+    <p>Microbechmark, with FS in memory: Microbechmark, with FS in memory:</p>
+    <p>Throughput:Throughput: gains up to gains up to 360% 360% (sequential read), (sequential read), 130% 130% (random read), (random read), 320% 320% (sequential and random writing). (sequential and random writing). CPU Efficiency:CPU Efficiency: gains up to gains up to 2.3x 2.3x (sequential read and write and random write), (sequential read and write and random write), 1.52x 1.52x (random read)(random read)</p>
+    <p>Macrobechmark (fileserver), with FS in SSD: Macrobechmark (fileserver), with FS in SSD:</p>
+    <p>Throughput:Throughput: gains up togains up to 27% 27% (vs EncFS), (vs EncFS), 33% 33% (vs eCryptfs). (vs eCryptfs). CPU EfficiencyCPU Efficiency: : 2.7x 2.7x (vs EncFS), (vs EncFS), 2.9x 2.9x (vs eCryptfs)(vs eCryptfs)</p>
+    <p>Macrobechmark (webserver), with FS in SSD:Macrobechmark (webserver), with FS in SSD:</p>
+    <p>ThroughputThroughput:: gains up togains up to 145% 145% (vs EncFS), (vs EncFS), 130% 130% (vs eCryptfs). (vs eCryptfs). CPU EfficiencyCPU Efficiency: : 1.8x 1.8x (vs EncFS), (vs EncFS), 2.2x 2.2x (vs eCryptfs)(vs eCryptfs)</p>
+    <p>Competitive even with AESNI, reaching up to Competitive even with AESNI, reaching up to 32% gain 32% gain (vs eCryptfs, (vs eCryptfs, webserver). However, CPU usage: up towebserver). However, CPU usage: up to 0.4x0.4x (vs eCryptfs, webserver) (vs eCryptfs, webserver)</p>
+    <p>ConclusionsConclusions</p>
+  </div>
+  <div class="page">
+    <p>Main contributions:Main contributions:</p>
+    <p>advantages of applying CTR mode in CFSs advantages of applying CTR mode in CFSs (generation, storage and management of nonces) (generation, storage and management of nonces)</p>
+    <p>explore additional advantages of CTR mode explore additional advantages of CTR mode (parallelization, speculative encryption and Encryption (parallelization, speculative encryption and Encryption Context Management)Context Management)</p>
+    <p>WAESlib applied to CFSs (abstracts GPU processing WAESlib applied to CFSs (abstracts GPU processing complexity, successfully exploits CTR mode, allows to create complexity, successfully exploits CTR mode, allows to create different techniques when using the encryption contexts)different techniques when using the encryption contexts)</p>
+    <p>Conclusions Conclusions (cont.)(cont.)</p>
+  </div>
+  <div class="page">
+    <p>GPU processing: significant increases in throughput (including GPU processing: significant increases in throughput (including small requests) and more efficient CPU utilization in small requests) and more efficient CPU utilization in environments where processors do not support the environments where processors do not support the acceleration of cryptographic functions (or use of other ciphers)acceleration of cryptographic functions (or use of other ciphers)</p>
+    <p>Future work:Future work:  performance analysis with actual loads  performance analysis with actual loads (better testing / creating new techniques with context pools) (better testing / creating new techniques with context pools)</p>
+    <p>extend to other accelerators, multicore or heterogeneous extend to other accelerators, multicore or heterogeneous  explore CTR / encryption in GPU (WAESlib) with kernel  explore CTR / encryption in GPU (WAESlib) with kernel space client (e.g. dm-crypt, Crypto-API Linux FS client)space client (e.g. dm-crypt, Crypto-API Linux FS client)</p>
+    <p>Conclusions Conclusions (cont.)(cont.)</p>
+  </div>
+  <div class="page">
+    <p>Thank you!</p>
+  </div>
+  <div class="page">
+    <p>Questions?</p>
+  </div>
+  <div class="page">
+    <p>Backup slide</p>
+  </div>
+  <div class="page">
+    <p>suppose a (current) 200 Gbps encryption capacity:suppose a (current) 200 Gbps encryption capacity: 2 * 10 2 * 101111 bps bps AES block size:AES block size: 128 bits 128 bits Time for encrypting 1 AES block:Time for encrypting 1 AES block: 128 / 2 * 10 128 / 2 * 101111 = 6,4 * 10 = 6,4 * 10-10 -10 s (0,64 ns)s (0,64 ns) Number of possible Number of possible noncesnonces:: 2 2128128 = 3,4 * 10 = 3,4 * 1038 38 blocosblocos Time to uniquely cypher all blocks:Time to uniquely cypher all blocks: (3,4 * 10 (3,4 * 103838) * (6,4 * 10) * (6,4 * 10-10-10) = 2,17 * 10) = 2,17 * 1029 29 ss</p>
+    <p>Years to wraparroundYears to wraparround = 2,17 * 10 = 2,17 * 1029 29 / 31.536.000 = / 31.536.000 = 6,88 * 106,88 * 1021 21 yearsyears</p>
+    <p>Suppose a BILION times faster machine:Suppose a BILION times faster machine: 2 * 10 2 * 102020 bps bps Time for encrypting 1 AES block:Time for encrypting 1 AES block: 128 / 2 * 10 128 / 2 * 102020 = 6,4 * 10 = 6,4 * 10-19 -19 ss Time to uniquely cypher all blocks:Time to uniquely cypher all blocks: (3,4 * 10 (3,4 * 103838) * (6,4 * 10) * (6,4 * 10-19-19) = 2,17 * 10) = 2,17 * 1020 20 ss</p>
+    <p>Years to wraparroundYears to wraparround = 2,17 * 10 = 2,17 * 1020 20 / 31.536.000 = / 31.536.000 = 6,88 * 106,88 * 1012 12 years years that is: 6,88 trilion years! that is: 6,88 trilion years!</p>
+    <p>Amount of time to CTR counter wraparround:Amount of time to CTR counter wraparround:</p>
+  </div>
+</Presentation>

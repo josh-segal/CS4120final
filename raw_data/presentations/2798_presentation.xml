@@ -1,0 +1,181 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>Datacenter RPCs can be General and Fast</p>
+    <p>Anuj Kalia (CMU) Michael Kaminsky (Intel Labs)</p>
+    <p>David G. Andersen (CMU)</p>
+  </div>
+  <div class="page">
+    <p>Modern datacenter networks are fast</p>
+    <p>100 Gbps  2 s RTT under one switch  300 ns per switch hop</p>
+  </div>
+  <div class="page">
+    <p>Existing networking options sacrifice performance or generality</p>
+    <p>Fast SpecializedGeneral</p>
+    <p>Slow</p>
+    <p>Works in commodity datacenters</p>
+    <p>Provides reliability, congestion control,</p>
+    <p>Ex: TCP, gRPC</p>
+    <p>Makes simplifying assumptions</p>
+    <p>Requires special hardware</p>
+    <p>Ex: DPDK, RDMA</p>
+  </div>
+  <div class="page">
+    <p>Drawbacks  Limited applicability</p>
+    <p>Reduced modularity and reuse due to co-design</p>
+    <p>Specialization for fast networking</p>
+    <p>FaRM [NSDI 14, SOSP 15] HERD [SIGCOMM 14] DrTM [SOSP15, OSDI 18] LITE [SOSP 17] Wukong [OSDI 16] FaSST [OSDI 16] NAM-DB [VLDB 17] HyperLoop [SIGCOMM 18] DSLR [SIGMOD 18]</p>
+    <p>RDMA NICs KV-Direct [SOSP 15] ZabFPGA [NSDI 18]</p>
+    <p>FPGAs NetChain [NSDI 18]</p>
+    <p>Programmable switches</p>
+  </div>
+  <div class="page">
+    <p>eRPC provides both speed and generality</p>
+    <p>Works in commodity datacenters</p>
+    <p>Provides reliability, congestion control,</p>
+    <p>General Fast</p>
+    <p>Makes simplifying assumptions</p>
+    <p>Requires special hardware</p>
+    <p>Slow Specialized</p>
+    <p>Three challenges</p>
+  </div>
+  <div class="page">
+    <p>Challenge #1: Managing packet loss Problem: Millisecond timeouts for small RPCs</p>
+    <p>Sender</p>
+    <p>Receiver</p>
+    <p>Sender</p>
+    <p>If a clients unlock packet is dropped:  Client retransmits after many milliseconds  Many contending requests fail</p>
+    <p>Buffer</p>
+  </div>
+  <div class="page">
+    <p>Challenge #1: Managing packet loss</p>
+    <p>Hardware solution: Lossless link layer (e.g., PFC, InfiniBand)</p>
+    <p>eRPCs solution A relaxed requirement for rare loss, supported by existing networks</p>
+    <p>Problem: Millisecond timeouts for small RPCs</p>
+    <p>Sender</p>
+    <p>Receiver</p>
+    <p>Sender</p>
+    <p>If a clients unlock packet is dropped:  Client retransmits after many milliseconds  Many contending requests fail</p>
+    <p>Buffer Pros: Simple/cheap reliability Cons: Deadlocks, unfairness</p>
+  </div>
+  <div class="page">
+    <p>Enabled by low-latency NICs</p>
+    <p>Slow NIC Adds 10 s</p>
+    <p>Fast NIC Adds 500 ns</p>
+    <p>In low-latency networks, switch buffers prevent most loss  Bandwidth = 25 Gbps, RTT = 6.0 s</p>
+    <p>Bandwidth x delay (BDP) = 19 KB</p>
+    <p>Switch buffer = 12 MB &gt;&gt; BDPN N N N 25 Gbps</p>
+  </div>
+  <div class="page">
+    <p>All modern switches have buffers &gt;&gt; BDP</p>
+    <p>Broadcom Trident 3 (32 MB) Mellanox Spectrum 2 (42 MB) Barefoot Tofino (22 MB)</p>
+    <p>These are not big buffer switches!</p>
+    <p>Cisco 3636-C (16 gigabytes, DRAM buffer)</p>
+  </div>
+  <div class="page">
+    <p>Small BDP + sufficient switch buffer  Rare loss</p>
+    <p>Switch buffer (12 MB)</p>
+    <p>Victim node</p>
+    <p>Node 1</p>
+    <p>Node 100</p>
+    <p>Node 2</p>
+    <p>Incast tolerance = 12 MB / 19 KB = 640  50-way tolerance desired in practice [e.g., DCQCN @Microsoft, Timely @Google]</p>
+    <p>Tested with 100-way incast: No loss</p>
+    <p>(+ other non-incast flows)</p>
+  </div>
+  <div class="page">
+    <p>Challenge #2: Low-overhead transport layer</p>
+    <p>Many more in paper:</p>
+    <p>Optimized memory allocation for small-size RPCs</p>
+    <p>Optimized threading for short-duration RPCs</p>
+    <p>Idea: Optimize for the common case</p>
+    <p>Example 1: Optimized DMA buffer management for rare packet loss</p>
+    <p>Example 2: Optimized congestion control for uncongested networks</p>
+  </div>
+  <div class="page">
+    <p>Example: Optimized DMA buffer management for rare packet loss</p>
+    <p>Request</p>
+    <p>NIC</p>
+    <p>CPU</p>
+    <p>Method #2: Servers response  Free  Doesnt work if a packet is lost</p>
+    <p>Method #1: Explicit NIC signal  Overhead for each request</p>
+    <p>Problem: Detecting completion of request DMA</p>
+    <p>Solution: Use servers response in common case. Flush DMA queue during rare loss.</p>
+    <p>DMA read</p>
+  </div>
+  <div class="page">
+    <p>Example: Efficient congestion control in software</p>
+    <p>Problem: Congestion control overhead</p>
+    <p>Hardware solution: NIC offload Pro: Saves CPU cycles Con: Low flexibility</p>
+    <p>eRPCs solution Optimize for uncongested networks</p>
+    <p>Example: Rate limiter overhead</p>
+    <p>Ex: Difficult to use Carousel [SIGCOMM 17]</p>
+  </div>
+  <div class="page">
+    <p>Datacenter networks are usually uncongested</p>
+    <p>Facebook datacenter studies</p>
+    <p>Timescale Links less than 10% utilized</p>
+    <p>Ten minutes 99% [Roy et al., SIGCOMM 15]</p>
+  </div>
+  <div class="page">
+    <p>Congestion control, fast and slow</p>
+    <p>eRPC uses RTT-based congestion control (Timely [SIGCOMM 15])</p>
+    <p>RTT high: TX_rate--; RTT low: TX_rate++;</p>
+  </div>
+  <div class="page">
+    <p>Congestion control, fast and slow Client receives ACK &amp; measures RTT</p>
+    <p>RTT low &amp; TX rate = MAX</p>
+    <p>NoUpdate TX rate</p>
+    <p>NoPlace in rate limiter Yes Place on wireTX rate = MAX</p>
+    <p>C PU</p>
+    <p>ov</p>
+    <p>er he</p>
+    <p>ad eRPC uses RTT-based congestion control (Timely [SIGCOMM 15])</p>
+    <p>RTT high: TX_rate--; RTT low: TX_rate++;</p>
+  </div>
+  <div class="page">
+    <p>Together, common-case optimizations matter</p>
+    <p>Result: Low overhead transport with congestion control</p>
+    <p>Unoptimized +Zero-copy request processing</p>
+    <p>+Preallocated responses +Multi-packet RQ</p>
+    <p>+Rate limiter bypass +Timely bypass</p>
+    <p>+Batched RTT timestamps</p>
+    <p>Millions of requests/second (one core)</p>
+  </div>
+  <div class="page">
+    <p>eRPC microbenchmark highlights</p>
+    <p>Lossy 40 GbE network</p>
+    <p>2.3 s RPC round-trip latency</p>
+    <p>Line rate with one core</p>
+    <p>60 million RPCs/s per machine</p>
+    <p>Scalability to 20000 connections ( &gt;&gt; RDMA)</p>
+  </div>
+  <div class="page">
+    <p>Challenge #3: Easy integration with existing applications</p>
+    <p>Image credit: James Mickens</p>
+    <p>Complexity during failure</p>
+    <p>5 years of developer effort. 150+ unit tests, fuzzing.  In production use by Intel</p>
+    <p>Client</p>
+    <p>Leader</p>
+    <p>Follower</p>
+    <p>Remote procedure calls in Raft</p>
+    <p>Follower</p>
+  </div>
+  <div class="page">
+    <p>Replication over eRPC is fast</p>
+    <p>eRPC/Lossy Ethernet</p>
+    <p>[Istvan et al., NSDI 16] FPGA</p>
+    <p>[DARE, HPDC 15] RDMA</p>
+    <p>[NetChain, NSDI 18] P4 switch</p>
+    <p>Client latency (s) 3-way replication, data in DRAM</p>
+    <p>Raft-over-eRPC does not have network or object size constraints</p>
+  </div>
+  <div class="page">
+    <p>Takeaway: Given fast packet I/O, we can provide fast networking in software</p>
+    <p>I am on the academic job market</p>
+    <p>erpc.io Industry impact: https://github.com/daq-db/</p>
+    <p>Using performance to justify placing functions in a low-level subsystem must be done carefully.</p>
+    <p>Sometimes, by examining the problem thoroughly, the same or better performance can be achieved at the high level.</p>
+    <p>End-to-end Arguments in System Design [Saltzer, 84]</p>
+  </div>
+</Presentation>

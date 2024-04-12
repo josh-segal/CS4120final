@@ -1,0 +1,965 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>TVM: An Automated End-to-End Optimizing Compiler for Deep Learning</p>
+    <p>Tianqi Chen, Thierry Moreau, Ziheng Jiang, Lianmin Zheng, Eddie Yan, Meghan Cowan, Haichen Shen, Leyuan Wang, Yuwei Hu,</p>
+    <p>Luis Ceze, Carlos Guestrin, Arvind Krishnamurthy</p>
+    <p>!1</p>
+  </div>
+  <div class="page">
+    <p>Collaborators</p>
+    <p>!2</p>
+    <p>SAMPL Lab: https://sampl.cs.washington.edu</p>
+  </div>
+  <div class="page">
+    <p>Beginning of Story</p>
+    <p>!3</p>
+  </div>
+  <div class="page">
+    <p>Beginning of Story</p>
+    <p>!3</p>
+    <p>Acclerator</p>
+  </div>
+  <div class="page">
+    <p>Beginning of Story</p>
+    <p>!3</p>
+    <p>Acclerator</p>
+  </div>
+  <div class="page">
+    <p>Beginning of Story</p>
+    <p>// Pseudo-code for convolution program for the VIA accelerator // Virtual Thread 0 0x00: LOAD(PARAM[ 0-71]) // LD@TID0 0x01: LOAD(ACTIV[ 0-24]) // LD@TID0 0x02: LOAD(LDBUF[ 0-31]) // LD@TID0 0x03: PUSH(LD-&gt;EX) // LD@TID0 0x04: POP (LD-&gt;EX) // EX@TID0 0x05: EXE (ACTIV[ 0-24],PARAM[ 0-71],LDBUF[ 0-31],STBUF[ 0- 7]) // EX@TID0 0x06: PUSH(EX-&gt;LD) // EX@TID0 0x07: PUSH(EX-&gt;ST) // EX@TID0 0x08: POP (EX-&gt;ST) // ST@TID0 0x09: STOR(STBUF[ 0- 7]) // ST@TID0 0x0A: PUSH(ST-&gt;EX) // ST@TID0 // Virtual Thread 1 0x0B: LOAD(ACTIV[25-50]) // LD@TID1 0x0C: LOAD(LDBUF[32-63]) // LD@TID1 0x0D: PUSH(LD-&gt;EX) // LD@TID1 0x0E: POP (LD-&gt;EX) // EX@TID1 0x0F: EXE (ACTIV[25-50],PARAM[ 0-71],LDBUF[32-63],STBUF[32-39]) // EX@TID1 0x10: PUSH(EX-&gt;LD) // EX@TID1 0x11: PUSH(EX-&gt;ST) // EX@TID1 0x12: POP (EX-&gt;ST) // ST@TID1 0x13: STOR(STBUF[32-39]) // ST@TID1 0x14: PUSH(ST-&gt;EX) // ST@TID1 // Virtual Thread 2 0x15: POP (EX-&gt;LD) // LD@TID2 0x16: LOAD(PARAM[ 0-71]) // LD@TID2 0x17: LOAD(ACTIV[ 0-24]) // LD@TID2 0x18: LOAD(LDBUF[ 0-31]) // LD@TID2 0x19: PUSH(LD-&gt;EX) // LD@TID2 0x1A: POP (LD-&gt;EX) // EX@TID2 0x1B: POP (ST-&gt;EX) // EX@TID2 0x1C: EXE (ACTIV[ 0-24],PARAM[ 0-71],LDBUF[ 0-31],STBUF[ 0- 7]) // EX@TID2 0x1D: PUSH(EX-&gt;ST) // EX@TID2 0x1E: POP (EX-&gt;ST) // ST@TID2 0x1F: STOR(STBUF[ 0- 7]) // ST@TID2 // Virtual Thread 3 0x20: POP (EX-&gt;LD) // LD@TID3 0x21: LOAD(ACTIV[25-50]) // LD@TID3 0x22: LOAD(LDBUF[32-63]) // LD@TID3 0x23: PUSH(LD-&gt;EX) // LD@TID3 0x24: POP (LD-&gt;EX) // EX@TID3 0x25: POP (ST-&gt;EX) // EX@TID2 0x26: EXE (ACTIV[25-50],PARAM[ 0-71],LDBUF[32-63],STBUF[32-39]) // EX@TID3 0x27: PUSH(EX-&gt;ST) // EX@TID3 0x28: POP (EX-&gt;ST) // ST@TID3 0x29: STOR(STBUF[32-39]) // ST@TID3</p>
+    <p>// Convolution access pattern dictated by micro-coded program. // Each register index is derived as a 2-D affine function. // e.g. idxrf = arfy+brfx+crf</p>
+    <p>// micro op 0 fields. for y in [0i) for x in [0j) rf[idxrf</p>
+    <p>n] += GEVM(act[idxact n], par[idxpar</p>
+    <p>n])</p>
+    <p>(b) Convolution micro-coded program</p>
+    <p>// Max-pool, batch normalization and activation function // access pattern dictated by micro-coded program. // Each register index is derived as a 2D affine function. // e.g. idxdst = adsty+bdstx+cdst</p>
+    <p>// micro op 0 fields. for y in [0i) for x in [0j) // max pooling rf[idxdst</p>
+    <p>m] = MUL(rf[idxdst m], rf[idxsrc</p>
+    <p>m]) rf[idxdst</p>
+    <p>m+1] = ADD(rf[idxdst m+1], rf[idxsrc</p>
+    <p>m+1]) rf[idxdst</p>
+    <p>m+2] = MUL(rf[idxdst m+2], rf[idxsrc</p>
+    <p>m+2]) rf[idxdst</p>
+    <p>m+3] = ADD(rf[idxdst m+3], rf[idxsrc</p>
+    <p>m+3])  // activation rf[idxdst</p>
+    <p>n-1] = RELU(rf[idxdst n-1], rf[idxsrc</p>
+    <p>n-1]) rf[idxdst</p>
+    <p>n] = RELU(rf[idxdst n], rf[idxsrc</p>
+    <p>n])</p>
+    <p>(c) Max pool, batch norm and activation micro-coded program</p>
+    <p>(a) Blocked convolution program with multiple thread contexts</p>
+    <p>!3</p>
+    <p>Acclerator</p>
+  </div>
+  <div class="page">
+    <p>Goal: Deploy Deep Learning Everywhere</p>
+    <p>!4</p>
+    <p>Frameworks</p>
+  </div>
+  <div class="page">
+    <p>Goal: Deploy Deep Learning Everywhere</p>
+    <p>Explosion of models and frameworks</p>
+    <p>!4</p>
+    <p>Frameworks</p>
+  </div>
+  <div class="page">
+    <p>Goal: Deploy Deep Learning Everywhere</p>
+    <p>Explosion of models and frameworks</p>
+    <p>Explosion of hardware backends</p>
+    <p>!4</p>
+    <p>Frameworks</p>
+  </div>
+  <div class="page">
+    <p>Goal: Deploy Deep Learning Everywhere</p>
+    <p>Explosion of models and frameworks</p>
+    <p>Explosion of hardware backends</p>
+    <p>!4</p>
+    <p>Frameworks</p>
+  </div>
+  <div class="page">
+    <p>Goal: Deploy Deep Learning Everywhere</p>
+    <p>Explosion of models and frameworks</p>
+    <p>Explosion of hardware backends</p>
+    <p>!4</p>
+    <p>Frameworks</p>
+  </div>
+  <div class="page">
+    <p>Goal: Deploy Deep Learning Everywhere</p>
+    <p>Explosion of models and frameworks</p>
+    <p>Explosion of hardware backends</p>
+    <p>!4</p>
+    <p>Frameworks</p>
+  </div>
+  <div class="page">
+    <p>Goal: Deploy Deep Learning Everywhere</p>
+    <p>Explosion of models and frameworks</p>
+    <p>Explosion of hardware backends</p>
+    <p>!4</p>
+    <p>Frameworks</p>
+  </div>
+  <div class="page">
+    <p>Goal: Deploy Deep Learning Everywhere</p>
+    <p>Explosion of models and frameworks</p>
+    <p>Explosion of hardware backends</p>
+    <p>!4</p>
+    <p>Frameworks</p>
+  </div>
+  <div class="page">
+    <p>Goal: Deploy Deep Learning Everywhere</p>
+    <p>Explosion of models and frameworks</p>
+    <p>Explosion of hardware backends</p>
+    <p>!4</p>
+    <p>Frameworks</p>
+  </div>
+  <div class="page">
+    <p>Goal: Deploy Deep Learning Everywhere</p>
+    <p>Explosion of models and frameworks</p>
+    <p>Explosion of hardware backends</p>
+    <p>!4</p>
+    <p>Frameworks</p>
+  </div>
+  <div class="page">
+    <p>Goal: Deploy Deep Learning Everywhere</p>
+    <p>Explosion of models and frameworks</p>
+    <p>Explosion of hardware backends</p>
+    <p>!4</p>
+    <p>Frameworks</p>
+    <p>Acclerator</p>
+  </div>
+  <div class="page">
+    <p>Goal: Deploy Deep Learning Everywhere</p>
+    <p>Explosion of models and frameworks</p>
+    <p>Explosion of hardware backends</p>
+    <p>Huge gap between model/frameworks and hardware backends</p>
+    <p>!4</p>
+    <p>Frameworks</p>
+    <p>Acclerator</p>
+  </div>
+  <div class="page">
+    <p>Existing Approach</p>
+    <p>Hardware !5</p>
+    <p>Frameworks</p>
+  </div>
+  <div class="page">
+    <p>Existing Approach</p>
+    <p>High-level data flow graph</p>
+    <p>Hardware !5</p>
+    <p>Frameworks</p>
+  </div>
+  <div class="page">
+    <p>Existing Approach</p>
+    <p>High-level data flow graph</p>
+    <p>Hardware</p>
+    <p>Primitive Tensor operators such as Conv2D</p>
+    <p>!5</p>
+    <p>Frameworks</p>
+  </div>
+  <div class="page">
+    <p>Existing Approach</p>
+    <p>High-level data flow graph</p>
+    <p>Hardware</p>
+    <p>Primitive Tensor operators such as Conv2D</p>
+    <p>eg. cuDNN Offload to heavily optimized DNN operator library</p>
+    <p>!5</p>
+    <p>Frameworks</p>
+  </div>
+  <div class="page">
+    <p>Existing Approach: Engineer Optimized Tensor Operators</p>
+    <p>!6!6</p>
+  </div>
+  <div class="page">
+    <p>Existing Approach: Engineer Optimized Tensor Operators</p>
+    <p>!6!6</p>
+  </div>
+  <div class="page">
+    <p>Existing Approach: Engineer Optimized Tensor Operators</p>
+    <p>!6!6</p>
+    <p>C = tvm.compute((m, n), lambda y, x: tvm.sum(A[k, y] * B[k, x], axis=k))</p>
+    <p>Matmul: Operator Specification</p>
+  </div>
+  <div class="page">
+    <p>Existing Approach: Engineer Optimized Tensor Operators</p>
+    <p>!6!6</p>
+    <p>C = tvm.compute((m, n), lambda y, x: tvm.sum(A[k, y] * B[k, x], axis=k))</p>
+    <p>Matmul: Operator Specification</p>
+  </div>
+  <div class="page">
+    <p>Existing Approach: Engineer Optimized Tensor Operators</p>
+    <p>!6!6</p>
+    <p>C = tvm.compute((m, n), lambda y, x: tvm.sum(A[k, y] * B[k, x], axis=k))</p>
+    <p>Matmul: Operator Specification</p>
+    <p>for y in range(1024): for x in range(1024): C[y][x] = 0 for k in range(1024): C[y][x] += A[k][y] * B[k][x]</p>
+    <p>Vanilla Code</p>
+  </div>
+  <div class="page">
+    <p>Existing Approach: Engineer Optimized Tensor Operators</p>
+    <p>!7!7</p>
+    <p>C = tvm.compute((m, n), lambda y, x: tvm.sum(A[k, y] * B[k, x], axis=k))</p>
+    <p>Matmul: Operator Specification</p>
+    <p>for yo in range(128): for xo in range(128): C[yo*8:yo*8+8][xo*8:xo*8+8] = 0 for ko in range(128): for yi in range(8): for xi in range(8): for ki in range(8): C[yo*8+yi][xo*8+xi] += A[ko*8+ki][yo*8+yi] * B[ko*8+ki][xo*8+xi]</p>
+    <p>Loop Tiling for Locality</p>
+  </div>
+  <div class="page">
+    <p>Existing Approach: Engineer Optimized Tensor Operators</p>
+    <p>!8!8</p>
+    <p>C = tvm.compute((m, n), lambda y, x: tvm.sum(A[k, y] * B[k, x], axis=k))</p>
+    <p>Matmul: Operator Specification</p>
+    <p>inp_buffer AL[8][8], BL[8][8] acc_buffer CL[8][8] for yo in range(128): for xo in range(128): vdla.fill_zero(CL) for ko in range(128): vdla.dma_copy2d(AL, A[ko*8:ko*8+8][yo*8:yo*8+8]) vdla.dma_copy2d(BL, B[ko*8:ko*8+8][xo*8:xo*8+8]) vdla.fused_gemm8x8_add(CL, AL, BL) vdla.dma_copy2d(C[yo*8:yo*8+8,xo*8:xo*8+8], CL)</p>
+    <p>Map to Accelerators</p>
+    <p>Human exploration of optimized code</p>
+  </div>
+  <div class="page">
+    <p>Limitations of Existing Approach</p>
+    <p>cuDNN</p>
+    <p>!9</p>
+    <p>Frameworks</p>
+  </div>
+  <div class="page">
+    <p>Limitations of Existing Approach</p>
+    <p>cuDNN</p>
+    <p>!9</p>
+    <p>Frameworks</p>
+  </div>
+  <div class="page">
+    <p>Limitations of Existing Approach</p>
+    <p>cuDNN</p>
+    <p>!9</p>
+    <p>Frameworks</p>
+  </div>
+  <div class="page">
+    <p>Limitations of Existing Approach</p>
+    <p>cuDNN</p>
+    <p>!9</p>
+    <p>Frameworks</p>
+  </div>
+  <div class="page">
+    <p>Limitations of Existing Approach</p>
+    <p>cuDNN</p>
+    <p>!9</p>
+    <p>Frameworks</p>
+  </div>
+  <div class="page">
+    <p>Limitations of Existing Approach</p>
+    <p>cuDNN</p>
+    <p>!9</p>
+    <p>Frameworks</p>
+    <p>New operator introduced by operator fusion optimization potentially benefit: 1.5x speedup</p>
+  </div>
+  <div class="page">
+    <p>Limitations of Existing Approach</p>
+    <p>cuDNN</p>
+    <p>!9</p>
+    <p>Frameworks</p>
+    <p>New operator introduced by operator fusion optimization potentially benefit: 1.5x speedup</p>
+  </div>
+  <div class="page">
+    <p>Limitations of Existing Approach</p>
+    <p>cuDNN</p>
+    <p>!9</p>
+    <p>Frameworks</p>
+    <p>New operator introduced by operator fusion optimization potentially benefit: 1.5x speedup</p>
+  </div>
+  <div class="page">
+    <p>Limitations of Existing Approach</p>
+    <p>cuDNN</p>
+    <p>!9</p>
+    <p>Frameworks</p>
+    <p>New operator introduced by operator fusion optimization potentially benefit: 1.5x speedup</p>
+    <p>Engineering intensive</p>
+  </div>
+  <div class="page">
+    <p>Learning-based Learning System</p>
+    <p>High-level data flow graph and optimizations</p>
+    <p>!10</p>
+    <p>Hardware</p>
+    <p>Frameworks</p>
+  </div>
+  <div class="page">
+    <p>Learning-based Learning System</p>
+    <p>High-level data flow graph and optimizations</p>
+    <p>!10</p>
+    <p>Hardware</p>
+    <p>Frameworks</p>
+  </div>
+  <div class="page">
+    <p>Hardware aware Search Space of Optimized Tensor Programs</p>
+    <p>Learning-based Learning System</p>
+    <p>High-level data flow graph and optimizations</p>
+    <p>!10</p>
+    <p>Hardware</p>
+    <p>Frameworks</p>
+  </div>
+  <div class="page">
+    <p>Hardware aware Search Space of Optimized Tensor Programs</p>
+    <p>Machine Learning based Program Optimizer</p>
+    <p>Learning-based Learning System</p>
+    <p>High-level data flow graph and optimizations</p>
+    <p>!10</p>
+    <p>Hardware</p>
+    <p>Frameworks</p>
+  </div>
+  <div class="page">
+    <p>Hardware aware Search Space of Optimized Tensor Programs</p>
+    <p>Machine Learning based Program Optimizer</p>
+    <p>Learning-based Learning System</p>
+    <p>High-level data flow graph and optimizations</p>
+    <p>directly generate optimized program for new operator workloads and hardware</p>
+    <p>!10</p>
+    <p>Hardware</p>
+    <p>Frameworks</p>
+  </div>
+  <div class="page">
+    <p>Learning-based Learning System Frameworks</p>
+    <p>High-level data flow graph and optimizations</p>
+    <p>Hardware aware Search Space of Optimized Tensor Programs</p>
+    <p>Machine Learning based Program Optimizer</p>
+    <p>!11</p>
+    <p>Hardware</p>
+  </div>
+  <div class="page">
+    <p>Learning-based Learning System Frameworks</p>
+    <p>High-level data flow graph and optimizations</p>
+    <p>Hardware aware Search Space of Optimized Tensor Programs</p>
+    <p>Machine Learning based Program Optimizer</p>
+    <p>!11</p>
+    <p>Hardware</p>
+  </div>
+  <div class="page">
+    <p>Hardware-aware Search Space</p>
+    <p>Hardware !12</p>
+    <p>C = tvm.compute((m, n), lambda y, x: tvm.sum(A[k, y] * B[k, x], axis=k))</p>
+    <p>Tensor Expression Language (Specification)</p>
+  </div>
+  <div class="page">
+    <p>Hardware-aware Search Space</p>
+    <p>Hardware !12</p>
+    <p>C = tvm.compute((m, n), lambda y, x: tvm.sum(A[k, y] * B[k, x], axis=k))</p>
+    <p>Tensor Expression Language (Specification)</p>
+    <p>Define search space of hardware aware mappings from expression to hardware program</p>
+    <p>Based on Halides compute/schedule separation</p>
+  </div>
+  <div class="page">
+    <p>Hardware-aware Search Space</p>
+    <p>L1D L1I L2</p>
+    <p>L3</p>
+    <p>L1D L1I L2</p>
+    <p>implicitly managed</p>
+    <p>Compute Primitives</p>
+    <p>scalar vector</p>
+    <p>!13</p>
+    <p>Memory Subsystem</p>
+    <p>Loop Transformations</p>
+    <p>Cache Locality Vectorization</p>
+    <p>CPUs</p>
+    <p>Reuse primitives from prior work: Halide, Loopy</p>
+  </div>
+  <div class="page">
+    <p>Challenge to Support Diverse Hardware Backends</p>
+    <p>!14</p>
+    <p>CPUs GPUs TPU-like specialized Accelerators</p>
+  </div>
+  <div class="page">
+    <p>Hardware-aware Search Space Compute Primitives</p>
+    <p>scalar vector</p>
+    <p>!15</p>
+    <p>Memory Subsystem</p>
+    <p>L2</p>
+    <p>RF RF TX/L1</p>
+    <p>SM</p>
+    <p>RF RF TX/L1</p>
+    <p>SM</p>
+    <p>mixed</p>
+    <p>GPUs</p>
+  </div>
+  <div class="page">
+    <p>Hardware-aware Search Space Compute Primitives</p>
+    <p>scalar vector</p>
+    <p>!15</p>
+    <p>Memory Subsystem</p>
+    <p>L2</p>
+    <p>RF RF TX/L1</p>
+    <p>SM</p>
+    <p>RF RF TX/L1</p>
+    <p>SM</p>
+    <p>mixed</p>
+    <p>GPUs</p>
+    <p>Shared memory among compute cores</p>
+  </div>
+  <div class="page">
+    <p>Hardware-aware Search Space Compute Primitives</p>
+    <p>scalar vector</p>
+    <p>!15</p>
+    <p>Memory Subsystem</p>
+    <p>L2</p>
+    <p>RF RF TX/L1</p>
+    <p>SM</p>
+    <p>RF RF TX/L1</p>
+    <p>SM</p>
+    <p>mixed</p>
+    <p>Thread Cooperation</p>
+    <p>Use of Shared Memory</p>
+    <p>GPUs</p>
+    <p>Shared memory among compute cores</p>
+  </div>
+  <div class="page">
+    <p>Hardware-aware Search Space</p>
+    <p>!16</p>
+    <p>TPU-like Specialized Accelerators</p>
+    <p>tensor</p>
+    <p>Compute Primitives</p>
+    <p>Unified Buffer Acc</p>
+    <p>FIFO</p>
+    <p>explicitly managed</p>
+    <p>Memory Subsystem</p>
+  </div>
+  <div class="page">
+    <p>Hardware-aware Search Space</p>
+    <p>!16</p>
+    <p>TPU-like Specialized Accelerators</p>
+    <p>tensor</p>
+    <p>Compute Primitives</p>
+    <p>Unified Buffer Acc</p>
+    <p>FIFO</p>
+    <p>explicitly managed</p>
+    <p>Memory Subsystem</p>
+  </div>
+  <div class="page">
+    <p>Tensorization Challenge Compute primitives</p>
+    <p>!17</p>
+  </div>
+  <div class="page">
+    <p>Tensorization Challenge Compute primitives</p>
+    <p>scalar</p>
+    <p>!17</p>
+  </div>
+  <div class="page">
+    <p>Tensorization Challenge Compute primitives</p>
+    <p>scalar vector</p>
+    <p>!17</p>
+  </div>
+  <div class="page">
+    <p>Tensorization Challenge Compute primitives</p>
+    <p>scalar vector tensor</p>
+    <p>!17</p>
+  </div>
+  <div class="page">
+    <p>Tensorization Challenge Compute primitives</p>
+    <p>scalar vector tensor</p>
+    <p>w, x = t.placeholder((8, 8)), t.placeholder((8, 8)) k = t.reduce_axis((0, 8)) y = t.compute((8, 8), lambda i, j: t.sum(w[i, k] * x[j, k], axis=k))</p>
+    <p>def gemm_intrin_lower(inputs, outputs): ww_ptr = inputs[0].access_ptr(r&quot;) xx_ptr = inputs[1].access_ptr(&quot;r&quot;) zz_ptr = outputs[0].access_ptr(&quot;w&quot;) compute = t.hardware_intrin(&quot;gemm8x8&quot;, ww_ptr, xx_ptr, zz_ptr) reset = t.hardware_intrin(&quot;fill_zero&quot;, zz_ptr) update = t.hardware_intrin(&quot;fuse_gemm8x8_add&quot;, ww_ptr, xx_ptr, zz_ptr) return compute, reset, update</p>
+    <p>gemm8x8 = t.decl_tensor_intrin(y.op, gemm_intrin_lower)</p>
+    <p>declare behavior</p>
+    <p>lowering rule to generate hardware intrinsics to carry out the computation</p>
+    <p>Hardware designer: declare tensor instruction interface</p>
+    <p>with Tensor Expression</p>
+    <p>!17</p>
+  </div>
+  <div class="page">
+    <p>Tensorization Challenge Compute primitives</p>
+    <p>scalar vector tensor</p>
+    <p>w, x = t.placeholder((8, 8)), t.placeholder((8, 8)) k = t.reduce_axis((0, 8)) y = t.compute((8, 8), lambda i, j: t.sum(w[i, k] * x[j, k], axis=k))</p>
+    <p>def gemm_intrin_lower(inputs, outputs): ww_ptr = inputs[0].access_ptr(r&quot;) xx_ptr = inputs[1].access_ptr(&quot;r&quot;) zz_ptr = outputs[0].access_ptr(&quot;w&quot;) compute = t.hardware_intrin(&quot;gemm8x8&quot;, ww_ptr, xx_ptr, zz_ptr) reset = t.hardware_intrin(&quot;fill_zero&quot;, zz_ptr) update = t.hardware_intrin(&quot;fuse_gemm8x8_add&quot;, ww_ptr, xx_ptr, zz_ptr) return compute, reset, update</p>
+    <p>gemm8x8 = t.decl_tensor_intrin(y.op, gemm_intrin_lower)</p>
+    <p>declare behavior</p>
+    <p>lowering rule to generate hardware intrinsics to carry out the computation</p>
+    <p>Hardware designer: declare tensor instruction interface</p>
+    <p>with Tensor Expression</p>
+    <p>!17</p>
+    <p>Tensorize: transform program</p>
+    <p>to use tensor instructions</p>
+    <p>scalar tensor</p>
+  </div>
+  <div class="page">
+    <p>Hardware-aware Search Space</p>
+    <p>!18</p>
+    <p>TPU-like Specialized Accelerators</p>
+    <p>tensor</p>
+    <p>Compute Primitives</p>
+    <p>Unified Buffer Acc</p>
+    <p>FIFO</p>
+    <p>explicitly managed</p>
+    <p>Memory Subsystem</p>
+  </div>
+  <div class="page">
+    <p>Hardware-aware Search Space</p>
+    <p>!18</p>
+    <p>TPU-like Specialized Accelerators</p>
+    <p>tensor</p>
+    <p>Compute Primitives</p>
+    <p>Unified Buffer Acc</p>
+    <p>FIFO</p>
+    <p>explicitly managed</p>
+    <p>Memory Subsystem</p>
+  </div>
+  <div class="page">
+    <p>Software Support for Latency Hiding</p>
+    <p>Single Module No Task-Pipelining</p>
+    <p>load inputs</p>
+    <p>load weights</p>
+    <p>matrix multiplication</p>
+    <p>store outputs</p>
+    <p>load inputs</p>
+    <p>load weights</p>
+    <p>matrix multiplication</p>
+    <p>store outputs</p>
+    <p>load inputs</p>
+    <p>load weights</p>
+    <p>matrix multiplication</p>
+    <p>store outputs</p>
+    <p>load inputs</p>
+    <p>load weights</p>
+    <p>matrix multiplication</p>
+    <p>store outputs</p>
+  </div>
+  <div class="page">
+    <p>Software Support for Latency Hiding</p>
+    <p>Single Module No Task-Pipelining</p>
+    <p>load inputs</p>
+    <p>load weights</p>
+    <p>matrix multiplication</p>
+    <p>store outputs</p>
+    <p>load inputs</p>
+    <p>load weights</p>
+    <p>matrix multiplication</p>
+    <p>store outputs</p>
+    <p>load inputs</p>
+    <p>load weights</p>
+    <p>load inputs</p>
+    <p>load weights</p>
+    <p>matrix multiplication</p>
+    <p>matrix multiplication</p>
+    <p>store outputs</p>
+    <p>store outputs</p>
+    <p>Multiple-Module Task-Level Pipelining</p>
+  </div>
+  <div class="page">
+    <p>Software Support for Latency Hiding</p>
+    <p>Single Module No Task-Pipelining</p>
+    <p>load inputs</p>
+    <p>load weights</p>
+    <p>matrix multiplication</p>
+    <p>store outputs</p>
+    <p>load inputs</p>
+    <p>load weights</p>
+    <p>matrix multiplication</p>
+    <p>store outputs</p>
+    <p>load inputs</p>
+    <p>load weights</p>
+    <p>load inputs</p>
+    <p>load weights</p>
+    <p>matrix multiplication</p>
+    <p>matrix multiplication</p>
+    <p>store outputs</p>
+    <p>store outputs</p>
+    <p>Multiple-Module Task-Level Pipelining</p>
+    <p>Explicit dependency tracking managed by software to hide memory latency</p>
+  </div>
+  <div class="page">
+    <p>Hardware-aware Search Space</p>
+    <p>Hardware !21</p>
+    <p>C = tvm.compute((m, n), lambda y, x: tvm.sum(A[k, y] * B[k, x], axis=k))</p>
+    <p>Tensor Expression Language</p>
+  </div>
+  <div class="page">
+    <p>Hardware-aware Search Space</p>
+    <p>Hardware</p>
+    <p>Loop Transformations</p>
+    <p>Thread Bindings</p>
+    <p>Cache Locality</p>
+    <p>Primitives in prior work: Halide, Loopy</p>
+    <p>!21</p>
+    <p>C = tvm.compute((m, n), lambda y, x: tvm.sum(A[k, y] * B[k, x], axis=k))</p>
+    <p>Tensor Expression Language</p>
+  </div>
+  <div class="page">
+    <p>Hardware-aware Search Space</p>
+    <p>Hardware</p>
+    <p>Loop Transformations</p>
+    <p>Thread Bindings</p>
+    <p>Cache Locality</p>
+    <p>Primitives in prior work: Halide, Loopy</p>
+    <p>Thread Cooperation Tensorization</p>
+    <p>Latency Hiding</p>
+    <p>New primitives for GPUs, and enable TPU-like Accelerators</p>
+    <p>!21</p>
+    <p>C = tvm.compute((m, n), lambda y, x: tvm.sum(A[k, y] * B[k, x], axis=k))</p>
+    <p>Tensor Expression Language</p>
+  </div>
+  <div class="page">
+    <p>Hardware-aware Search Space</p>
+    <p>Hardware</p>
+    <p>Loop Transformations</p>
+    <p>Thread Bindings</p>
+    <p>Cache Locality</p>
+    <p>Thread Cooperation Tensorization</p>
+    <p>Latency Hiding</p>
+    <p>!22</p>
+    <p>C = tvm.compute((m, n), lambda y, x: tvm.sum(A[k, y] * B[k, x], axis=k))</p>
+    <p>Tensor Expression Language</p>
+  </div>
+  <div class="page">
+    <p>Hardware-aware Search Space</p>
+    <p>Hardware</p>
+    <p>Loop Transformations</p>
+    <p>Thread Bindings</p>
+    <p>Cache Locality</p>
+    <p>Thread Cooperation Tensorization</p>
+    <p>Latency Hiding</p>
+    <p>!22</p>
+    <p>C = tvm.compute((m, n), lambda y, x: tvm.sum(A[k, y] * B[k, x], axis=k))</p>
+    <p>Tensor Expression Language</p>
+  </div>
+  <div class="page">
+    <p>Hardware-aware Search Space</p>
+    <p>Hardware</p>
+    <p>Loop Transformations</p>
+    <p>Thread Bindings</p>
+    <p>Cache Locality</p>
+    <p>Thread Cooperation Tensorization</p>
+    <p>Latency Hiding</p>
+    <p>Billions of possible optimization choices</p>
+    <p>!22</p>
+    <p>C = tvm.compute((m, n), lambda y, x: tvm.sum(A[k, y] * B[k, x], axis=k))</p>
+    <p>Tensor Expression Language</p>
+  </div>
+  <div class="page">
+    <p>Learning-based Learning System Frameworks</p>
+    <p>High-level data flow graph and optimizations</p>
+    <p>Hardware aware Search Space of Optimized Tensor Programs</p>
+    <p>Machine Learning based Program Optimizer</p>
+    <p>!23</p>
+    <p>Hardware</p>
+  </div>
+  <div class="page">
+    <p>Learning-based Learning System Frameworks</p>
+    <p>High-level data flow graph and optimizations</p>
+    <p>Hardware aware Search Space of Optimized Tensor Programs</p>
+    <p>Machine Learning based Program Optimizer</p>
+    <p>!23</p>
+    <p>Hardware</p>
+  </div>
+  <div class="page">
+    <p>Learning-based Program Optimizer</p>
+    <p>!24</p>
+    <p>Program Optimizer</p>
+  </div>
+  <div class="page">
+    <p>Learning-based Program Optimizer</p>
+    <p>!24</p>
+    <p>Program Optimizer Program Code Generator</p>
+  </div>
+  <div class="page">
+    <p>Learning-based Program Optimizer</p>
+    <p>Runtime Measurements</p>
+    <p>!24</p>
+    <p>Program Optimizer Program Code Generator</p>
+  </div>
+  <div class="page">
+    <p>Learning-based Program Optimizer</p>
+    <p>Runtime Measurements</p>
+    <p>High experiment cost, each trial costs ~1second !24</p>
+    <p>Program Optimizer Program Code Generator</p>
+  </div>
+  <div class="page">
+    <p>Learning-based Program Optimizer</p>
+    <p>!25</p>
+    <p>Program Optimizer Program Code Generator</p>
+  </div>
+  <div class="page">
+    <p>Learning-based Program Optimizer</p>
+    <p>!25</p>
+    <p>Program Optimizer Program Code Generator</p>
+    <p>Cost Model</p>
+  </div>
+  <div class="page">
+    <p>Learning-based Program Optimizer</p>
+    <p>Need reliable cost model per hardware !25</p>
+    <p>Program Optimizer Program Code Generator</p>
+    <p>Cost Model</p>
+  </div>
+  <div class="page">
+    <p>Learning-based Program Optimizer</p>
+    <p>!26</p>
+    <p>Program Optimizer Program Code Generator</p>
+  </div>
+  <div class="page">
+    <p>Learning-based Program Optimizer</p>
+    <p>!26</p>
+    <p>Program Optimizer Program Code Generator</p>
+    <p>D &lt;latexit sha1_base64=&quot;1Z6CzjBl0OMVztfQ+m452YDkcY0=&quot;&gt;AAAB8nicbVDLSsNAFL2pr1pfVZdugkVwVRIRdFnUhcsK9gFtKJPppB06mQkzN0IJ/Qw3LhRx69e482+ctFlo64GBwzn3MueeMBHcoOd9O6W19Y3NrfJ2ZWd3b/+genjUNirVlLWoEkp3Q2KY4JK1kKNg3UQzEoeCdcLJbe53npg2XMlHnCYsiMlI8ohTglbq9WOCY0pEdjcbVGte3ZvDXSV+QWpQoDmofvWHiqYxk0gFMabnewkGGdHIqWCzSj81LCF0QkasZ6kkMTNBNo88c8+sMnQjpe2T6M7V3xsZiY2ZxqGdzCOaZS8X//N6KUbXQcZlkiKTdPFRlAoXlZvf7w65ZhTF1BJCNbdZXTommlC0LVVsCf7yyaukfVH3vbr/cFlr3BR1lOEETuEcfLiCBtxDE1pAQcEzvMKbg86L8+58LEZLTrFzDH/gfP4AdN2RWg==&lt;/latexit&gt;&lt;latexit sha1_base64=&quot;1Z6CzjBl0OMVztfQ+m452YDkcY0=&quot;&gt;AAAB8nicbVDLSsNAFL2pr1pfVZdugkVwVRIRdFnUhcsK9gFtKJPppB06mQkzN0IJ/Qw3LhRx69e482+ctFlo64GBwzn3MueeMBHcoOd9O6W19Y3NrfJ2ZWd3b/+genjUNirVlLWoEkp3Q2KY4JK1kKNg3UQzEoeCdcLJbe53npg2XMlHnCYsiMlI8ohTglbq9WOCY0pEdjcbVGte3ZvDXSV+QWpQoDmofvWHiqYxk0gFMabnewkGGdHIqWCzSj81LCF0QkasZ6kkMTNBNo88c8+sMnQjpe2T6M7V3xsZiY2ZxqGdzCOaZS8X//N6KUbXQcZlkiKTdPFRlAoXlZvf7w65ZhTF1BJCNbdZXTommlC0LVVsCf7yyaukfVH3vbr/cFlr3BR1lOEETuEcfLiCBtxDE1pAQcEzvMKbg86L8+58LEZLTrFzDH/gfP4AdN2RWg==&lt;/latexit&gt;&lt;latexit sha1_base64=&quot;1Z6CzjBl0OMVztfQ+m452YDkcY0=&quot;&gt;AAAB8nicbVDLSsNAFL2pr1pfVZdugkVwVRIRdFnUhcsK9gFtKJPppB06mQkzN0IJ/Qw3LhRx69e482+ctFlo64GBwzn3MueeMBHcoOd9O6W19Y3NrfJ2ZWd3b/+genjUNirVlLWoEkp3Q2KY4JK1kKNg3UQzEoeCdcLJbe53npg2XMlHnCYsiMlI8ohTglbq9WOCY0pEdjcbVGte3ZvDXSV+QWpQoDmofvWHiqYxk0gFMabnewkGGdHIqWCzSj81LCF0QkasZ6kkMTNBNo88c8+sMnQjpe2T6M7V3xsZiY2ZxqGdzCOaZS8X//N6KUbXQcZlkiKTdPFRlAoXlZvf7w65ZhTF1BJCNbdZXTommlC0LVVsCf7yyaukfVH3vbr/cFlr3BR1lOEETuEcfLiCBtxDE1pAQcEzvMKbg86L8+58LEZLTrFzDH/gfP4AdN2RWg==&lt;/latexit&gt;&lt;latexit sha1_base64=&quot;1Z6CzjBl0OMVztfQ+m452YDkcY0=&quot;&gt;AAAB8nicbVDLSsNAFL2pr1pfVZdugkVwVRIRdFnUhcsK9gFtKJPppB06mQkzN0IJ/Qw3LhRx69e482+ctFlo64GBwzn3MueeMBHcoOd9O6W19Y3NrfJ2ZWd3b/+genjUNirVlLWoEkp3Q2KY4JK1kKNg3UQzEoeCdcLJbe53npg2XMlHnCYsiMlI8ohTglbq9WOCY0pEdjcbVGte3ZvDXSV+QWpQoDmofvWHiqYxk0gFMabnewkGGdHIqWCzSj81LCF0QkasZ6kkMTNBNo88c8+sMnQjpe2T6M7V3xsZiY2ZxqGdzCOaZS8X//N6KUbXQcZlkiKTdPFRlAoXlZvf7w65ZhTF1BJCNbdZXTommlC0LVVsCf7yyaukfVH3vbr/cFlr3BR1lOEETuEcfLiCBtxDE1pAQcEzvMKbg86L8+58LEZLTrFzDH/gfP4AdN2RWg==&lt;/latexit&gt;</p>
+    <p>Training data</p>
+  </div>
+  <div class="page">
+    <p>Learning-based Program Optimizer</p>
+    <p>!26</p>
+    <p>Program Optimizer Program Code Generator</p>
+    <p>D &lt;latexit sha1_base64=&quot;1Z6CzjBl0OMVztfQ+m452YDkcY0=&quot;&gt;AAAB8nicbVDLSsNAFL2pr1pfVZdugkVwVRIRdFnUhcsK9gFtKJPppB06mQkzN0IJ/Qw3LhRx69e482+ctFlo64GBwzn3MueeMBHcoOd9O6W19Y3NrfJ2ZWd3b/+genjUNirVlLWoEkp3Q2KY4JK1kKNg3UQzEoeCdcLJbe53npg2XMlHnCYsiMlI8ohTglbq9WOCY0pEdjcbVGte3ZvDXSV+QWpQoDmofvWHiqYxk0gFMabnewkGGdHIqWCzSj81LCF0QkasZ6kkMTNBNo88c8+sMnQjpe2T6M7V3xsZiY2ZxqGdzCOaZS8X//N6KUbXQcZlkiKTdPFRlAoXlZvf7w65ZhTF1BJCNbdZXTommlC0LVVsCf7yyaukfVH3vbr/cFlr3BR1lOEETuEcfLiCBtxDE1pAQcEzvMKbg86L8+58LEZLTrFzDH/gfP4AdN2RWg==&lt;/latexit&gt;&lt;latexit sha1_base64=&quot;1Z6CzjBl0OMVztfQ+m452YDkcY0=&quot;&gt;AAAB8nicbVDLSsNAFL2pr1pfVZdugkVwVRIRdFnUhcsK9gFtKJPppB06mQkzN0IJ/Qw3LhRx69e482+ctFlo64GBwzn3MueeMBHcoOd9O6W19Y3NrfJ2ZWd3b/+genjUNirVlLWoEkp3Q2KY4JK1kKNg3UQzEoeCdcLJbe53npg2XMlHnCYsiMlI8ohTglbq9WOCY0pEdjcbVGte3ZvDXSV+QWpQoDmofvWHiqYxk0gFMabnewkGGdHIqWCzSj81LCF0QkasZ6kkMTNBNo88c8+sMnQjpe2T6M7V3xsZiY2ZxqGdzCOaZS8X//N6KUbXQcZlkiKTdPFRlAoXlZvf7w65ZhTF1BJCNbdZXTommlC0LVVsCf7yyaukfVH3vbr/cFlr3BR1lOEETuEcfLiCBtxDE1pAQcEzvMKbg86L8+58LEZLTrFzDH/gfP4AdN2RWg==&lt;/latexit&gt;&lt;latexit sha1_base64=&quot;1Z6CzjBl0OMVztfQ+m452YDkcY0=&quot;&gt;AAAB8nicbVDLSsNAFL2pr1pfVZdugkVwVRIRdFnUhcsK9gFtKJPppB06mQkzN0IJ/Qw3LhRx69e482+ctFlo64GBwzn3MueeMBHcoOd9O6W19Y3NrfJ2ZWd3b/+genjUNirVlLWoEkp3Q2KY4JK1kKNg3UQzEoeCdcLJbe53npg2XMlHnCYsiMlI8ohTglbq9WOCY0pEdjcbVGte3ZvDXSV+QWpQoDmofvWHiqYxk0gFMabnewkGGdHIqWCzSj81LCF0QkasZ6kkMTNBNo88c8+sMnQjpe2T6M7V3xsZiY2ZxqGdzCOaZS8X//N6KUbXQcZlkiKTdPFRlAoXlZvf7w65ZhTF1BJCNbdZXTommlC0LVVsCf7yyaukfVH3vbr/cFlr3BR1lOEETuEcfLiCBtxDE1pAQcEzvMKbg86L8+58LEZLTrFzDH/gfP4AdN2RWg==&lt;/latexit&gt;&lt;latexit sha1_base64=&quot;1Z6CzjBl0OMVztfQ+m452YDkcY0=&quot;&gt;AAAB8nicbVDLSsNAFL2pr1pfVZdugkVwVRIRdFnUhcsK9gFtKJPppB06mQkzN0IJ/Qw3LhRx69e482+ctFlo64GBwzn3MueeMBHcoOd9O6W19Y3NrfJ2ZWd3b/+genjUNirVlLWoEkp3Q2KY4JK1kKNg3UQzEoeCdcLJbe53npg2XMlHnCYsiMlI8ohTglbq9WOCY0pEdjcbVGte3ZvDXSV+QWpQoDmofvWHiqYxk0gFMabnewkGGdHIqWCzSj81LCF0QkasZ6kkMTNBNo88c8+sMnQjpe2T6M7V3xsZiY2ZxqGdzCOaZS8X//N6KUbXQcZlkiKTdPFRlAoXlZvf7w65ZhTF1BJCNbdZXTommlC0LVVsCf7yyaukfVH3vbr/cFlr3BR1lOEETuEcfLiCBtxDE1pAQcEzvMKbg86L8+58LEZLTrFzDH/gfP4AdN2RWg==&lt;/latexit&gt;</p>
+    <p>Training data</p>
+    <p>Learning Statistical Cost Model</p>
+  </div>
+  <div class="page">
+    <p>Learning-based Program Optimizer</p>
+    <p>!26</p>
+    <p>Program Optimizer Program Code Generator</p>
+    <p>D &lt;latexit sha1_base64=&quot;1Z6CzjBl0OMVztfQ+m452YDkcY0=&quot;&gt;AAAB8nicbVDLSsNAFL2pr1pfVZdugkVwVRIRdFnUhcsK9gFtKJPppB06mQkzN0IJ/Qw3LhRx69e482+ctFlo64GBwzn3MueeMBHcoOd9O6W19Y3NrfJ2ZWd3b/+genjUNirVlLWoEkp3Q2KY4JK1kKNg3UQzEoeCdcLJbe53npg2XMlHnCYsiMlI8ohTglbq9WOCY0pEdjcbVGte3ZvDXSV+QWpQoDmofvWHiqYxk0gFMabnewkGGdHIqWCzSj81LCF0QkasZ6kkMTNBNo88c8+sMnQjpe2T6M7V3xsZiY2ZxqGdzCOaZS8X//N6KUbXQcZlkiKTdPFRlAoXlZvf7w65ZhTF1BJCNbdZXTommlC0LVVsCf7yyaukfVH3vbr/cFlr3BR1lOEETuEcfLiCBtxDE1pAQcEzvMKbg86L8+58LEZLTrFzDH/gfP4AdN2RWg==&lt;/latexit&gt;&lt;latexit sha1_base64=&quot;1Z6CzjBl0OMVztfQ+m452YDkcY0=&quot;&gt;AAAB8nicbVDLSsNAFL2pr1pfVZdugkVwVRIRdFnUhcsK9gFtKJPppB06mQkzN0IJ/Qw3LhRx69e482+ctFlo64GBwzn3MueeMBHcoOd9O6W19Y3NrfJ2ZWd3b/+genjUNirVlLWoEkp3Q2KY4JK1kKNg3UQzEoeCdcLJbe53npg2XMlHnCYsiMlI8ohTglbq9WOCY0pEdjcbVGte3ZvDXSV+QWpQoDmofvWHiqYxk0gFMabnewkGGdHIqWCzSj81LCF0QkasZ6kkMTNBNo88c8+sMnQjpe2T6M7V3xsZiY2ZxqGdzCOaZS8X//N6KUbXQcZlkiKTdPFRlAoXlZvf7w65ZhTF1BJCNbdZXTommlC0LVVsCf7yyaukfVH3vbr/cFlr3BR1lOEETuEcfLiCBtxDE1pAQcEzvMKbg86L8+58LEZLTrFzDH/gfP4AdN2RWg==&lt;/latexit&gt;&lt;latexit sha1_base64=&quot;1Z6CzjBl0OMVztfQ+m452YDkcY0=&quot;&gt;AAAB8nicbVDLSsNAFL2pr1pfVZdugkVwVRIRdFnUhcsK9gFtKJPppB06mQkzN0IJ/Qw3LhRx69e482+ctFlo64GBwzn3MueeMBHcoOd9O6W19Y3NrfJ2ZWd3b/+genjUNirVlLWoEkp3Q2KY4JK1kKNg3UQzEoeCdcLJbe53npg2XMlHnCYsiMlI8ohTglbq9WOCY0pEdjcbVGte3ZvDXSV+QWpQoDmofvWHiqYxk0gFMabnewkGGdHIqWCzSj81LCF0QkasZ6kkMTNBNo88c8+sMnQjpe2T6M7V3xsZiY2ZxqGdzCOaZS8X//N6KUbXQcZlkiKTdPFRlAoXlZvf7w65ZhTF1BJCNbdZXTommlC0LVVsCf7yyaukfVH3vbr/cFlr3BR1lOEETuEcfLiCBtxDE1pAQcEzvMKbg86L8+58LEZLTrFzDH/gfP4AdN2RWg==&lt;/latexit&gt;&lt;latexit sha1_base64=&quot;1Z6CzjBl0OMVztfQ+m452YDkcY0=&quot;&gt;AAAB8nicbVDLSsNAFL2pr1pfVZdugkVwVRIRdFnUhcsK9gFtKJPppB06mQkzN0IJ/Qw3LhRx69e482+ctFlo64GBwzn3MueeMBHcoOd9O6W19Y3NrfJ2ZWd3b/+genjUNirVlLWoEkp3Q2KY4JK1kKNg3UQzEoeCdcLJbe53npg2XMlHnCYsiMlI8ohTglbq9WOCY0pEdjcbVGte3ZvDXSV+QWpQoDmofvWHiqYxk0gFMabnewkGGdHIqWCzSj81LCF0QkasZ6kkMTNBNo88c8+sMnQjpe2T6M7V3xsZiY2ZxqGdzCOaZS8X//N6KUbXQcZlkiKTdPFRlAoXlZvf7w65ZhTF1BJCNbdZXTommlC0LVVsCf7yyaukfVH3vbr/cFlr3BR1lOEETuEcfLiCBtxDE1pAQcEzvMKbg86L8+58LEZLTrFzDH/gfP4AdN2RWg==&lt;/latexit&gt;</p>
+    <p>Training data</p>
+    <p>Learning Statistical Cost Model</p>
+    <p>Adapt to hardware type by learning Make prediction in 1ms level</p>
+  </div>
+  <div class="page">
+    <p>Effectiveness of ML based Model</p>
+    <p>!27</p>
+  </div>
+  <div class="page">
+    <p>Effectiveness of ML based Model</p>
+    <p>!27</p>
+    <p>One Conv2D Layer of ResNet18 on Titan X</p>
+  </div>
+  <div class="page">
+    <p>Effectiveness of ML based Model</p>
+    <p>!27</p>
+    <p>Number of Trials</p>
+    <p>One Conv2D Layer of ResNet18 on Titan X</p>
+  </div>
+  <div class="page">
+    <p>Effectiveness of ML based Model</p>
+    <p>!27</p>
+    <p>Number of Trials</p>
+    <p>One Conv2D Layer of ResNet18 on Titan X</p>
+    <p>R el</p>
+    <p>at iv</p>
+    <p>e S</p>
+    <p>pe ed</p>
+    <p>up</p>
+    <p>Baseline: CuDNN</p>
+  </div>
+  <div class="page">
+    <p>Effectiveness of ML based Model</p>
+    <p>!28</p>
+    <p>Number of Trials</p>
+    <p>One Conv2D Layer of ResNet18 on Titan X</p>
+    <p>R el</p>
+    <p>at iv</p>
+    <p>e S</p>
+    <p>pe ed</p>
+    <p>up</p>
+    <p>Baseline: CuDNN</p>
+    <p>TVM: Random Search</p>
+  </div>
+  <div class="page">
+    <p>Effectiveness of ML based Model</p>
+    <p>!29</p>
+    <p>One Conv2D Layer of ResNet18 on Titan X</p>
+    <p>R el</p>
+    <p>at iv</p>
+    <p>e S</p>
+    <p>pe ed</p>
+    <p>up</p>
+    <p>TVM: Random Search</p>
+    <p>TVM: ML-based Model</p>
+    <p>Number of Trials</p>
+    <p>Baseline: CuDNN</p>
+  </div>
+  <div class="page">
+    <p>Learning-based Learning System Frameworks</p>
+    <p>High-level data flow graph and optimizations</p>
+    <p>Hardware aware Search Space of Optimized Tensor Programs</p>
+    <p>Machine Learning based Program Optimizer</p>
+    <p>!30</p>
+    <p>Hardware</p>
+  </div>
+  <div class="page">
+    <p>End to End Inference Performance (Nvidia Titan X)</p>
+    <p>ResNet-18 MobileNet 0.0</p>
+    <p>T im</p>
+    <p>e( m</p>
+    <p>s)</p>
+    <p>LSTM LM DQN DCGAN 0.0</p>
+    <p>Tensorflow-XLA</p>
+    <p>Apache MXNetTensorflow</p>
+  </div>
+  <div class="page">
+    <p>End to End Inference Performance (Nvidia Titan X)</p>
+    <p>ResNet-18 MobileNet 0.0</p>
+    <p>T im</p>
+    <p>e( m</p>
+    <p>s)</p>
+    <p>LSTM LM DQN DCGAN 0.0</p>
+    <p>Tensorflow-XLA</p>
+    <p>Apache MXNetTensorflow</p>
+    <p>Backed by cuDNN</p>
+  </div>
+  <div class="page">
+    <p>End to End Inference Performance (Nvidia Titan X)</p>
+    <p>Tensorflow-XLA</p>
+    <p>Apache MXNetTensorflow</p>
+    <p>ResNet-18 MobileNet 0.0</p>
+    <p>T im</p>
+    <p>e( m</p>
+    <p>s)</p>
+    <p>LSTM LM DQN DCGAN 0.0</p>
+    <p>TVM: without graph optimizations</p>
+  </div>
+  <div class="page">
+    <p>End to End Inference Performance (Nvidia Titan X)</p>
+    <p>Tensorflow-XLA</p>
+    <p>Apache MXNetTensorflow TVM: without graph optimizations</p>
+    <p>ResNet-18 MobileNet 0.0</p>
+    <p>T im</p>
+    <p>e( m</p>
+    <p>s)</p>
+    <p>LSTM LM DQN DCGAN 0.0</p>
+    <p>TVM: all optimizations</p>
+  </div>
+  <div class="page">
+    <p>End to End Inference Performance (Nvidia Titan X)</p>
+    <p>Tensorflow-XLA</p>
+    <p>Apache MXNetTensorflow TVM: without graph optimizations</p>
+    <p>ResNet-18 MobileNet 0.0</p>
+    <p>T im</p>
+    <p>e( m</p>
+    <p>s)</p>
+    <p>LSTM LM DQN DCGAN 0.0</p>
+    <p>TVM: all optimizations</p>
+    <p>Competitive on standard models</p>
+  </div>
+  <div class="page">
+    <p>End to End Inference Performance (Nvidia Titan X)</p>
+    <p>Tensorflow-XLA</p>
+    <p>Apache MXNetTensorflow TVM: without graph optimizations</p>
+    <p>ResNet-18 MobileNet 0.0</p>
+    <p>T im</p>
+    <p>e( m</p>
+    <p>s)</p>
+    <p>LSTM LM DQN DCGAN 0.0</p>
+    <p>TVM: all optimizations</p>
+    <p>Competitive on standard models</p>
+    <p>Bigger gap on less conventional models</p>
+  </div>
+  <div class="page">
+    <p>End to End Performance(ARM Cortex-A53)</p>
+    <p>!34 ResNet-18 MobileNet</p>
+    <p>T im</p>
+    <p>e( m</p>
+    <p>s)</p>
+    <p>DQN 0.0</p>
+    <p>Tensorflow Lite TVM w/o graph opt TVM</p>
+  </div>
+  <div class="page">
+    <p>End to End Performance(ARM Cortex-A53)</p>
+    <p>!34 ResNet-18 MobileNet</p>
+    <p>T im</p>
+    <p>e( m</p>
+    <p>s)</p>
+    <p>DQN 0.0</p>
+    <p>Tensorflow Lite TVM w/o graph opt TVM</p>
+    <p>Specially optimized for Embedded system(ARM)</p>
+  </div>
+  <div class="page">
+    <p>End to End Performance(ARM GPU)</p>
+    <p>!35</p>
+    <p>float32 float16 ResNet-18</p>
+    <p>float32 float16 MobileNet</p>
+    <p>T im</p>
+    <p>e (m</p>
+    <p>s)</p>
+    <p>float32 float16 DQN</p>
+    <p>ARMComputeLib TVM w/o graph opt TVM</p>
+  </div>
+  <div class="page">
+    <p>Supporting New Specialized Accelerators Frameworks</p>
+    <p>High-level data flow graph and optimizations</p>
+    <p>Hardware aware Search Space of Optimized Tensor Programs</p>
+    <p>Machine Learning based Program Optimizer</p>
+    <p>LLVM CUDA</p>
+    <p>!36</p>
+  </div>
+  <div class="page">
+    <p>Supporting New Specialized Accelerators Frameworks</p>
+    <p>High-level data flow graph and optimizations</p>
+    <p>Hardware aware Search Space of Optimized Tensor Programs</p>
+    <p>Machine Learning based Program Optimizer</p>
+    <p>LLVM CUDA VTA: Open, Customizable Deep Learning Accelerator</p>
+    <p>Data Center FPGAEdge FPGA ASIC</p>
+    <p>!36</p>
+  </div>
+  <div class="page">
+    <p>TVM/VTA: Full Stack Open Source System</p>
+    <p>!37</p>
+    <p>ML-based Optimizer</p>
+    <p>Tensor Program Search Space</p>
+    <p>High-level Optimizations</p>
+  </div>
+  <div class="page">
+    <p>TVM/VTA: Full Stack Open Source System</p>
+    <p>VTA MicroArchitecture</p>
+    <p>!37</p>
+    <p>ML-based Optimizer</p>
+    <p>Tensor Program Search Space</p>
+    <p>High-level Optimizations</p>
+  </div>
+  <div class="page">
+    <p>TVM/VTA: Full Stack Open Source System</p>
+    <p>VTA Hardware/Software Interface (ISA)</p>
+    <p>VTA MicroArchitecture</p>
+    <p>!37</p>
+    <p>ML-based Optimizer</p>
+    <p>Tensor Program Search Space</p>
+    <p>High-level Optimizations</p>
+  </div>
+  <div class="page">
+    <p>TVM/VTA: Full Stack Open Source System</p>
+    <p>VTA Runtime &amp; JIT Compiler</p>
+    <p>VTA Hardware/Software Interface (ISA)</p>
+    <p>VTA MicroArchitecture</p>
+    <p>!37</p>
+    <p>ML-based Optimizer</p>
+    <p>Tensor Program Search Space</p>
+    <p>High-level Optimizations</p>
+  </div>
+  <div class="page">
+    <p>TVM/VTA: Full Stack Open Source System</p>
+    <p>VTA Runtime &amp; JIT Compiler</p>
+    <p>VTA Hardware/Software Interface (ISA)</p>
+    <p>VTA MicroArchitecture VTA Simulator</p>
+    <p>!37</p>
+    <p>ML-based Optimizer</p>
+    <p>Tensor Program Search Space</p>
+    <p>High-level Optimizations</p>
+  </div>
+  <div class="page">
+    <p>TVM/VTA: Full Stack Open Source System</p>
+    <p>JIT compile accelerator micro code</p>
+    <p>Support heterogenous devices, 10x better than CPU on the same board.</p>
+    <p>Move hardware complexity to software</p>
+    <p>VTA Runtime &amp; JIT Compiler</p>
+    <p>VTA Hardware/Software Interface (ISA)</p>
+    <p>VTA MicroArchitecture VTA Simulator</p>
+    <p>!37</p>
+    <p>ML-based Optimizer</p>
+    <p>Tensor Program Search Space</p>
+    <p>High-level Optimizations</p>
+  </div>
+  <div class="page">
+    <p>TVM/VTA: Full Stack Open Source System</p>
+    <p>JIT compile accelerator micro code</p>
+    <p>Support heterogenous devices, 10x better than CPU on the same board.</p>
+    <p>Move hardware complexity to software</p>
+    <p>VTA Runtime &amp; JIT Compiler</p>
+    <p>VTA Hardware/Software Interface (ISA)</p>
+    <p>VTA MicroArchitecture VTA Simulator</p>
+    <p>!37</p>
+    <p>ML-based Optimizer</p>
+    <p>Tensor Program Search Space</p>
+    <p>High-level Optimizations</p>
+    <p>}compiler, driver, hardware design full stack open source</p>
+  </div>
+  <div class="page">
+    <p>TVM: Learning-based Learning System</p>
+    <p>Check it out! ML-based Optimizer</p>
+    <p>Tensor Program Search Space</p>
+    <p>High-level Optimizations</p>
+    <p>VTALLVM CUDA</p>
+  </div>
+</Presentation>

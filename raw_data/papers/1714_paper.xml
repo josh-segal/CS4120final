@@ -1,0 +1,1384 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<TEI xmlns="http://www.tei-c.org/ns/1.0" 
+xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+xsi:schemaLocation="http://www.tei-c.org/ns/1.0 /Users/atharsefid/Desktop/grobid-0.5.3/grobid-home/schemas/xsd/Grobid.xsd"
+ xmlns:xlink="http://www.w3.org/1999/xlink">
+	<teiHeader xml:lang="en">
+		<encodingDesc>
+			<appInfo>
+				<application version="0.5.3" ident="GROBID" when="2019-03-26T16:39+0000">
+					<ref target="https://github.com/kermitt2/grobid">GROBID - A machine learning software for extracting information from scholarly documents</ref>
+				</application>
+			</appInfo>
+		</encodingDesc>
+		<fileDesc>
+			<titleStmt>
+				<title level="a" type="main">The Case of the Fake Picasso: Preventing History Forgery with Secure Provenance</title>
+			</titleStmt>
+			<publicationStmt>
+				<publisher/>
+				<availability status="unknown"><licence/></availability>
+			</publicationStmt>
+			<sourceDesc>
+				<biblStruct>
+					<analytic>
+						<author>
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Ragib</forename><surname>Hasan</surname></persName>
+							<email>rhasan@illinois.edu</email>
+							<affiliation key="aff0">
+								<orgName type="institution" key="instit1">Stony Brook University</orgName>
+								<orgName type="institution" key="instit2">University of Illinois at Urbana-Champaign</orgName>
+							</affiliation>
+						</author>
+						<author>
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Marianne</forename><surname>Winslett</surname></persName>
+							<email>winslett@illinois.edu</email>
+							<affiliation key="aff0">
+								<orgName type="institution" key="instit1">Stony Brook University</orgName>
+								<orgName type="institution" key="instit2">University of Illinois at Urbana-Champaign</orgName>
+							</affiliation>
+						</author>
+						<title level="a" type="main">The Case of the Fake Picasso: Preventing History Forgery with Secure Provenance</title>
+					</analytic>
+					<monogr>
+						<imprint>
+							<date/>
+						</imprint>
+					</monogr>
+					<note>University of Illinois at Urbana-Champaign Radu Sion</note>
+				</biblStruct>
+			</sourceDesc>
+		</fileDesc>
+		<profileDesc>
+			<abstract>
+				<p>As increasing amounts of valuable information are produced and persist digitally, the ability to determine the origin of data becomes important. In science, medicine, commerce, and government, data provenance tracking is essential for rights protection, regulatory compliance, management of intelligence and medical data, and au-thentication of information as it flows through workplace tasks. In this paper, we show how to provide strong integrity and confidentiality assurances for data prove-nance information. We describe our provenance-aware system prototype that implements provenance tracking of data writes at the application layer, which makes it extremely easy to deploy. We present empirical results that show that, for typical real-life workloads, the run-time overhead of our approach to recording provenance with confidentiality and integrity guarantees ranges from 1%-13%.</p>
+			</abstract>
+		</profileDesc>
+	</teiHeader>
+	<text xml:lang="en">
+		<body>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="1">Introduction</head><p>Provenance information summarizes the history of the ownership of items and the actions performed on them. For example, scientists need to keep track of data creation, ownership, and processing workflow to ensure a certain level of trust in their experimental results. The National Geographic Society's Genographic Project and the DNA Shoah project (for Holocaust survivors searching for remains of their dead relatives) both track the processing of DNA samples. Individuals who submit DNA samples for testing through these programs want strong assurances that no unauthorized parties will be able to see the provenance of the samples (e.g., provide it to insurance companies or anti-Semitic organizations).</p><p>Regulatory and legal considerations mandate other provenance assurances. The US Sarbanes-Oxley Act <ref type="bibr" target="#b55">[56]</ref> sets prison terms for officers of companies that issue incorrect financial statements. As a result, officers have become very interested in tracking the path that a financial report took during its development, including both input data origins and authors. The US Gramm-Leach-Bliley Act <ref type="bibr" target="#b39">[40]</ref> and Securities and Exchange Commission rule 17a <ref type="bibr" target="#b54">[55]</ref> also require documentation and audit trails for financial records, as do many non-financial compliance regulations. For example, the US Health Insurance Portability and Accountability Act mandates logging of access and change histories for medical records <ref type="bibr" target="#b12">[13]</ref>.</p><p>Provenance tracking of physical artifacts is relying increasingly on digital shipping, manufacturing, and laboratory records, often with high-stakes financial incentives to omit or alter entries. For example, pharmaceuticals' provenance is carefully tracked as they move from the manufacturing laboratory through a long succession of middlemen to the consumer. Clinical trials of new medical devices and treatments involve detailed recordkeeping, as does US FDA testing of proposed new food additives.</p><p>To help manage the above processes, digital provenance mechanisms support the collection and persistence of information about the creation, access, and transfer of data. While significant research has been conducted on how to collect, store, and query provenance information, the associated integrity and privacy issues have not been explored. But without appropriate guarantees, as data crosses application and organization boundaries and passes through untrusted environments, its associated provenance information becomes vulnerable to illicit alteration and should not be trusted.</p><p>For example, consider the repudiation incentives in the following real-life anonymized medical litigation scenario. Alice visited Dr. B for consultation. B referred her to Dr. Mallory for tests, and sent Alice's medical records to Mallory, who failed to analyze the test results properly, and provided incorrect information to B. B provided these reports along with other information to Dr. C, who treated Alice accordingly. When Alice subsequently suffered from health problems related to the incorrect diagnosis, she sued B and C for malpractice. To establish Mallory's liability for the misdiagnosis, B and C hired Audrey as an expert witness. Audrey used the provenance information in Alice's medical records to establish the exact sequence of events, which in this case implicated Mallory. If Mallory had been innocent, B and C should not be able to collude and falsely implicate him. Similarly, if Mallory altered his faulty diagnosis in Alice's medical records after the fact, Audrey should be able to detect that.</p><p>Making provenance records trustworthy is challenging. Ideally, we need to guarantee completeness -all relevant actions pertaining to a document are captured; integrity -adversaries cannot forge or alter provenance entries; availability -auditors can verify the integrity of provenance information; confidentiality -only authorized parties should read provenance records; and efficiency -provenance mechanisms should have low overheads.</p><p>In this paper, we propose and evaluate mechanisms for secure document provenance that address these properties. In particular, our first contribution is a crossplatform, low-overhead architecture for capturing provenance information at the application layer. This architecture captures the I/O write requests of all applications that are linked with the library, extracts the new data being written and the identity of the application writing it, and appends that information to the provenance chain for the document being written. Further, the resulting provenance chain is secure in the sense that a particular entry in the chain can only be read by the auditors specifically authorized to read it, and no one can add or remove entries from the middle of the chain without detection. Our second contribution is an implementation of our approach for file systems, along with an experimental evaluation that shows that our approach introduces little overhead at run time, only 1%-13% for typical real-life workloads.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="2">Provenance Model</head><p>In this section, we define basic provenance-related concepts and discuss deployment and threat models.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="2.1">Definitions and Usage Model</head><p>A document is an abstraction for a data item for which provenance information is collected, such as a file, database tuple, or network packet.</p><p>We define provenance of a document to be the record of actions taken on that particular document over its lifetime. Note that this definition differs from the information flow provenance used in PASS <ref type="bibr" target="#b37">[38]</ref> and some other systems. Each access to a document D may generate a provenance record P . The types of access that should generate a provenance record and the exact contents of the record are domain-specific, but in general P may include the identity of the accessing principal; a log of the access actions (e.g., read, write) and their associated data (e.g., bytes of D or its metadata read/written); a description of the environment when the action was made, such as the time of day and the software environment; and confidentiality-and integrity-related components, such as cryptographic signatures, checksums, and keying material. A provenance chain for document D is a non-empty time-ordered sequence of provenance records P 1 | · · · |P n . In real deployments, the chain is associated and transported together with a document D.</p><p>In a given security domain, users are principals who read and write to the documents, and/or make changes to document metadata. In a given organization, there are one or more auditors, who are principals authorized to access and verify the integrity of provenance chains associated with documents. Every user trusts a subset of the auditors. There can be an auditor who is trusted by everyone, and referred to as the superauditor.</p><p>Documents, and associated provenance chains are stored locally in the current user's machine. The local machines of the users are not trusted. Each user has complete control over the software and hardware of her local machine and storage. Documents can be transferred from one machine to another. A transfer of a document from one machine to another also causes the provenance chain to be transferred to the recipient.</p><p>Adversaries are inside or outside principals with access to the chains, who want to make undetected changes to a provenance chain for personal benefit. We do not consider denial of service attacks such as the total removal of a provenance chain.</p><p>We assume readers are familiar with semantically secure (IND-CPA) encryption and signature mechanisms <ref type="bibr" target="#b21">[22]</ref> and cryptographic hashes <ref type="bibr" target="#b33">[34]</ref>. We use ideal, collision-free hashes and strongly unforgeable signatures. We denote by S k (x) a public key signature with key k on item x. a|b and a, b denote concatenating b after a.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="2.2">Threat Model</head><p>In this paper, we focus on tracking document writes and securing the provenance information associated with them. We leave as future work the questions of how to ensure that provenance information is always collected, how to track document reads efficiently, and certain other technical issues discussed below. We now discuss the reasons for choosing this focus. A provenance tracking system implemented at a particular level is oblivious to attacks that take place outside the view of that level. For example, suppose that we implement provenance tracking in the OS kernel. If the kernel is not running on hardware that offers special security guarantees, an intruder can take over the machine, subvert the kernel, and circumvent the provenance system. Thus, without a trusted pervasive hardware infrastructure and an implementation of provenance tracking at that level, we cannot prevent all potential attacks on provenance chains. Even in such an environment, a malicious user who can read a document can always memorize and replicate portions thereof later, minus the appropriate provenance information. For example, an industrial spy can memorize technical material and reproduce it later on in verbatim or edited form. Overall, it is impractical to assume that we have the ability to fully monitor the information flow channels available to attackers. Thus, our power to track the origin of data is limited.</p><p>Fortunately, in many applications of provenanceaware systems, illicit document copying and/or complete removal of provenance chains are not significant threats. For example, in cattle tracking, we are not worried that someone will try to steal a (digital record of a) cow and try to pass it off as their own. Similarly, a cow with no provenance record at all is highly suspect, and many different parties would have to collude to fabricate a convincing provenance history for that cow. Instead, the primary concern is that a farmer might want to rewrite history by omitting a record showing that a particular sick cow previously lived at his feed lot. As another application, a retail pharmacy will not accept a shipment of drugs unless it can be shown that the drugs have passed through the hands of certain middlemen. Thus, if an enterprising crook wants to sell drugs manufactured by an unlicensed company, he might want to forge a provenance chain that gives the drugs a more respectable history, in order to move them into the supply chain. Similarly, there is little danger that someone will remove the provenance chain associated with a box of Prada accessories, and try to pass them off as another brand. Instead, the incentive is to pass off non-Prada accessories as Prada. This is very hard to do, as a colluder with the ability to put the Prada signature on the accessories' provenance chain needs to be found. Anyone who can do that signature is a Prada insider, and Prada insiders have little incentive to endorse fake merchandise.</p><p>Of course, there are applications where there are significant incentives to track data reads and for malicious parties to sever documents from their original provenance chains. For example, one may track the flow of intelligence information so that it can be traced back to its original source. It is possible to track all reads and then use that to track information flows. However, doing that is expensive, especially in the long run as provenance chains get longer and longer. It is impossible to offer complete provenance assurances in such situations, but certain measures can be taken, such as digital watermarking and kernel-level tracking of all data read by a writing process <ref type="bibr" target="#b37">[38]</ref> (which is expensive due to the need to log all data read). Overall, however, we believe that in the presence of any non-trivial threat model, tracking read operations for the purpose of provenance collection is impractical and necessarily insecure, because the adversary can always read data through unmonitored channels and produce verbatim or edited copies. Thus, we will not consider the tracking of read operations further in this paper.</p><p>The primary threat we guard against in this paper is undetected rewrites of history, which occur when malicious entities forge provenance chains to match illicit document writes and metadata modifications. Specifically, suppose that we have a provenance chain ( <ref type="bibr">[A]</ref>, <ref type="bibr">[B]</ref>, <ref type="bibr">[C]</ref>, <ref type="bibr">[D]</ref>, <ref type="bibr">[E]</ref>, <ref type="bibr">[F ]</ref>), in which, for simplicity, each entry is denoted by the identity of its corresponding principal A, B, C, . . .. Then, we will provide the following integrity and confidentiality assurances:</p><p>• I1: An adversary acting alone cannot selectively remove other principals' entries from the start or the middle of the chain without being detected by the next audit.</p><p>• I2: An adversary acting alone cannot add entries in the beginning or the middle of the chain without being detected by the next audit.</p><p>• I3: Two colluding adversaries cannot add entries of other non-colluding users "between" them in the chain, without being detected by the next audit.</p><p>For example, colluding users B and D cannot undetectably add entries between their own, corresponding to fabricated actions by a non-colluding party E.</p><p>• I4: Once the chain contains subsequent entries by non-malicious parties, two colluding adversaries cannot selectively remove entries associated with other non-colluding users between them in the chain, without being detected by the next audit.</p><p>E.g., colluding users B and D cannot remove entries made by non-colluding user C. An adversary in possession of a document can always eliminate all elements in the chain, starting from the last colluding party's entry in the chain. For example, a malicious F could remove the entry for E, if D cooperates, and claim that the chain is ( <ref type="bibr">[A]</ref>, <ref type="bibr">[B]</ref>, <ref type="bibr">[C]</ref>, <ref type="bibr">[D]</ref>, <ref type="bibr">[F ]</ref>). This however, is a denial-of-service attack that cannot be prevented through technical means only. Two parties could always collude in this manner in real life through outside channels. Thus, we target chain forgeries that maliciously add new chain entries and make after-the-fact modifications.</p><p>• I5: Users cannot repudiate chain records.</p><p>• I6: An adversary cannot claim that a valid provenance chain for one document belongs to a different document (lineage forgery), without detection at the next audit by a superauditor, if not sooner.</p><p>• I7: If the adversary alters a document without appending appropriate provenance records to its chain, this will be detected at the next audit by a superauditor, if not sooner.</p><p>• C1: Any auditor can verify the integrity of the chain without requiring access to any of its confidential components. Unauthorized access to confidential provenance record fields is prevented.</p><p>• C2: The set of parties originally authorized to read the contents of a particular provenance record for D can be further restricted by subsequent writers of D.</p><p>For illustration purposes, consider Bob, Charlie, and Dave editing document D, in that order. The resulting provenance chain contains chronologically ordered entries made by these users. Suppose that, Bob performed an operation on D using a proprietary algorithm, and does not want the workflow he used to be revealed to anyone except auditor Audrey. Property C1 ensures that Bob can selectively reveal the records pertaining to his actions on D to Audrey. Audrey can verify the integrity of the chain and read Bob's action record, while other auditors can only verify the integrity of the chain.</p><p>Suppose that Dave subsequently decides to release D to George, who should not learn the private information in Charlie's provenance records. Property C2 allows Dave to give George the provenance chain minus Charlie's sensitive information, while still allowing George to verify the integrity of the chain.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3">A Secure Provenance Scheme</head><p>We propose a solution composed of several layered components: encryption for sensitive provenance chain record fields, a checksum-based approach for chain records and an incremental chained signature mechanism for securing the integrity of the chain as a whole. For confidentiality (C1), we deploy a special keying scheme based on broadcast encryption key management <ref type="bibr" target="#b23">[24,</ref><ref type="bibr" target="#b26">27]</ref> to selectively regulate the access for different auditors. Finally, for confidentiality (C2), we use a cryptographic commitment based construction. In the following, we detail these components.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.1">Building Blocks</head></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.1.1">Chain Construction</head><p>Provenance records (entries for short) are the basic units of a provenance chain. Each entry P i denotes a sequence of one or more actions performed by one principal on a document D:</p><formula xml:id="formula_0">Pi = Ui, Wi, hash(Di), Ci, publici, Ii,</formula></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>where</head><p>• Ui is an opaque or plaintext identifier for the principal;</p><p>• Wi is an opaque representation of the sequence of document modifications performed by Ui;</p><p>• hash(Di) is a cryptographic hash of the newly modified contents of D; • Ci contains an entry integrity checksum;</p><p>• publici is an optional opaque or plaintext public key certificate for user Ui; • Ii contains keying material for interpreting the preceding fields.</p><p>As a practical matter, at the start of an editing session, the provenance system should verify that the current contents of D match its hash value stored in the most recent provenance record. We discuss each of these fields in the following subsections.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.1.2">Confidentiality</head><p>Let w i be a representation of the sequence of document modifications just now performed by U i . The choice of representation for w i is dictated by the application domain; for example, w i could be a file diff, a log of changes, or a higher-level semantic representation of the alterations. The representation should be reversible, if we want to allow auditors to check whether the current contents of D match its declared history; otherwise the representation does not have to be reversible. Given w i , W i is an encrypted version of w i : Wi = E(wi).</p><p>In the remainder of this section, we discuss options for E that satisfy the C1 confidentiality requirement. Strawman Choices of E. If all auditors should be able to read all entries, we can encrypt all wi using a single secret key k shared with the auditors via a central keystore. I.e., E(wi) = e k (wi). If only a subset of the auditors should be able to read wi, then Ui can encrypt one copy of wi for each auditor that Ui trusts: E(wi) = {eK A (wi) : KAis the public key of A, an auditor Ui trusts} This is inefficient, as U i has to include multiple copies of w i , which may be quite large. One solution approach is to let each auditor in the provenance system correspond to an auditor role in the larger environment, and use machinery external to the provenance system to determine who can get access to the auditor role and to track the activities of auditors. Still, the number of different auditor roles can become quite large in a real-world institution. For example, a medical record might be audited by lab technicians, billing people, the patient, her guardians, physicians, and insurers, each with different rights to see details of what was done to the record. Hence, the use of auditor roles external to the provenance system needs to be coupled with internal measures to minimize the size of entries.</p><p>To save space, U i can encrypt w i with a session key k i unique to this entry, and also include the (shorter) session key k i encrypted with the public keys of the trusted auditors. That is,</p><formula xml:id="formula_1">E(wi) = e k i (wi) Ii = {eK A (ki) :</formula><p>KA is the public key of A, an auditor Ui trusts}</p><p>In the rest of this paper, we assume that each entry employs a session key. Still, I i may have to include many encrypted auditor keys. Broadcast Encryption for E. To reduce the number of keys that must be included in P i , we employ broadcast encryption <ref type="bibr" target="#b23">[24,</ref><ref type="bibr" target="#b26">27]</ref>. We illustrate with a specific instance, but any broadcast encryption approach can be used here.</p><p>Given a set of up to n auditors during the lifetime of D, we build a broadcast encryption tree of height log N . Each leaf corresponds to one auditor, and each node contains a public/private keypair in a PKI infrastructure. We give all the public keys in the tree to every user and auditor. In addition, we give each auditor the private keys in all the nodes on the path from its own leaf to the root.</p><p>To allow all auditors to access an entry, we encrypt the session key k i with the public key in the root of the tree and store it in I i . Any auditor can then decrypt W i using the private key in the root node (known only to auditors). Similarly, if U i trusts a single auditor A, we encrypt k i with the public key k A at the leaf for A, so that I i = e k A (k i ). If U i trusts an arbitrary subset S of auditors, we set</p><formula xml:id="formula_2">I i = {e k B (k i ) : B is the public key of a node in R},</formula><p>where R is a minimum-size set of tree nodes such that the set of descendants of R includes all the leaves for auditors in S, and no other leaves. This approach can significantly reduce the size of I i , as I i includes only log(n − |S|) copies of k i .</p><p>If U i should be opaque, the session key k i can be used to hide the identity U of the user responsible for the document modifications represented in entry P i . U should identify the principal in a manner appropriate for the application domain. For example, in a file system we can define U as:</p><formula xml:id="formula_3">U = userID, pid, port, ipaddr, host, time</formula><p>In an application domain where U i should be opaque, we can set U i = e ki (U ), where k i is the session key defined above. The same can be done for U 's public key certificate public i . Authorized auditors can use I i to decrypt U i and public i .</p><p>In some application domains, we may need finergrained control over which auditors and users can see which details of an entry, rather than using a single session key to encrypt all sensitive fields in an entry. For example, we might be willing to let the billing auditors decrypt U i but not W i . In this case, one option is to use additional session keys for the other sensitive fields of the entry, so that we can control exactly which auditors can see which fields. Threshold Encryption. To address separation-of-duty concerns, we can partition the set of auditors into groups, so that decryption of W i requires joint input from at least one auditor from each group. Alternatively, we can require that at least k different authorized auditors act jointly to decrypt W i . For these two approaches, we employ secret sharing and threshold cryptography for I i <ref type="bibr" target="#b48">[49]</ref>. Under the first approach, each group has a different share of the session key i i , and we use the broadcast encryption keys to encrypt those shares. Each auditor can decrypt the share for her group. Under the second approach, there are as many different shares as auditors, and a minimum threshold number of auditors must collaborate to decrypt W i .</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.1.3">Integrity</head><p>Principle C1 says that every auditor can verify every provenance chain, even if he or she cannot decrypt some of its W i fields. In some application domains, it is appropriate to allow every user to act as an auditor in this weak sense. In this situation, we can define the integrity checksum field C i of an entry as:</p><formula xml:id="formula_4">Ci = SU i (hash(Ui, Wi, hash(Di), publici, Ii)|Ci−1),</formula><p>where S Ui means that user U i signs the hash with his or her private key. We refer to this approach as signature-based checksums, as it creates a signature chain that enforces the integrity assurances I1-I7 for each individual entry and for the chain itself. For a user Audrey to be able to verify the chain, she must be able to tell which user wrote each entry in the chain, and have access to their public keys. This can be accomplished by storing the U i and, if present, public i fields as plaintext; if the public i field is empty, Audrey must find the public key for U i through external means. Audrey can then verify the integrity of the provenance chain by parsing it from beginning to end and using the C i values to verify the integrity of each entry. She can also verify that the current contents D n of D match its hash in P n . However, she cannot check that D n was computed properly from D n−1 unless she is allowed to decrypt W n , i.e., she is given access to the session key k n , and a reversible representation was used for w n . To verify that all of these transformations were performed correctly, Audrey must retrieve her keys from the broadcast encryption tree and use them to decrypt the I i field of each entry. The I i field holds the session key for each entry, which she can use to decrypt all of the entry's fields, thus obtaining the w i fields. From D n and reversible w n Audrey can compute D n−1 and verify that it matches its hash in P n−1 . Audrey can repeat this process with w i−1 , continuing until the entire evolution of D has been verified. If Audrey is not authorized to access all of the session keys for D, then she can only verify that the most recent j entries match the contents of D, where session key k n−j is the most recent session key that she cannot access.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.1.4">Fine-Grained Control Over Confidentiality</head><p>As mentioned earlier, the all-or-nothing approach to allowing auditors to view sensitive fields will be too coarse-grained for some applications. Sometimes it may be hard to foresee which fields may become sensitive over time, especially for a long-lived document that may cross boundaries between organizations. For example, the confidentiality needs for the testing of a particular National Geographic DNA sample may be met perfectly by a particular set of auditors and session keys, as long as the sample stays at its original processing location (the University of Arizona). However, a very small percentage of samples produce ambiguous or seemingly unlikely results (rare genotypes), and these are sent for additional rounds of testing at other labs. When a sample's chain is sent out to a lab in England, the details of previous testing should be eliminated to prevent bias in interpreting the results of the new rounds of tests.</p><p>To provide flexibility in such situations without a proliferation of broadcast encryption keys, we can use cryptographic commitments <ref type="bibr" target="#b5">[6]</ref> for subfield and field data that may eventually be deemed sensitive. With such a scheme, we can selectively omit plaintext data entirely when sending D's chain to a new organization, regardless of whether such a need was foreseen when setting up the session key(s) for D. The plaintext information can be restored to the chain if, for example, D later finds its way back to its original organization. To achieve this level of control without a proliferation of encryption keys, we replace each potentially sensitive plaintext subfield s inside U i or W i by its commitment before computing the checksum for P i :</p><formula xml:id="formula_5">comm(s) = hash(s, r s ),</formula><p>where r s is a sufficiently large random number.</p><p>During construction of the signature-based checksum, the provenance system uses these hashes instead of the actual data items. For example, the name of an unusual test performed in W i can be replaced by a commitment, while leaving the other more typical tests in W i in plaintext. When Arizona sends the chain to an internal party trusted to view the plaintext version of U i and/or W i , both the commitments and the original plaintext values of the unusual test s and r s will be included as usual in the provenance entry. When Arizona sends the chain to a lab in England, Arizona can remove the plaintext for s and r s and send only their commitments. Since the chain checksums were computed using the commitments rather than the plaintext data, the English lab can still verify the integrity of the chain. Access to sensitive values is prevented until the chain returns to the University of Arizona, which can reinstate the plaintext in the chain. If the English lab chooses to send out the sample for additional testing, it may choose to omit all the plaintext from all the Arizona entries of the chain. This level of flexibility would be awkward to build into the provenance system using only session keys, but is easily accomplished with commitments.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.1.5">Augmenting Provenance Chains</head><p>While the integrity checksums of Section 3.1.3 completely satisfy the assurances I1-I7, we can introduce further optimizations for faster verification and integritypreserving summarization of long provenance chains. Provenance chains tend to grow very fast, often becoming several magnitudes in size larger than the original data item and requiring compaction <ref type="bibr" target="#b13">[14]</ref>. With our augmented chains, we can compact the chain by removing irrelevant entries, while preserving the validity of integrity verification mechanisms, without requiring recomputing the signatures.</p><p>The integrity spiral, a redundant, multiple-linked chain mechanism, is conceptually similar to skip-lists <ref type="bibr" target="#b42">[43]</ref>. The basic idea is to compute the checksum(s) of each provenance entry by combining the (hash of the) current entry, and multiple previous checksums. We provide two constructions with different properties and usages. Construction 1. The first construction computes the checksum C i of the provenance entry P i as follows</p><formula xml:id="formula_6">Ci = SU i (hash(Ui, Wi, hash(Di), publici, Ii) |Cprev 1 | · · · |Cprev R ),</formula><p>where R is the spiral dimension, and C prev k represents a checksum chosen at random from preceding entries in the provenance chain.</p><p>Advantages. This construction allows quick detection of forgery of entries. Suppose that Mallory modifies the entry P i and computes a new checksum C i based on the forged entry and the preceding part of the chain. In the singly-linked mechanism, this will be detected when the auditor checks the checksum for P i+1 , which Mallory is unable to forge (per I2). However, the auditor will have to verify the entire chain up to and including the entry P i to detect this. We enable quick local verification by construction 1, in which multiple subsequent entries will be dependent on the checksum C i of P i . The new checksum C i added by Mallory will cause the checksums of these dependent entries to fail, and therefore expose Mallory's forgery. To evade detection, Mallory will have to modify the checksums of all these entries, which in turn will affect further subsequent entries. Construction 2. In our second construction, we construct a spiral checksum C i as follows:</p><formula xml:id="formula_7">C i = C i1 |C i2 | · · · |C i R |C i0 ;</formula><p>where R is the spiral dimension, and C ij is defined as:</p><formula xml:id="formula_8">   S U i (hash(U i , W i , hash(D i ), public i , I i )|C k j ) if j &gt; 0, S U i (hash(U i , W i , hash(D i ), public i , I i )|C i 1 |C i 2 | · · · |C i R ) if j = 0</formula><p>where k &lt; i. Note that, unlike Construction 1, we no longer have a single checksum per entry; rather we use more than one independently computed checksum per entry.</p><p>Advantages. Using this construction, we can perform quick verification. The auditor may choose to disregard the linear checksum (i.e. the chain that links to the previous entry's checksum) and use any of the other dimensions. Based on the maximum spiral dimension R of that chain, it might reduce the cost of verification of an N entry chain to N R . If the chain is constructed such that all entries belonging to a particular event type are linked by a given dimension of the checksum, then the auditor can skip irrelevant entries, but still be able to verify the integrity of the events she is looking for.</p><p>Rather than choosing previous checksums randomly, we can use a systematic approach towards building the spiral. For example, to construct C i , we use checksums from previous entries at distance 1, 2, . . . , 2 R . In Construction 1, these checksums are all concatenated to the hash of the current entry, while in Construction 2, these R checksums are separately concatenated with the hash of current entry, and signed to form a collection of R checksums pertaining to the current entry. Integrity-preserving Summarization. Using construction 2, we can compact a provenance chain while still being able to preserve integrity verification mechanism. If P j occurs after entry P i in the chain, and P j 's set of checksums C j has a checksum C j k computed from a checksum C i k from the set C i (using Construction 2), then that checksum can be used to verify the order of these two entries. If there are d entries between P i and P j , we can then remove these entries, while being able to prove the order. This is not contrary to I1, as the auditor can use C j k to verify the order of P i and P j , while detecting that d entries have been removed in between them. If P i and P j are not directly connected by a checksum, but have an intermediate entry P m , such that a checksum exists in C m that proves P m occurs after P i , and a checksum exists in C j that proves P j occurs after P m , then we can keep P m and remove all other entries between P i and P j during compaction. We can extend this technique to link any two entries using some intermediate nodes between them.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.1.6">Chain Operations</head><p>As discussed in Section 2.2, we are concerned with tracking data write operations and document metadata changes -including changes in permissions and other document metadata. We now discuss the impact of document operations on the corresponding secured provenance chains. Although our discussion refers specifically to file system operations, the same semantics are appropriate for other scenarios, including relational databases.</p><p>read No impact on the provenance chain. write A new provenance chain entry is created. chmod or chown These operations change document metadata. For example, chown can be used to add a new user to the list of users with write access. The change in metadata is recorded as a provenance event. copy A duplicate copy of the original document is created, with no change in the original document or its provenance. The original document's provenance chain is copied into the new document's provenance chain. A new entry is then added to the new chain, to record the copy operation itself. delete The document will be removed from the file system, but its provenance chain is not deleted. The delete operation is recorded as a metadata operation in the provenance chain. The chain is kept until it expires (determined by its expiration timeout).</p><p>If users were guaranteed not to circumvent the provenance-aware read operation (e.g., by reading directly from disk), we could support read-related provenance entries by persisting per-principal provenance contexts containing all information ever read, similar in nature to propagated access list mechanisms <ref type="bibr" target="#b57">[58]</ref>. However, as discussed in Section 2.2, we believe that this would give the illusion of security but not the reality, because principals have access to outside information channels. Also, promulgation of provenance for read operations tends to result in a combinatorial explosion in overhead that can ultimately render the system unusable <ref type="bibr" target="#b37">[38]</ref>.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.2">Correctness</head><p>The mechanisms introduced above satisfy the integrity, confidentiality and privacy properties outlined in Section 2.</p><p>Theorem 1. An adversary cannot remove entries from the beginning or the middle of the chain without detection (I1). An adversary cannot add entries in the beginning or the middle of the chain without detection (I2).</p><p>Proof. (sketch) The proof is straightforward. For (I1) let us assume that an adversary Mallory has removed the entry P i , 0 &lt; i &lt; n. Since the integrity checksum field C i+1 of the subsequent entry is computed by combining the current checksum C i with W i+i under an ideal cryptographic hash function, its verification will fail, therefore revealing the removal of P i . Similarly, for (I2), any addition of chain entries will be detected in the verification step through the checksum components.</p><p>Theorem 2. Once the chain contains any subsequent entries by non-malicious users, a set of colluding adversaries cannot insert or remove entries between them in the chain (I3, I4).</p><p>Proof. (sketch) The chained nature of the integrity checksum directly ensures this. Specifically, suppose that Eve and Mallory are two colluding adversaries who are part of the chain, with entry P e followed by P m later on in the chain. Moreover, let P a be non-colluding Alice's entry following Eve's and Mallory's. The chain will thus be . . . Pe, . . . , Pm, . . . , Pa, . . .. Due to the collisionfree, one-way nature of the chained integrity checksum fields, any modification in the chain entries between P e and P m will naturally show up when attempting to verify P a 's checksum.</p><p>As discussed in Section 2, if P m is the last element in the chain, Mallory can always remove all entries between P m and any previous entry by a colluding party, e.g., P e . This DOS attack cannot be prevented through technical means alone. Proof. (sketch) This follows directly from the collisionfree nature of hashing and the fact that a hash of the current document contents is included in each chain entry, which is then authenticated using the chained C i checksums. Substituting the chain for a different document will be detected by a super auditor when a checksum fails to verify.</p><p>Theorem 5. If a document's contents are inconsistent with its history as recorded in a provenance chain with a reversible or plaintext representation for wi fields, then any superauditor can detect the discrepancy (I7).</p><p>Proof. By definition, a superauditor can decrypt all details of the w i field in each entry, if the w i fields are encrypted with session keys. Otherwise, the w i fields are available in plaintext. After verifying the chain, the superauditor can apply the w i entries in reverse, repeatedly verifying that the hash of D i included in entry P i matches the hash of its recreated contents. At the last verification, D 0 should be the empty document.</p><p>If a non-reversible representation is used for the w i entries, or the auditor is not a superauditor, the auditor may still be able to tell that the chain is inconsistent with the current contents of D. E.g., if a chain entry says that all document appendices were deleted, and no subsequent entry added any appendices, then application-domaindependent reasoning lets an auditor conclude that something is wrong if the document has appendices. Now consider the question of whether unauthorized parties can access the details of entries. We argue the case where a single session key k i is used to encrypt all sensitive details in the entry, and the key itself is protected using broadcast encryption; the argument is similar if multiple session keys or a single shared key are used for this purpose. First, a session key k i for W i is accessible only to principals that can retrieve it by decrypting at least one item in set I i . If a principal can decrypt one of these items, then it possesses a private key in the broadcast encryption tree, and must therefore be an auditor represented by a leaf in the subtree rooted at the private key in question. Thus the principal is an auditor who should be allowed to obtain the session key, and therefore should be allowed to see all data encrypted with it, including W i and (if encrypted) U i and public i .</p><p>Finally, we discuss chain verifiability when cryptographic commitments are used for potentially sensitive plaintext, and the plaintext is subsequently removed. Proof. (sketch) The checksum component of the entry is computed by using cryptographic commitments rather than the sensitive data item's plaintext. Hence, if the plaintext is removed when releasing to an untrusted principal, the chain remains verifiable, as the verification mechanism only requires the commitment. The chain integrity is also not compromised, due to unforgeability of signatures on the checksum entries for other users.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="4">Empirical Evaluation</head><p>Several avenues are available for implementing secure provenance functionality: in the operating system kernel, at the file system layer, or in the application realm. Kernel Layer. In this implementation approach, provenance record functions are handled by trapping kernel system calls, similar to the approach taken in the Provenance-aware Storage System (PASS) <ref type="bibr" target="#b37">[38]</ref>. The main advantage of this approach is its transparency to user level applications and the file system layer. Major drawbacks include the fact that the logic and higher level data management semantics are not naturally propagated to the kernel, thus limiting the types of provenancerelated inferences that can be made. Yet another drawback of such an approach is its limited portability, as any new deployment platform will require porting efforts. File System Layer.</p><p>The file system can be made provenance-aware and augmented to transparently handle securing collected provenance information. Similarly to the kernel layer implementation, one of the main advantages of such an approach is transparency. However, persisting provenance state transparently inside the file system layer will reduce the portability of the provenance assurances, e.g., when provenance-augmented files traverse non-compliant environments. Application Layer. In this approach, the provenance mechanisms are offered through user-level libraries. This can still maintain the transparency of the previous approaches while also allowing for a high degree of portability, i.e., by being independent of kernel and file system layer instances. The provenance libraries can be layered on top of any file system, making rapid prototyping and deployment very easy. Moreover, through dynamic linking and by maintaining a compatible interface, existing user applications do not need to be recompiled for provenance-awareness.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="4.1">The Sprov Library</head><p>We implemented a prototype of the secure provenance primitives as an application layer C library, consisting of wrapper functions for the standard file I/O library stdio.h. The resulting library is fully compatible with stdio functionality, in addition to transparently handling provenance assurances. We used the basic model introduced in Section 3.1.2 and 3.1.3 in this prototype.</p><p>In Sprov, a session is defined as all the operations performed by a user on a file between file open and close. When a file is opened in write or append mode, Sprov initiates a new entry in the provenance chain of the file. Information about the user, application, and environment are collected. During write operations, Sprov gathers information about the writes. to the file before it is closed. Sprov uses a reversible representation of document modifications; as discussed earlier, this allows strong verification of the relationship between current document contents and the document's provenance chain. The provenance chain can be used as a rollback log, which can form the basis of a versioning file system; we leave this for future work.</p><p>At file close, the session ends. Sprov writes a new entry in the provenance chain for the changes made during this session. At this point, the cryptography (implemented using openssl <ref type="bibr" target="#b53">[54]</ref>) associated with the chain integrity constructs is executed, as described in Section 3.1. The provenance chain is stored in a separate meta-file for portability.</p><p>We provide utilities to facilitate provenance collection and transfer. When a user logs into her system, the plogin utility is invoked, which initializes the session keys and loads the user's preferences and list of trusted auditors. Copying and deletion of a provenance-enabled file uses the pcopy and pdelete utilities, respectively, as discussed in Section 3.1.6. Finally, the pmonitor daemon periodically scans for and removes expired provenance chains.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="4.2">Experiments</head><p>Our experiments employed x86 Pentium 4 3.4GHz hardware with 2GB of RAM, running Linux (Suse) at kernel version 2.6.11. In this configuration, each 1024-bit DSA signature took 1.5ms to compute. The experiments used a mix of four of the following drive types: Seagate Barracuda 7200.11 SATA 3Gb/s 1TB, 7200 RPM, 105 MB/s sustained data rate, 4.16ms average seek latency and 32 MB cache, and Western Digital Caviar SE16 3 Gb/s, 320GB, 7200 RPM, 122 MB/s sustained data rate, 4.2ms average latency and 16MB cache.</p><p>We conducted our experiments using multiple benchmarks in a quest to match several different deployment settings of relevance. In each case, we compared the execution times for the baseline unmodified benchmark (with no provenance collection at all), with a run with secure provenance enabled. We deployed (i) PostMark <ref type="bibr" target="#b25">[26]</ref> -a standard benchmark for file system performance evaluation, (ii) the Small and Large file microbenchmark that has been used to evaluate the performance of PASS <ref type="bibr" target="#b37">[38,</ref><ref type="bibr" target="#b47">48]</ref>, and (iii) a custom transaction-level benchmark meant to test the performance in live file systems with file sizes distributed realistically <ref type="bibr" target="#b1">[2,</ref><ref type="bibr" target="#b15">16]</ref>, and real-life file system workloads <ref type="bibr" target="#b16">[17,</ref><ref type="bibr" target="#b27">28,</ref><ref type="bibr" target="#b43">44</ref>].</p><p>We also evaluated two different configurations for storing the provenance chain. In the first configuration, provenance chains were recorded on disk (Config-Disk), while in the second one, provenance chains were stored in a RAM disk, with a pmonitor chron daemon periodically flushing the chain to disk (Config-RD). Read-write-bias (percentage of read transactions) <ref type="figure">Figure 1</ref>: Overhead of secure provenance with Postmark. Overhead1 indicates the overhead using Config-Disk, while Overhead2 is from Config-RD setting. The overheads are shown from 0% read bias (100% write transactions) to 100% read bias (no write transactions).</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="4.2.1">Postmark Benchmark</head><p>We measured the execution time of the Postmark benchmark <ref type="bibr" target="#b25">[26]</ref> with and without the Sprov library. A data set containing 20,000 Postmark-generated binary files with sizes ranging from 8KB to 64KB was subjected to Postmark workloads of 20000 transactions. Each transaction set was a mixture of writes and reads of sizes varying between 8KB and 64KB. We sampled the performance overhead under different write loads by varying the readwrite bias from 0% to 100% in 10% increments (i.e. the percentage of write transactions was varied from 100 to 0%). The overheads are illustrated in <ref type="figure">Figure 1</ref> for both Config-Disk and Config-RD and range from 0.5% to 11% for Config-RD.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="4.2.2">Small and Large File Microbenchmarks</head><p>The small and large file microbenchmarks <ref type="bibr" target="#b47">[48]</ref> have been used in the evaluation of PASS <ref type="bibr" target="#b37">[38]</ref>. The small file microbenchmark creates, writes to and then deletes 2500 files of sizes ranging from 4KB, 8KB, 16KB, and 32KB. We benchmarked the overhead for file creation as well as synchronous writes. The results for Config-Disk are displayed in <ref type="figure" target="#fig_4">Figure 2</ref>. An interesting effect can be observed. Similar to the experiments in PASS, the overhead percentage is quite high for small files and decreases rapidly with increasing file sizes. We believe this effect can be attributed to disk caching. Specifically, for very small file size accesseswhich go straight to the disk cache, the main overhead culprit (crypto signatures) dominates. As file sizes increase, additional real disk seeks are incurred in both cases and start to even out the execution times. Eventually, the overhead stabilizes to under 50% for larger files which suggests that roughly 1-3 seek times are paid per file and the secure case adds the equivalent of another seek time (the crypto signature  <ref type="table">Table 1</ref>: Overhead (in seconds) for large file microbenchmark, under Config-Disk (CD) and Config-RD (CRD).</p><p>The small file microbenchmark only measures the effect of writes to many small files <ref type="bibr" target="#b37">[38]</ref>. Often, writes to large files can provide more representative estimates of typical overheads in file systems. Thus, next we deployed the Large file benchmark as described in PASS. We performed the sequential-write and random-write operations of the benchmark. Both unmodified and provenance-enhanced versions of the benchmark were run, and this time, the disk write-caches were turned off to eliminate un-wanted disk-specific caching effects.</p><p>The benchmark consists of creating a 100 MB file by writing to it sequentially in 256KB chunks, followed by writing 100MB of data in 256KB units written in random locations of the file. The overheads for sequential and random writes are presented in <ref type="table">Table 1</ref>. In both cases (Config-Disk and Config-RD), the overheads are considerably lower than the overheads reported in <ref type="bibr" target="#b37">[38]</ref>, despite the additional costs of recording all the file writes to its provenance chain.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="4.2.3">Hybrid Workload Benchmark</head><p>Benchmarks like Postmark are useful due to their standardized nature and ability to replicate the results. Additionally we decided to evaluate our overheads in a more realistic scenario, involving practical, documented work- loads and file system layouts. We constructed a layout as discussed by Douceur et.al <ref type="bibr" target="#b15">[16]</ref>, which showed that file sizes can be modeled using a log-normal distribution.</p><p>We used the parameters µ e = 8.46, σ e = 2.4 to generate a distribution of 20,000 files, with a median file size of 4KB, and mean file size of 80KB, along with a small number of files with sizes exceeding 1GB to account for large data objects, as suggested in <ref type="bibr" target="#b1">[2,</ref><ref type="bibr" target="#b15">16]</ref>. Our first workload on this dataset involved fixed number of write transactions. Under the Config-Disk setting, we performed 25K, 50K, 80K, and 100K write transactions. Between each experimental runs, we recreated the dataset, cold-booted the system, and flushed file system buffers to avoid variations caused by OS or disk caching. In each transaction, a file was opened at random, and a fixed amount of data (1KB and 4KB) was written into it. We measured the overhead for both appends and random writes. These are shown in <ref type="figure" target="#fig_0">Figure 3</ref>. Constant overheads can be observed for each of the 4 configurations, with append situated between 32% and 42%, and random writes between 26% and 33%.</p><p>Next, we modeled the percentage of write to read transactions according to the data in <ref type="bibr" target="#b16">[17,</ref><ref type="bibr" target="#b27">28,</ref><ref type="bibr" target="#b43">44]</ref> which suggest this varies from 1.1% to 82.3%. To this end, we deployed information about workload behavior and used parameters for the instructional (INS), research (RES) <ref type="bibr" target="#b43">[44]</ref>, a campus home directory (EECS) <ref type="bibr" target="#b16">[17]</ref>, and CIFS corporate and engineering workloads (CIFS-corp, CIFS-eng) <ref type="bibr" target="#b27">[28]</ref>. The RES and INS workloads are readintensive, with the percentage of write transactions less than 10%. The CIFS workloads are less read-intensive, with the read-write ratio being 2 : 1. The EECS workload has the highest write load, with more than 80% write transactions. The results are shown in <ref type="figure">Figure 4</ref> and 5, for both the disk-based (Config-Disk) and the RAM-disk op- timized (Config-RD) modes.</p><p>Read-intensive workloads can be seen as almost overhead free, with less than 5% overheads for both RES and INS (this goes down to less than 2% for the RAMdiskoptimized mode). For write intensive workloads, the overheads are higher, but still less than 14% for the CIFS workloads (Config-Disk), and less than 36% for EECS <ref type="bibr">(Config-Disk)</ref>. With the RAMdisk-optimization, the overheads go down to less than 3% for CIFS and around 6.5% for EECS.</p><p>Summary. Sprov facilitates collection of provenance with integrity and confidentiality assurances, while incurring minimal overhead. Read performance is unaffected by the use of Sprov. Benchmarks show that, with the Config-RD setting, use of Sprov incurs an overhead less than 3% in a multitude of realistic workloads.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="5">Related Work</head><p>Researchers have categorized provenance systems for science <ref type="bibr" target="#b49">[50]</ref> and investigated the question of how to capture provenance information, typically through instrumenting workflows and recording their provenance <ref type="bibr" target="#b2">[3,</ref><ref type="bibr" target="#b3">4,</ref><ref type="bibr" target="#b6">7,</ref><ref type="bibr" target="#b36">37,</ref><ref type="bibr" target="#b51">52,</ref><ref type="bibr" target="#b52">53]</ref>. Other provenance management systems used in scientific computing include Chimera <ref type="bibr" target="#b17">[18]</ref> for physics and astronomy, myGrid <ref type="bibr" target="#b59">[60]</ref> for biology, CMCS <ref type="bibr" target="#b38">[39]</ref> for chemistry, and ESSW <ref type="bibr" target="#b18">[19]</ref> for earth science.</p><p>Another technique is to collect provenance information at the operating system layer, with the advantage of being hard to circumvent and the disadvantages of being expensive and hard to deploy. The Provenance-aware Storage System (PASS) <ref type="bibr" target="#b7">[8,</ref><ref type="bibr" target="#b37">38]</ref> takes this approach using a modified Linux Kernel. While PASS does not actually record the data written to files, it collects elaborate information flow and workflow descriptions at the OS level. Our techniques of securing provenance chains can be used to augment PASS or any such system to provide the security assurances at minimal cost.</p><p>The database community has explored a variety of aspects of provenance, including the notions of whyprovenance and where-provenance and how to support provenance in database records and streams (e.g., <ref type="bibr" target="#b8">[9,</ref><ref type="bibr" target="#b9">10,</ref><ref type="bibr" target="#b10">11,</ref><ref type="bibr" target="#b11">12,</ref><ref type="bibr" target="#b56">57,</ref><ref type="bibr" target="#b58">59]</ref>). Others have examined the applications of provenance to social networks <ref type="bibr" target="#b20">[21]</ref> and information retrieval <ref type="bibr" target="#b30">[31]</ref>.</p><p>Overall, the body of research on provenance has focused on the collection, semantic analysis, and dissemination of provenance information, and little has been done to secure that information <ref type="bibr" target="#b7">[8,</ref><ref type="bibr" target="#b24">25]</ref>. One exception is the Lineage File System <ref type="bibr" target="#b45">[46]</ref>, which automatically collects provenance at the file system level. It supports access control in the sense that a user can set lineage metadata access flags, and the owner of a file can read all of its lineage information. However, this does not meet the challenges (I1-I7,C1-2) for confidentiality, integrity and privacy of provenance information outlined in <ref type="bibr" target="#b7">[8,</ref><ref type="bibr" target="#b24">25]</ref> and discussed in this paper.</p><p>Outside the domain of provenance, researchers have used entanglement -mechanisms of preserving the historic states of distributed systems in a non-repudiable, tamper-evident manner <ref type="bibr" target="#b31">[32,</ref><ref type="bibr" target="#b44">45]</ref>. This provides similar assurances to the ones sought here for the realm of systems, yet does not handle provenance for information flows and individual data records.</p><p>Source code management systems (SCM) target the provenance needs of a particular application domain. For example, Subversion <ref type="bibr" target="#b14">[15]</ref>, GIT <ref type="bibr" target="#b29">[30]</ref>, or CVS <ref type="bibr" target="#b4">[5]</ref> with secure audit trails can provide integrity assurances for versions in a centralized file system. GIT, Monotone <ref type="bibr" target="#b0">[1]</ref>, and several other systems also provide support for a distributed infrastructure. These systems employ a logically centralized model where users maintain local histories and use a virtual (centralized) repository to merge and synchronize their local repositories. Our approach is intended for applications with a more fully decentralized model, where documents and their histories are physically passed between users in separate administrative domains that may not trust one another. In addition, as our approach is intended to meet the needs of many potential applications, we have worked to provide much higher performance than a SCM system requires Verifiable audit trails for versioning file systems can use keyed hash-chains to protect version history <ref type="bibr" target="#b41">[42]</ref>. Under this approach, auditors are fully trusted and share a symmetric key with the file system for creating the MACs. The audit authenticators need to be published to a trusted third party, which must provide them accurately during audits. Our approach must also handle malicious auditors who could easily falsify the audit.</p><p>Similarly to audit trails, secure audit logs based on hash chains have been used in computer forensics <ref type="bibr" target="#b46">[47,</ref><ref type="bibr" target="#b50">51]</ref>. Such schemes work under different system and threat models than secure provenance. By their very nature, audit logs are stationary and protect the integrity of local state. In contrast, provenance information is highly mobile and often traverses multiple un-trusted domains. Moreover, audit logs rarely require the selective confidentiality assurances needed for provenance. For example, the mechanisms proposed in <ref type="bibr" target="#b46">[47]</ref> secure logs as a whole, but do not allow authentication of individual modifications. Additionally, provenance is usually associated with a digital object (e.g. file). This association introduces attacks that are not applicable to secure audit logs. Finally, a majority of schemes function under the assumption of single (or very few) parties processing the audit log and computing checksums -a different model from the case of provenance chains where multiple principals' access is required throughout the lifetime of a provenance chain.</p><p>Secure Untrusted Data Repository (SUNDR) <ref type="bibr" target="#b28">[29]</ref> provides a notion of consistency for shared memory (called fork consistency) akin to the integrity property provided for provenance records in our systems. While our techniques for ensuring chain integrity are related to those used in SUNDR, the adversarial model of SUNDR is different from ours. In SUNDR, a set of trusted clients communicate with an untrusted server storing a shared filesystem. In contrast, our system does not employ a central server, and allows any number of users to be corrupted. Moreover, SUNDR does not address confidentiality issues.</p><p>Multiply-linked hash chains have been used for signature cost amortization in multicast source authentication <ref type="bibr" target="#b19">[20,</ref><ref type="bibr" target="#b22">23,</ref><ref type="bibr" target="#b34">35,</ref><ref type="bibr" target="#b40">41]</ref>. Our spiral chain constructs are similar in principle. One main difference however is that such hash chains all assume a single sender signing the message block containing the hashes. We can adopt these methods to amortize signature costs in consecutive provenance chain entries from the same principal, but with multiple principals, we need chaining using non-repudiable signatures. Also, many of the hash-chain schemes require the entire stream to be known a priori, an assumption not applicable to provenance deployment settings. Finally, the second spiral construction allows integritypreserving compaction, which is not possible with the hash chains.</p><p>Integrity of cooperative XML updates has been discussed in <ref type="bibr" target="#b32">[33]</ref>, where document originators define a flow path policy before dissemination and recipients can verify whether the document updates happened according to this flow policy. In contrast, for flexibility and wider applicability, our model and integrity assurances do not require the existence of pre-defined flow path policies, in order to provide the integrity assurances described in Section 2.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="6">Conclusion</head><p>In this paper, we introduced a cross-platform, lowoverhead architecture for capturing provenance information at the application layer. Our approach provides finegrained control over the visibility of provenance information and ensures that no one can add or remove entries in the middle of a provenance chain without detection. We implemented our approach for tracking the provenance of data writes, in the form of a library that can be linked with any application. Experimental results show that our approach imposes overheads of only 1-13% on typical real-life workloads.</p></div><figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_0"><head>Theorem 3 .</head><label>3</label><figDesc>When checksums are constructed using formula from Section 3.1.3, users cannot repudiate an entry (I5). Proof. (sketch) This follows by construction when in- tegrity checksum C i is implemented using the non- repudiable signatures of Section 3.1.3. Theorem 4. An adversary cannot successfully claim that a valid provenance chain for a given document belongs to a doc- ument with different contents (I6).</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_1"><head>Theorem 6 .</head><label>6</label><figDesc>Any auditor can verify the chain (C1). Auditors can only decode entry details for which they are authorized. Proof. (sketch) This also follows directly by construc- tion. When deploying non-repudiable signature-based checksums as in Section 3.1.3, chain verification in- volves only public key signature operations and no other secret values. It can thus be performed by any party.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_2"><head>Theorem 7 .</head><label>7</label><figDesc>The use of cryptographic commitments in place of potentially sensitive plaintext subfields of Ui or Wi does not affect the verifiability of the chain.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_4"><head>Figure 2 :</head><label>2</label><figDesc>Figure 2: Small file system microbenchmark create and write performance for 2500 files.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_5"><head>Figure 3 :</head><label>3</label><figDesc>Figure 3: Overhead for different number of write transactions and data sizes, at 100% write load (Config-Disk).</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_6"><head>Figure 4 :Figure 5 :</head><label>45</label><figDesc>Figure 4: Overhead for various types of workloads (Config-Disk).</figDesc></figure>
+		</body>
+		<back>
+
+			<div type="acknowledgement">
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>Acknowledgments</head><p>We thank the anonymous reviewers and Alina Oprea for their valuable comments; Bill Bolosky and John Douceur for suggestions about file system distributions; and Kiran-Kumar Muniswamy-Reddy and Margo Seltzer for help with the microbenchmarks. Hasan and Winslett were supported by NSF awards CNS-0716532 and CNS-0803280. Sion was supported by NSF awards CNS-0627554, CNS-0716608, CNS-0708025 and IIS-0803197.</p></div>
+			</div>
+
+			<div type="references">
+
+				<listBibl>
+
+<biblStruct xml:id="b0">
+	<monogr>
+		<title level="m" type="main">Monotone Distributed Version Control</title>
+		<ptr target="http://www.monotone.ca" />
+		<imprint>
+			<date type="published" when="2008-12-22" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b1">
+	<analytic>
+		<title level="a" type="main">A fiveyear study of file-system metadata</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">N</forename><surname>Agrawal</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">W</forename><forename type="middle">J</forename><surname>Bolosky</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><forename type="middle">R</forename><surname>Douceur</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><forename type="middle">R</forename><surname>Lorch</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of the 5th USENIX conference on File and Storage Technologies (FAST)</title>
+		<meeting>of the 5th USENIX conference on File and Storage Technologies (FAST)<address><addrLine>Berkeley, CA, USA</addrLine></address></meeting>
+		<imprint>
+			<publisher>USENIX Assoc</publisher>
+			<date type="published" when="2007" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b2">
+	<analytic>
+		<title level="a" type="main">Provenance-based Auditing of Private Data Use</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Aldeco-Perez</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">L</forename><surname>Moreau</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of the BCS International Academic Research Conference</title>
+		<meeting>of the BCS International Academic Research Conference</meeting>
+		<imprint>
+			<date type="published" when="2008-09" />
+		</imprint>
+		<respStmt>
+			<orgName>Visions of Computer Science</orgName>
+		</respStmt>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b3">
+	<monogr>
+		<title level="m" type="main">Automatic generation of workflow provenance</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><forename type="middle">S</forename><surname>Barga</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">L</forename><forename type="middle">A</forename><surname>Digiampietri</surname></persName>
+		</author>
+		<editor>Moreau and Foster</editor>
+		<imprint>
+			<biblScope unit="volume">36</biblScope>
+			<biblScope unit="page" from="1" to="9" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b4">
+	<analytic>
+		<title level="a" type="main">CVS II: parallelizing software development</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">B</forename><surname>Berliner</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of the Winter 1990 USENIX Conference</title>
+		<meeting>of the Winter 1990 USENIX Conference</meeting>
+		<imprint>
+			<date type="published" when="1990" />
+			<biblScope unit="page" from="341" to="352" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b5">
+	<analytic>
+		<title level="a" type="main">Coin flipping by telephone</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Blum</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of Crypto</title>
+		<meeting>of Crypto</meeting>
+		<imprint>
+			<date type="published" when="1981" />
+			<biblScope unit="page" from="11" to="15" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b6">
+	<analytic>
+		<title level="a" type="main">Issues in automatic provenance collection</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">U</forename><surname>Braun</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><forename type="middle">L</forename><surname>Garfinkel</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><forename type="middle">A</forename><surname>Holland</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">K.-K</forename><surname>Muniswamyreddy</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><forename type="middle">I</forename><surname>Seltzer</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Moreau and Foster</title>
+		<imprint>
+			<biblScope unit="volume">36</biblScope>
+			<biblScope unit="page" from="171" to="183" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b7">
+	<analytic>
+		<title level="a" type="main">Securing provenance</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">U</forename><surname>Braun</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Shinnar</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Seltzer</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of the 3rd USENIX Workshop on Hot Topics in Security (HotSec)</title>
+		<meeting>of the 3rd USENIX Workshop on Hot Topics in Security (HotSec)</meeting>
+		<imprint>
+			<date type="published" when="2008-07" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b8">
+	<analytic>
+		<title level="a" type="main">Provenance management in curated databases</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>Buneman</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Chapman</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Cheney</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of the ACM International Conference on Management of Data (SIGMOD)</title>
+		<meeting>of the ACM International Conference on Management of Data (SIGMOD)<address><addrLine>New York, NY, USA</addrLine></address></meeting>
+		<imprint>
+			<publisher>ACM Press</publisher>
+			<date type="published" when="2006" />
+			<biblScope unit="page" from="539" to="550" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b9">
+	<analytic>
+		<title level="a" type="main">A provenance model for manually curated data</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>Buneman</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Chapman</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Cheney</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Vansummeren</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Moreau and Foster</title>
+		<imprint>
+			<biblScope unit="volume">36</biblScope>
+			<biblScope unit="page" from="162" to="170" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b10">
+	<analytic>
+		<title level="a" type="main">Data provenance: Some basic issues</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>Buneman</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Khanna</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">W</forename><forename type="middle">C</forename><surname>Tan</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of the 20th Conference on Foundations of Software Technology and Theoretical Computer Science (FST TCS)</title>
+		<meeting>of the 20th Conference on Foundations of Software Technology and Theoretical Computer Science (FST TCS)<address><addrLine>London, UK</addrLine></address></meeting>
+		<imprint>
+			<publisher>Springer-Verlag</publisher>
+			<date type="published" when="2000" />
+			<biblScope unit="page" from="87" to="93" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b11">
+	<analytic>
+		<title level="a" type="main">Why and where: A characterization of data provenance</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>Buneman</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Khanna</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">W</forename><forename type="middle">C</forename><surname>Tan</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Lecture Notes in Computer Science</title>
+		<imprint>
+			<biblScope unit="page" from="316" to="330" />
+			<date type="published" when="1973" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b12">
+	<monogr>
+		<title level="m" type="main">The Health Insurance Portability and Accountability Act of 1996 (HIPAA)</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><surname>Centers For Medicare &amp;amp; Medicaid</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><surname>Services</surname></persName>
+		</author>
+		<ptr target="http://www.cms.hhs.gov/hipaa/" />
+		<imprint>
+			<date type="published" when="1996" />
+		</imprint>
+	</monogr>
+	<note>Online at</note>
+</biblStruct>
+
+<biblStruct xml:id="b13">
+	<analytic>
+		<title level="a" type="main">Efficient provenance storage</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Chapman</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">H</forename><surname>Jagadish</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>Ramanan</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of the ACM SIGMOD/PODS Conference</title>
+		<meeting>of the ACM SIGMOD/PODS Conference<address><addrLine>Vancouver, Canada</addrLine></address></meeting>
+		<imprint>
+			<date type="published" when="2008" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b14">
+	<analytic>
+		<title level="a" type="main">The subversion project: Buiding a better CVS</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">B</forename><surname>Collins-Sussman</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Linux J</title>
+		<imprint>
+			<biblScope unit="issue">94</biblScope>
+			<biblScope unit="page">3</biblScope>
+			<date type="published" when="2002" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b15">
+	<analytic>
+		<title level="a" type="main">A large-scale study of filesystem contents</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><forename type="middle">R</forename><surname>Douceur</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">W</forename><forename type="middle">J</forename><surname>Bolosky</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of the ACM International Conference on Measurement and Modeling of Computer Systems (SIGMET-RICS)</title>
+		<meeting>of the ACM International Conference on Measurement and Modeling of Computer Systems (SIGMET-RICS)</meeting>
+		<imprint>
+			<publisher>ACM Press</publisher>
+			<date type="published" when="1999" />
+			<biblScope unit="page" from="59" to="70" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b16">
+	<analytic>
+		<title level="a" type="main">Passive NFS tracing of email and research workloads</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Ellard</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Ledlie</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>Malkani</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Seltzer</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of the 2nd USENIX Conference on File and Storage Technologies (FAST)</title>
+		<meeting>of the 2nd USENIX Conference on File and Storage Technologies (FAST)<address><addrLine>Berkeley, CA, USA</addrLine></address></meeting>
+		<imprint>
+			<publisher>USENIX Assoc</publisher>
+			<date type="published" when="2003" />
+			<biblScope unit="page" from="203" to="216" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b17">
+	<analytic>
+		<title level="a" type="main">Chimera: A virtual data system for representing, querying, and automating data derivation</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">I</forename><forename type="middle">T</forename><surname>Foster</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J.-S</forename><surname>Vockler</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Wilde</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Y</forename><surname>Zhao</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of the 14th International Conference on Scientific and Statistical Database Management (SSDBM)</title>
+		<meeting>of the 14th International Conference on Scientific and Statistical Database Management (SSDBM)<address><addrLine>Washington, DC, USA</addrLine></address></meeting>
+		<imprint>
+			<publisher>IEEE Computer Society</publisher>
+			<date type="published" when="2002" />
+			<biblScope unit="page" from="37" to="46" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b18">
+	<analytic>
+		<title level="a" type="main">Earth system science workbench: A data management infrastructure for earth science products</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Frew</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Bose</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of the 13th International Conference on Scientific and Statistical Database Management (SSDBM)</title>
+		<meeting>of the 13th International Conference on Scientific and Statistical Database Management (SSDBM)<address><addrLine>Washington, DC, USA</addrLine></address></meeting>
+		<imprint>
+			<publisher>IEEE Computer Society</publisher>
+			<date type="published" when="2001" />
+			<biblScope unit="page">180</biblScope>
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b19">
+	<monogr>
+		<title level="m" type="main">How to Sign Digital Streams</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Gennaro</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>Rohatgi</surname></persName>
+		</author>
+		<imprint>
+			<date type="published" when="2001" />
+			<biblScope unit="volume">165</biblScope>
+			<biblScope unit="page" from="100" to="116" />
+		</imprint>
+	</monogr>
+	<note>Information and Computation</note>
+</biblStruct>
+
+<biblStruct xml:id="b20">
+	<monogr>
+		<title level="m" type="main">Combining provenance with trust in social networks for semantic web content filtering</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Golbeck</surname></persName>
+		</author>
+		<editor>Moreau and Foster</editor>
+		<imprint>
+			<biblScope unit="volume">36</biblScope>
+			<biblScope unit="page" from="101" to="108" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b21">
+	<monogr>
+		<title level="m" type="main">Foundations of Cryptography</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">O</forename><surname>Goldreich</surname></persName>
+		</author>
+		<imprint>
+			<date type="published" when="2001" />
+			<publisher>Cambridge University Press</publisher>
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b22">
+	<analytic>
+		<title level="a" type="main">Authenticating streamed data in the presence of random packet loss</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>Golle</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">N</forename><surname>Modadugu</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of the Symposium on Network and Distributed Systems Security (NDSS)</title>
+		<meeting>of the Symposium on Network and Distributed Systems Security (NDSS)</meeting>
+		<imprint>
+			<date type="published" when="2001" />
+			<biblScope unit="page" from="13" to="22" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b23">
+	<analytic>
+		<title level="a" type="main">The LSD broadcast encryption scheme</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Halevy</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Shamir</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of the 22nd Annual International Cryptology Conference on Advances in Cryptology (CRYPTO)</title>
+		<meeting>of the 22nd Annual International Cryptology Conference on Advances in Cryptology (CRYPTO)<address><addrLine>London, UK</addrLine></address></meeting>
+		<imprint>
+			<publisher>Springer-Verlag</publisher>
+			<date type="published" when="2002" />
+			<biblScope unit="page" from="47" to="60" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b24">
+	<analytic>
+		<title level="a" type="main">Introducing secure provenance: problems and challenges</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Hasan</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Sion</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Winslett</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of the ACM workshop on Storage security and survivability (StorageSS)</title>
+		<meeting>of the ACM workshop on Storage security and survivability (StorageSS)<address><addrLine>New York, NY, USA</addrLine></address></meeting>
+		<imprint>
+			<publisher>ACM</publisher>
+			<date type="published" when="2007" />
+			<biblScope unit="page" from="13" to="18" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b25">
+	<analytic>
+		<title level="a" type="main">Postmark: a new file system benchmark</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Katcher</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Network Appliance Tech Report</title>
+		<imprint>
+			<biblScope unit="volume">3022</biblScope>
+			<date type="published" when="1997-10" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b26">
+	<analytic>
+		<title level="a" type="main">A practical revocation scheme for broadcast encryption using smartcards</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">N</forename><surname>Kogan</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Y</forename><surname>Shavitt</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Wool</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">ACM Trans. Inf. Syst. Secur</title>
+		<imprint>
+			<biblScope unit="volume">9</biblScope>
+			<biblScope unit="issue">3</biblScope>
+			<biblScope unit="page" from="325" to="351" />
+			<date type="published" when="2006" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b27">
+	<analytic>
+		<title level="a" type="main">Measurement and analysis of large-scale network file system workloads</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><forename type="middle">W</forename><surname>Leung</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Pasupathy</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">G</forename><surname>Goodson</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">E</forename><forename type="middle">L</forename><surname>Miller</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of the USENIX Annual Technical Conference</title>
+		<meeting>of the USENIX Annual Technical Conference<address><addrLine>Berkeley, CA, USA</addrLine></address></meeting>
+		<imprint>
+			<publisher>USENIX Assoc</publisher>
+			<date type="published" when="2008" />
+			<biblScope unit="page" from="213" to="226" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b28">
+	<analytic>
+		<title level="a" type="main">Secure untrusted data repository (SUNDR)</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Li</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><forename type="middle">N</forename><surname>Krohn</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Mazì Eres</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Shasha</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of the 6th Symposium on Operating Systems Design and Implementation (OSDI)</title>
+		<meeting>of the 6th Symposium on Operating Systems Design and Implementation (OSDI)</meeting>
+		<imprint>
+			<date type="published" when="2004" />
+			<biblScope unit="page" from="121" to="136" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b29">
+	<monogr>
+		<title level="m" type="main">Collaborating with Git. Linux Magazine</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Loeliger</surname></persName>
+		</author>
+		<imprint>
+			<date type="published" when="2006-06" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b30">
+	<analytic>
+		<title level="a" type="main">When documents deceive: Trust and provenance as new factors for information retrieval in a tangled web</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><forename type="middle">A</forename><surname>Lynch</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Journal of the American Society for Information Science and Technology</title>
+		<imprint>
+			<biblScope unit="volume">52</biblScope>
+			<biblScope unit="issue">1</biblScope>
+			<biblScope unit="page" from="12" to="17" />
+			<date type="published" when="2001" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b31">
+	<analytic>
+		<title level="a" type="main">Secure history preservation through timeline entanglement</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>Maniatis</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Baker</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of the 11th USENIX Security Symposium</title>
+		<meeting>of the 11th USENIX Security Symposium<address><addrLine>Berkeley, CA, USA</addrLine></address></meeting>
+		<imprint>
+			<publisher>USENIX Assoc</publisher>
+			<date type="published" when="2002" />
+			<biblScope unit="page" from="297" to="312" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b32">
+	<analytic>
+		<title level="a" type="main">Controlled and cooperative updates of XML documents in byzantine and failureprone distributed systems</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">G</forename><surname>Mella</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">E</forename><surname>Ferrari</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">E</forename><surname>Bertino</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Y</forename><surname>Koglin</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">ACM Trans. Inf. Syst. Secur</title>
+		<imprint>
+			<biblScope unit="volume">9</biblScope>
+			<biblScope unit="issue">4</biblScope>
+			<biblScope unit="page" from="421" to="460" />
+			<date type="published" when="2006" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b33">
+	<monogr>
+		<title level="m" type="main">Handbook of Applied Cryptography</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><forename type="middle">J</forename><surname>Menezes</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><forename type="middle">C</forename><surname>Van Oorschot</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><forename type="middle">A</forename><surname>Vanstone</surname></persName>
+		</author>
+		<imprint>
+			<date type="published" when="2001" />
+			<publisher>CRC Press</publisher>
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b34">
+	<analytic>
+		<title level="a" type="main">Graph-based authentication of digital streams</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><forename type="middle">K</forename><surname>Miner</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Staddon</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of the IEEE Symposium on Security and Privacy</title>
+		<meeting>of the IEEE Symposium on Security and Privacy</meeting>
+		<imprint>
+			<date type="published" when="2001" />
+			<biblScope unit="page" from="232" to="246" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b35">
+	<analytic>
+		<title level="a" type="main">Provenance and Annotation of Data, International Provenance and Annotation Workshop (IPAW)</title>
+	</analytic>
+	<monogr>
+		<title level="j">Lecture Notes in Computer Science</title>
+		<editor>L. Moreau and I. T. Foster</editor>
+		<imprint>
+			<biblScope unit="volume">4145</biblScope>
+			<date type="published" when="2006" />
+			<publisher>Springer</publisher>
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b36">
+	<analytic>
+		<title level="a" type="main">The provenance of electronic data</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">L</forename><surname>Moreau</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>Groth</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Miles</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Vazquez-Salceda</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Ibbotson</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Jiang</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Munroe</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">O</forename><surname>Rana</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Schreiber</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">V</forename><surname>Tan</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">L</forename><surname>Varga</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Commun. ACM</title>
+		<imprint>
+			<biblScope unit="volume">51</biblScope>
+			<biblScope unit="issue">4</biblScope>
+			<biblScope unit="page" from="52" to="58" />
+			<date type="published" when="2008" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b37">
+	<analytic>
+		<title level="a" type="main">Provenance-aware storage systems</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">K.-K</forename><surname>Muniswamy-Reddy</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><forename type="middle">A</forename><surname>Holland</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">U</forename><surname>Braun</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><forename type="middle">I</forename><surname>Seltzer</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of the USENIX Annual Technical Conference</title>
+		<meeting>of the USENIX Annual Technical Conference</meeting>
+		<imprint>
+			<date type="published" when="2006" />
+			<biblScope unit="page" from="43" to="56" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b38">
+	<analytic>
+		<title level="a" type="main">A collaborative informatics infrastructure for multi-scale science</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><forename type="middle">D</forename><surname>Myers</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of the 2nd International Workshop on Challenges of Large Applications in Distributed Environments (CLADE)</title>
+		<meeting>of the 2nd International Workshop on Challenges of Large Applications in Distributed Environments (CLADE)<address><addrLine>Washington, DC, USA</addrLine></address></meeting>
+		<imprint>
+			<publisher>IEEE Computer Society</publisher>
+			<date type="published" when="2004" />
+			<biblScope unit="page">24</biblScope>
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b39">
+	<analytic>
+		<title/>
+		<ptr target="www.naic.org/GLBA" />
+	</analytic>
+	<monogr>
+		<title level="j">National Assoc. of Insurance Commissioners. Graham-LeachBliley Act</title>
+		<imprint>
+			<date type="published" when="1999" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b40">
+	<analytic>
+		<title level="a" type="main">Efficient authentication and signing of multicast streams over lossy channels</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Perrig</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Canetti</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Tygar</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Song</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of the IEEE Symposium on Security &amp; Privacy</title>
+		<meeting>of the IEEE Symposium on Security &amp; Privacy</meeting>
+		<imprint>
+			<date type="published" when="2000-05" />
+			<biblScope unit="page" from="56" to="73" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b41">
+	<analytic>
+		<title level="a" type="main">Design and implementation of verifiable audit trails for a versioning file system</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Z</forename><forename type="middle">N J</forename><surname>Peterson</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Burns</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">G</forename><surname>Ateniese</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Bono</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of the 5th USENIX conference on File and Storage Technologies (FAST &apos;07)</title>
+		<meeting>of the 5th USENIX conference on File and Storage Technologies (FAST &apos;07)<address><addrLine>Berkeley, CA, USA</addrLine></address></meeting>
+		<imprint>
+			<publisher>USENIX Assoc</publisher>
+			<date type="published" when="2007" />
+			<biblScope unit="page" from="93" to="106" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b42">
+	<analytic>
+		<title level="a" type="main">Skip lists: a probabilistic alternative to balanced trees</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">W</forename><surname>Pugh</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Communications of the ACM</title>
+		<imprint>
+			<biblScope unit="volume">33</biblScope>
+			<biblScope unit="issue">6</biblScope>
+			<biblScope unit="page" from="668" to="676" />
+			<date type="published" when="1990" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b43">
+	<analytic>
+		<title level="a" type="main">A comparison of file system workloads</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Roselli</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><forename type="middle">R</forename><surname>Lorch</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">T</forename><forename type="middle">E</forename><surname>Anderson</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of the USENIX Annual Technical Conference</title>
+		<meeting>of the USENIX Annual Technical Conference<address><addrLine>Berkeley, CA, USA</addrLine></address></meeting>
+		<imprint>
+			<publisher>USENIX Assoc</publisher>
+			<date type="published" when="2000" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b44">
+	<analytic>
+		<title level="a" type="main">Casting votes in the auditorium</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Sandler</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><forename type="middle">S</forename><surname>Wallach</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of the USENIX Workshop on Accurate Electronic Voting Technology</title>
+		<meeting>of the USENIX Workshop on Accurate Electronic Voting Technology<address><addrLine>Berkeley, CA, USA</addrLine></address></meeting>
+		<imprint>
+			<publisher>USENIX Assoc</publisher>
+			<date type="published" when="2007" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b45">
+	<monogr>
+		<title level="m" type="main">Lineage file system</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Sar</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>Cao</surname></persName>
+		</author>
+		<ptr target="http://crypto.stanford.edu/cao/lineage.html" />
+		<imprint>
+			<date type="published" when="2005-01" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b46">
+	<analytic>
+		<title level="a" type="main">Secure audit logs to support computer forensics</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">B</forename><surname>Schneier</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Kelsey</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">ACM Trans. Inf. Syst. Secur</title>
+		<imprint>
+			<biblScope unit="volume">2</biblScope>
+			<biblScope unit="issue">2</biblScope>
+			<biblScope unit="page" from="159" to="176" />
+			<date type="published" when="1999" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b47">
+	<analytic>
+		<title level="a" type="main">File system logging versus clustering: a performance comparison</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Seltzer</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">K</forename><surname>Smith</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">H</forename><surname>Balakrishnan</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Chang</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Mcmains</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">V</forename><surname>Padmanabhan</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of the USENIX 1995 Technical Conference</title>
+		<meeting>of the USENIX 1995 Technical Conference<address><addrLine>Berkeley, CA, USA</addrLine></address></meeting>
+		<imprint>
+			<publisher>USENIX Assoc</publisher>
+			<date type="published" when="1995" />
+			<biblScope unit="page" from="249" to="264" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b48">
+	<analytic>
+		<title level="a" type="main">How to share a secret</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Shamir</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Commun. ACM</title>
+		<imprint>
+			<biblScope unit="volume">22</biblScope>
+			<biblScope unit="issue">11</biblScope>
+			<biblScope unit="page" from="612" to="613" />
+			<date type="published" when="1979" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b49">
+	<analytic>
+		<title level="a" type="main">A survey of data provenance in e-science</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Y</forename><forename type="middle">L</forename><surname>Simmhan</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">B</forename><surname>Plale</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Gannon</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">SIGMOD Rec</title>
+		<imprint>
+			<biblScope unit="volume">34</biblScope>
+			<biblScope unit="issue">3</biblScope>
+			<biblScope unit="page" from="31" to="36" />
+			<date type="published" when="2005-09" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b50">
+	<analytic>
+		<title level="a" type="main">Tamper detection in audit logs</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Snodgrass</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Yao</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Collberg</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of the 30th International Conference on Very Large Data Bases (VLDB)</title>
+		<meeting>of the 30th International Conference on Very Large Data Bases (VLDB)</meeting>
+		<imprint>
+			<publisher>VLDB Endowment</publisher>
+			<date type="published" when="2004" />
+			<biblScope unit="page" from="504" to="515" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b51">
+	<analytic>
+		<title level="a" type="main">Recording and reasoning over data provenance in web and grid services</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Szomszor</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">L</forename><surname>Moreau</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of the International Conference on Ontologies, Databases and Applications of SEmantics (ODBASE)</title>
+		<meeting>of the International Conference on Ontologies, Databases and Applications of SEmantics (ODBASE)<address><addrLine>Catania, Sicily, Italy</addrLine></address></meeting>
+		<imprint>
+			<date type="published" when="2003-11" />
+			<biblScope unit="volume">2888</biblScope>
+			<biblScope unit="page" from="603" to="620" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b52">
+	<monogr>
+		<title level="m" type="main">Security issues in a SOA-based provenance system</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">V</forename><surname>Tan</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>Groth</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Miles</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Jiang</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Munroe</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Tsasakou</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">L</forename><surname>Moreau</surname></persName>
+		</author>
+		<editor>Moreau and Foster</editor>
+		<imprint>
+			<biblScope unit="volume">36</biblScope>
+			<biblScope unit="page" from="203" to="211" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b53">
+	<analytic>
+		<title level="a" type="main">OpenSSL: The open source toolkit for SSL/TLS</title>
+		<ptr target=".www.openssl.org" />
+	</analytic>
+	<monogr>
+		<title level="j">The OpenSSL Project</title>
+		<imprint>
+			<date type="published" when="2003-04" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b54">
+	<monogr>
+		<title level="m" type="main">Rule 17a-3&amp;4, 17 CFR Part 240: Electronic Storage of Broker-Dealer Records</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">U</forename><forename type="middle">S</forename><surname>The</surname></persName>
+		</author>
+		<ptr target="http://edocket.access.gpo.gov/cfr_2002/aprqtr/17cfr240.17a-4.htm" />
+		<imprint>
+			<date type="published" when="2003" />
+		</imprint>
+	</monogr>
+	<note>Securities and Exchange Commission</note>
+</biblStruct>
+
+<biblStruct xml:id="b55">
+	<monogr>
+		<title level="m" type="main">Public Law No. 107-204, 116 Stat. 745. The Public Company Accounting Reform and Investor Protection Act</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">U</forename></persName>
+		</author>
+		<imprint>
+			<date type="published" when="2002" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b56">
+	<monogr>
+		<title level="m" type="main">Towards low overhead provenance tracking in near real-time stream filtering</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">N</forename><forename type="middle">N</forename><surname>Vijayakumar</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">B</forename><surname>Plale</surname></persName>
+		</author>
+		<editor>Moreau and Foster</editor>
+		<imprint>
+			<biblScope unit="volume">36</biblScope>
+			<biblScope unit="page" from="46" to="54" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b57">
+	<analytic>
+		<title level="a" type="main">PACLs: An access control list approach to anti-viral security</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Wichers</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Cook</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Olsson</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Crossley</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>Kerchen</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">K</forename><surname>Levitt</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Lo</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of the 13th National Computer Security Conference</title>
+		<meeting>of the 13th National Computer Security Conference</meeting>
+		<imprint>
+			<date type="published" when="1990" />
+			<biblScope unit="page" from="340" to="349" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b58">
+	<analytic>
+		<title level="a" type="main">Trio: A system for integrated management of data, accuracy, and lineage</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Widom</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of the 2nd Biennial Conference on Innovative Data Systems Research (CIDR)</title>
+		<meeting>of the 2nd Biennial Conference on Innovative Data Systems Research (CIDR)</meeting>
+		<imprint>
+			<date type="published" when="2005-01" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b59">
+	<analytic>
+		<title level="a" type="main">Semantically linking and browsing provenance logs for E-science</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Zhao</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><forename type="middle">A</forename><surname>Goble</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Stevens</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Bechhofer</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of the 1st International IFIP Conference on Semantics of a Networked World (ICSNW)</title>
+		<meeting>of the 1st International IFIP Conference on Semantics of a Networked World (ICSNW)</meeting>
+		<imprint>
+			<date type="published" when="2004" />
+			<biblScope unit="page" from="158" to="176" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+				</listBibl>
+			</div>
+		</back>
+	</text>
+</TEI>

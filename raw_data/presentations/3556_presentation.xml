@@ -1,0 +1,245 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>PAC it up: Towards Pointer Integrity using ARM Pointer Authentication Hans Liljestrand, Thomas Nyman, Kui Wang, Carlos Chinea Perez, Jan-Erik Ekberg, N. Asokan</p>
+    <p>) Aalto University, ) Huawei Technologies</p>
+  </div>
+  <div class="page">
+    <p>Pointer Integrity: memory safety for pointers</p>
+    <p>Ensure pointers in memory remain unchanged</p>
+    <p>Code pointer integrity implies CFI</p>
+    <p>Control-flow attacks manipulate code pointers</p>
+    <p>Data pointer integrity</p>
+    <p>Reduces data-only attack surface</p>
+    <p>Prevents all known Data-Oriented</p>
+    <p>Programming (DOP) attacks</p>
+    <p>function { store return_address    corrupt_address!   load return_address verify integrity return</p>
+    <p>}</p>
+    <p>PI</p>
+    <p>________________________________________________________________________________</p>
+    <p>Kuznetsov et al. Code-Pointer Integrity, USENIX OSDI 2014</p>
+  </div>
+  <div class="page">
+    <p>Pointer Authentication in ARMv8.3-A</p>
+    <p>General purpose hardware primitive approximating pointer integrity</p>
+    <p>Adds Pointer Authentication Code (PAC) into unused bits of pointer</p>
+    <p>Keyed, tweakable MAC from pointer address and 64-bit modifier</p>
+    <p>PA keys protected by hardware, modifier decided where pointer created and used</p>
+    <p>tag/PAC sign ext./PAC virtual address (AP)</p>
+    <p>reserved bit8 bits VA_SIZE bits</p>
+    <p>PA key (K)HK(AP, M)</p>
+    <p>general purpose registers</p>
+    <p>configuration register</p>
+    <p>________________________________________________________________________________</p>
+    <p>Arm Architecture Reference Manual Armv8, for Armv8-A architecture profile</p>
+  </div>
+  <div class="page">
+    <p>Example: PA-based return address signing</p>
+    <p>func {</p>
+    <p>str LR</p>
+    <p>ldr LR</p>
+    <p>ret</p>
+    <p>}</p>
+    <p>STACK</p>
+    <p>verify PAC</p>
+    <p>PAC?PAC? return address</p>
+    <p>generate PAC ia key</p>
+    <p>PACPAC return address</p>
+    <p>return address</p>
+    <p>pacia LR, SP</p>
+    <p>autia LR, SP PA</p>
+    <p>Function return address</p>
+    <p>ia key</p>
+    <p>Deployed as -msign-return-address in GCC and LLVM/Clang</p>
+    <p>________________________________________________________________________________</p>
+    <p>Qualcomm Pointer Authentication on ARMv8.3, whitepaper 2017</p>
+    <p>pacia  add PAC autia  authenticate</p>
+  </div>
+  <div class="page">
+    <p>PA prevents arbitrary pointer injection</p>
+    <p>Modifiers do not need to be confidential</p>
+    <p>Visible or inferable from the code section / binary</p>
+    <p>Keys are protected by hardware and set by kernel</p>
+    <p>Attacker cannot generate PACs</p>
+    <p>func {</p>
+    <p>pacia LR, SP</p>
+    <p>str LR</p>
+    <p>ldr LR</p>
+    <p>autia LR, SP</p>
+    <p>ret</p>
+    <p>}pacia  add PAC autia  authenticate</p>
+    <p>key</p>
+    <p>pointer</p>
+    <p>modifier</p>
+  </div>
+  <div class="page">
+    <p>func1 {</p>
+    <p>pacia LR, SP</p>
+    <p>str LR</p>
+    <p>func2 {</p>
+    <p>pacia LR, SP</p>
+    <p>str LR</p>
+    <p>ldr LR</p>
+    <p>autia LR, SP</p>
+    <p>ret</p>
+    <p>}</p>
+    <p>..ab08</p>
+    <p>..ab10</p>
+    <p>..ab18</p>
+    <p>..ab20</p>
+    <p>..ab28</p>
+    <p>..ab30</p>
+    <p>..ab38</p>
+    <p>..ab40</p>
+    <p>..ab48</p>
+    <p>..ab50</p>
+    <p>PA only approximates fully-precise pointer integrity Adversary may reuse PACs</p>
+    <p>STACK</p>
+    <p>func1 stack frame</p>
+    <p>/* func1() */</p>
+    <p>brl %func1</p>
+    <p>/* func2() */</p>
+    <p>brl %func2</p>
+    <p>SP func2 stack frame</p>
+    <p>PAC+ret_address_2PAC+ret_address_1PAC+ret_address_1</p>
+    <p>pacia  add PAC autia  authenticate</p>
+  </div>
+  <div class="page">
+    <p>Our goal: Strengthen PA-based protection</p>
+  </div>
+  <div class="page">
+    <p>Design</p>
+  </div>
+  <div class="page">
+    <p>On choosing a PAC modifier</p>
+    <p>Without modifier all signed pointers are interchangeable</p>
+    <p>Ideally modifiers should be unique for each pointer and pointer value</p>
+    <p>must be available at both creation and authentication</p>
+    <p>must not be modifiable by attacker</p>
+    <p>Strawman design choices:</p>
+    <p>Using unique static modifiers only</p>
+    <p>But cannot work for pointers assigned conditionally or re-assigned at run-time</p>
+    <p>Using a nonce as a modifier</p>
+    <p>But needs to be stored securely</p>
+  </div>
+  <div class="page">
+    <p>PA-assisted Run-time Safety (PARTS)</p>
+    <p>Expands scope of PA protection</p>
+    <p>Return address signing</p>
+    <p>Code pointer signing</p>
+    <p>Data pointer signing</p>
+    <p>Mitigates pointer reuse by binding</p>
+    <p>return addresses to the function definition</p>
+    <p>code and data pointers to the pointer type</p>
+  </div>
+  <div class="page">
+    <p>Hardening return address signing</p>
+    <p>SP as modifier is convenient</p>
+    <p>It changes at run-time and has same value at pac / aut</p>
+    <p>But reuse possible when SP values coincide</p>
+    <p>Modifier: SP + function-id</p>
+    <p>ID assigned at compile-time</p>
+    <p>Prevent cross-function reuse</p>
+    <p>Mashtizadeh et al. Cryptographically Enforced Control Flow Integrity, ACM CCS 2015</p>
+    <p>func {</p>
+    <p>mov Xmod, SP</p>
+    <p>mov Xmod, #f_id, #lsl_16</p>
+    <p>pacia LR, Xmod</p>
+    <p>mov Xmod, SP</p>
+    <p>mov Xmod, #f_id, #lsl_16</p>
+    <p>retab Xmod</p>
+    <p>} pacib  add PAC with instr A-key retab  authenticate and return</p>
+  </div>
+  <div class="page">
+    <p>// Xptr();</p>
+    <p>mov Xmod, #type_id</p>
+    <p>lbraa Xptr, Xmod</p>
+    <p>Code pointer signing</p>
+    <p>Modifier: based on pointer type</p>
+    <p>type_id assigned at compile-time</p>
+    <p>Uses on-use (i.e., on-branch) authentication</p>
+    <p>Branches use combined auth+branch instr. (lbraa)</p>
+    <p>No intermediate authentication</p>
+    <p>// void (*Xptr)(void) =</p>
+    <p>mov Xmod, #type_id</p>
+    <p>pacia Xptr, Xmod</p>
+    <p>PACed only on pointer creation!</p>
+    <p>Authenticated on use</p>
+    <p>pacia  add PAC with instr A-key lbraa  authenticate and branch</p>
+  </div>
+  <div class="page">
+    <p>Data pointer signing</p>
+    <p>Modifier: based on pointer type</p>
+    <p>type_id assigned at compile-time</p>
+    <p>Uses on-load authentication</p>
+    <p>Improves performance</p>
+    <p>e.g. only one authentication when iterating arrays</p>
+    <p>Register allocation causes a challenge</p>
+    <p>e.g., how to handle register spills securely?</p>
+    <p>/* data *Xptr */</p>
+    <p>mov Xmod, #type_id</p>
+    <p>pacda Xptr, Xmod</p>
+    <p>str Xptr, &lt;memory&gt;</p>
+    <p>/* use(ptr); */</p>
+    <p>ldr Xptr, &lt;memory&gt;</p>
+    <p>mov Xmod, #type_id</p>
+    <p>autda Xptr, Xmod</p>
+    <p>Authenticated immediately on load</p>
+    <p>pacda  add PAC with data A-key autda  authenticate and branch</p>
+  </div>
+  <div class="page">
+    <p>Implementation and evaluation</p>
+  </div>
+  <div class="page">
+    <p>PARTS implementation</p>
+    <p>LLVM 6.0 (now 8.0) based instrumentation</p>
+    <p>Using opt for high-level instrumentation</p>
+    <p>Using LLVM intrinsics for pointer type handling</p>
+    <p>AArch64 backend modifications</p>
+    <p>Lower intrinsics to HW-specific instructions</p>
+    <p>Recognizing and protecting register spills</p>
+    <p>PARTS-Instrumented binary</p>
+    <p>L L V</p>
+    <p>M</p>
+    <p>Optimizer</p>
+    <p>Backend</p>
+    <p>PARTS</p>
+    <p>PARTS</p>
+    <p>Clang frontend</p>
+    <p>Source Code</p>
+  </div>
+  <div class="page">
+    <p>Num. sort String sort Bitfield FP emul. Fourier Assignment IDEA Huffman Neural net LU decomp.</p>
+    <p>code pointer data pointer</p>
+    <p>Evaluation: nbench benchmarks</p>
+    <p>Functional evaluation on ARM FVP simulator for correctness</p>
+    <p>Estimated performance overhead based on 4-cycles per PA instruction  Return address signing &lt; 0.5% (geo.mean)</p>
+    <p>Code pointer signing &lt; 0.5% (geo.mean)</p>
+    <p>Data pointer signing ~19.5% (geo.mean)</p>
+    <p>________________________________________________________________________________</p>
+    <p>Arm Architecture Reference Manual Armv8, for Armv8-A architecture profile</p>
+    <p>Avanzi, The QARMA block cipher family, IACR Trans. Symmetric Cryptol. 2017</p>
+    <p>Num. sort String sort Bitfield FP emul. Fourier Assignment IDEA Huffman Neural net LU decomp.</p>
+    <p>return address code pointer data pointer all</p>
+    <p>Num. sort String sort Bitfield FP emul. Fourier Assignment IDEA Huffman Neural net LU decomp.</p>
+    <p>return address code pointer data pointer all</p>
+    <p>Num. sort String sort Bitfield FP emul. Fourier Assignment IDEA Huffman Neural net LU decomp.</p>
+    <p>return address code pointer data pointer all</p>
+    <p>Num. sort String sort Bitfield FP emul. Fourier Assignment IDEA Huffman Neural net LU decomp.</p>
+    <p>return address code pointer data pointer all</p>
+    <p>n o rm</p>
+    <p>a li z e d b</p>
+    <p>a s e</p>
+    <p>li n e</p>
+  </div>
+  <div class="page">
+    <p>github.com/pointer-authentication</p>
+    <p>Take aways</p>
+    <p>ARM PA can efficiently protect pointers and is (going to be) widely available</p>
+    <p>How to optimally minimize scope for reuse attacks?</p>
+    <p>For return addresses: PACStack (arXiv:1905.10242)</p>
+    <p>For other types of pointers?</p>
+    <p>Use other emerging hardware primitives for run-time protection?</p>
+    <p>For instance: Memory tagging, Branch target indication</p>
+  </div>
+</Presentation>

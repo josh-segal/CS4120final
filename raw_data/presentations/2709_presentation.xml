@@ -1,0 +1,206 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>Lepton: a System to Transparently Compress Hundreds of Petabytes of Image Files For a File-Storage Service</p>
+    <p>https://github.com/dropbox/lepton</p>
+    <p>Daniel Reiter Horn, Ken Elkabany, Chris Lesniewski, Keith Winstein</p>
+    <p>Dropbox Stanford</p>
+  </div>
+  <div class="page">
+    <p>Overview Goals</p>
+    <p>Related Work Approach</p>
+    <p>Deployment Anomalies</p>
+  </div>
+  <div class="page">
+    <p>Storage Overview at Dropbox   Media</p>
+    <p>Roughly an Exabyte in storage</p>
+    <p>Can we save backend space?</p>
+    <p>Other</p>
+    <p>Videos</p>
+    <p>JPEGs</p>
+  </div>
+  <div class="page">
+    <p>Goals  High compression  Byte for byte transparency  Distributed 4MB chunks  Fast [Streaming 100 Mbit/s decode]  Secure  Trustworthy</p>
+  </div>
+  <div class="page">
+    <p>Related Work Comp ratio</p>
+    <p>Bit-for-bit Distributed Fast Secure Trustworthy</p>
+    <p>packJPG       MozJPG      JPEGrescan      zlib, brotli, zstd</p>
+    <p>Lepton</p>
+  </div>
+  <div class="page">
+    <p>JPEG File</p>
+    <p>Header  8x8 blocks of pixels  DCT transformed into 64 coefs</p>
+    <p>o Lossless</p>
+    <p>Each divided by large quantizer o Lossy</p>
+    <p>Serialized using Huffman code o Lossless</p>
+    <p>Image credit: wikimedia</p>
+  </div>
+  <div class="page">
+    <p>Entropy Coding  Huffman code:  Favor frequently seen coefs, 0s</p>
+    <p>Arithmetic Code:  Look at values so far  Predict next value  Good prediction = fewer bits  Bad prediction = more bits</p>
+  </div>
+  <div class="page">
+    <p>Entropy Coding  Huffman code:  Favor frequently seen coefs, 0s</p>
+    <p>Arithmetic Code:  Look at values so far to predict next value  Good prediction = fewer bits  Bad prediction = more bits</p>
+  </div>
+  <div class="page">
+    <p>Lepton: 2 key ideas  Streaming arithmetic code with</p>
+    <p>sophisticated predictor</p>
+    <p>Make image subsets independent</p>
+  </div>
+  <div class="page">
+    <p>Streaming Arithmetic Code  Lepton Predictor  Massive 2.2MB probability model  Pulls out correlation across files  Pixel space prediction of DC value  Predictions for horizontal and vertical patterns</p>
+  </div>
+  <div class="page">
+    <p>Making image subsets independent  Probability model reset per thread</p>
+    <p>Huffman encoder state serialized in Lepton header per thread  Allows 8-way parallel decode  Helps to attain 100mbit</p>
+  </div>
+  <div class="page"/>
+  <div class="page"/>
+  <div class="page">
+    <p>Results</p>
+    <p>D e</p>
+    <p>co m</p>
+    <p>p re</p>
+    <p>ss io</p>
+    <p>n s</p>
+    <p>p e</p>
+    <p>e d</p>
+    <p>( M</p>
+    <p>b its</p>
+    <p>/s )</p>
+    <p>Compression savings (percent)</p>
+    <p>packjpg</p>
+    <p>Be tte</p>
+    <p>r</p>
+    <p>Lepton (this work)</p>
+    <p>MozJPEG (arithmetic)</p>
+    <p>JPEGrescan (progressive)</p>
+  </div>
+  <div class="page">
+    <p>Security Challenges  Concern about malicious crafted JPEG  Triggering Buffer overruns  Avoiding safety checks elided by Undefined behavior  Exploiting Use-after-free errors</p>
+  </div>
+  <div class="page">
+    <p>Solution: SECCOMP  Restrict Syscalls  read/write/sigreturn/exit</p>
+    <p>Severely limits scope of any attack  Attacker could only write stdout or read stdin  Separate process per encode or decode</p>
+    <p>Awkward Ergonomics  No dynamic allocation, no mutex, no thread create</p>
+  </div>
+  <div class="page">
+    <p>SECCOMP</p>
+    <p>Lepton Process</p>
+    <p>Allocate/Reserve</p>
+    <p>Enable SECCOMP</p>
+    <p>p ip</p>
+    <p>e p</p>
+    <p>ip e</p>
+    <p>Start Timer</p>
+    <p>Fixed 200M memory pool 8 Threads pre-allocated</p>
+    <p>Pipe made to each thread</p>
+    <p>Start processing user data</p>
+  </div>
+  <div class="page">
+    <p>Trustworthiness Requirements  Bit-for-bit: Dropbox as a filesystem  Sha256 must match on reconstruction of original</p>
+    <p>Determinism  Decodes need to work every single time</p>
+    <p>Resistant to operator/developer error  We are our own worst enemy</p>
+  </div>
+  <div class="page">
+    <p>Bit for bit roundtrip  Lepton Compress, Encrypt File  MD5 result  Decrypt and Lepton Decompress  Decrypt in a separate process address space  Make sure sha256 matches client-computed  If not, repeat, but with zlib algorithm</p>
+    <p>Upload; make sure Md5 matches</p>
+  </div>
+  <div class="page">
+    <p>Determinism Why we need it</p>
+    <p>Compression uses all prior data read so far to predict next bit  A single bit can change prediction  Nondeterministic prediction source would render</p>
+    <p>Lepton file unreadable</p>
+  </div>
+  <div class="page">
+    <p>Determinism  Qualify every Lepton binary  Build each binary with icc, gcc  Turn on gcc address sanitizer  Run over 4 billion images in single+multithread  make sure icc matches gcc in both cases</p>
+    <p>Upon Qualification  Mark icc binary as qualified, allow it to be pushed</p>
+  </div>
+  <div class="page">
+    <p>Determinism  Fuzz the code  Ran Coverity  3rd party ran a checker</p>
+    <p>Added array bounds checks  10% performance degradation  Worth it.</p>
+  </div>
+  <div class="page">
+    <p>Programmer/Operator Error  Safety Net  When the system is changed, Safety net activated</p>
+    <p>All uploads saved to a S3 bucket  Encoded with Zlib, then encrypted</p>
+    <p>Bucket expires files after 30 days</p>
+  </div>
+  <div class="page">
+    <p>Supported (Strange) JPEGs  Unexpected 0 runs near file end</p>
+    <p>May be from full SD cards, disk errors, power failure  Zero runs in the middle only ~0.003% files</p>
+    <p>Garbage at the end  Ex: my H/D has files with TV-ready previews at end</p>
+    <p>Arbitrary bits filling partial-bytes</p>
+  </div>
+  <div class="page">
+    <p>Deployment  Lepton has encoded 150 billion files  203 PiB of JPEG files  Saving 46 PiB  So far</p>
+    <p>o Backfilling at &gt; 6000 images per second</p>
+  </div>
+  <div class="page">
+    <p>Power Usage at 6,000 Encodes</p>
+    <p>C h</p>
+    <p>a s s is</p>
+    <p>e r</p>
+    <p>(k :</p>
+    <p>)</p>
+  </div>
+  <div class="page">
+    <p>D e F o m</p>
+    <p>S re</p>
+    <p>s s io</p>
+    <p>n S</p>
+    <p>S e e d</p>
+    <p>( 0</p>
+    <p>b it</p>
+    <p>s /s</p>
+    <p>)</p>
+    <p>Timing in Production</p>
+  </div>
+  <div class="page">
+    <p>War Stories</p>
+  </div>
+  <div class="page">
+    <p>War Story: Safety Net Situation</p>
+    <p>Safety net required 2x traffic  Failover requires extra capacity  First routine failover test post-Lepton</p>
+    <p>Traffic shifted from Virginia to Texas  Texas S3 proxies overwhelmed by safety net traffic</p>
+  </div>
+  <div class="page">
+    <p>War Story: Ancient Code Push Situation</p>
+    <p>Example Operator Error  Bad default in deployment form  Field specifying git hash to deploy  If left blank: oldest qualified version deployed</p>
+    <p>Features deprecated since original</p>
+  </div>
+  <div class="page">
+    <p>Ancient Code Push Detection</p>
+    <p>Lowered availability on Canary  Alarm: Lepton rejected decode of</p>
+    <p>stored blocks  Due to deprecated features</p>
+  </div>
+  <div class="page">
+    <p>Weekly and Diurnal Patterns</p>
+    <p>Aug 07 Aug 08 Aug 09 Aug 10 Aug 11 Aug 12 Aug 13 1.0</p>
+    <p>C o d</p>
+    <p>in g</p>
+    <p>e v e n</p>
+    <p>ts v</p>
+    <p>s w</p>
+    <p>e e k ly</p>
+    <p>m in</p>
+    <p>decodes</p>
+    <p>encodes</p>
+    <p>Sat Sun Mon Tues Wed. Thu Fri Sat</p>
+  </div>
+  <div class="page">
+    <p>Ancient Code Push Resolution: No durability impact</p>
+    <p>Lepton disabled after 2 hours  Scanned billions of images uploaded since incident  Fixed all 17 images that had deprecated features  No data loss</p>
+    <p>Recovery time = Small multiple of incident time</p>
+  </div>
+  <div class="page">
+    <p>Conclusions  Determinism is important  Undefined behavior is undesirable  Configuration management  Safety in the face of human</p>
+    <p>operators and developers</p>
+  </div>
+  <div class="page">
+    <p>Acknowledgements</p>
+    <p>Thanks to Jongmin Baek, Sujay Jayakar, Mario Brito, Preslav Le, David Mah, James Cowling, Nipunn Koorapati, Lars Zornes, Rajat Goel, Bashar Al-Rawi, Tim Douglas, Oleg Guba, Ross Delinger, Dimitry Kotlyarov, Nahi Ojeil, Bean Anderson, Devdatta Akhawe, Ziga Mahkovec, David Mann, Jeff Arnold, Jessica McKellar, Akhil Gupta, Aditya Agarwal, Arash Ferdowsi, and Drew Houston</p>
+    <p>Matthias Stirner, Gopal Lakhani, Archie Russell, Loren Merritt for their inspiring JPEG compression work</p>
+    <p>Questions?</p>
+  </div>
+</Presentation>

@@ -1,0 +1,587 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>DataCollider: Effective Data-Race</p>
+    <p>Detection for the Kernel John Erickson, Madanlal Musuvathi,</p>
+    <p>Sebastian Burckhardt, Kirk Olynyk</p>
+    <p>Microsoft Windows and Microsoft Research</p>
+    <p>{jerick, madanm, sburckha, kirko}@microsoft.com</p>
+    <p>&quot;Although threads seem to be a small step from sequential computation, in fact, they represent a huge step. They discard the most essential and appealing properties of sequential computation:</p>
+    <p>understandability, predictability, and determinism.&quot;  From The Problem with Threads, by Edward A. Lee, IEEE Computer, vol. 25, no. 5, May 2006</p>
+  </div>
+  <div class="page">
+    <p>Windows case study #1</p>
+    <p>RunContext(...)</p>
+    <p>{</p>
+    <p>pctxt-&gt;dwfCtxt &amp;=</p>
+    <p>~CTXTF_RUNNING;</p>
+    <p>}</p>
+    <p>Thread B</p>
+    <p>RestartCtxtCallback(...)</p>
+    <p>{</p>
+    <p>pctxt-&gt;dwfCtxt |=</p>
+    <p>CTXTF_NEED_CALLBACK;</p>
+    <p>}</p>
+    <p>The ORing in of the CTXTF_NEED_CALLBACK flag can be swallowed</p>
+    <p>by the ANDing out of the CTXTF_RUNNING flag!  Results in system hang.</p>
+    <p>Thread A Thread B</p>
+  </div>
+  <div class="page">
+    <p>Case study #1, assembled</p>
+    <p>Thread A</p>
+    <p>mov eax, [pctxt-&gt;dwfCtxt]</p>
+    <p>and eax, NOT 10h</p>
+    <p>mov [pctxt-&gt;dwfCtxt], eax</p>
+    <p>Thread B</p>
+    <p>mov eax, [pctxt-&gt;dwfCtxt]</p>
+    <p>or eax, 20h</p>
+    <p>mov [pctxt-&gt;dwfCtxt], eax</p>
+    <p>EAX = ??</p>
+    <p>EAX = ??</p>
+    <p>pctxt-&gt;dwfCtxt = 11h</p>
+  </div>
+  <div class="page">
+    <p>Case study #1, assembled</p>
+    <p>Thread A</p>
+    <p>mov eax, [pctxt-&gt;dwfCtxt]</p>
+    <p>and eax, NOT 10h</p>
+    <p>mov [pctxt-&gt;dwfCtxt], eax</p>
+    <p>Thread B</p>
+    <p>mov eax, [pctxt-&gt;dwfCtxt]</p>
+    <p>or eax, 20h</p>
+    <p>mov [pctxt-&gt;dwfCtxt], eax</p>
+    <p>EAX = ??</p>
+    <p>EAX = 11h</p>
+    <p>pctxt-&gt;dwfCtxt = 11h</p>
+  </div>
+  <div class="page">
+    <p>Case study #1, assembled</p>
+    <p>Thread A</p>
+    <p>mov eax, [pctxt-&gt;dwfCtxt]</p>
+    <p>and eax, NOT 10h</p>
+    <p>mov [pctxt-&gt;dwfCtxt], eax</p>
+    <p>Thread B</p>
+    <p>mov eax, [pctxt-&gt;dwfCtxt]</p>
+    <p>or eax, 20h</p>
+    <p>mov [pctxt-&gt;dwfCtxt], eax</p>
+    <p>EAX = ??</p>
+    <p>EAX = 01h</p>
+    <p>pctxt-&gt;dwfCtxt = 11h</p>
+  </div>
+  <div class="page">
+    <p>Case study #1, assembled</p>
+    <p>Thread A</p>
+    <p>mov eax, [pctxt-&gt;dwfCtxt]</p>
+    <p>and eax, NOT 10h</p>
+    <p>/* CONTEXT SWITCH */</p>
+    <p>mov [pctxt-&gt;dwfCtxt], eax</p>
+    <p>Thread B</p>
+    <p>mov eax, [pctxt-&gt;dwfCtxt]</p>
+    <p>or eax, 20h</p>
+    <p>mov [pctxt-&gt;dwfCtxt], eax</p>
+    <p>EAX = ??</p>
+    <p>EAX = 01h</p>
+    <p>pctxt-&gt;dwfCtxt = 11h</p>
+  </div>
+  <div class="page">
+    <p>Case study #1, assembled</p>
+    <p>Thread A</p>
+    <p>mov eax, [pctxt-&gt;dwfCtxt]</p>
+    <p>and eax, NOT 10h</p>
+    <p>/* CONTEXT SWITCH */</p>
+    <p>mov [pctxt-&gt;dwfCtxt], eax</p>
+    <p>Thread B</p>
+    <p>mov eax, [pctxt-&gt;dwfCtxt]</p>
+    <p>or eax, 20h</p>
+    <p>mov [pctxt-&gt;dwfCtxt], eax</p>
+    <p>EAX = 11h</p>
+    <p>EAX = 01h</p>
+    <p>pctxt-&gt;dwfCtxt = 11h</p>
+  </div>
+  <div class="page">
+    <p>Case study #1, assembled</p>
+    <p>Thread A</p>
+    <p>mov eax, [pctxt-&gt;dwfCtxt]</p>
+    <p>and eax, NOT 10h</p>
+    <p>/* CONTEXT SWITCH */</p>
+    <p>mov [pctxt-&gt;dwfCtxt], eax</p>
+    <p>Thread B</p>
+    <p>mov eax, [pctxt-&gt;dwfCtxt]</p>
+    <p>or eax, 20h</p>
+    <p>mov [pctxt-&gt;dwfCtxt], eax</p>
+    <p>EAX = 31h</p>
+    <p>EAX = 01h</p>
+    <p>pctxt-&gt;dwfCtxt = 11h</p>
+  </div>
+  <div class="page">
+    <p>Case study #1, assembled</p>
+    <p>Thread A</p>
+    <p>mov eax, [pctxt-&gt;dwfCtxt]</p>
+    <p>and eax, NOT 10h</p>
+    <p>/* CONTEXT SWITCH */</p>
+    <p>mov [pctxt-&gt;dwfCtxt], eax</p>
+    <p>Thread B</p>
+    <p>mov eax, [pctxt-&gt;dwfCtxt]</p>
+    <p>or eax, 20h</p>
+    <p>mov [pctxt-&gt;dwfCtxt], eax</p>
+    <p>EAX = 31h</p>
+    <p>EAX = 01h</p>
+    <p>pctxt-&gt;dwfCtxt = 31h</p>
+  </div>
+  <div class="page">
+    <p>Case study #1, assembled</p>
+    <p>Thread A</p>
+    <p>mov eax, [pctxt-&gt;dwfCtxt]</p>
+    <p>and eax, NOT 10h</p>
+    <p>/* CONTEXT SWITCH */</p>
+    <p>mov [pctxt-&gt;dwfCtxt], eax</p>
+    <p>Thread B</p>
+    <p>mov eax, [pctxt-&gt;dwfCtxt]</p>
+    <p>or eax, 20h</p>
+    <p>mov [pctxt-&gt;dwfCtxt], eax</p>
+    <p>EAX = 31h</p>
+    <p>EAX = 01h</p>
+    <p>pctxt-&gt;dwfCtxt = 01h</p>
+  </div>
+  <div class="page">
+    <p>Case study #1, assembled</p>
+    <p>Thread A</p>
+    <p>mov eax, [pctxt-&gt;dwfCtxt]</p>
+    <p>and eax, NOT 10h</p>
+    <p>/* CONTEXT SWITCH */</p>
+    <p>mov [pctxt-&gt;dwfCtxt], eax</p>
+    <p>Thread B</p>
+    <p>mov eax, [pctxt-&gt;dwfCtxt]</p>
+    <p>or eax, 20h</p>
+    <p>mov [pctxt-&gt;dwfCtxt], eax</p>
+    <p>EAX = 31h</p>
+    <p>EAX = 01h</p>
+    <p>pctxt-&gt;dwfCtxt = 01h</p>
+    <p>CTXTF_NEED_CALLBACK disappeared!</p>
+    <p>(pctxt-&gt;dwfCtxt &amp; 0x20 == 0)</p>
+  </div>
+  <div class="page">
+    <p>Windows case study #1</p>
+    <p>RunContext(...)</p>
+    <p>{</p>
+    <p>pctxt-&gt;dwfCtxt &amp;=</p>
+    <p>~CTXTF_RUNNING;</p>
+    <p>and [ecx+40], ~10h</p>
+    <p>}</p>
+    <p>Thread B</p>
+    <p>RestartCtxtCallback(...)</p>
+    <p>{</p>
+    <p>pctxt-&gt;dwfCtxt |=</p>
+    <p>CTXTF_NEED_CALLBACK;</p>
+    <p>or [ecx+40], 20h</p>
+    <p>}</p>
+    <p>Instructions appear atomic, but they are not!</p>
+    <p>Thread A Thread B</p>
+  </div>
+  <div class="page">
+    <p>By our definition, a data race is a pair of memory accesses that satisfy all the below:  The accesses can happen concurrently</p>
+    <p>There is a non-zero overlap in the physical address</p>
+    <p>ranges specified by the two accesses</p>
+    <p>At least one access modifies the contents of the memory location</p>
+    <p>Data race definition</p>
+  </div>
+  <div class="page">
+    <p>Very hard to reproduce  Timings can be very tight</p>
+    <p>Hard to debug  Very easy to mistake as a hardware error bit flip</p>
+    <p>To support scalability, code is moving away from monolithic locks  Fine-grained locks</p>
+    <p>Lock-free approaches</p>
+    <p>Importance</p>
+  </div>
+  <div class="page">
+    <p>Happens-before and lockset algorithms have significant overhead</p>
+    <p>Intel Thread Checker has 200x overhead</p>
+    <p>Log all synchronizations</p>
+    <p>Instrument all memory accesses</p>
+    <p>High overhead can prevent usage in the field</p>
+    <p>Causes false failures due to timeouts</p>
+    <p>Previous Techniques</p>
+  </div>
+  <div class="page">
+    <p>Prior schemes require a complete knowledge and logging of all locking semantics</p>
+    <p>Locking semantics in kernel-mode can be homegrown, complicated and convoluted.</p>
+    <p>e.g. DPCs, interrupts, affinities</p>
+    <p>Challenges</p>
+  </div>
+  <div class="page">
+    <p>DataCollider: Goals</p>
+  </div>
+  <div class="page">
+    <p>Tradeoff between having false positives and reporting fewer data races</p>
+    <p>DataCollider: Goals</p>
+  </div>
+  <div class="page">
+    <p>False data race</p>
+    <p>A data race that cannot actually occur</p>
+    <p>Benign data race</p>
+    <p>A data race that can and does occur, but is intended to happen as part of normal program execution</p>
+    <p>False vs. Benign</p>
+  </div>
+  <div class="page">
+    <p>False vs. benign example</p>
+    <p>Thread A</p>
+    <p>MyLockAcquire();</p>
+    <p>gReferenceCount++;</p>
+    <p>MyLockRelease();</p>
+    <p>gStatisticsCount++;</p>
+    <p>Thread B</p>
+    <p>MyLockAcquire();</p>
+    <p>gReferenceCount++;</p>
+    <p>MyLockRelease();</p>
+    <p>gStatisticsCount++;</p>
+  </div>
+  <div class="page">
+    <p>False data race</p>
+    <p>A data race that cannot actually occur</p>
+    <p>Benign data race</p>
+    <p>A data race that can and does occur, but is intended to happen as part of normal program execution</p>
+    <p>False vs. Benign</p>
+  </div>
+  <div class="page">
+    <p>False vs. benign example</p>
+    <p>Thread A</p>
+    <p>MyLockAcquire();</p>
+    <p>gReferenceCount++;</p>
+    <p>MyLockRelease();</p>
+    <p>gStatisticsCount++;</p>
+    <p>Thread B</p>
+    <p>MyLockAcquire();</p>
+    <p>gReferenceCount++;</p>
+    <p>MyLockRelease();</p>
+    <p>gStatisticsCount++;</p>
+  </div>
+  <div class="page">
+    <p>Give user full control of overhead  from 0.0x up</p>
+    <p>Fast vs. more races found</p>
+    <p>DataCollider: Goals</p>
+  </div>
+  <div class="page">
+    <p>Contextual information is key to analysis and debugging</p>
+    <p>DataCollider: Goals</p>
+  </div>
+  <div class="page">
+    <p>Insights</p>
+  </div>
+  <div class="page">
+    <p>No locksets, no happens-before</p>
+    <p>Insights</p>
+  </div>
+  <div class="page">
+    <p>No synchronization logging</p>
+    <p>No memory access logging</p>
+    <p>Use code and data breakpoints</p>
+    <p>Randomly selection for uniform coverage</p>
+    <p>Insights</p>
+  </div>
+  <div class="page">
+    <p>Intersection Metaphor</p>
+  </div>
+  <div class="page">
+    <p>Intersection Metaphor</p>
+    <p>Memory Address = 0x1000</p>
+  </div>
+  <div class="page">
+    <p>Intersection Metaphor</p>
+    <p>Memory Address = 0x1000</p>
+    <p>Hi, Im Thread A!</p>
+  </div>
+  <div class="page">
+    <p>Intersection Metaphor</p>
+    <p>Memory Address = 0x1000</p>
+    <p>Instruction stream</p>
+  </div>
+  <div class="page">
+    <p>Intersection Metaphor</p>
+    <p>Memory Address = 0x1000</p>
+    <p>Instruction stream</p>
+    <p>I have the lock, so I get a green light.</p>
+  </div>
+  <div class="page">
+    <p>Intersection Metaphor</p>
+    <p>Memory Address = 0x1000</p>
+    <p>Instruction stream</p>
+  </div>
+  <div class="page">
+    <p>Intersection Metaphor</p>
+    <p>Memory Address = 0x1000</p>
+    <p>DataCollider</p>
+  </div>
+  <div class="page">
+    <p>Intersection Metaphor</p>
+    <p>Memory Address = 0x1000</p>
+    <p>DataCollider</p>
+  </div>
+  <div class="page">
+    <p>Intersection Metaphor</p>
+    <p>Memory Address = 0x1000</p>
+    <p>Please wait a moment, Thread A  were doing</p>
+    <p>a routine check for data races.</p>
+    <p>DataCollider</p>
+  </div>
+  <div class="page">
+    <p>Intersection Metaphor</p>
+    <p>Memory Address = 0x1000</p>
+    <p>Value = 3</p>
+    <p>DataCollider</p>
+    <p>Data Breakpoint</p>
+  </div>
+  <div class="page">
+    <p>Intersection Metaphor</p>
+    <p>Memory Address = 0x1000</p>
+    <p>Value = 3</p>
+    <p>DataCollider</p>
+    <p>Data Breakpoint</p>
+  </div>
+  <div class="page">
+    <p>Intersection Metaphor: Normal Case</p>
+  </div>
+  <div class="page">
+    <p>Intersection Metaphor: Normal Case</p>
+    <p>Memory Address = 0x1000</p>
+    <p>Value = 3</p>
+    <p>DataCollider</p>
+    <p>Data Breakpoint</p>
+  </div>
+  <div class="page">
+    <p>Intersection Metaphor: Normal Case</p>
+    <p>Memory Address = 0x1000</p>
+    <p>Value = 3</p>
+    <p>DataCollider</p>
+    <p>Data Breakpoint</p>
+    <p>Thread B</p>
+  </div>
+  <div class="page">
+    <p>Intersection Metaphor: Normal Case</p>
+    <p>Memory Address = 0x1000</p>
+    <p>Value = 3</p>
+    <p>DataCollider</p>
+    <p>Data Breakpoint</p>
+    <p>I dont have the lock, so Ill have to wait.</p>
+  </div>
+  <div class="page">
+    <p>Intersection Metaphor: Normal Case</p>
+    <p>Memory Address = 0x1000</p>
+    <p>Value = 3</p>
+    <p>DataCollider</p>
+    <p>Data Breakpoint</p>
+    <p>Nothing to see here. Let me remove</p>
+    <p>this trap.</p>
+  </div>
+  <div class="page">
+    <p>Intersection Metaphor: Normal Case</p>
+    <p>Looks safe now. Sorry for the</p>
+    <p>inconvenience.</p>
+    <p>DataCollider</p>
+  </div>
+  <div class="page">
+    <p>Intersection Metaphor: Normal Case</p>
+  </div>
+  <div class="page">
+    <p>Intersection Metaphor: Data Race</p>
+  </div>
+  <div class="page">
+    <p>Intersection Metaphor: Data Race</p>
+    <p>Memory Address = 0x1000</p>
+    <p>Value = 3</p>
+    <p>DataCollider</p>
+    <p>Data Breakpoint</p>
+  </div>
+  <div class="page">
+    <p>Intersection Metaphor: Data Race</p>
+    <p>Memory Address = 0x1000</p>
+    <p>Value = 3</p>
+    <p>DataCollider</p>
+    <p>Data Breakpoint</p>
+    <p>Thread B</p>
+  </div>
+  <div class="page">
+    <p>Intersection Metaphor: Data Race</p>
+    <p>Memory Address = 0x1000</p>
+    <p>Value = 3</p>
+    <p>DataCollider</p>
+    <p>Data Breakpoint</p>
+    <p>Locks are for wimps!</p>
+  </div>
+  <div class="page">
+    <p>Intersection Metaphor: Data Race</p>
+    <p>DataCollider</p>
+  </div>
+  <div class="page">
+    <p>Intersection Metaphor: Data Race</p>
+  </div>
+  <div class="page">
+    <p>Intersection Metaphor: Data Race</p>
+    <p>DataCollider</p>
+  </div>
+  <div class="page">
+    <p>Intersection Metaphor: Data Race</p>
+    <p>Looks safe now. Sorry for the</p>
+    <p>inconvenience.</p>
+    <p>DataCollider</p>
+  </div>
+  <div class="page">
+    <p>Intersection Metaphor: Data Race</p>
+  </div>
+  <div class="page">
+    <p>Implementation</p>
+  </div>
+  <div class="page">
+    <p>Sampling memory accesses with code breakpoints; part 1</p>
+    <p>Process</p>
+    <p>Advantages</p>
+    <p>Zero base-overhead no code breakpoints means only the original code is running.</p>
+    <p>No annotations required  only symbols.</p>
+  </div>
+  <div class="page">
+    <p>Sampling memory accesses with code breakpoints, part 2</p>
+    <p>Advantages</p>
+    <p>OnCodeBreakpoint( pc ) { // disassemble the instruction at pc (loc, size, isWrite) = disasm( pc ); DetectConflicts(loc, size, isWrite); temp = read( loc, size ); if ( isWrite ) SetDataBreakpointRW( loc, size ); else SetDataBreakpointW( loc, size ); delay(); ClearDataBreakpoint( loc, size ); temp = read( loc, size ); if(temp != temp || data breakpoint hit) ReportDataRace( ); }</p>
+    <p>Setting the data breakpoint will catch the colliding thread in the act.</p>
+    <p>This provides much more actionable debugging information.</p>
+  </div>
+  <div class="page">
+    <p>Sampling memory accesses with code breakpoints, part 2</p>
+    <p>Advantages</p>
+    <p>OnCodeBreakpoint( pc ) { // disassemble the instruction at pc (loc, size, isWrite) = disasm( pc ); DetectConflicts(loc, size, isWrite); temp = read( loc, size ); if ( isWrite ) SetDataBreakpointRW( loc, size ); else SetDataBreakpointW( loc, size ); delay(); ClearDataBreakpoint( loc, size ); temp = read( loc, size ); if(temp != temp || data breakpoint hit) ReportDataRace( ); }</p>
+    <p>The additional re-read approach helps detect races caused by:</p>
+    <p>Hardware interaction via DMA</p>
+    <p>Physical memory that has multiple virtual mappings</p>
+  </div>
+  <div class="page">
+    <p>Results</p>
+  </div>
+  <div class="page">
+    <p>Most of dynamic data races are benign</p>
+    <p>Many have the potential to be heuristically pruned</p>
+    <p>Much room to investigate and develop in this area</p>
+    <p>Results: bucketization of races</p>
+  </div>
+  <div class="page">
+    <p>25 confirmed bugs in the Windows OS have been found</p>
+    <p>8 more are still pending investigation</p>
+    <p>Results: bugs found</p>
+  </div>
+  <div class="page">
+    <p>Windows case study #2</p>
+    <p>Thread A</p>
+    <p>Connection-&gt;Initialized = TRUE;</p>
+    <p>or byte ptr [esi+70h],1</p>
+    <p>Thread B</p>
+    <p>Connection-&gt;QueuedForClosing = 1;</p>
+    <p>or byte ptr [esi+70h],2</p>
+    <p>This data race was found by using DataCollider on a test machine that was running a multi-threaded fuzzing test. It has been fixed.</p>
+    <p>struct CONNECTION {</p>
+    <p>UCHAR Initialized : 1;</p>
+    <p>UCHAR QueuedForClosing : 1;</p>
+    <p>};</p>
+  </div>
+  <div class="page">
+    <p>Windows case study #3</p>
+    <p>Thread A (owns SpinLock)</p>
+    <p>parentFdoExt-&gt;idleState = newState;</p>
+    <p>Thread B</p>
+    <p>parentFdoExt-&gt;idleState = newState;</p>
+    <p>This data race was found by using DataCollider on a test machine that was running a PnP stress test. In certain circumstances, ChangeIdleState was being called with acquireLock==FALSE even though the lock was not already acquired.</p>
+    <p>VOID ChangeIdleState(</p>
+    <p>FDO_IDLE_STATE newState,</p>
+    <p>BOOLEAN acquireLock);</p>
+  </div>
+  <div class="page">
+    <p>Results: Scalability</p>
+    <p>By using the code breakpoint method, we can see that data races can be found with as little as 5% overhead</p>
+    <p>The user can effectively adjust the balance between races found and overhead incurred</p>
+  </div>
+  <div class="page">
+    <p>Better methods for prioritizing benign vs. non-benign races</p>
+    <p>Statistical analysis? Frequency?</p>
+    <p>Apply algorithm to performance issues</p>
+    <p>True data sharing</p>
+    <p>False data sharing = data race near miss</p>
+    <p>Future Work</p>
+  </div>
+  <div class="page">
+    <p>Demo</p>
+  </div>
+  <div class="page">
+    <p>DataCollider can detect data races</p>
+    <p>with no false data races,</p>
+    <p>with zero base-overhead,</p>
+    <p>in kernel mode,</p>
+    <p>and find real product bugs.</p>
+    <p>Were hiring!  jerick@microsoft.com</p>
+    <p>Summary</p>
+  </div>
+  <div class="page"/>
+  <div class="page">
+    <p>DataCollider Original Prototype</p>
+    <p>Original Algorithm</p>
+    <p>OnMemoryAccess( byte* Addr)</p>
+    <p>{</p>
+    <p>if(rand() % 50 != 0) return;</p>
+    <p>byte b = *Addr;</p>
+    <p>int count = rand() % 1000;</p>
+    <p>while(count--) {</p>
+    <p>if(b != *Addr) Breakpoint();</p>
+    <p>}</p>
+    <p>}</p>
+    <p>If the memory a thread is accessing changes, then a data race could have occurred.</p>
+    <p>Used an internal tool to inject code into existing binaries</p>
+    <p>Written without knowledge of lockset or happens-before approaches</p>
+  </div>
+  <div class="page">
+    <p>False vs. benign example</p>
+    <p>Thread A</p>
+    <p>MyLockAcquire();</p>
+    <p>gReferenceCount++;</p>
+    <p>MyLockRelease();</p>
+    <p>gStatisticsCount++;</p>
+    <p>Thread B</p>
+    <p>MyLockAcquire();</p>
+    <p>gReferenceCount++;</p>
+    <p>MyLockRelease();</p>
+    <p>gStatisticsCount++;</p>
+    <p>MyLockAcquire() { while(0 != InterlockedExchange(&amp;gLock, 1) ); }</p>
+    <p>MyLockAcquire() { while(0 != InterlockedExchange(&amp;gLock, 1) ); }</p>
+  </div>
+  <div class="page">
+    <p>Issue:  Fixing a bug when one only has knowledge of one side</p>
+    <p>of the race can be very time consuming because it would often require deep code review to find what the colliding culprit could be.</p>
+    <p>Solution:  Make use of the hardware debug registers to cause a</p>
+    <p>processor trap to occur on race.</p>
+    <p>Improvements: Actionable data</p>
+  </div>
+  <div class="page">
+    <p>Issue:</p>
+    <p>Injecting code into a binary introduced an unavoidable non-trivial base overhead.</p>
+    <p>Solution:</p>
+    <p>Dispose of injecting code into binaries entirely. Sample memory accesses via code breakpoints instead.</p>
+    <p>Improvements: Highly scalable</p>
+  </div>
+  <div class="page">
+    <p>False data race  A data race that is claimed to exist by a data race detection</p>
+    <p>tool, but, in reality, cannot occur.</p>
+    <p>Benign data race  A data race that can and does occur, but is intended to</p>
+    <p>happen as part of normal program execution. E.g. synchronization primitives usually have benign data races as the key to their operation.</p>
+    <p>Real data race  A data race that is not intended or causes unintended</p>
+    <p>consequences. If the developer were to write the code again, he/she would do so differently.</p>
+    <p>False vs. benign vs. real definitions</p>
+  </div>
+  <div class="page">
+    <p>False vs. benign vs. real example</p>
+    <p>Thread A</p>
+    <p>MyLockAcquire();</p>
+    <p>gReferenceCount++;</p>
+    <p>MyLockRelease();</p>
+    <p>gStatisticsCount++;</p>
+    <p>Thread B</p>
+    <p>MyLockAcquire();</p>
+    <p>gReferenceCount++;</p>
+    <p>MyLockRelease();</p>
+    <p>gStatisticsCount++;</p>
+    <p>gReferenceCount++;</p>
+  </div>
+</Presentation>

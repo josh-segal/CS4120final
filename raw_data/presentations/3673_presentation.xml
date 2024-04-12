@@ -1,0 +1,106 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>Cardpliance: PCI DSS compliance of Android applications</p>
+    <p>Samin Yaseer Mahmud1, Akhil Acharya1, Benjamin Andow2, William Enck1, and Bradley Reaves1</p>
+    <p>North Carolina State University1</p>
+    <p>IBM T.J Watson Research Center2</p>
+  </div>
+  <div class="page">
+    <p>It All Began When Ordering a Burger!</p>
+    <p>Benjamin Andow, Akhil Acharya, Dengfeng Li, William Enck, Kapil Singh, and Tao Xie, UiRef: Analysis of Sensitive User Inputs in Android Applications, in Proceedings of the ACM Conference on Security and Privacy in Wireless and Mobile Networks (WiSec), 2017. 2</p>
+  </div>
+  <div class="page">
+    <p>What is PCI DSS?</p>
+    <p>Payment Card Industrys Data Security Standard that aims to secure credit card transactions against data theft or fraud</p>
+    <p>Regulated by PCI SSC, formed in 2004 by major credit card brands  Non-compliance comes with penalty  PCI DSS enlists a broad set of requirements  But not all requirements are applicable to mobile apps</p>
+  </div>
+  <div class="page">
+    <p>PCI DSS in a Mobile Context PCI Requirements relevant to Mobile: 1. Limit CHD storage (PCI DSS requirement 3.1) 2. Restrict SAD storage (PCI DSS requirement 3.2) 3. Mask PAN when displaying (PCI DSS requirement 3.3) 4. Encrypt CHD when storing (PCI DSS requirement 3.4) 5. User secure communication (PCI DSS requirement 4.1) 6. Secure transmission of PAN to external apps (PCI DSS requirement 4.2)</p>
+    <p>Cardholder Data (CHD): Information that represents the cardholder (credit card number a.k.a PAN plus cardholder name, expiry date etc) Sensitive Authentication Data (SAD): Information that authenticates the cardholder (PIN/ CVC/ CVV/ CVV2)</p>
+  </div>
+  <div class="page">
+    <p>Goal and Key Challenges Goal: To determine if Android applications are handling credit card data properly and complying to industry standards (PCI DSS).</p>
+    <p>Technical Challenges:  Identify PCI DSS requirements relevant to mobile  Model imprecise high level PCI requirements to static program analysis tasks  No well defined API for taking credit card number as input  Validate the findings</p>
+  </div>
+  <div class="page">
+    <p>Resolving Input Semantics How do we get information from UI?</p>
+    <p>How do we determine it is a credit card data?</p>
+    <p>&lt;View id=&quot;2131100247&quot;, name=&quot;class android.widget.EditText&quot;, privacyTag= &quot;credit_card_info&quot;/&gt;</p>
+    <p>UiRef</p>
+    <p>Check this value during static analysis!</p>
+  </div>
+  <div class="page">
+    <p>Dataflow Analysis Using Cardpliance</p>
+    <p>Source (S) Activity.findViewById(cc_id)</p>
+    <p>Sink (K) FileOutputStream.write()</p>
+    <p>Required(R) Cipher.doFinal() 7</p>
+    <p>PCI DSS 3.2 Do not store sensitive authentication data after authorization</p>
+    <p>PCI DSS 3.4 Render PAN unreadable anywhere it is stored</p>
+  </div>
+  <div class="page">
+    <p>PCI DSS-Related Dataflow Analysis Tests</p>
+    <p>Test Identifies Source (S) Sink(K) Required (R) T1 Storing CHD Activity.findViewById(ID_CC) DPM</p>
+    <p>T2 Storing SAD Activity.findViewById(ID_CVC) DPM</p>
+    <p>T3 Not masking PAN Activity.findViewById(ID_CC), URLConnection.getInputStream()</p>
+    <p>View.setText() PMM</p>
+    <p>T4 Storing non-obfuscated PAN Activity.findViewById(ID_CC) DPM OM</p>
+    <p>T5 Insecure transmission Activity.findViewById(ID_CC) OutputStreamWriter.write(), OutputStream.write()</p>
+    <p>T6 Sharing non-obfuscated PAN Activity.findViewById(ID_CC) Intent.putExtra(), SmsManager.sendTextMessage()</p>
+    <p>OM</p>
+    <p>Data Persistence Methods (DPM) = java.io.OutputStream.write(), java.io.FileOutputSream.write(), java.io.Writer.write(), java.lang.System.out.println(), android.content .SharedPreferencesEditor.putString(), android.util.Log.i(), android.util.Log.d() PAN Masking Methods (PMM) = java.lang.String.replace(), java.lang.String.substring(), java.lang.String.concat(), java.lang.StringBuilder.append() Obfuscation Methods (OM) = javax.crypto.Cipher.update(), javax.crypto.Cipher.updateAAD(), javax.crypto.Cipher.doFinal(), java.security.MessageDigest.digest(), java.security.MessageDigest.update()</p>
+  </div>
+  <div class="page">
+    <p>Dataset Collection Initial Data Set</p>
+    <p>Top 500 popular apps in the 35 categories in Google Play  Key Intuition: Popular apps have greater impact</p>
+    <p>Filtering Non-relevant Apps  Most apps do not handle credit card information  We filtered apps by searching resource files for credit card-related search strings  1,868 applications had such matches</p>
+    <p>Final Data Set  Amandroid was able to generate data dependency graph in 358 matching apps</p>
+  </div>
+  <div class="page">
+    <p>Application Study Cardpliance Analysis</p>
+    <p>We ran our 6 PCI checks on 358 applications  Cardpliance reported 20 applications violated at least one PCI check  Another 20 applications have bad SocketFactory classes</p>
+    <p>Manual Validation  We manually validated 40 apps over a one month period with the JEB decompiler  We confirmed 15 PCI violations across 6 applications</p>
+    <p>App Name Downloads T1 T2 T3 T4 Credit Card Reader 500K+</p>
+    <p>Fast Toll Illinois 10K+    Bens Soft Pretzels 10K+</p>
+    <p>The Toll Roads 100K+    Connect Network by GTL 1M+</p>
+    <p>Peach Pass GO! 50K+</p>
+  </div>
+  <div class="page">
+    <p>Highlighted Findings The Good:</p>
+    <p>Most of the popular applications are doing it right. We find 98.32% of the 358 applications were likely PCI DSS-compliant</p>
+    <p>Applications are correctly performing hostname and certificate verification when sending payment information over SSL connections.</p>
+    <p>Applications are not sending credit card numbers to insecure HTTP URLs  Applications are not insecurely sharing payment information via SMS</p>
+    <p>or ICC channels</p>
+  </div>
+  <div class="page">
+    <p>Highlighted Findings The Bad</p>
+    <p>6 applications were not PCI DSS compliant  Applications log sensitive information like credit card numbers and CVC</p>
+    <p>The Ugly:  More than 1.5 million users impacted by the non-compliant apps</p>
+    <p>Disclosure:  We disclosed findings to the application developers in November 2019  1 out of 6 developers responded (16.6%)</p>
+  </div>
+  <div class="page">
+    <p>Case Studies</p>
+    <p>Logging customers credit card number:</p>
+  </div>
+  <div class="page">
+    <p>Case Studies</p>
+    <p>Logging Credit Card Number and CVC:</p>
+    <p>Credit Card number as Shared Preference Key:</p>
+    <p>Vulnerable implementation of SecureRandom object:</p>
+  </div>
+  <div class="page">
+    <p>Limitations</p>
+    <p>Inherent to Underlying tools:  Over approximation of Amandroid (false positives)  Context insensitive analysis of bad SocketFactory and TrustManager  Imprecision in UiRef</p>
+    <p>Limitation of our Approach:  Keyword based search introducing false negatives  No analysis of weak cipher suite or hard coded key  Lightweight heuristic on test T3</p>
+  </div>
+  <div class="page">
+    <p>Summary</p>
+    <p>Cardpliance performs PCI DSS compliance checks on Android applications.  The landscape of popular Android applications in terms of PCI DSS is fairly positive.  Source code available (https://github.com/wspr-ncsu/cardpliance)</p>
+    <p>Samin Yaseer Mahmud Wolfpack Security and Privacy Research Lab</p>
+    <p>Department of Computer Science North Carolina State University</p>
+    <p>(smahmud@ncsu.edu)</p>
+    <p>Team Members William Enck (NC State)</p>
+    <p>Bradley Reaves (NC State) Benjamin Andow (IBM)</p>
+    <p>Akhil Acharya (NC State)</p>
+  </div>
+</Presentation>

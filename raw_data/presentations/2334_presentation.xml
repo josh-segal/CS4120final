@@ -1,0 +1,361 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>Dhananjoy Das NVM Compression: Hybrid Flash-Aware Applica;on Level Compression</p>
+    <p>Sr. Architect, Advanced Development Group. 5th October 2014</p>
+  </div>
+  <div class="page">
+    <p>Presenta;on Outline</p>
+    <p>Background  Architecture  Building blocks  EvaluaEon/Benchmarks  Summary  Q &amp; A</p>
+    <p>Flash TranslaEon Layer</p>
+    <p>Name Space/FileSystem</p>
+    <p>ApplicaEon (DB)</p>
+    <p>NVM-Compression solu;on stack</p>
+  </div>
+  <div class="page">
+    <p>Background Flash TranslaEon Layer</p>
+    <p>Name Space/FileSystem</p>
+    <p>ApplicaEon (DB)</p>
+  </div>
+  <div class="page">
+    <p>Problem: Exis;ng MySQL ROW Compression</p>
+    <p>Uncompressed Row Compressed</p>
+    <p>TransacEon Rate Compression Performance Penalty</p>
+  </div>
+  <div class="page">
+    <p>ROW-Compression  Uncompressed data is stored in 16K pages</p>
+    <p>16K pages are compressed into a fixed compressed page size of 1K, 2K, 4K, 8K</p>
+    <p>Compressed page size is chosen at table creaEon</p>
+    <p>(CREATE TABLE .. KEY_BLOCK_SIZE=8/4/2)</p>
+    <p>Table updates appended to Page ModificaEon Log (mlog) at the end of the compressed (8K) page</p>
+    <p>When mlog gets full, page is recompressed</p>
+    <p>Uncompressed Data 16K</p>
+    <p>Compressed Data mlog 8K Up</p>
+    <p>da te</p>
+    <p>In se rt</p>
+    <p>In se rt</p>
+    <p>Compressed Data</p>
+    <p>mlog 8K</p>
+    <p>In se rt</p>
+  </div>
+  <div class="page">
+    <p>Row-Compression Insert Failures Split  Rebalance  Recompress</p>
+    <p>Compressed Data</p>
+    <p>U pd</p>
+    <p>at e</p>
+    <p>In se rt</p>
+    <p>In se rt</p>
+    <p>In se rt</p>
+    <p>&gt;8K Compressed</p>
+    <p>Data</p>
+    <p>Compressed Data mlog 8K</p>
+    <p>Compressed Data mlog 8K</p>
+    <p>In se rt</p>
+    <p>+ Ins er t  Merge + Compress operaEon fails to fit</p>
+    <p>within compressed block size</p>
+    <p>Page is split abempEng to merge contents, triggers an abempt to rebalance the tree</p>
+  </div>
+  <div class="page">
+    <p>Row-Compression Architectural Drawbacks  Memory</p>
+    <p>Space: Uncompressed &amp; Compressed pages stored in DRAM buffer pool</p>
+    <p>Access: Updates are applied to both copies in memory</p>
+    <p>Capacity cap  Fixed compression page size - sets a upper bound on compression</p>
+    <p>Outcome  Poor performance on standard benchmarks  Poor adopEon (Less than 1% of MySQL users use compression)</p>
+  </div>
+  <div class="page">
+    <p>NVM Compression Architecture</p>
+  </div>
+  <div class="page">
+    <p>NVM Compression High level approach</p>
+    <p>ApplicaEon operates on sparse address space which is always the size of uncompressed.</p>
+    <p>Compressed data block is wriben in place at same virtual address as the un- compressed. Leaving a hole, empty space in the remainder of space allocated.</p>
+    <p>FTL garbage collecEon naturally coalesces the addresses in physical space, allowing for re-provisioning of physical space.</p>
+  </div>
+  <div class="page">
+    <p>NVM Primi;ves Primi;ves Details</p>
+    <p>Sparse Sparse address space, allows for mapping and allocaEon of blocks on FLASH only as required. Also termed as Thin provisioning.</p>
+    <p>PTRIMs Persistent TRIMs, unlike regular TRIMs which are only hint to garbage-collector, are persistent and enforced across crashes to unmap block that can be reallocated.</p>
+    <p>Atomics Atomic-write guarantees that no part of the buffer will be parEally wriben.</p>
+  </div>
+  <div class="page">
+    <p>NVM-Compression (page-compression)</p>
+    <p>Only store uncompressed 16KB pages in memory</p>
+    <p>Update to storage results in compression.</p>
+    <p>Trim unused 512B sectors in compressed page</p>
+    <p>16K uncompressed data is now compressed &amp; thin-provisioned down to 3.5K on Flash</p>
+    <p>Compressed Data</p>
+    <p>Uncompressed Data 16K</p>
+    <p>. . . . . . .</p>
+  </div>
+  <div class="page">
+    <p>Flush opera;on Page Header</p>
+    <p>Data-page Header</p>
+    <p>Index Data</p>
+    <p>ROW Data start</p>
+    <p>end</p>
+    <p>Footer Page checksum</p>
+    <p>Garbage/ Unused</p>
+    <p>Compressed Page Header</p>
+    <p>Compressed Index Data</p>
+    <p>Garbage/ Unused</p>
+    <p>Compressed Page header</p>
+    <p>Compressed Index Data Compress</p>
+    <p>+ Add Header</p>
+    <p>TRIM unused region</p>
+  </div>
+  <div class="page">
+    <p>NVM-Compression Architectural Benefits  Uses natural sparseness of the underlying storage to avoid packing of data</p>
+    <p>Compression is performed only when dirty page is flushed  Unused sectors are PTRIM(ed)/unmapped, for reuse  Decompression is done on page read, and only uncompressed data is available in buffer-pool pages</p>
+    <p>MulEple compression algorithms are pluggable</p>
+    <p>Modular design and simplified func;onality</p>
+  </div>
+  <div class="page">
+    <p>Building Blocks Flash TranslaEon Layer</p>
+    <p>NVMFS</p>
+    <p>MySQL (DB)</p>
+  </div>
+  <div class="page">
+    <p>System Interfaces</p>
+    <p>NVM-Compression uses existing system Interfaces</p>
+    <p>System Interface Func;onality</p>
+    <p>fallocate(offset, len) PreallocaEon and extending files/table space</p>
+    <p>fallocate(PUNCH_HOLE) Unmap/Punch hole operaEon. (issue Persistent TRIMs)</p>
+    <p>io_submit() AIO Transparent Atomic writes</p>
+  </div>
+  <div class="page">
+    <p>New: Mul;-Threaded Flush Framework</p>
+  </div>
+  <div class="page">
+    <p>New: Mul;-Threaded Flush Framework</p>
+    <p>Flushing Thread</p>
+    <p>enqueue wqe (per Page-pool flush) dequeue request</p>
+    <p>Compress + DIO (per Page) report compleEons</p>
+    <p>MT-worker threads</p>
+    <p>queue</p>
+    <p>Producer/consumer framework for servicing scalable/distributed operaEon, can be used for purposes other than NVM-Compression</p>
+    <p>Required by NVM-Compression, allows for scalable &amp; efficient servicing of writes</p>
+    <p>CPU#0 CPU#1 CPU#n</p>
+    <p>NVM Compression uses MT-Flush framework to perform compression and PTRIM operaEon in parallel criEcal for individual page-flush latency and overall MySQL transacEonal throughput</p>
+  </div>
+  <div class="page">
+    <p>NVMFS  Non Vola;le Memory FileSystem  Its a POSIX compliant filesystem, designed by SanDisk  Designed to meet the needs of data intensive workloads</p>
+    <p>Strengths include  Direct I/O on large, data intensive workloads (DB workload)  Pre-allocaEon of large files is efficient  No fragmentaEon/degradaEon with aging of filesystem  Re-exports features/Primi;ves of the underlying flash</p>
+  </div>
+  <div class="page">
+    <p>NVMFS  Elimina;ng Duplicate Logic</p>
+    <p>NaEve Flash TranslaEon Layer block allocaEon, mapping, recycling</p>
+    <p>ACID updates, logging/journaling, crash-recovery</p>
+    <p>NVMFS file metadata mgmt</p>
+    <p>Kernel block layer</p>
+    <p>kernel-space</p>
+    <p>user-space</p>
+    <p>Ext3 file metadata mgmt, block allocaEon, mapping, recycling, ACID updates, logging/journaling, crash-recovery</p>
+    <p>PrimiEve Interfaces</p>
+    <p>Applica;on</p>
+    <p>Linux VFS (virtual file system) abstracEon layer</p>
+  </div>
+  <div class="page">
+    <p>MySQL already uses Transparent Atomics</p>
+    <p>NVM Primi;ves</p>
+  </div>
+  <div class="page">
+    <p>Atomic Writes (no double write) Tradi;onal MySQL Writes MySQL with Atomic Writes</p>
+    <p>Page C Page</p>
+    <p>B</p>
+    <p>Page A</p>
+    <p>Buffer</p>
+    <p>DRAM Buffer</p>
+    <p>SSD (or HDD)</p>
+    <p>Database Server</p>
+    <p>Page C</p>
+    <p>Page B</p>
+    <p>Page A</p>
+    <p>Updates to pages A, B, C</p>
+    <p>Copied to memory buffer.</p>
+    <p>Writes to double-write buffer</p>
+    <p>Once acknowledged, commit to the database.</p>
+    <p>ioMemory Database</p>
+    <p>MySQL writes ONCE to database, commisng the transacEon with inherent atomicity through Atomic Writes API</p>
+    <p>Page C Page</p>
+    <p>B</p>
+    <p>Page A</p>
+    <p>Page C</p>
+    <p>Page B</p>
+    <p>Page A</p>
+    <p>Page C</p>
+    <p>Page B</p>
+    <p>Page A</p>
+    <p>DRAM Buffer</p>
+    <p>Database Server</p>
+    <p>Page C</p>
+    <p>Page B</p>
+    <p>Page A</p>
+    <p>Page C</p>
+    <p>Page B</p>
+    <p>Page A</p>
+    <p>Updates to pages A, B, C</p>
+    <p>Copied to memory buffer.</p>
+    <p>Database</p>
+    <p>Database</p>
+  </div>
+  <div class="page">
+    <p>Benchmarks</p>
+  </div>
+  <div class="page">
+    <p>Benchmarks Used  LinkBench</p>
+    <p>Percona tool tpcc-mysql (TPC-c like)  Other Micro-benchmarks</p>
+  </div>
+  <div class="page">
+    <p>Storage Savings</p>
+    <p>Row-comp Page-comp Delta-Uncomp% 49.0% 58.5%</p>
+    <p>% im</p>
+    <p>pr ov em</p>
+    <p>en t</p>
+    <p>LinkBench 10x workload Uncompressed vs. Table with ROW, NVM Compression</p>
+    <p>* The data show is using zlib(lz77), storage efficiency with lz4 are comparable delta ~3%</p>
+    <p>Cau;on: ResulEng compression raEo depends on Entropy of data along with the algorithm used</p>
+    <p>NVM Compression supports mulEple pluggable compression methods including lz77, lz4, lzo</p>
+  </div>
+  <div class="page">
+    <p>LinkBench 99% OP latencies</p>
+    <p>ADD_NODE UPDATE_NODE DELETE_NODE GET_NODE ADD_LINK DELETE_LINK UPDATE_LINK COUNT_LINK</p>
+    <p>LinkBench 10x Mean OP latency (msec)</p>
+    <p>Uncomp/NVM-comp/Row-comp</p>
+    <p>Uncompressed NVM-Comp ROW-Comp</p>
+    <p>NVM Compression transacEon latency is 2x-5x beber compared to ROW Compression and is closed to Uncompressed</p>
+  </div>
+  <div class="page">
+    <p>Benchmark: LinkBench</p>
+    <p>Uncomp Page-Comp Row-Comp</p>
+    <p>MariaDB 10.0.9/InnoDB 10x Workload (110GB, 50GB-buf-pool) Uncomp vs. Page-Comp vs. Row-Comp</p>
+    <p>NVM Compression transacEon throughput is 2.25x beber than ROW Compression and is &lt;5% of Uncompressed</p>
+  </div>
+  <div class="page">
+    <p>Scalability with Cores</p>
+    <p>Uncomp Page-Comp Row-Comp</p>
+    <p>LinkBench 10x workload (110GB, 50GB-buf-pool) Uncomp vs. Page-Comp vs. Row-Comp</p>
+    <p>NVM Compression transacEon throughput scales well with the core count (MT-Flush)</p>
+  </div>
+  <div class="page">
+    <p>Benchmark: (TPCC-like) NVM-Compression</p>
+    <p>Ti m e</p>
+    <p>New Order TX</p>
+    <p>TPC-C like workload MariaDB 10</p>
+    <p>MySQL uncompressed</p>
+    <p>MySQL compression</p>
+    <p>Fusion-io Compression</p>
+    <p>Time</p>
+    <p>NVM</p>
+    <p>NVM Compression performance is 7x beber than ROW Compression and close to Uncompressed workload perf</p>
+  </div>
+  <div class="page">
+    <p>nvmfs xfs</p>
+    <p>El ap</p>
+    <p>se d Ti m e</p>
+    <p>(n or m al iz ed</p>
+    <p>)</p>
+    <p>NVMFS Performance - TRIM Handling</p>
+    <p>Micro-benchmark  Trim aver write  16 KiB Direct Write</p>
+    <p>+ 4KiB TRIM Applica;ons  MySQL Page-compression</p>
+    <p>PTRIMs help with efficient garbage collecEon, reallocaEon of unused blocks and reduces WA</p>
+  </div>
+  <div class="page">
+    <p>Flash Endurance Power/Cooling</p>
+  </div>
+  <div class="page">
+    <p>Fewer Writes/OP</p>
+    <p>*Lower is beber</p>
+    <p>LinkBench 10x workload 50GB buf-pool Uncompressed vs. NVM-Compression</p>
+  </div>
+  <div class="page">
+    <p>2x fewer writes to flash</p>
+    <p>Atomics  2x fewer writes by disabling double-writes</p>
+    <p>Persistent TRIMs  Lower write amplificaEon benefits for flash</p>
+    <p>Usable for flash with fewer write cycles, like TLC/3BPC</p>
+  </div>
+  <div class="page">
+    <p>Power/Cooling</p>
+    <p>% p ea k</p>
+    <p>un co m pr es se d</p>
+    <p>LinkBench 10x workload 50GB buf-pool Uncompressed vs. NVM-Compression</p>
+    <p>PG-Wabs</p>
+    <p>Uncmp-Wab</p>
+    <p>Delta-Temp</p>
+    <p>Time</p>
+    <p>Fewer writes to Flash with NVM Compression improves savings on power usage and cooling</p>
+  </div>
+  <div class="page">
+    <p>Summary NVM-Compression</p>
+    <p>Design combines applicaEon level compression with flash awareness  Compression is performed by applicaEon at the point of page-flush  Leverages FTL primiEves for block management and garbage collecEon  System standard interfaces (PTRIMs/Atomic-write)  Pluggable compression libraries</p>
+    <p>Benchmark OLTP workload results  Storage saving 2x+  Scalable &amp; superior performance</p>
+  </div>
+  <div class="page">
+    <p>Lessons learnt  Reducing writes can have dramaEc performance benefit  even if it comes at the cost of CPU based compression.</p>
+    <p>CapabiliEes embedded in flash FTLs, like high performance GC, can be used to replace complex ApplicaEon level block management very effecEvely.</p>
+    <p>File system support is required to maintain manageability. File systems passing and implemenEng primiEves efficiently is criEcal for performance.</p>
+  </div>
+  <div class="page">
+    <p>Q &amp; A</p>
+  </div>
+  <div class="page">
+    <p>Thank You</p>
+  </div>
+  <div class="page">
+    <p>Backup Slides</p>
+  </div>
+  <div class="page">
+    <p>Announcements  Early access NVM-Compression soluEon</p>
+    <p>Early access NVMFS</p>
+    <p>Release by community Vendor Release Download</p>
+    <p>SkySQL MariaDB 10.0.9 hbp://bazaar.launchpad.net/~jplindst/maria/10.0- FusionIO</p>
+    <p>Percona Percona Server 5.6 hbp://code.launchpad.net/~gl-az/percona-server/5.6- pagecomp_mxlush</p>
+    <p>Oracle MySQL 5.7.4 DMR (Atomics) hbp://dev.mysql.com</p>
+    <p>MySQL Labs release (Compression) hbp://labs.mysql.com/</p>
+  </div>
+  <div class="page">
+    <p>Read Index-Data-BLOCK (16K) Page Header</p>
+    <p>Data-page Header</p>
+    <p>Index Data ROW Data start</p>
+    <p>end</p>
+    <p>Footer Page checksum</p>
+    <p>Garbage/ Unused</p>
+    <p>UnMapped Region</p>
+    <p>(zero filled)</p>
+    <p>Compressed Page header</p>
+    <p>Compressed Index Data</p>
+    <p>DeCompress +</p>
+    <p>Fill User Buffer</p>
+  </div>
+  <div class="page">
+    <p>How to NVM Compress</p>
+  </div>
+  <div class="page">
+    <p>How to NVM-Compress  Setup MySQL (/etc/my.cnf)  Create Table opEons  Compression staEsEcs</p>
+  </div>
+  <div class="page">
+    <p>MySQL Seong /etc/my.cnf I/O engines supported  Innodb  XtraDB Compression Protocols supported  LZ4  LZ77  LZMO</p>
+  </div>
+  <div class="page">
+    <p>Create Table Sample # 1 (MariaDB 10.0.9)</p>
+    <p>Enable PAGE_COMPRESSION</p>
+    <p>Reserved Keywords to use for create table opEons  PAGE_COMPRESSION  PAGE_COMPRESSION_LEVEL</p>
+  </div>
+  <div class="page">
+    <p>Reserved Keywords to use for create table opEons  DIRECTORY  ATOMICS_WRITES  PAGE_COMPRESS op;ons..</p>
+    <p>Create Table under specified directory</p>
+    <p>Enable Page-compression + Atomic writes</p>
+    <p>Create Table sample #2 (MariaDB 10.0.9)</p>
+  </div>
+  <div class="page">
+    <p>NVM Compression: Sta;s;cs  Show status like Innodb_page_compression_%</p>
+    <p>Show status like Innodb_n% +---------------------------------------+---------------+ | Variable_name | Value | +---------------------------------------+---------------+ | Innodb_page_compression_saved | 6905823838720 | | Innodb_page_compression_trim_sect512 | 20665471315 | | Innodb_page_compression_trim_sect4096 | 1939752607 | +---------------------------------------+---------------+ +------------------------------------------+------------+ | Variable_name | Value | +------------------------------------------+------------+ | Innodb_num_index_pages_written | 1092477800 | | Innodb_num_pages_page_compressed | 877050078 | | Innodb_num_page_compressed_trim_op | 448698818 | | Innodb_num_page_compressed_trim_op_saved | 429143865 | | Innodb_num_pages_page_decompressed | 873119717 | +------------------------------------------+------------+</p>
+  </div>
+  <div class="page">
+    <p>LinkBench Seong (1x vs. 10x)</p>
+    <p>Bump up the workload from default 1x (10Mil) to 10x using maxid</p>
+    <p>Change runEme, using max;me</p>
+  </div>
+  <div class="page">
+    <p>OK What Happened with Latency ?</p>
+  </div>
+</Presentation>

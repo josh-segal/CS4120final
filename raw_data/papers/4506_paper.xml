@@ -1,0 +1,791 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<TEI xmlns="http://www.tei-c.org/ns/1.0" 
+xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+xsi:schemaLocation="http://www.tei-c.org/ns/1.0 /Users/atharsefid/Desktop/grobid-0.5.3/grobid-home/schemas/xsd/Grobid.xsd"
+ xmlns:xlink="http://www.w3.org/1999/xlink">
+	<teiHeader xml:lang="en">
+		<encodingDesc>
+			<appInfo>
+				<application version="0.5.3" ident="GROBID" when="2019-03-26T16:51+0000">
+					<ref target="https://github.com/kermitt2/grobid">GROBID - A machine learning software for extracting information from scholarly documents</ref>
+				</application>
+			</appInfo>
+		</encodingDesc>
+		<fileDesc>
+			<titleStmt>
+				<title level="a" type="main">Formal Verification and its Impact on the Snooping versus Directory Protocol Debate</title>
+			</titleStmt>
+			<publicationStmt>
+				<publisher/>
+				<availability status="unknown"><licence/></availability>
+			</publicationStmt>
+			<sourceDesc>
+				<biblStruct>
+					<analytic>
+						<author role="corresp">
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Milo</forename><forename type="middle">M K</forename><surname>Martin</surname></persName>
+							<email>milom@cis.upenn.edu</email>
+							<affiliation key="aff0">
+								<orgName type="department">Department of Computer and Information Science</orgName>
+								<orgName type="institution">University of Pennsylvania</orgName>
+							</affiliation>
+						</author>
+						<title level="a" type="main">Formal Verification and its Impact on the Snooping versus Directory Protocol Debate</title>
+					</analytic>
+					<monogr>
+						<imprint>
+							<date/>
+						</imprint>
+					</monogr>
+				</biblStruct>
+			</sourceDesc>
+		</fileDesc>
+		<profileDesc>
+			<abstract>
+				<p>This invited paper argues that to facilitate formal verification , multiprocessor systems should (1) decouple enforcing coherence from enforcing a memory consistency model and (2) decouple the interconnection network from the cache coherence protocol (by not relying on any specific interconnect ordering or synchronic-ity properties). Of the two dominant classes of cache coherence protocols-directory protocols and snooping protocols-these two desirable properties favor use of directory protocols over snooping protocols. Although the conceptual simplicity of snooping protocols is seductive , aggressive implementations of snooping protocols lack these decoupling properties, making them perhaps more difficult in practice to reason about, verify, and implement correctly. Conversely, directory protocols may seem more complicated, but they are more amenable to these decoupling properties, which simplify protocol design and verification. Finally, this paper describes the recently-proposed token coherence protocol&apos;s adherence to these properties and discusses some of its implications for future multiprocessor systems.</p>
+			</abstract>
+		</profileDesc>
+	</teiHeader>
+	<text xml:lang="en">
+		<body>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="1">Introduction</head><p>After years as an exotic and exclusively high-end technology, shared-memory multiprocessors are now solidly mainstream. Even low-end servers routinely have at least two processors, and high-end systems often have dozens of processors. With the performance and power advantages of multi-core chips, multiprocessors are expanding beyond servers into desktops, laptops, handhelds, game consoles, and embedded devices. If current trends continue, multi-core systems will become so ubiquitous that in a few years it may not be possible to purchase a uniprocessor system.</p><p>Cache coherence protocols. These shared-memory multiprocessor systems use a cache coherence protocol to coordinate the caches and memories as part of providing the processors with a consistent view of the contents of a single shared address space. The exact definition of this "consistent view" of memory is defined by the system's memory consistency model <ref type="bibr" target="#b1">[2]</ref>, which is commonly specified as part of the instruction set architecture of the system. As part of enforcing a consistency model, invalidation-based cache coherence protocols conceptually maintain a global invariant: for each block of shared memory either (1) zero or more processors are allowed to read the block or (2) exactly one processor is allowed to write and read the block.</p><p>Snooping versus directory protocol debate. Although multiprocessors are now common, there is not a clear consensus on the design of cache coherence protocols. Whereas other areas of computer architecture have slowly gravitated to canonical designs (e.g., processor microarchitecture), multiprocessor system designs are still widely varied. In fact, a debate on designing such systems has raged for decades. Much of the debate has centered around two classes of cache coherence protocols: snooping protocols and directory protocols. Snooping protocols use a totally-ordered interconnect (e.g., a bus) to broadcast request to all processors, allowing all system components to transition between coherence states in a consistent fashion. In contrast, directory protocols send all requests to a directory at the memory, which forwards requests to other processors as needed. Directory protocols avoid broadcast and a totally-ordered interconnect in exchange for adding indirection latency to some misses.</p><p>The debate revisited. This invited paper contains thoughts and opinions on this debate based on experience with developing and enhancing protocols in an academic research environment, limited industrial experience, conversations with system designers, and dabbling in formal verification of such protocols. Instead of focusing exclusively on the performance or scalability of cache coherence protocols, this paper revisits the snooping versus directory protocol debate by explicitly considering the impact of formal verification on design complexity and design verification of multiprocessor systems. This paper describes the impact of formal verification on the cache coherence protocol design process (Section 2), distills two desirable decoupling properties for formal modeling and implementing coherence protocols (Section 3), revisits the snooping versus directory debate in this context (Section 4), and reflects on the creation of token coherence <ref type="bibr" target="#b15">[16,</ref><ref type="bibr" target="#b17">18,</ref><ref type="bibr" target="#b18">19]</ref>, a recentlyproposed alternative approach to cache coherence (Section 5). This paper concludes that formal verification considerations favor choosing either a directory protocol or a token coherence protocol over all but the simplest implementations of snooping-based cache coherence protocols.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="2">Impact of Formal Verification</head><p>In addition to simulation and other forms of traditional design verification, formal verification plays as increasingly important role in the design of today's digital systems. Formal verification includes techniques such as model checking via state space exploration and automated theorem proving techniques. Using formal verification methods has become almost routine for enhancing confidence (and finding bugs) in cache coherence protocols <ref type="bibr" target="#b0">[1,</ref><ref type="bibr" target="#b4">5,</ref><ref type="bibr" target="#b5">6,</ref><ref type="bibr" target="#b7">8,</ref><ref type="bibr" target="#b11">12,</ref><ref type="bibr" target="#b24">25,</ref><ref type="bibr" target="#b25">26]</ref>.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="2.1">Explicit Role of Formal Verification</head><p>The explicit role of formal verification is finding bugs and improving confidence in the correctness of a design. These methods can either be applied after the high-level design has been completed or during the high-level design phase.</p><p>Post-design verification. If formal verification is thought of as part of traditional design verification efforts (e.g., simulation-based techniques), formal verification will likely be applied later in the design and implementation of a system. Although late application of formal verification is still effective at finding bugs, it suffers from first finding many "false bugs" caused by incomplete documentation, design specification errors, and real bugs that were already fixed by the designers <ref type="bibr" target="#b11">[12]</ref>. Bugs that are encountered late may also be more difficult to fix cleanly or the fix may have a significant impact on the performance or complexity of the design.</p><p>During-design verification. In contrast, if formal verification is thought of as an integral part of the design process, formal verification will likely be applied early in the design process and have a more pervasive impact on the actual design. Formal verification is most effective when used during the initial design phases <ref type="bibr" target="#b7">[8,</ref><ref type="bibr" target="#b11">12]</ref>. Instead of relying on incomplete specifications, the modeling processes can be part of the specification process (or the model may even be part of the actual specification). Bugs found early can be fixed more easily and at the appropriate level of the design. For example, instead of adding a localized timing-sensitive kludge to fix a subtle coherence protocol race, early detection of such a bug could have resulted in a higher-level design change that would have been simpler, cleaner, and easier. In addition, a set of bugs discovered early may actually cause the designers to rethink or adjust the highlevel design.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="2.2">Implicit Role of Formal Verification</head><p>If verification is an integral part of the high-level design process, formal verification has several implicit benefits-benefits that arise not from the actual computational verification of the model, but from the creation of the model itself. Creating a model requires one or more engineers to think systematically about the correctness of the design and the accuracy of its specification. 1 In addition, the designers themselves may be influenced by the knowledge that whatever the designers propose, someone will need to model it. <ref type="bibr" target="#b1">2</ref> This subtle effect can influence the designers to create a more modular design with clearer abstraction layers and better specification and documentation. Knowing that a design is going to be formally verified may encourage designers to actually document their designs and employ "principles of good design" that they otherwise might not be disciplined enough to self-enforce. In essence, placing the extra design constraint of "verifiability" on the designers in some cases may produce a better design.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3">Two Desirable Properties of Cache Coherence Protocols</head><p>This section describes two properties found in some coherence protocols that give them advantages in terms of tractability of formal verification, design complexity, and ability to be modified for future design iterations.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.1">Decouple Coherence from Consistency</head><p>The definition of correctness of a multiprocessor memory system is its memory consistency model <ref type="bibr" target="#b1">[2]</ref>. Informally, coherence refers only to the behavior of a single memory location, whereas the memory consistency model encompasses the ordering and interaction of memory operations to multiple memory locations. Because individually verifying either a consistency model or simple coherence properties is a difficult task, we advocate clearly decoupling these two aspects of a multiprocessor memory system to simplify verification. To enable this decoupling, the coherence protocol should provide a coherence interface sufficient to provide a serializable view of memory. The processor core should interact with that interface to provide whatever memory consistency model the processor design team deems necessary (using prefetching and various speculative techniques to aggressively implement the consistency model <ref type="bibr" target="#b2">[3,</ref><ref type="bibr" target="#b8">9]</ref>).</p><p>In such a system, the only role of the coherence protocol is to inform the processor when it can read a block and when it can write a block. This notion closely corresponds with the multiple-reader-single-writer coherence invariant described in the introduction. Such a coherence protocol (1) provides a simple interface to the processor and (2) allows the processor to aggressively implement the desired consistency model. To clarify these points, consider the implementation of memory barrier operations (used to establish memory ordering). A system that follows the above decoupling property can efficiently handle memory barriers entirely within the processor core, freeing the coherence protocol from providing special-purpose operations with complicated semantics.</p><p>Although some systems have at least partially adopted a decoupled consistency and coherence philosophy (e.g., <ref type="bibr" target="#b3">[4,</ref><ref type="bibr" target="#b6">7,</ref><ref type="bibr" target="#b12">13]</ref>), many systems have not (e.g., <ref type="bibr" target="#b9">[10,</ref><ref type="bibr" target="#b26">27]</ref>). Those systems intertwine coherence and consistency throughout the system, often relying on a patchwork of special ordering properties of processor queues and a total ordering of requests via a totally-ordered interconnect to carefully and delicately orchestrate the desired consistency model (discussed further below).</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.2">Decouple Interconnect from Protocol</head><p>The interconnect is the communication mechanism that reliably delivers messages between the caches and memories of a multiprocessor system. A cache coherence protocol might rely on an interconnect that provides (1) point-to-point ordering, (2) totally-ordered message delivery, (3) no special ordering properties. We contend that to ease verification, the coherence protocol should not depend upon any special ordering properties of the interconnect. To support this position, this section discusses some of the difficulties of designing and verifying coherence protocols that rely on these two types of interconnect orderings.</p><p>Avoid point-to-point ordered interconnects. Of the two types of interconnect ordering properties, point-topoint ordering is less problematic than totally-ordered interconnects. However, point-to-point ordering is undesirable because (1) it constrains interconnect design (e.g., by precluding or limiting adaptive routing) and (2) it complicates formal verification by encumbering the model and increasing the state space by reducing symmetry (as compared with modeling an unordered interconnect) <ref type="bibr" target="#b11">[12]</ref>. Fortunately, many protocols-especially directory protocols-do not rely on any sort of interconnect ordering (e.g., <ref type="bibr" target="#b23">[24]</ref>). However, some protocols require at least point-to-point ordering (e.g., <ref type="bibr" target="#b27">[28]</ref>), and many protocols require the even more onerous totallyordered interconnect (as discussed next).</p><p>Avoid totally-ordered interconnects. Relying on a totally-ordered interconnect has pervasive design ramifications. Depending on such an interconnect is undesirable because it intertwines the processing of different addresses. An interconnect provides a total ordering of messages if all messages are delivered to all destinations in some order. A total ordering requires an ordering among all the messages (even those from different sources or sent to different destinations). For example, if any processor receives message A before message B, then no processor receives message B before A. Many protocols (e.g., most snooping protocols and some directory protocols <ref type="bibr" target="#b9">[10]</ref>) require an interconnect that provides a total ordering of requests. Unfortunately, establishing a total ordering of requests can add complexity, increase cost, and increase latency. For example, totallyordered interconnects commonly use some centralized root switch or arbitration mechanism, and such mechanisms are not a good match for direct interconnects.</p><p>In protocols that do not rely on a total ordering of requests-e.g., traditional directory protocols <ref type="bibr" target="#b13">[14,</ref><ref type="bibr" target="#b23">24,</ref><ref type="bibr" target="#b27">28]</ref> and AMD's Opteron protocol <ref type="bibr" target="#b3">[4]</ref>-requests and responses for different blocks have no need to unduly influence each other. Only when a processor decides to commit a read or write to a block does the processor need to consider the interactions of reads and writes to other blocks. In contrast, in systems that rely on a total ordering of requests, requests (and sometimes responses) for different addresses must be kept in order with respect to each other throughout the system. 3 This requirement forces cache controllers to process all requests in order, making banking of coherence controllers to increase bandwidth difficult. To use a uniprocessor analogy, relying on a total ordering of requests introduces "dependences" (both true and false dependencies) between requests for various blocks.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.3">Discussion and Implications</head><p>The decoupling of coherence and consistency and the decoupling of protocol and interconnect results in a much more modular design. Such a design has simpler interfaces between the various system components, which should substantially simplify verification (both formal verification and traditional verification). For example, each component can be designed and verified in isolation, and a high-level model can be used to verify many of their interactions.</p><p>In addition, such a design is more amenable to incremental improvements for future product generations based on the same basic design. Because of the huge effort to fully design, verify, and performance debug a high-performance design, a design will often be used for several product generations. For example, the initial "P6" core design of the Pentium Pro has been improved and adapted over many years to be used in desktop chips (Pentium II and Pentium III), server chips (Xeon), and most recently in low-power mobile chips (Pentium M). Similar derivations occur with multiprocessor systems. A multiprocessor that adheres to these two decoupling properties will be easier to adapt over time, because an individual component (e.g., the interconnect or cache controller) can be improved with fewer global interactions than in a less modular design.</p><p>As an example of non-localized cascading changes, consider a first-generation design with an interconnect that does not implement adaptive routing (and thus implicitly provided point-to-point interconnect ordering); if the coherence protocol exploits that point-to-point ordering, the second-generation system cannot implement adaptive routing in the interconnect unless the coherence protocol is also redesigned. However, if the system designers had decoupled the interconnect ordering from the protocol, such a change to the interconnect would be a purely local change.</p><p>Although these two decoupling properties seem like laudable and desirable properties, they also may be controversial, as some proposals have explicitly argued the opposite approach <ref type="bibr" target="#b9">[10]</ref>, and systems such as IBM's Power4 <ref type="bibr" target="#b26">[27]</ref> and AlphaServer GS320 <ref type="bibr" target="#b9">[10]</ref> designs have neither property. Both of these systems use an ordered interconnect and intermingle coherence and consistency. For example, Power4 relies on ordering in the interconnect and requires broadcasting of certain memory-ordering barrier operations. In contrast, the Alpha 21364/GS1280 and AMD Opteron protocols both appear to exhibit both decoupling properties described above (based on the limited published descriptions of the protocols <ref type="bibr" target="#b3">[4,</ref><ref type="bibr" target="#b6">7,</ref><ref type="bibr" target="#b23">24]</ref>).</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="4">Revisiting Snooping vs. Directory Protocols</head><p>The choice of coherence protocol is as subtle and controversial today as it has ever been. Instead of focusing primarily on performance or scalability, this section revisits the snooping versus directory protocol debate by considering the impact of formal verification and the two desirable decoupling properties described in the last section. Although any high-performance implementation of a multiprocessor memory system is complicated, we contend that directory protocols are preferable from a complexity and formal verification viewpoint, because directory protocols are more amenable to decoupling coherence from consistency and decoupling the interconnect from the coherence protocol.</p><p>Snooping protocols. Although snooping is seductively simple from a conceptual viewpoint, as snooping implementations have evolved over time they have become anything but simple. Real-world highperformance implementations are not simple because they use many advanced techniques such as snoop response combining, split-transaction protocols, split request/response interconnects, and multiple totallyordered switched interconnects. These enhancements tightly couple the timing and ordering of the interconnect with the protocol, and they couple coherence and consistency. In essence, aggressive snooping protocols are complex and difficult to verify because they do not exhibit the two desirable decoupling properties described in the last section.</p><p>Directory protocols. In contrast, even the simplest directory protocol may seem complicated (e.g., because of the number of request and writeback races that can occur). However, these situations are exactly the sort of high-level protocol issues that formal verification methods can help overcome, especially if applied early in the design. Directory protocols are more amenable to formal verification techniques because they often exhibit these two decoupling properties. These properties also confer such protocols better "complexity scalability" over time. That is, as a directory protocol implementation becomes more aggressive-faster interconnects, more outstanding requests, more protocol states and optimizations-the changes are more localized.</p><p>Why then have directory protocols not been used more frequently? One possible explanation is that directory protocols were promoted-both in academic research and in industrial designs-primarily for being scalable (i.e., support hundreds or thousands of processors). <ref type="bibr" target="#b3">4</ref> In fact, the term "scalable cache coherence" is synonymous with a directory protocol. Such emphasis on scalability and their first-glance complexity may have given directory protocols a reputation as an exotic and expensive technology. Perhaps this reputation has led designers to be more comfortable evolving their existing snooping-based system over the years, especially as most systems sold-even of "scalable" systems-have a modest number of processors <ref type="bibr" target="#b22">[23]</ref>. Transitioning to a directory protocol represents a more radical design change than just evolving an existing snooping system. <ref type="bibr" target="#b4">5</ref> In addition, many early directory systems were hierarchical multiprocessors built from snooping-based multiprocessor building blocks (e.g., <ref type="bibr" target="#b13">[14,</ref><ref type="bibr" target="#b14">15,</ref><ref type="bibr" target="#b27">28]</ref>), resulting in a reputation of substantial complexity and large latency overhead from bridging between the two protocols. Finally, performance issues may have played a role (discussed briefly in the next section).</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="5">A New Alternative: Token Coherence</head><p>Although we encourage designers to consider directory protocols over snooping protocols for complexity and design verification reasons, directory protocols have an important performance disadvantage that must be addressed: directory protocols add indirection latency to cache-to-cache misses. To resolve races, a directory protocol sends all requests to a home node that then forwards the request (if needed) or responds with the data from memory. In contrast, a snooping protocol avoids indirection by broadcasting all requests to all nodes and relying on interconnect ordering to help resolve races. Although the additional indirection latency of a directory protocol can be partially mitigated by using a directory cache, an extra interconnect traversal remains on the critical path of some cache misses.</p><p>The recently-proposed token coherence protocol <ref type="bibr" target="#b15">[16,</ref><ref type="bibr" target="#b17">18,</ref><ref type="bibr" target="#b18">19]</ref> can eliminate the constraint of directory indirection without sacrificing either decoupling of the the interconnect from the coherence protocol or decoupling of coherence from consistency. Token coherence uses token counting to resolve races without requiring a home node or an ordered interconnect. Token coherence embraces even further levels of decoupling by separating the correctness substrate from the system's performance policy. The correctness substrate is further decoupled into enforcing safety and avoiding starvation.</p><p>Enforcing safety. Token coherence's correctness substrate provides safety by counting tokens for each block of memory in the system. Each block in the system has a fixed number of tokens (T ). If a processor's cache has all T tokens for the block, it is allowed to read and write the block. If a processor's cache has at least one token, it can read the block (but not write it). If a processor's cache holds no tokens, it can neither read nor write the block. These token counting rules directly ensure that while one processor is writing the block, no other processor is reading or writing it. In essence, it directly enforces the multiple-reader-single-writer coher-ence invariant suitable for allowing the processor to enforce the desired memory consistency model. Such simple rules allow for reasoning about protocol safety in a much simpler fashion, and by its nature, token coherence does not rely upon complicated ordering properties of the interconnect or the use of a directory home node to resolve races.</p><p>Avoiding starvation. Although token counting ensures safety, it does not ensure that a request is eventually satisfied. Thus the correctness substrate provides persistent requests to prevent starvation. When a processor detects possible starvation (such as via a time-out), it initiates a persistent request. The substrate then activates at most one persistent request per block, using a fair arbitration mechanism. Each system node remembers all activated persistent requests (for example, in a table at each node) and forwards all tokens for the block-those tokens currently present and received in the future-to the request initiator. Finally, when the initiator has sufficient tokens, it performs a memory operation (a load or store instruction) and deactivates its persistent request.</p><p>Performance policies. The correctness substrate provides a foundation for implementing many performance policies. These performance policies focus on making the system fast and bandwidth-efficient, but have no correctness responsibilities, because the substrate is responsible for correctness. This decoupling of responsibility between the correctness substrate and performance policy enables the development of performance policies that capture many of the desirable attributes of snooping and directory protocols. For example, token coherence performance policies have been developed <ref type="bibr" target="#b15">[16]</ref> to approximate an unordered broadcast-based protocol (inspired by snooping protocols), a bandwidth-efficient performance policy that emulates a directory protocol, and a predictive hybrid protocol that uses destination-set prediction <ref type="bibr" target="#b16">[17]</ref>.</p><p>Ramifications on design verification. As token coherence's use of decoupling goes beyond the two decoupling properties described in Section 3, it perhaps has some additional verification advantages. For example, Marty et al. <ref type="bibr" target="#b21">[22]</ref> used a single-level token coherence protocol to approximate the performance characteristics of a two-level hierarchical coherence protocol. That is, the protocol is flat for correctness but hierarchical for performance. Using token coherence in this fashion allows for the performance benefits of a hierarchical protocol combined with the ease of verification of a single-level protocol. Marty et al. <ref type="bibr" target="#b21">[22]</ref> also show that the difficulty of verifying the token coherence correctness substrate is comparable to verifying a single-level directory protocol. In addition, the flexibility provided by the performance policy should allow a system using a token coherence protocol to be enhanced over time without substantial changes to the correctness substrate.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="6">Conclusions</head><p>In this paper, we reflected on the impact of the increasing use of formal design verification methods during the early stages of multiprocessor system design. We identified two desirable decoupling properties for reducing the complexity and enhancing the verifiability of the system: decoupling coherence from consistency and decoupling the interconnect ordering properties from the cache coherence protocol. We used these properties to revisit the snooping versus directory protocol debate, and we argued that these decoupling properties point to directory protocols as being more attractive that snooping protocols from a verifiability and modifyability point of view. Finally, we identified token coherence as a possible approach for (1) further simplifying the verifiability of coherence protocols and (2) overcoming the indirection performance penalty found in directory protocols. As multi-core designs are becoming ubiquitous, we encourage the designers of these systems to look beyond simple bus-based snooping-based designs and to consider directory protocols and token coherence as approaches to creating more verifiable and adaptable designs.</p></div><figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_0"><head></head><label></label><figDesc>Proceedings of the 2005 International Conference on Computer Design (ICCD'05)</figDesc></figure>
+
+			<note place="foot" n="1"> For example, when talking with a verification engineer about one specific verification effort, I was told that the only critical bug found during the formal verification process was encountered during construction of the model; the automated checking of the model did verify the bug and its fix, but it did not discover any other significant bugs. 2 For example, after suggesting a specific cache coherence protocol proposal to one industrial designer, the designer&apos;s face went pale, and he said something like &quot;the verification team would never let us get away with that&quot;. Proceedings of the 2005 International Conference on Computer Design (ICCD&apos;05) 0-7695-2451-6/05 $20.00 © 2005 IEEE</note>
+
+			<note place="foot" n="3"> For further discussion of the subtle implications and interactions of memory consistency models and totally-ordered interconnects, see chapters 2 and 10 of Martin [16]. Proceedings of the 2005 International Conference on Computer Design (ICCD&apos;05) 0-7695-2451-6/05 $20.00 © 2005 IEEE</note>
+
+			<note place="foot" n="4"> See Hill [11] for an early skeptical view of scalability. Proceedings of the 2005 International Conference on Computer Design (ICCD&apos;05) 0-7695-2451-6/05 $20.00 © 2005 IEEE</note>
+
+			<note place="foot" n="5"> In fact, some of my earlier research took this evolutionary approach to trying to enhance snooping protocols to mitigate their disadvantages (e.g., [20, 21]). However, I now believe the disadvantages of directory protocols are perhaps more easily mitigated than the disadvantages of snooping protocols.</note>
+		</body>
+		<back>
+
+			<div type="acknowledgement">
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>Acknowledgments</head><p>The author thanks Rajeev Alur, Sebastian Burckhardt, Jesse Bingham, Mark Hill, Alan Hu, and David Wood for helpful discussions leading up to this paper. This work is funded in part by a gift from Intel Corporation.</p></div>
+			</div>
+
+			<div type="references">
+
+				<listBibl>
+
+<biblStruct xml:id="b0">
+	<analytic>
+		<title level="a" type="main">Toward ComplexityEffective Verification: A Case Study of the Cray SV2 Cache Coherence Protocol</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Abts</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><forename type="middle">J</forename><surname>Lilja</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Scott</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">1st Workshop on Complexity-Effective Design held in conjunction with the 27th International Symposium on Computer Architecture</title>
+		<imprint>
+			<date type="published" when="2000-06" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b1">
+	<analytic>
+		<title level="a" type="main">Shared Memory Consistency Models: A Tutorial</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><forename type="middle">V</forename><surname>Adve</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">K</forename><surname>Gharachorloo</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">IEEE Computer</title>
+		<imprint>
+			<biblScope unit="volume">29</biblScope>
+			<biblScope unit="issue">12</biblScope>
+			<biblScope unit="page" from="66" to="76" />
+			<date type="published" when="1996-12" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b2">
+	<analytic>
+		<title level="a" type="main">Recent Advances in Memory Consistency Models for Hardware Shared Memory Systems</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><forename type="middle">V</forename><surname>Adve</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">V</forename><forename type="middle">S</forename><surname>Pai</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>Ranganathan</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Proceedings of the IEEE</title>
+		<imprint>
+			<biblScope unit="volume">87</biblScope>
+			<biblScope unit="issue">3</biblScope>
+			<biblScope unit="page" from="445" to="455" />
+			<date type="published" when="1999-03" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b3">
+	<analytic>
+		<title level="a" type="main">AMD Opteron Shared Memory MP Systems</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Ahmed</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>Conway</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">B</forename><surname>Hughes</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">F</forename><surname>Weber</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the 14th HotChips Symposium</title>
+		<meeting>the 14th HotChips Symposium</meeting>
+		<imprint>
+			<date type="published" when="2002-08" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b4">
+	<analytic>
+		<title level="a" type="main">Cache Coherence Verification with TLA+</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">H</forename><surname>Akhiani</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Doligez</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>Harter</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">L</forename><surname>Lamport</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Scheid</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Tuttle</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Y</forename><surname>Yu</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">FM&apos;99-Formal Methods</title>
+		<imprint>
+			<publisher>Springer Verlag</publisher>
+			<date type="published" when="1999" />
+			<biblScope unit="volume">II</biblScope>
+			<biblScope unit="page">1871</biblScope>
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b5">
+	<analytic>
+		<title level="a" type="main">Formal Methods: State of the Art and Future Directions</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">E</forename><forename type="middle">M</forename><surname>Clarke</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><forename type="middle">M</forename><surname>Wing</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">ACM Computing Surveys</title>
+		<imprint>
+			<biblScope unit="volume">28</biblScope>
+			<biblScope unit="issue">4</biblScope>
+			<biblScope unit="page" from="626" to="643" />
+			<date type="published" when="1996-12" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b6">
+	<analytic>
+		<title level="a" type="main">Performance analysis of the Alpha 21364-based HP GS1280 multiprocessor</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Z</forename><surname>Cvetanovic</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the 30th Annual International Symposium on Computer Architecture</title>
+		<meeting>the 30th Annual International Symposium on Computer Architecture</meeting>
+		<imprint>
+			<date type="published" when="2003-06" />
+			<biblScope unit="page" from="218" to="229" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b7">
+	<analytic>
+		<title level="a" type="main">Protocol Verification as a Hardware Design Aid</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><forename type="middle">L</forename><surname>Dill</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><forename type="middle">J</forename><surname>Drexler</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><forename type="middle">J</forename><surname>Hu</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><forename type="middle">H</forename><surname>Yang</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">1992 IEEE International Conference on Computer Design: VLSI in Computers and Processors</title>
+		<imprint>
+			<date type="published" when="1992" />
+			<biblScope unit="page" from="522" to="525" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b8">
+	<analytic>
+		<title level="a" type="main">Two Techniques to Enhance the Performance of Memory Consistency Models</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">K</forename><surname>Gharachorloo</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Gupta</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Hennessy</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the International Conference on Parallel Processing</title>
+		<meeting>the International Conference on Parallel Processing</meeting>
+		<imprint>
+			<date type="published" when="1991-08" />
+			<biblScope unit="volume">I</biblScope>
+			<biblScope unit="page" from="355" to="364" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b9">
+	<analytic>
+		<title level="a" type="main">Architecture and Design of AlphaServer GS320</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">K</forename><surname>Gharachorloo</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Sharma</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Steely</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><forename type="middle">V</forename><surname>Doren</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the Ninth International Conference on Architectural Support for Programming Languages and Operating Systems</title>
+		<meeting>the Ninth International Conference on Architectural Support for Programming Languages and Operating Systems</meeting>
+		<imprint>
+			<date type="published" when="2000-11" />
+			<biblScope unit="page" from="13" to="24" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b10">
+	<analytic>
+		<title level="a" type="main">What is Scalability?</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><forename type="middle">D</forename><surname>Hill</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Computer Architecture News</title>
+		<imprint>
+			<biblScope unit="volume">18</biblScope>
+			<biblScope unit="issue">4</biblScope>
+			<biblScope unit="page" from="18" to="21" />
+			<date type="published" when="1990" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b11">
+	<analytic>
+		<title level="a" type="main">Formal Verification of the HAL S1 System Cache Coherence Protocol</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><forename type="middle">J</forename><surname>Hu</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Fujita</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Wilson</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the International Conference on Computer Design</title>
+		<meeting>the International Conference on Computer Design</meeting>
+		<imprint>
+			<date type="published" when="1997-10" />
+			<biblScope unit="page" from="438" to="444" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b12">
+	<analytic>
+		<title level="a" type="main">The SGI Origin: A cc-NUMA Highly Scalable Server</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Laudon</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Lenoski</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the 24th Annual International Symposium on Computer Architecture</title>
+		<meeting>the 24th Annual International Symposium on Computer Architecture</meeting>
+		<imprint>
+			<date type="published" when="1997-06" />
+			<biblScope unit="page" from="241" to="251" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b13">
+	<analytic>
+		<title level="a" type="main">The Stanford DASH Multiprocessor</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Lenoski</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Laudon</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">K</forename><surname>Gharachorloo</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">W.-D</forename><surname>Weber</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Gupta</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Hennessy</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Horowitz</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Lam</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">IEEE Computer</title>
+		<imprint>
+			<biblScope unit="volume">25</biblScope>
+			<biblScope unit="issue">3</biblScope>
+			<biblScope unit="page" from="63" to="79" />
+			<date type="published" when="1992-03" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b14">
+	<analytic>
+		<title level="a" type="main">STiNG: A CC-NUMA Computer System for the Commercial Marketplace</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">T</forename><forename type="middle">D</forename><surname>Lovett</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><forename type="middle">M</forename><surname>Clapp</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the 23th Annual International Symposium on Computer Architecture</title>
+		<meeting>the 23th Annual International Symposium on Computer Architecture</meeting>
+		<imprint>
+			<date type="published" when="1996-05" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b15">
+	<monogr>
+		<title level="m" type="main">Token Coherence</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><forename type="middle">M K</forename><surname>Martin</surname></persName>
+		</author>
+		<imprint>
+			<date type="published" when="2003" />
+		</imprint>
+		<respStmt>
+			<orgName>University of Wisconsin</orgName>
+		</respStmt>
+	</monogr>
+<note type="report_type">PhD thesis</note>
+</biblStruct>
+
+<biblStruct xml:id="b16">
+	<analytic>
+		<title level="a" type="main">Using Destination-Set Prediction to Improve the Latency/Bandwidth Tradeoff in Shared Memory Multiprocessors</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><forename type="middle">M K</forename><surname>Martin</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><forename type="middle">J</forename><surname>Harper</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><forename type="middle">J</forename><surname>Sorin</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><forename type="middle">D</forename><surname>Hill</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><forename type="middle">A</forename><surname>Wood</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the 30th Annual International Symposium on Computer Architecture</title>
+		<meeting>the 30th Annual International Symposium on Computer Architecture</meeting>
+		<imprint>
+			<date type="published" when="2003-06" />
+			<biblScope unit="page" from="206" to="217" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b17">
+	<analytic>
+		<title level="a" type="main">Token Coherence: A New Framework for Shared-Memory Multiprocessors</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><forename type="middle">M K</forename><surname>Martin</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><forename type="middle">D</forename><surname>Hill</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><forename type="middle">A</forename><surname>Wood</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">IEEE Micro</title>
+		<imprint>
+			<date type="published" when="2003-12" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b18">
+	<analytic>
+		<title level="a" type="main">Token Coherence: Decoupling Performance and Correctness</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><forename type="middle">M K</forename><surname>Martin</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><forename type="middle">D</forename><surname>Hill</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><forename type="middle">A</forename><surname>Wood</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the 30th Annual International Symposium on Computer Architecture</title>
+		<meeting>the 30th Annual International Symposium on Computer Architecture</meeting>
+		<imprint>
+			<date type="published" when="2003-06" />
+			<biblScope unit="page" from="182" to="193" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b19">
+	<analytic>
+		<title level="a" type="main">Timestamp Snooping: An Approach for Extending SMPs</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><forename type="middle">M K</forename><surname>Martin</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><forename type="middle">J</forename><surname>Sorin</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Ailamaki</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><forename type="middle">R</forename><surname>Alameldeen</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><forename type="middle">M</forename><surname>Dickson</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><forename type="middle">J</forename><surname>Mauer</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">K</forename><forename type="middle">E</forename><surname>Moore</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Plakal</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><forename type="middle">D</forename><surname>Hill</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><forename type="middle">A</forename><surname>Wood</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the Ninth International Conference on Architectural Support for Programming Languages and Operating Systems</title>
+		<meeting>the Ninth International Conference on Architectural Support for Programming Languages and Operating Systems</meeting>
+		<imprint>
+			<date type="published" when="2000-11" />
+			<biblScope unit="page" from="25" to="36" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b20">
+	<analytic>
+		<title level="a" type="main">Bandwidth Adaptive Snooping</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><forename type="middle">M K</forename><surname>Martin</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><forename type="middle">J</forename><surname>Sorin</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><forename type="middle">D</forename><surname>Hill</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><forename type="middle">A</forename><surname>Wood</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the Eighth IEEE Symposium on High-Performance Computer Architecture</title>
+		<meeting>the Eighth IEEE Symposium on High-Performance Computer Architecture</meeting>
+		<imprint>
+			<date type="published" when="2002-02" />
+			<biblScope unit="page" from="251" to="262" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b21">
+	<analytic>
+		<title level="a" type="main">Improving Multiple-CMP Systems Using Token Coherence</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><forename type="middle">R</forename><surname>Marty</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><forename type="middle">D</forename><surname>Bingham</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><forename type="middle">D</forename><surname>Hill</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><forename type="middle">J</forename><surname>Hu</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><forename type="middle">M K</forename><surname>Martin</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><forename type="middle">A</forename><surname>Wood</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the 11th IEEE Symposium on High-Performance Computer Architecture</title>
+		<meeting>the 11th IEEE Symposium on High-Performance Computer Architecture</meeting>
+		<imprint>
+			<date type="published" when="2005-02" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b22">
+	<monogr>
+		<title level="m" type="main">NUMAflex Modular Design Approach: A Revolution in Evolution</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><forename type="middle">R</forename><surname>Mashey</surname></persName>
+		</author>
+		<imprint>
+			<date type="published" when="2000-08" />
+		</imprint>
+	</monogr>
+	<note>Posted on comp.arch news group</note>
+</biblStruct>
+
+<biblStruct xml:id="b23">
+	<analytic>
+		<title level="a" type="main">The Alpha 21364 Network Architecture</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><forename type="middle">S</forename><surname>Mukherjee</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>Bannon</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Lang</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Spink</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Webb</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the 9th Hot Interconnects Symposium</title>
+		<meeting>the 9th Hot Interconnects Symposium</meeting>
+		<imprint>
+			<date type="published" when="2001-08" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b24">
+	<analytic>
+		<title level="a" type="main">Design Verification of the S3.mp Cache-Coherent SharedMemory System</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">F</forename><surname>Pong</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Browne</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Nowatzyk</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Dubois</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">IEEE Transactions on Computers</title>
+		<imprint>
+			<biblScope unit="volume">47</biblScope>
+			<biblScope unit="issue">1</biblScope>
+			<biblScope unit="page" from="135" to="140" />
+			<date type="published" when="1998-01" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b25">
+	<analytic>
+		<title level="a" type="main">Verification Techniques for Cache Coherence Protocols</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">F</forename><surname>Pong</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Dubois</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">ACM Computing Surveys</title>
+		<imprint>
+			<biblScope unit="volume">29</biblScope>
+			<biblScope unit="issue">1</biblScope>
+			<biblScope unit="page" from="82" to="126" />
+			<date type="published" when="1997-03" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b26">
+	<analytic>
+		<title level="a" type="main">Sinharoy. POWER4 System Microarchitecture</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><forename type="middle">M</forename><surname>Tendler</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Dodson</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Fields</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">H</forename><surname>Le</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">B</forename></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">IBM Journal of Research and Development</title>
+		<imprint>
+			<biblScope unit="volume">46</biblScope>
+			<biblScope unit="issue">1</biblScope>
+			<date type="published" when="2002" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b27">
+	<analytic>
+		<title level="a" type="main">The Mercury Interconnect Architecture: A Cost-Effective Infrastructure for High-Performance Servers</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">W.-D</forename><surname>Weber</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Gold</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>Helland</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">T</forename><surname>Shimizu</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">T</forename><surname>Wicki</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">W</forename><surname>Wilcke</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the 24th Annual International Symposium on Computer Architecture</title>
+		<meeting>the 24th Annual International Symposium on Computer Architecture</meeting>
+		<imprint>
+			<date type="published" when="1997-06" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b28">
+	<monogr>
+				<title level="m">Proceedings of the 2005 International Conference on Computer Design (ICCD&apos;05)</title>
+		<meeting>the 2005 International Conference on Computer Design (ICCD&apos;05)</meeting>
+		<imprint/>
+	</monogr>
+</biblStruct>
+
+				</listBibl>
+			</div>
+		</back>
+	</text>
+</TEI>

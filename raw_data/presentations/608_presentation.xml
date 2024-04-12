@@ -1,0 +1,289 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>Piccolo: Building fast distributed programs with partitioned tables</p>
+    <p>Russell Power Jinyang Li New York University</p>
+  </div>
+  <div class="page">
+    <p>Motivating Example: PageRank</p>
+    <p>for each node X in graph: for each edge XZ: next[Z] += curr[X]</p>
+    <p>Repeat until convergence</p>
+    <p>AB,C,D</p>
+    <p>BE</p>
+    <p>CD</p>
+    <p>A: 0.12</p>
+    <p>B: 0.15</p>
+    <p>C: 0.2</p>
+    <p>A: 0</p>
+    <p>B: 0</p>
+    <p>C: 0</p>
+    <p>Curr Next Input Graph</p>
+    <p>A: 0.2</p>
+    <p>B: 0.16</p>
+    <p>C: 0.21</p>
+    <p>A: 0.2</p>
+    <p>B: 0.16</p>
+    <p>C: 0.21</p>
+    <p>A: 0.25</p>
+    <p>B: 0.17</p>
+    <p>C: 0.22</p>
+    <p>A: 0.25</p>
+    <p>B: 0.17</p>
+    <p>C: 0.22</p>
+    <p>Fits in memory!</p>
+  </div>
+  <div class="page">
+    <p>PageRank in MapReduce</p>
+    <p>Distributed Storage</p>
+    <p>Graph stream Rank stream A-&gt;B,C, B-&gt;D A:0.1, B:0.2</p>
+    <p>Rank stream A:0.1, B:0.2</p>
+    <p>Data flow models do not expose global state.</p>
+  </div>
+  <div class="page">
+    <p>PageRank in MapReduce</p>
+    <p>Distributed Storage</p>
+    <p>Graph stream Rank stream A-&gt;B,C, B-&gt;D A:0.1, B:0.2</p>
+    <p>Rank stream A:0.1, B:0.2</p>
+    <p>Data flow models do not expose global state.</p>
+  </div>
+  <div class="page">
+    <p>PageRank With MPI/RPC</p>
+    <p>Distributed Storage</p>
+    <p>Graph A-&gt;B,C</p>
+    <p>Ranks A: 0</p>
+    <p>Graph B-&gt;D</p>
+    <p>Ranks B: 0</p>
+    <p>Graph C-&gt;E,F</p>
+    <p>Ranks C: 0</p>
+    <p>User explicitly programs</p>
+    <p>communication</p>
+  </div>
+  <div class="page">
+    <p>Piccolos Goal: Distributed Shared State</p>
+    <p>Distributed Storage</p>
+    <p>Graph A-&gt;B,C B-&gt;D</p>
+    <p>Ranks A: 0 B: 0</p>
+    <p>read/write</p>
+    <p>Distributed inmemory state</p>
+  </div>
+  <div class="page">
+    <p>Piccolos Goal: Distributed Shared State</p>
+    <p>Graph A-&gt;B,C</p>
+    <p>Ranks A: 0</p>
+    <p>Graph B-&gt;D</p>
+    <p>Ranks B: 0</p>
+    <p>Graph C-&gt;E,F</p>
+    <p>Ranks C: 0</p>
+    <p>Piccolo runtime handles</p>
+    <p>communication</p>
+  </div>
+  <div class="page">
+    <p>Ease of use Performance</p>
+  </div>
+  <div class="page"/>
+  <div class="page">
+    <p>Talk outline</p>
+    <p>Motivation  Piccolo's Programming Model  Runtime Scheduling  Evaluation</p>
+  </div>
+  <div class="page">
+    <p>Programming Model</p>
+    <p>Graph AB,C BD</p>
+    <p>Ranks A: 0 B: 0</p>
+    <p>read/write x get/put update/iterate Implemented as library for C++ and Python</p>
+  </div>
+  <div class="page">
+    <p>def main(): for i in range(50): launch_jobs(NUM_MACHINES, pr_kernel,</p>
+    <p>graph, curr, next) swap(curr, next) next.clear()</p>
+    <p>def pr_kernel(graph, curr, next): i = my_instance n = len(graph)/NUM_MACHINES for s in graph[(i-1)*n:i*n] for t in s.out: next[t] += curr[s.id] / len(s.out)</p>
+    <p>Nave PageRank with Piccolo</p>
+    <p>Run by a single controller</p>
+    <p>Jobs run by many machines</p>
+    <p>curr = Table(key=PageID, value=double) next = Table(key=PageID, value=double)</p>
+    <p>Controller launches jobs in parallel</p>
+  </div>
+  <div class="page">
+    <p>Nave PageRank is Slow</p>
+    <p>Ranks A: 0</p>
+    <p>Graph B-&gt;D</p>
+    <p>Ranks B: 0</p>
+    <p>Graph C-&gt;E,F</p>
+    <p>Ranks C: 0</p>
+    <p>get put</p>
+    <p>put</p>
+    <p>put get</p>
+    <p>get</p>
+  </div>
+  <div class="page">
+    <p>PageRank: Exploiting Locality Control table partitioning</p>
+    <p>Co-locate tables</p>
+    <p>Co-locate execution with table</p>
+    <p>curr = Table(,partitions=100,partition_by=site) next = Table(,partitions=100,partition_by=site) group_tables(curr,next,graph)</p>
+    <p>def pr_kernel(graph, curr, next): for s in graph.get_iterator(my_instance) for t in s.out: next[t] += curr[s.id] / len(s.out)</p>
+    <p>def main(): for i in range(50): launch_jobs(curr.num_partitions, pr_kernel, graph, curr, next, locality=curr) swap(curr, next) next.clear()</p>
+  </div>
+  <div class="page">
+    <p>Exploiting Locality</p>
+    <p>Ranks A: 0</p>
+    <p>Graph B-&gt;D</p>
+    <p>Ranks B: 0</p>
+    <p>Graph C-&gt;E,F</p>
+    <p>Ranks C: 0</p>
+    <p>get put</p>
+    <p>put</p>
+    <p>put get</p>
+    <p>get</p>
+  </div>
+  <div class="page">
+    <p>Exploiting Locality</p>
+    <p>Ranks A: 0</p>
+    <p>Graph B-&gt;D</p>
+    <p>Ranks B: 0</p>
+    <p>Graph C-&gt;E,F</p>
+    <p>Ranks C: 0</p>
+    <p>put</p>
+    <p>get</p>
+    <p>put put</p>
+    <p>get get</p>
+  </div>
+  <div class="page">
+    <p>Synchronization</p>
+    <p>Ranks A: 0</p>
+    <p>Graph B-&gt;D</p>
+    <p>Ranks B: 0</p>
+    <p>Graph C-&gt;E,F</p>
+    <p>Ranks C: 0</p>
+    <p>put (a=0.3) put (a=0.2)</p>
+    <p>How to handle synchronization?</p>
+  </div>
+  <div class="page">
+    <p>Synchronization Primitives</p>
+    <p>Avoid write conflicts with accumulation functions  NewValue = Accum(OldValue, Update)</p>
+    <p>sum, product, min, max</p>
+    <p>Global barriers are sufficient  Tables provide release consistency</p>
+  </div>
+  <div class="page">
+    <p>PageRank: Efficient Synchronization curr = Table(,partition_by=site,accumulate=sum) next = Table(,partition_by=site,accumulate=sum) group_tables(curr,next,graph)</p>
+    <p>def pr_kernel(graph, curr, next): for s in graph.get_iterator(my_instance) for t in s.out: next.update(t, curr.get(s.id)/len(s.out))</p>
+    <p>def main(): for i in range(50): handle = launch_jobs(curr.num_partitions, pr_kernel, graph, curr, next, locality=curr) barrier(handle) swap(curr, next) next.clear()</p>
+    <p>Accumulation via sum</p>
+    <p>Update invokes accumulation function</p>
+    <p>Explicitly wait between iterations</p>
+  </div>
+  <div class="page">
+    <p>Efficient Synchronization</p>
+    <p>Ranks A: 0</p>
+    <p>Graph B-&gt;D</p>
+    <p>Ranks B: 0</p>
+    <p>Graph C-&gt;E,F</p>
+    <p>Ranks C: 0</p>
+    <p>put (a=0.3) put (a=0.2) update (a, 0.2)</p>
+    <p>update (a, 0.3)</p>
+    <p>Runtime computes sum</p>
+    <p>Workers buffer updates locally  Release consistency</p>
+  </div>
+  <div class="page">
+    <p>Table Consistency</p>
+    <p>Ranks A: 0</p>
+    <p>Graph B-&gt;D</p>
+    <p>Ranks B: 0</p>
+    <p>Graph C-&gt;E,F</p>
+    <p>Ranks C: 0</p>
+    <p>put (a=0.3) put (a=0.2) update (a, 0.2)</p>
+    <p>update (a, 0.3)</p>
+  </div>
+  <div class="page">
+    <p>PageRank with Checkpointing</p>
+    <p>curr = Table(,partition_by=site,accumulate=sum) next = Table(,partition_by=site,accumulate=sum) group_tables(curr,next) def pr_kernel(graph, curr, next): for node in graph.get_iterator(my_instance) for t in s.out: next.update(t,curr.get(s.id)/len(s.out))</p>
+    <p>def main(): curr, userdata = restore() last = userdata.get(iter, 0) for i in range(last,50): handle = launch_jobs(curr.num_partitions, pr_kernel, graph, curr, next, locality=curr) cp_barrier(handle, tables=(next), userdata={iter:i}) swap(curr, next) next.clear()</p>
+    <p>Restore previous computation</p>
+    <p>User decides which tables to checkpoint and when</p>
+  </div>
+  <div class="page">
+    <p>Distributed Storage</p>
+    <p>Recovery via Checkpointing</p>
+    <p>Ranks A: 0</p>
+    <p>Graph B-&gt;D</p>
+    <p>Ranks B: 0</p>
+    <p>Graph C-&gt;E,F</p>
+    <p>Ranks C: 0</p>
+    <p>Runtime uses Chandy-Lamport</p>
+    <p>protocol</p>
+  </div>
+  <div class="page">
+    <p>Talk Outline</p>
+    <p>Motivation  Piccolo's Programming Model  Runtime Scheduling  Evaluation</p>
+  </div>
+  <div class="page">
+    <p>Load Balancing</p>
+    <p>master</p>
+    <p>J5 J3</p>
+    <p>Other workers are updating P6!</p>
+    <p>Pause updates!</p>
+    <p>P1 P1, P2</p>
+    <p>P3 P3, P4</p>
+    <p>P5 P5, P6 J1</p>
+    <p>J1, J2 J3</p>
+    <p>J3, J4</p>
+    <p>J6</p>
+    <p>J5, J6</p>
+    <p>P6</p>
+    <p>Coordinates work</p>
+    <p>stealing</p>
+  </div>
+  <div class="page">
+    <p>Talk Outline</p>
+    <p>Motivation  Piccolo's Programming Model  System Design  Evaluation</p>
+  </div>
+  <div class="page">
+    <p>Piccolo is Fast</p>
+    <p>NYU cluster, 12 nodes, 64 cores  100M-page graph</p>
+    <p>Main Hadoop Overheads:</p>
+    <p>Sorting  HDFS  Serialization</p>
+    <p>P ag</p>
+    <p>eR an</p>
+    <p>k ite</p>
+    <p>ra tio</p>
+    <p>n tim</p>
+    <p>e</p>
+    <p>(s ec</p>
+    <p>on ds</p>
+    <p>)</p>
+    <p>Hadoop Piccolo</p>
+  </div>
+  <div class="page">
+    <p>Piccolo Scales Well</p>
+    <p>EC2 Cluster - linearly scaled input graph</p>
+    <p>ideal</p>
+    <p>P ag</p>
+    <p>eR an</p>
+    <p>k ite</p>
+    <p>ra tio</p>
+    <p>n tim</p>
+    <p>e</p>
+    <p>(s ec</p>
+    <p>on ds</p>
+    <p>)</p>
+  </div>
+  <div class="page">
+    <p>Iterative Applications  N-Body Simulation  Matrix Multiply</p>
+    <p>Asynchronous Applications  Distributed web crawler</p>
+    <p>Other applications</p>
+    <p>No straightforward Hadoop implementation</p>
+  </div>
+  <div class="page">
+    <p>Related Work</p>
+    <p>Data flow  MapReduce, Dryad</p>
+    <p>Tuple Spaces  Linda, JavaSpaces</p>
+    <p>Distributed Shared Memory  CRL, TreadMarks, Munin, Ivy  UPC, Titanium</p>
+  </div>
+  <div class="page">
+    <p>Conclusion</p>
+    <p>Distributed shared table model  User-specified policies provide for</p>
+    <p>Effective use of locality  Efficient synchronization  Robust failure recovery</p>
+  </div>
+  <div class="page">
+    <p>Gratuitous Cat Picture</p>
+    <p>I can haz kwestions?</p>
+    <p>Try it out: piccolo.news.cs.nyu.edu</p>
+  </div>
+</Presentation>

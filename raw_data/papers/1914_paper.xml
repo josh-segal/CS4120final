@@ -1,0 +1,580 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<TEI xmlns="http://www.tei-c.org/ns/1.0" 
+xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+xsi:schemaLocation="http://www.tei-c.org/ns/1.0 /Users/atharsefid/Desktop/grobid-0.5.3/grobid-home/schemas/xsd/Grobid.xsd"
+ xmlns:xlink="http://www.w3.org/1999/xlink">
+	<teiHeader xml:lang="en">
+		<encodingDesc>
+			<appInfo>
+				<application version="0.5.3" ident="GROBID" when="2019-03-26T16:40+0000">
+					<ref target="https://github.com/kermitt2/grobid">GROBID - A machine learning software for extracting information from scholarly documents</ref>
+				</application>
+			</appInfo>
+		</encodingDesc>
+		<fileDesc>
+			<titleStmt>
+				<title level="a" type="main">Power and Performance Characterization of Computational Kernels on the GPU</title>
+			</titleStmt>
+			<publicationStmt>
+				<publisher/>
+				<availability status="unknown"><licence/></availability>
+			</publicationStmt>
+			<sourceDesc>
+				<biblStruct>
+					<analytic>
+						<author>
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Y</forename><surname>Jiao</surname></persName>
+							<affiliation key="aff0">
+								<orgName type="department">Department of Computer Science Virginia Tech</orgName>
+							</affiliation>
+						</author>
+						<author>
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">H</forename><surname>Lin</surname></persName>
+							<affiliation key="aff0">
+								<orgName type="department">Department of Computer Science Virginia Tech</orgName>
+							</affiliation>
+						</author>
+						<author>
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>Balaji</surname></persName>
+							<email>balaji@mcs.anl.gov</email>
+							<affiliation key="aff1">
+								<orgName type="department">Mathematics and Computer Science</orgName>
+								<orgName type="laboratory">Argonne National Laboratory</orgName>
+							</affiliation>
+						</author>
+						<author>
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">W</forename><surname>Feng</surname></persName>
+							<email>feng@cs.vt.edu</email>
+							<affiliation key="aff0">
+								<orgName type="department">Department of Computer Science Virginia Tech</orgName>
+							</affiliation>
+						</author>
+						<title level="a" type="main">Power and Performance Characterization of Computational Kernels on the GPU</title>
+					</analytic>
+					<monogr>
+						<imprint>
+							<date/>
+						</imprint>
+					</monogr>
+					<note>1</note>
+				</biblStruct>
+			</sourceDesc>
+		</fileDesc>
+		<profileDesc>
+			<abstract>
+				<p>Nowadays Graphic Processing Units (GPU) are gaining increasing popularity in high performance computing (HPC). While modern GPUs can offer much more computational power than CPUs, they also consume much more power. Energy efficiency is one of the most important factors that will affect a broader adoption of GPUs in HPC. In this paper, we systematically characterize the power and energy efficiency of GPU computing. Specifically, using three different applications with various degrees of compute and memory intensiveness, we investigate the correlation between power consumption and different computational patterns under various voltage and frequency levels. Our study revealed that energy saving mechanisms on GPUs behave considerably different than CPUs. The characterization results also suggest possible ways to improve the &quot;greenness&quot; of GPU computing.</p>
+			</abstract>
+		</profileDesc>
+	</teiHeader>
+	<text xml:lang="en">
+		<body>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>I. INTRODUCTION</head><p>Recent years have seen the growth of accelerator-based supercomputers at a surprising rate. Together with their performance capabilities, GPU-based accelerators are also becoming popular because of their extraordinary energy efficiency, as illustrated by The Green500 List <ref type="bibr" target="#b6">[7]</ref>, where the first eight machines on the Nov. 2009 list are all built upon an acceleratorbased architecture. Despite their significantly better energy efficiency, as compared to CPUs, GPUs are still considered power-hungry based on the fact that the thermal design power (TDP) of a high-end GPU, e.g., NVIDIA GeForce GTX 280, could be as high as 236 watts (W). Given that the TDP of a high-end quad-core x86-64 CPU is 125 watts, a GPU can still account for a substantial portion of the overall power usage of the system.</p><p>In light of he high power usage of GPUs, the natural question that arises is whether such power usage can be reduced, and if so, what its impact on application performance would be. To address this question, we consider two architectural characteristics of GPUs that allow it to achieve higher performance compared to CPUs: (1) massive on-chip parallelism and (2) higher memory bandwidth. For applications that are compute-bound and can utilize the massive on-chip parallelism, reducing the clock speed of the GPU cores or reducing the number of cores used can impact performance significantly, while the memory bandwidth might not impact them much. On the other hand, for applications that benefit solely from the high memory bandwidth, reducing the clock frequency of the GPU cores might not impact performance too much. Of course, for applications that rely on both, either change (i.e., GPU core frequency or memory frequency) can impact performance.</p><p>In this paper, we present a detailed performance and power characterization of three computationally diverse applications (i.e., compute-intensive, memory-intensive, and hybrid) running on the NVIDIA GeForce GTX 280 GPU with varying processor and memory frequencies. In addition, we characterize the impact of such variation on different application kernels.</p><p>We classify the applications based on two metrics: the rate of instruction issues and the ratio of global memory transaction to computation instructions. The former metric characterizes how intense the computation is in the application; the latter indicates how memory-dependent the application can be.</p><p>Specifically, we study three commonly used scientific computing application kernels -(a) dense matrix multiplication, (b) dense matrix transpose, and (c) fast fourier transform -and show their behavior while varying the frequencies of the GPU cores and memory. In this paper, we do not vary the number of GPU cores utilized because of the restrictions on current GPUs in "suspending" unused GPU cores so as to utilize lesser power, which can cause inconsistent results.</p><p>The rest of the paper is organized as follows. We present a brief overview of the current software abstractions for the GPU in Section II. In Section III, we demonstrate our experimental methodology and experimental setup as well as our approach for profiling the GPU applications studied in this paper. In Section IV, we characterize the performance and power of these different GPU applications under varying frequency settings. We present other related work in Section V and summarize the paper in Section VI, together with possible future directions for this work.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>II. BACKGROUND</head><p>In this section, we provide a brief overview of the programming framework for GPUs that we use in our evaluation. Furthermore, we present some aspects related to dynamic voltage and frequency scaling (DVFS) on GPUs that we utilized in this paper.</p><p>We do not discuss details on the general GPU architecture itself, but refer the readers to other existing literature for such information <ref type="bibr" target="#b8">[9]</ref>, <ref type="bibr" target="#b12">[13]</ref>, <ref type="bibr" target="#b13">[14]</ref>, <ref type="bibr" target="#b18">[19]</ref>.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>A. OpenCL</head><p>While GPUs have become a prominent model for high-end computing, till recently there was no common programming abstraction that allowed applications to transparently utilize different types of GPU architectures. The Open Computing Language (OpenCL) was recently proposed, originally by Apple Inc., to provide a general software abstraction for different types of accelerators. As a programming framework, OpenCL can be used to program any existing computing device including CPU, GPU, and even FPGA. While OpenCL itself is designed to have a standard set of APIs, its implementation is left to vendors (e.g., AMD, NVIDIA, Intel) and other industry and community users. Thus, irrespective of the implementation, applications written with OpenCL can be designed as write once, run anywhere. Due to its extensive support from various vendors and promising cross-platform compatibility, OpenCL was chosen for our study and our test applications are all written with the OpenCL framework.</p><p>An OpenCL platform should contain at least one host that connects to one or more OpenCL devices. Each OpenCL device can contain a certain number of compute units (CUs), and each compute unit is further composed by several processing elements (PEs). The function of the host is to start an OpenCL kernel, and once the kernel is ready for execution on an OpenCL device, the host is responsible for transferring the task to the device accordingly.</p><p>Each OpenCL program can be generally divided into the host part running on the host and the kernels running on the OpenCL devices. Usually it is the host code which is in charge of setting up the execution environment for the kernels and managing their execution on the OpenCL devices. Each instance of a kernel is called a work-item in OpenCL terminology, and several work-items can be grouped together as a work-group. The mapping between the execution model and the platform model is that each work-item will run on one PE, while one work-group will be assigned to a CU.</p><p>Each work-item has access to 4 different types of memory spaces on the OpenCL device. They are listed as follows:</p><p>• Global memory, which is the memory space open to all work-items.</p><p>• Constant memory, which is part of global memory but for reading only.</p><p>• Local memory, which is dedicated to the work-items in the same work-group.</p><p>• Private memory, which is allocated for each work-item but not visible to other work-items.</p><p>For the purpose of a better visualization, <ref type="figure" target="#fig_0">Figure 1</ref> illustrates the relationship between memory and work-items in the OpenCL framework. Throughout the paper, when we refer to GPU memory, we mean global memory (including constant memory), and the bandwidth of global memory is determined by the memoryclock setting of the GPU.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>B. Dynamic Voltage and Frequency Scaling (DVFS) on GPU</head><p>The basic motivation for dynamic voltage and frequency scaling (DVFS) is captured by the equation below:</p><formula xml:id="formula_0">Power ∝ Voltage 2 × Frequency</formula><p>When the frequency is lowered, the power consumption will be lowered proportionally. If the voltage is lowered, the power consumption will drops quadratically, and even cubically, because lowering the voltage also generally lowers the applicable frequency on which the chip can operate. However, there also exists a correlation between the clock frequency and achievable performance, which means that a decrease in frequency can also reduce processor performance. Therefore, as a first-order approximation, DVFS essentially provides us a tool to trade-off performance for power and energy reduction.</p><p>According to publicly available documentation <ref type="bibr" target="#b10">[11]</ref> on NVIDIA's implementation of DVFS on the GPU, there are two predefined performance levels for their GPUs: 'Idle' and 'Maximum Performance.' While there is a third performance level called 'HD Video', it is typically designed for mobile GPU devices and is therefore not available for our GPU, the NVIDIA GeForce GTX 280.</p><p>As the name suggests, the 'Maximum Performance' setting fixes the clock speeds to the highest setting to achieve the best possible performance. In the 'Idle' setting, on the other hand, when the driver detects that the GPU is idling, it will automatically lower down the frequencies of the GPU cores and memory to the pre-defined 'Idle' level, which is just enough for the display to work. Once the driver sees a computational kernel that is ready to be executed, the driver will increase the clocks up to the highest level set by user. Both AMD/ATI and NVIDIA provide frameworks <ref type="bibr" target="#b0">[1]</ref>, <ref type="bibr" target="#b10">[11]</ref> that allow the upper limit on the frequency and voltage to be scaled by users. In particular, the core clock of the NVIDIA GTX 280 can be set between 300 MHz and 700 MHz while the memory clock can be set to any value between 300 MHz and 1200 MHz.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>III. EXPERIMENTAL METHODOLOGY</head><p>In this section, we detail the experimental methodology and setup that we employ in our study.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>A. Experimental Setup</head><p>The goal of the paper is to investigate the performance and power consumption of typical GPU application kernels under different core and memory clock frequencies. With DVFS support enabled, we have been able to adjust the working frequency of both core and memory of GPU. Specifically, for each configuration, we collect the data from multiple runs of the application and report their average. Only the data related to the kernel execution is recorded since our focus in this work is on GPU alone.</p><p>All the results in this paper were taken using the same workstation. The detailed configuration of this base workstation is as follows: Intel Core 2 Quad Q6600, running at 2.33 GHz with 1-GB DDR2 SDRAM*4 and 320-GB Seagate Barracuda 7200.11 hard disk. The GPU card is the NVIDIA GeForce GTX 280, where the default frequency of the computational core is 602 MHz and memory frequency is 1107 MHz. The software environment comprises Ubuntu Linux 9.04 64-bit Linux, CUDA toolkit 2.3a supporting OpenCL, and NVIDIA driver version 190.29. All power measurements in this section are collected with a "Watts Up? Pro ES" power meter and logged to a separate profiling system. <ref type="figure" target="#fig_1">Figure 2</ref> shows the hardware setup.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>B. Experimental Applications</head><p>In our experiments, we tested three applications which represent compute-intensive, memory-intensive, and hybrid kernels to showcase the performance and power consumption of the NVIDIA GeForce GTX 280 GPU. The three applications that we consider are the compute-intensive dense matrix multiplication, the memory-intensive dense matrix transpose, and the hybrid fast Fourier transform (FFT).</p><p>Given that the GPU allows the frequencies of both the computational cores and the memory to be adjusted, we studied both. We did not consider communication-intensive applications since the major factor affecting communication performance on a GPU is neither computation speed nor memory throughput. Thus, we consider such applications to be out of the scope of this study. A detailed discussion about the performance characteristics of communication-intensive applications on GPUs can be found in <ref type="bibr" target="#b19">[20]</ref>, <ref type="bibr" target="#b20">[21]</ref>.</p><p>Below is a more detailed description of the three test applications:</p><p>1) Dense Matrix Multiply: The dense matrix multiply (MatMul) kernel is optimized to fully utilize the potential computational power of the GPU. The basic algorithm adopted here is the blocked version of matrix multiplication, which takes advantage of the GPU's coalesced global memory access and fast private/local memory. The bottleneck in this kernel is just the speed of issuing instructions <ref type="bibr" target="#b17">[18]</ref>.</p><p>2) Dense Matrix Transpose: The dense matrix transpose (MatTran) kernel is designed to be mostly memory manipulations with only a small amount of necessary computation for each thread's ID and memory indices. To fully utilize the parallel processing ability of GPU, multiple rows of the matrix are read-in and manipulated simultaneously. All intermediate results are stored in the local memory, waiting to written back to global memory.</p><p>3) Fast Fourier Transform: The fast Fourier transform (FFT) is an efficient algorithm for solving the discrete Fourier transform and its inverse. A recursive GPU implementation of this algorithm computes the result by launching the computing kernel multiple times during the run. For each kernel launch, the global memory chunk has to be read into local memory and computed by the computing unit. So, the speed of the FFT algorithm would be affected by both the GPU core and memory speeds.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>C. Experimental Profiling</head><p>In order to understand the kernel execution, we collected profiling data for each kernel via the NVIDIA OpenCL Visual Profiler. To verify whether a kernel is compute-intensive or memory-intensive, the rule of thumb proposed in <ref type="bibr" target="#b17">[18]</ref> is to use the "global memory to computation cycle" ratio to indicate the memory-transaction intensity of a GPU kernel. This ratio <ref type="table">MatMul  203135064  991327  991360  5041152  4376  33566720  52448  MatTran  1118754  91527  91562  17480  17480  104864  1677824  FFT  2568388  17452  17611  52432  52432  314650  314650   TABLE I  PROFILING OF APPLICATIONS TESTED</ref> R mem can be estimated using the following formula:</p><note type="other">Application instruction gputime(us) cputime(us) gld request gst request gld tran gst tran</note><formula xml:id="formula_1">R mem = Number (Global Memory Transactions) Number (Computation Instructions)</formula><p>Because the global memory on the GPU is two orders of magnitude slower than local memory <ref type="bibr" target="#b11">[12]</ref>, we only count the number of global memory accesses for the above ratio.</p><p>Another important ratio for measuring the performance of the GPU is the rate of issuing instruction (R ins ), which can be obtained by:</p><formula xml:id="formula_2">R ins = Number (Computation Instructions) gputime</formula><p>where the gputime is the actual execution time of the kernel on the GPU.</p><p>We also want to make sure that the kernel execution has minimal kernel launch overhead; this can be verified through the overhead ratio R over which is defined as:</p><formula xml:id="formula_3">R over = cputime − gputime cputime</formula><p>where the cputime is the corresponding time elapsed on the CPU.</p><p>The profiling information for R mem , R ins , and R over for each of the three applications is shown in Table I. Note that both the number of global memory requests and transactions (' tran' in the table) are reported because a single global memory request might need multiple global memory transactions. Thus, it is the actual number of memory transactions that actually determines the latency on memory access. The memory request would be counted as one instruction that is deducted when computing the actual number of computation instructions.</p><p>Besides profiling the applications using the default factory clock setting, we also attempted to profile the application under different GPU clock settings. However, due to the overhead introduced by the profiler, the profiling data under different GPU clock settings look relatively similar. Therefore, we chose not to report this data in this study.</p><p>To obtain the accurate number of computation instructions, we deduct the number of memory requests from the total instruction count. The calculation is further complicated by the fact that the number of instructions is reported for one compute unit while the number of memory requests and transactions is reported for three compute units sharing the same memory control unit <ref type="bibr" target="#b11">[12]</ref>, which is accounted for in the profiling information provided in <ref type="table">Table II</ref> </p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>D. Evaluation Metrics</head><p>We use the following evalutation metrics to compare the different DVFS system configurations for each application:</p><p>Time: The execution time is measured for the kernel execution of each application. To minimize noise, the same application is run multiple times under each setting, and the average time (T) is used.</p><p>Performance: A common metric for the high-performance computing (HPC) community is FLOPS, which stands for floating-point operations per second. However, this metric may not apply to certain applications that do not focus on computation, such as the matrix transpose kernel. In this case, we adopted another metric for performance of matrix transpose, using MBPS, which stands for megabytes per second, to indicate the throughput it has at run time.</p><p>Energy: Energy (E) is measured for the whole system when executing the kernel on the GPU.</p><p>Power: Power (P) is reported using the average power, calculated by the energy used per execution time unit:</p><formula xml:id="formula_4">Power = Energy/Time</formula><p>Power Efficiency: We use the ratio of performance per power as the indicator of power efficiency:</p><p>Power Efficiency = Performance Power</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>IV. EXPERIMENTAL RESULTS</head><p>In this section, we present our experimental results from measuring the performance and power consumption of the three application kernels described in Section III. For any given problem with a fixed size, it is always true that the power efficiency metric, defined by the performance-to-power ratio, is equivalent to the energy efficiency, defined by the computation-to-energy ratio, as illustrated by the following equation:</p><formula xml:id="formula_5">Performance Power = Computation Time × Power = Computation Energy</formula><p>Thus, with respect to the energy consumed by each application under the different settings in our experiment, it is the configuration with the best power efficiency that consumes the least energy.</p><p>For each application running on the GPU, we present its performance, power consumption, and power efficiency as a set of graphs, where the x-axis plots the GPU core frequency and the legend denotes the GPU memory frequency. As a reference point, we record the static power consumed by our experimental GPU system. The power usage of the system while idling is 111.3 watts without the GPU and 142.7 watts when the GPU is installed in the system. <ref type="figure" target="#fig_3">Figure 3</ref> shows the performance, power consumption, and power efficiency when running the dense matrix multiplication kernel under different frequencies for the GPU cores and memory. As shown in the figure, the performance is determined solely by the GPU core frequency, which is not surprising because of the relatively low R mem and the highest R ins among the three application kernels that we ran, showing about two million computation instructions per compute unit. That is, the relatively low R mem and high R ins point to a computeintensive application whose performance, relative to execution speed, is directly proportional to the frequency of the GPU computing cores and largely independent of GPU memory frequency. As a consequence, we can run the GPU at the highest GPU core frequency and the lowest GPU memory frequency to achieve nearly optimal performance while reducing the (absolute) power consumption by approximately 15 watts and improving the (absolute) power efficiency by nearly 20 MFLOPS/watt. However, the relative reduction in power consumption is only 5%, and the relative improvement in power efficiency is only 4%. These results point to several potential inter-related reasons for the minor impact of GPU memory frequency on power consumption and power efficiency: (1) the memory intensity of matrix multiply is very low, i.e., R mem is only 5.6%; (2) the dynamic power range of GPU memory is relatively small, e.g., ∼20 watts; and (3) GPU memory is less power hungry than GPU cores. <ref type="figure" target="#fig_4">Figure 4</ref> shows the behavior of the matrix transpose kernel under various clock settings. The set of horizonal lines in the performance figure of matrix transpose clearly shows that its performance is determined solely by the GPU memory clock and is independent of GPU core frequency. The memorybounded performance can be attributed to the high R mem of matrix transpose, which is approximately 10 times higher than the R mem for the matrix multiplication kernel.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>A. Matrix Multiply</head></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>B. Matrix Transpose</head><p>As a consequence, we can run the GPU at the highest GPU memory frequency and the lowest GPU core frequency to achieve nearly optimal performance while reducing the absolute power consumption by more than 20 watts (or approximately 3 watts for every 50-MHz decrement in frequency) and improving the absolute power efficiency by approximately 100  MFLOPS/watt. In contrast to the matrix multiply scenario, the GPU core frequency has a larger relative impact on power consumption and power efficiency, improving each by 8-9%.</p><p>Further, compared to the compute-intensive matrix multiplication kernel, the memory-intensive matrix transpose kernel has a much lower power requirement and a narrower dynamic power range, as shown in <ref type="table">Table III</ref>. With the GPU memory frequency fixed at 1200 MHz, the lowest power for executing the matrix transpose is 216.4 watts, the highest one is just 237.3 watts, i.e., only a difference of 20.9 watts. The generally low-power consumption of matrix transpose can be explained by the fact the R ins of matrix transpose is only a tenth of the R ins of matrix multiply, which indicates that the compute units are almost idle when executing matrix transpose compared to matrix multiply. This result also shows the overall impact of the compute units on the total power consumption of the GPU. <ref type="figure" target="#fig_5">Figure 5</ref> shows the results of running a two-dimensional (2-D) FFT kernel. We see that the performance is bound not only by the speed of the compute units but also by the memory throughput. The multi-dimensional FFT algorithm requires a matrix transpose as a post-processing step after the computation. Because the size of fast local memory is very limited on GPU, a multi-dimensional FFT algorithm often requires significant data exchange between local memory and global memory on GPU. Since the global memory is usually two orders of magnitude slower than the local memory, it is oftentimes the bottleneck for exchanging data such that its throughput would largely determine the computation latency in the matrix transpose step. Thus, the performance of multidimensional FFT algorithm on GPU is bound by both the speed of compute unit and the throughput of global memory.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>C. Fast Fourier Transform</head><p>An interesting finding with respect to the performance is that the higher the GPU core clock, the more the extent that memory frequency affects performance. This implies that when compute units get faster they spend more time waiting for the memory modules to feed them. Compared to the completely memory-bounded or completely compute-bounded kernels, the multi-dimensional FFT is bound by both compute speed and memory throughput. Because DVFS scheduling on the GPU can be done along two dimensions, i.e., GPU core frequency and GPU memory frequency, it is possible to achieve similar performance with different core and memory settings. For example, in <ref type="table" target="#tab_3">Table IV</ref>, all three frequency settings produce similar performance numbers, but the power usage is obviously higher when the GPU core speed is higher at 650 MHz.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>Core</head><p>Memory  Prior to the emergence of OpenCL, the most fundamental work related to general-purpose GPU computing was with Stanford's Brook <ref type="bibr" target="#b2">[3]</ref>, <ref type="bibr" target="#b4">[5]</ref> for the AMD Stream Processor <ref type="bibr" target="#b2">[3]</ref> and NVIDIA's Compute Unified Device Architecture (CUDA) <ref type="bibr" target="#b9">[10]</ref>.</p><p>There has been a lot of previous work that evaluates the performance of different application kernels using the Compute Unified Device Architecture (CUDA) <ref type="bibr" target="#b16">[17]</ref>, which is a precursor to OpenCL. FFT has also been studied in-depth in the paper <ref type="bibr" target="#b7">[8]</ref>, resulting in a five-fold speedup over NVIDIA's implementation of FFT algorithm. In <ref type="bibr" target="#b3">[4]</ref>, the authors proposed a "divide-conquer" approach for solving multi-dimensional FFTs using a matrix transpose to cope with limited memory space on computers-we adopted this implementation of FFT for our work.</p><p>With respect to the power usage of GPUs, there has been a surprising dearth of work in this area, with only a handful of papers published on the subject. However, given the importance of the power usage, all the major GPU vendors have attempted to address this issue by adding built-in power management to their GPUs. For example, NVIDIA's PowerMizer <ref type="bibr" target="#b10">[11]</ref> and ATI's PowerPlay <ref type="bibr" target="#b1">[2]</ref> throttle the GPU clock speeds when idle and attempt to minimize the runtime power usage without affecting performance. Others have attempted to model the power efficiency of GPUs <ref type="bibr" target="#b14">[15]</ref> as well as investigating energy-aware high-performance computing on GPUs <ref type="bibr" target="#b15">[16]</ref>. Rodina <ref type="bibr" target="#b5">[6]</ref> is a benchmark suite focusing on characterizing heterogeneous computing, which also touches the power efficiency of different applications on different platforms. However, none have investigated these properties with the DVFS approach we adopted in our study.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>VI. CONCLUSION AND FUTURE WORK</head><p>As a promising architecture for supercomputers, GPU-based computing is receiving significant attention for its performance and power efficiency. In order to help the HPC community better understand the power characteristics of different application kernels on the GPU, we have conducted this study to characterize the performance and power of various application kernels under varying frequency settings. Based on our findings, the GPU application kernels' performance and power consumption are largely determined by two characteristics: the rate of issuing instructions and the ratio of global memory transactions to computation instructions.</p><p>For future work, we intend to conduct our study on other GPUs, including from AMD and Intel. Given the software abstraction used in this work is OpenCL which is supported by most accelerator platforms, a fair comparison running the same code across platforms is possible. In addition, we believe a complete and comprehensive modeling of GPU performance and power consumption would be very useful.</p></div><figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_0"><head>Fig. 1 .</head><label>1</label><figDesc>Fig. 1. Memory Hierarchy in OpenCL</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_1"><head>Fig. 2 .</head><label>2</label><figDesc>Fig. 2. Hardware setup for the experiment</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_3"><head>Fig. 3 .</head><label>3</label><figDesc>Fig. 3. Matrix Multiply on NVIDIA GeForce GTX 280</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_4"><head>Fig. 4 .</head><label>4</label><figDesc>Fig. 4. Matrix Transpose on NVIDIA GeForce GTX 280</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_5"><head>Fig. 5 .</head><label>5</label><figDesc>Fig. 5. 2-D FFT on NVIDIA GeForce GTX 280</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_0" validated="false"><head>.</head><label></label><figDesc></figDesc><table>Application R mem 
+R ins 
+R over 
+MatMul 
+5.6% 203215711 0.03% 
+MatTran 
+53.7% 12095895 0.04% 
+FFT 
+8.3% 145165788 0.9% 
+
+TABLE II 
+APPLICATION CHARACTERIZATION 
+
+</table></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_3" validated="false"><head>TABLE IV SIMILAR PERFORMANCE WITH DIFFERENT POWER V. RELATED WORK</head><label>IV</label><figDesc></figDesc><table></table></figure>
+		</body>
+		<back>
+
+			<div type="acknowledgement">
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>ACKNOWLEDGEMENTS</head><p>We would like to thank the NSF Center for High Performance Reconfigurable Computing (CHREC) for their support through NSF I/UCRC Grant IIP-0804155. This work was also supported in part by the following NSF grants: CNS-0915861 and CNS-0916719.</p></div>
+			</div>
+
+			<div type="references">
+
+				<listBibl>
+
+<biblStruct xml:id="b0">
+	<monogr>
+		<title/>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Amd</forename><surname>Overdrive</surname></persName>
+		</author>
+		<ptr target="http://game.amd.com/us-en/driversoverdrive.aspx" />
+		<imprint>
+			<date type="published" when="2008" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b1">
+	<monogr>
+		<title/>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Amd</forename><surname>Powerplay</surname></persName>
+		</author>
+		<ptr target="http://ati.amd.com/products/powerplay/index.html" />
+		<imprint>
+			<date type="published" when="2008" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b2">
+	<monogr>
+		<title/>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Amd</forename><surname>Amd Stream</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><surname>Processor</surname></persName>
+		</author>
+		<ptr target="http://ati.amd.com/products/streamprocessor/index.html" />
+		<imprint>
+			<date type="published" when="2010" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b3">
+	<analytic>
+		<title level="a" type="main">Ffts in external or hierarchical memory</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">David</forename><forename type="middle">H</forename><surname>Bailey</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the Fourth SIAM Conference on Parallel Processing for Scientific Computing</title>
+		<meeting>the Fourth SIAM Conference on Parallel Processing for Scientific Computing<address><addrLine>Philadelphia, PA, USA</addrLine></address></meeting>
+		<imprint>
+			<date type="published" when="1990" />
+			<biblScope unit="page" from="211" to="224" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b4">
+	<analytic>
+		<title level="a" type="main">Brook for GPUs: stream computing on graphics hardware</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">I</forename><surname>Buck</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">T</forename><surname>Foley</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Horn</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Sugerman</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">K</forename><surname>Fatahalian</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Houston</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>Hanrahan</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">International Conference on Computer Graphics and Interactive Techniques</title>
+		<meeting><address><addrLine>New York, NY, USA</addrLine></address></meeting>
+		<imprint>
+			<publisher>ACM</publisher>
+			<date type="published" when="2004" />
+			<biblScope unit="page" from="777" to="786" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b5">
+	<analytic>
+		<title level="a" type="main">Rodinia: A benchmark suite for heterogeneous computing</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Shuai</forename><surname>Che</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Michael</forename><surname>Boyer</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Jiayuan</forename><surname>Meng</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">David</forename><surname>Tarjan</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Jeremy</forename><forename type="middle">W</forename><surname>Sheaffer</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Sang-Ha</forename><surname>Lee</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Kevin</forename><surname>Skadron</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">IISWC &apos;09: Proceedings of the 2009 IEEE International Symposium on Workload Characterization (IISWC)</title>
+		<meeting><address><addrLine>Washington, DC, USA</addrLine></address></meeting>
+		<imprint>
+			<publisher>IEEE Computer Society</publisher>
+			<date type="published" when="2009" />
+			<biblScope unit="page" from="44" to="54" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b6">
+	<analytic>
+		<title level="a" type="main">The green500 list: Encouraging sustainable supercomputing</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Kirk</forename><surname>Wu-Chun Feng</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><surname>Cameron</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Computer</title>
+		<imprint>
+			<biblScope unit="volume">40</biblScope>
+			<biblScope unit="issue">12</biblScope>
+			<biblScope unit="page" from="50" to="55" />
+			<date type="published" when="2007" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b7">
+	<analytic>
+		<title level="a" type="main">High performance discrete fourier transforms on graphics processors</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">K</forename><surname>Naga</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Brandon</forename><surname>Govindaraju</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Yuri</forename><surname>Lloyd</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Burton</forename><surname>Dotsenko</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">John</forename><surname>Smith</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><surname>Manferdelli</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">SC &apos;08: Proceedings of the 2008 ACM/IEEE conference on Supercomputing</title>
+		<meeting><address><addrLine>Piscataway, NJ, USA</addrLine></address></meeting>
+		<imprint>
+			<publisher>IEEE Press</publisher>
+			<date type="published" when="2008" />
+			<biblScope unit="page" from="1" to="12" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b8">
+	<monogr>
+		<title level="m" type="main">CUDA C Programming Guide, version 3.1. NVIDIA Corporation</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><surname>Nvidia</surname></persName>
+		</author>
+		<imprint/>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b9">
+	<monogr>
+		<title/>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Nvidia</forename><surname>Nvidia Cuda</surname></persName>
+		</author>
+		<ptr target="http://developer.nvidia.com/object/cuda.html" />
+		<imprint>
+			<date type="published" when="2007" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b10">
+	<monogr>
+		<title level="m" type="main">PowerMizer 8.0 Intelligent Power Management Technology</title>
+		<imprint>
+			<date type="published" when="2008-06" />
+		</imprint>
+		<respStmt>
+			<orgName>NVIDIA</orgName>
+		</respStmt>
+	</monogr>
+<note type="report_type">Technical report</note>
+</biblStruct>
+
+<biblStruct xml:id="b11">
+	<monogr>
+		<title level="m" type="main">OpenCL Programming Guide</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Nvidia</forename><surname>Nvidia</surname></persName>
+		</author>
+		<imprint>
+			<date type="published" when="2010" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b12">
+	<monogr>
+				<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><forename type="middle">D</forename><surname>Owens</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Houston</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Luebke</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Green</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><forename type="middle">E</forename><surname>Stone</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><forename type="middle">C</forename><surname>Phillips</surname></persName>
+		</author>
+		<title level="m">Gpu computing. Proceedings of the IEEE</title>
+		<imprint>
+			<date type="published" when="2008-05" />
+			<biblScope unit="volume">96</biblScope>
+			<biblScope unit="page" from="879" to="899" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b13">
+	<analytic>
+		<title level="a" type="main">Gpu architecture overview</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">John</forename><surname>Owens</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">SIGGRAPH &apos;07: ACM SIGGRAPH 2007 courses</title>
+		<meeting><address><addrLine>New York, NY, USA</addrLine></address></meeting>
+		<imprint>
+			<publisher>ACM</publisher>
+			<date type="published" when="2007" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b14">
+	<analytic>
+		<title level="a" type="main">PowerRed: A Flexible Power Modeling Framework for Power Efficiency Exploration in GPUs</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">K</forename><surname>Ramani</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Ibrahim</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Shimizu</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Worskshop on General Purpose Processing on Graphics Processing Units (GPGPU)</title>
+		<imprint>
+			<date type="published" when="2007" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b15">
+	<analytic>
+		<title level="a" type="main">Energy-Aware High Performance Computing with Graphic Processing Units</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Rofouei</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">T</forename><surname>Stathopoulos</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Ryffel</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">W</forename><surname>Kaiser</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Sarrafzadeh</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Workshop on Power Aware Computing and System</title>
+		<imprint>
+			<date type="published" when="2008-12" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b16">
+	<analytic>
+		<title level="a" type="main">Program optimization study on a 128-core GPU</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Ryoo</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><forename type="middle">I</forename><surname>Rodrigues</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><forename type="middle">S</forename><surname>Stone</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><forename type="middle">S</forename><surname>Baghsorkhi</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><forename type="middle">Z</forename><surname>Ueng</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">W</forename><forename type="middle">W</forename><surname>Hwu</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">The First Workshop on General Purpose Processing on Graphics Processing Units</title>
+		<imprint>
+			<date type="published" when="2007" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b17">
+	<analytic>
+		<title level="a" type="main">Optimization principles and application performance evaluation of a multithreaded gpu using cuda</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Shane</forename><surname>Ryoo</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Christopher</forename><forename type="middle">I</forename><surname>Rodrigues</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Sara</forename><forename type="middle">S</forename><surname>Baghsorkhi</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Sam</forename><forename type="middle">S</forename><surname>Stone</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">David</forename><forename type="middle">B</forename><surname>Kirk</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Wen-Mei W</forename><surname>Hwu</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">PPoPP &apos;08: Proceedings of the 13th ACM SIGPLAN Symposium on Principles and practice of parallel programming</title>
+		<meeting><address><addrLine>New York, NY, USA</addrLine></address></meeting>
+		<imprint>
+			<publisher>ACM</publisher>
+			<date type="published" when="2008" />
+			<biblScope unit="page" from="73" to="82" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b18">
+	<analytic>
+		<title level="a" type="main">Demystifying gpu microarchitecture through microbenchmarking</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">H</forename><surname>Wong</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M.-M</forename><surname>Papadopoulou</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Sadooghi-Alvandi</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Moshovos</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Performance Analysis of Systems Software (ISPASS)</title>
+		<imprint>
+			<date type="published" when="2010" />
+			<biblScope unit="page" from="235" to="246" />
+		</imprint>
+	</monogr>
+	<note>IEEE International Symposium on</note>
+</biblStruct>
+
+<biblStruct xml:id="b19">
+	<analytic>
+		<title level="a" type="main">On the Robust Mapping of Dynamic Programming onto a Graphics Processing Unit</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Shucai</forename><surname>Xiao</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Ashwin</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Wu-Chun</forename><surname>Aji</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><surname>Feng</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">15th International Conference on Parallel and Distributed Systems (ICPADS)</title>
+		<meeting><address><addrLine>Shenzhen, China</addrLine></address></meeting>
+		<imprint>
+			<date type="published" when="2009-12" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b20">
+	<analytic>
+		<title level="a" type="main">Inter-Block GPU Communication via Fast Barrier Synchronization</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Shucai</forename><surname>Xiao</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><surname>Wu-Chun Feng</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the 24th IEEE International Parallel and Distributed Processing Symposium (IPDPS)</title>
+		<meeting>the 24th IEEE International Parallel and Distributed Processing Symposium (IPDPS)<address><addrLine>Atlanta, Georgia, USA</addrLine></address></meeting>
+		<imprint>
+			<date type="published" when="2010-04" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+				</listBibl>
+			</div>
+		</back>
+	</text>
+</TEI>

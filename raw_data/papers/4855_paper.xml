@@ -1,0 +1,753 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<TEI xmlns="http://www.tei-c.org/ns/1.0" 
+xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+xsi:schemaLocation="http://www.tei-c.org/ns/1.0 /Users/atharsefid/Desktop/grobid-0.5.3/grobid-home/schemas/xsd/Grobid.xsd"
+ xmlns:xlink="http://www.w3.org/1999/xlink">
+	<teiHeader xml:lang="en">
+		<encodingDesc>
+			<appInfo>
+				<application version="0.5.3" ident="GROBID" when="2019-03-26T17:03+0000">
+					<ref target="https://github.com/kermitt2/grobid">GROBID - A machine learning software for extracting information from scholarly documents</ref>
+				</application>
+			</appInfo>
+		</encodingDesc>
+		<fileDesc>
+			<titleStmt>
+				<title level="a" type="main">Implementing and Evaluating Nested Parallel Transactions in Software Transactional Memory</title>
+			</titleStmt>
+			<publicationStmt>
+				<publisher/>
+				<availability status="unknown"><licence/></availability>
+				<date>June 13-15, 2010</date>
+			</publicationStmt>
+			<sourceDesc>
+				<biblStruct>
+					<analytic>
+						<author>
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Woongki</forename><surname>Baek</surname></persName>
+							<email>wkbaek@stanford.edu</email>
+							<affiliation key="aff0">
+								<orgName type="department">Computer Systems Laboratory</orgName>
+								<orgName type="institution">Stanford University Stanford</orgName>
+								<address>
+									<postCode>94305</postCode>
+									<region>CA</region>
+								</address>
+							</affiliation>
+						</author>
+						<author>
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Nathan</forename><surname>Bronson</surname></persName>
+							<email>nbronson@stanford.edu</email>
+							<affiliation key="aff0">
+								<orgName type="department">Computer Systems Laboratory</orgName>
+								<orgName type="institution">Stanford University Stanford</orgName>
+								<address>
+									<postCode>94305</postCode>
+									<region>CA</region>
+								</address>
+							</affiliation>
+						</author>
+						<author>
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Christos</forename><surname>Kozyrakis</surname></persName>
+							<email>kozyraki@stanford.edu</email>
+							<affiliation key="aff0">
+								<orgName type="department">Computer Systems Laboratory</orgName>
+								<orgName type="institution">Stanford University Stanford</orgName>
+								<address>
+									<postCode>94305</postCode>
+									<region>CA</region>
+								</address>
+							</affiliation>
+						</author>
+						<author>
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Kunle</forename><surname>Olukotun</surname></persName>
+							<affiliation key="aff0">
+								<orgName type="department">Computer Systems Laboratory</orgName>
+								<orgName type="institution">Stanford University Stanford</orgName>
+								<address>
+									<postCode>94305</postCode>
+									<region>CA</region>
+								</address>
+							</affiliation>
+						</author>
+						<title level="a" type="main">Implementing and Evaluating Nested Parallel Transactions in Software Transactional Memory</title>
+					</analytic>
+					<monogr>
+						<title level="j" type="main">Thira</title>
+						<meeting> <address><addrLine>Santorini, Greece</addrLine></address>
+						</meeting>
+						<imprint>
+							<date type="published">June 13-15, 2010</date>
+						</imprint>
+					</monogr>
+					<note>Permission to make digital or hard copies of all or part of this work for personal or classroom use is granted without fee provided that copies are not made or distributed for profit or commercial advantage and that copies bear this notice and the full citation on the first page. To copy otherwise, to republish, to post on servers or to redistribute to lists, requires prior specific permission and/or a fee. 978-1-4503-0079-7/10/06 ...$10.00.</note>
+				</biblStruct>
+			</sourceDesc>
+		</fileDesc>
+		<profileDesc>
+			<textClass>
+				<keywords>
+					<term>D13 [Programming Techniques]: Concurrent Programming - parallel programming General Terms Algorithms</term>
+					<term>Design</term>
+					<term>Performance Keywords Transactional Memory</term>
+					<term>Nested Parallelism</term>
+					<term>Parallel Programming</term>
+				</keywords>
+			</textClass>
+			<abstract>
+				<p>Transactional Memory (TM) is a promising technique that simplifies parallel programming for shared-memory applications. To date, most TM systems have been designed to efficiently support single-level parallelism. To achieve widespread use and maximize performance gains, TM must support nested parallelism available in many applications and supported by several programming models. We present NesTM, a software TM (STM) system that supports closed-nested parallel transactions. NesTM is based on a high-performance, blocking STM that uses eager version management and word-granularity conflict detection. Its algorithm targets the state and runtime overheads of nested parallel transactions. We also describe several subtle correctness issues in supporting nested parallel transactions in NesTM and discuss their performance impact. Through our evaluation, we quantitatively analyze the performance of NesTM using STAMP applications and microbenchmarks based on concurrent data structures. First, we show that the performance overhead of NesTM is reasonable when single-level paral-lelism is used. Second, we quantify the incremental overhead of NesTM when the parallelism is exploited in deeper nesting levels and draw conclusions that can be useful in designing a nesting-aware TM runtime environment. Finally, we demonstrate a use-case where nested parallelism improves the performance of a trans-actional microbenchmark.</p>
+			</abstract>
+		</profileDesc>
+	</teiHeader>
+	<text xml:lang="en">
+		<body>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="1.">INTRODUCTION</head><p>Transactional Memory (TM) <ref type="bibr" target="#b13">[13]</ref> has surfaced as a promising technique to simplify parallel programming. TM addresses the difficulty of lock-based synchronization by allowing programmers to simply declare certain code segments as transactions that execute in an atomic and isolated way with respect to other code. TM takes responsibility for all concurrency control. The potential of TM has motivated extensive research on hardware, software, and hybrid implementations. We focus on software TM (STM) <ref type="bibr" target="#b7">[8,</ref><ref type="bibr" target="#b10">11,</ref><ref type="bibr" target="#b19">19]</ref>, because it is the only approach compatible with existing and upcoming multicore chips.</p><p>Most TM systems, thus far, have assumed that the code within a transaction executes sequentially. However, real world applications often include the potential for nested parallelism in various forms such as nested parallel loops, recursive function calls, and calls to parallel libraries <ref type="bibr" target="#b20">[21]</ref>. As the number of cores scales, it is important to fully exploit the parallelism available at all levels to achieve the best possible performance. In this spirit, several parallel programming models that support nested parallelism have been proposed <ref type="bibr" target="#b0">[1,</ref><ref type="bibr">20]</ref>. Hence, to maximize performance gain and integrate well with popular programming models, TM must support nested parallelism.</p><p>However, efficiently exploiting nested parallelism in TM is not trivial. The general challenge of nested parallelism is amortizing the overhead for initiating, synchronizing, and balancing innerlevel, fine-grained parallelism <ref type="bibr" target="#b4">[5]</ref>. Nested parallelism within transactions exacerbates this challenge due to the extra overheads for initiating, versioning, and committing nested transactions. The design of a TM system that supports nested parallel transactions is also challenging. First, the conflict detection scheme must be able to correctly track dependencies in a hierarchical manner instead of a flat way. Nested parallel transactions may conflict and restart without necessarily aborting their parent transaction. Second, apart from the runtime overhead, we must ensure that the memory overhead necessary for tracking the state of nested transactions is small. Third, since some applications may not use nested parallelism, we must ensure that its overhead is reasonable when only a single level of parallelism is used.</p><p>A few recent works on nested parallelism in STM have discussed the semantics of nested parallel transactions and provided prototype implementations <ref type="bibr" target="#b1">[2,</ref><ref type="bibr" target="#b3">4,</ref><ref type="bibr" target="#b18">18,</ref><ref type="bibr" target="#b21">22]</ref>. However, the following questions still require further investigations. First, what is a cost-effective algorithm for nested parallelism in high-performance STMs? Second, using a detailed performance analysis, what are the practical tradeoffs and issues when using nested parallelism in STM? Answering these questions is also important to guide future work on nesting-aware TM runtime environments. This paper presents NesTM, an STM that supports closed-nested parallel transactions. NesTM is based on a high-performance, blocking STM that uses eager versioning and word-granularity conflict detection. NesTM extends the baseline STM to support nested parallel transactions in a manner that keeps state and runtime overheads small.</p><p>The specific contributions of this work are:</p><p>• We propose an STM system that supports nested parallelism with transactions and parallel regions nested in arbitrary manners.</p><p>• We present several complications of concurrent nesting, describe solutions for correct execution, and discuss their impact on performance.</p><p>• We provide a quantitative performance analysis of NesTM across multiple use scenarios. First, we show that the performance overhead of NesTM is reasonable when using only a single level of parallelism. Second, we quantify the overhead of NesTM when we exploit the parallelism in deeper nesting levels. Finally, we demonstrate that NesTM improves the performance of a transactional microbenchmark that uses nested parallelism.</p><p>The rest of the paper is organized as follows. Section 2 reviews the baseline STM and the semantics of nested parallel transactions. Section 3 describes NesTM and Section 4 discusses subtle correctness issues. Section 5 presents the quantitative evaluation. Section 6 reviews related work. Finally, Section 7 concludes the paper.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="2.">BACKGROUND 2.1 Baseline STM</head><p>Our starting point is a blocking STM algorithm that uses eager versioning <ref type="bibr" target="#b10">[11,</ref><ref type="bibr" target="#b19">19]</ref>. This approach has been shown to have performance advantages over non-blocking or lazy versioning STMs and is used by the Intel STM compiler <ref type="bibr" target="#b19">[19]</ref> and the Microsoft Bartok environment <ref type="bibr" target="#b10">[11]</ref>. While we focus on an STM with wordgranularity conflict detection, our findings can apply to STMs that perform object-granularity conflict detection.</p><p>The exact code we start with is an eager variant of TL2 STM <ref type="bibr" target="#b5">[6,</ref><ref type="bibr" target="#b8">9]</ref>. It maintains an undo log for data written within a transaction. The STM uses a global version clock to establish serializability. Using a hashing function, each memory word is associated with a variable (voLock) that either acts as a lock or stores a version number (i.e., the clock value when the word was written by a committing transaction). When a transaction reads data, it inserts them in its read-set. When a transaction writes data, it acquires the associated locks. The code for the read and write barriers is carefully optimized to keep the overhead per call (some parts are in assembly) small. Conflicts are detected by checking the associated voLocks when read, write, and commit barriers are executed. A randomized exponential backoff scheme is used for contention management.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="2.2">Semantics of Concurrent Nesting</head><p>We describe a few concepts for nested parallel transactions. Additional discussion is available in <ref type="bibr" target="#b1">[2,</ref><ref type="bibr" target="#b16">16]</ref>. Definitions and concepts: At runtime, each transaction is assigned with a transaction ID (TID), a unique positive integer. Root transaction (TID 0) is reserved to represent the globally committed state of the system. Every non-root transaction has a unique parent transaction. Top-level transactions are the ones whose parent is the root transaction. Following the assumption in <ref type="bibr" target="#b16">[16]</ref>, a transaction is only allowed to execute when it does not have any active children. Transactional semantics: We describe the definition of conflict discussed in <ref type="bibr" target="#b1">[2]</ref> for TM systems with closed nesting. For a memory object l, let readers(l) be a set of active transactions that have l in their read-sets. writers(l) is defined similarly. When a transaction T accesses l, the following two cases are conflicts:</p><p>• T reads from l: if there exists a transaction T such that T ∈ writers(l), T = T and T / ∈ ancestors(T ).</p><p>• T writes to l: if there exists a transaction T such that T ∈ readers(l) ∪ writers(l), T = T and T / ∈ ancestors(T ). As for the commit semantics, if T is not a top-level transaction, its read-and write-sets are merely merged into its parent's read-and write-sets. Otherwise, all the values written by T become visible to other transactions and its read-and write-sets are reset. If T aborts, all the changes made by T are discarded and previous states are restored <ref type="bibr" target="#b16">[16]</ref>.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.">DESIGN AND IMPLEMENTATION OF NESTM</head><p>This section describes the NesTM algorithm, an execution example, and the main issues related to performance.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.1">NesTM Algorithm</head><p>The key design goal of NesTM is to keep state and runtime overheads small in supporting nested parallel transactions. For instance, we do not want to significantly increase memory footprint by using multiple sets of locks and global version clocks to support multiple nested parallel regions. The blocking, eager versioning STM used as our baseline has a useful property that helps us meet our goal: once a transaction writes (i.e., acquires a lock) to a memory object, it is guaranteed to have an exclusive ownership for the object until it commits or aborts.</p><p>Before discussing the NesTM algorithm, we describe the changes in the version-owner locks (voLock) compared to the baseline STM. As shown in <ref type="figure" target="#fig_0">Figure 1</ref>, voLock in the baseline STM is a word-sized data structure (i.e., N=32 and 64 on 32-bit and 64-bit machines) that encodes the version or owner information on the associated memory object. If L=1 (locked), the remaining N-1 bits store the owner information. If L=0 (unlocked), the remaining N-1 bits store the version number. This encoding is sufficient to support only top-level transactions because once a transaction locks a memory object, no other transactions are allowed to access the object until the transaction commits or aborts. In NesTM, however, other transactions can correctly access the locked object as long as they are descendants of the owner. To allow this, the ownership information should always be available in voLock to consult the ancestor relationship at any time. Similarly, the version number in voLock should also be always available to serialize the conflicting transactions.  ov ← atomicCAS(getVoAddr(addr), cv, nv) 17:</p><p>if ov = cv then 18:</p><p>hcr←ValidateReaders(Self ,extractOwner(cv),addr) 19:</p><p>if hcr = NIL then 20:</p><p>setVoVal(addr, cv) 21:</p><p>TxAbort <ref type="formula">(</ref>  To enable this, we modify the voLock as shown in <ref type="figure" target="#fig_0">Figure 1</ref>. T least significant bits (LSBs) are used to encode the owner of the associated object. Since TID 0 is reserved for the root transaction, NesTM can support up to 2 T − 1 concurrent transactions. While we use T=10 (i.e., 1023 transactions) in this paper, it is tunable. The remaining N-T bits store the version number. Since the global version clock increases by 2 T at the commit of each transaction, it can saturate faster than the baseline STM. Recent work discusses how to handle the version clock overflow <ref type="bibr" target="#b9">[10]</ref>.</p><p>Algorithms 1 and 2 provide the pseudocode for NesTM algorithm. We summarize the key functions below.</p><p>TxStart: This barrier is almost identical to the one in the baseline STM except that it returns "fail" when there are any doomed ancestors of the transaction we attempt to initiate. The return value can be used to restart the doomed ancestor in order to guarantee forward progress.</p><p>TxLoad: Following the conflict definition of nested parallel transactions in Section 2.2, a transaction can read a memory object only if the owner of the object is itself or its ancestor. When it is the owner, it can safely read the memory object without checking the version number (the reason will be explained in the discussion of TxStore). When the owner is its ancestor, it relies on the version number to ensure serializability. If the owner is neither itself nor its ancestor, the transaction conflicts with the owner. In lines 48-49 in Algorithm 1, it periodically calls DoomHighestConflictTx. This is to avoid potential livelock cases. <ref type="figure" target="#fig_3">Figure 2</ref> illustrates an example. If only nested transactions (i.e., T1.1 and T2.1) abort and restart, none of them can make forward progress because the memory objects are still (crosswise) locked by ancestors. To avoid the livelock, at least one of the ancestors should abort and release the acquired memory objects. For this purpose, NesTM periodically checks and dooms ancestors. Note that we could use a more precise livelock detection mechanism, but it would also incur a large runtime overhead. Also note that similar livelock cases exist even in the baseline STM. Finally, note that RollbackCounter is used to avoid the invalid-read problem discussed in Section 4.1.</p><p>TxStore: When a transaction attempts to write to a memory object, it can safely do so if it is the owner of the memory object. Otherwise, it attempts to acquire the lock for the memory object, if the owner is an ancestor. If it fails, the transaction conflicts and DoomHighestConflictTx is also periodically called to avoid any potential livelock (lines 27-28 in Algorithm 2). If it successfully acquires the lock, it calls ValidateReaders with parameters consisting of Self, Owner (the previous owner for the object), and addr. In ValidateReaders, the transaction itself and all its ancestors that are also not an ancestor of Owner are validated for the object (lines 11-19 in Algorithm 1). The key insight of this is that once a transaction T or any of its descendants writes (i.e., acquires the lock) to a memory object, T is guaranteed to have an exclusive ownership for the object until it commits or aborts. Therefore, if we ensure that there were no conflicting writes to an object for T and all of its ancestors at the time when T first attempts to write to the object, the object is guaranteed to be valid throughout T and its ancestors' execution. If there is any invalid reader, it transfers the ownership to the previous owner and triggers rollback (lines 19-21 in Algorithm 2). Note that validating each transaction is protected by the commit-lock of that validated transaction to avoid the problem with non-atomic commit discussed in Section 4.2. Also, note that TxStore can be expensive when a transaction executes in a deep nesting level due to read-set search for itself and its ancestors. We will discuss this performance issue in Section 3.3.</p><p>TxCommit: If a transaction or any of its ancestors is doomed, it aborts (lines 31-32 in Algorithm 2). Otherwise, it validates all the entries in its read-set (lines 35-48 in Algorithm 2). Once the readset is validated, it merges its read-and write-sets to its parent's (line 49 in Algorithm 2). Note that to avoid the problem with the non-atomic commit discussed in Section 4.2, the process of readset validation and merging is protected by the commit-lock of the parent. To reduce the execution time in the critical section, merging is done by linking (instead of copying) the pointers in read-and write-sets implemented using linked-lists. Then, the version number and ownership for each object in the write-set are incremented and transferred to the parent.</p><p>TxAbort: After updating transactional metadata and incrementing RollbackCounter, the write-set is traversed backward (i.e., from the newest to oldest) to roll back the speculatively-written memory values. Then, the write-set is traversed forward (i.e., from the oldest to newest) to restore the value of voLock to the first observed value. Note that the voLock is released only when the owner of the memory location is the transaction itself (lines 60 in Algorithm 1) to avoid the double-release problem <ref type="bibr" target="#b21">[22]</ref>. Finally, the checkpoint is restored to restart the transaction.</p><p>Note that by calling DoomHighestConflictTx in TxLoad, TxStore, and TxCommit, possible livelock scenarios similar to Figure 2 can be avoided. In addition, a randomized exponential backoff scheme is used for the contention management to probabilistically provide liveness. <ref type="figure" target="#fig_5">Figure 3</ref> illustrates an example of how a simple application using nested parallel transactions executes on NesTM. Initially, GC=0 and TS(A)=TS(B)=0. Note that GC is incremented by 2 10 in the real implementation. For simplicity, we assume GC is incremented by 1 in this and subsequent examples.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.2">Example</head><p>At (wall clock) time 0, T1 starts (RV(T1)=0). At time 2, T1 reads B. At time 3 and 4, T2 starts (RV(T2)=0) and writes to A. At time 5, T2 commits and GC=1 and TS(A)=1. At time 6, threads executing T1.1 and T1.2 (children of T1) are forked and T1.1 and T1.2 start (RV(T1.1)=RV(T1.2)=1). At time 7, both T1.1 and T1.2 successfully read A because RV(T1.1)=RV(T1.2)≥TS(A). At time 8, T1.2 attempts to write to A. T1.2 validates itself and its ancestors (T1) by calling ValidateReaders. T1.2 is valid because A is in its read-set and RV(T1.2)≥TS(A). T1 is not doomed because A is not in its read-set (read-sets of T1.1 and T1.2 have not been merged yet). Therefore, T1.2 can successfully write to A. At time 9, T1.2 successfully commits and GC=2 and TS(A)=2. Also, the read-and write-sets of T1.2 are merged into the ones of T1. At time 10, T1.1 attempts to commit but fails because A is in the read-set of T1.1 and RV(T1.1)&lt;TS(A). GC is incremented to 3 due to this unsuccessful commit.  At time 12, T1.1 restarts (RV(T1.1)=3). At time 13, T1.1 successfully reads A because the owner of A is T1 (an ancestor of T1.1) and RV(T1.1)≥TS(A). At time 14, T1.1 successfully commits, GC is incremented to 4 (but still TS(A)=2), and T1 resumes its execution after child threads join. At time 16, T1 successfully commits because it has an ownership for A (transferred from T1.2) and RV(T1)≥TS(B). GC and TS(A) are incremented to 5. <ref type="table">Table 1</ref> provides a symbolic comparison of the common-and worst-case time complexity of TM barriers in baseline STM and NesTM. NesTM has two different implementations: (1) NesTM-L: linked-lists are used to implement read-and write-sets; ancestor relationship is checked by pointer chasing and (2) NesTM-H: hash tables are used to implement read-and write-sets; ancestor bit vector (ABV) is used for fast ancestor relationship check. We assume the common case is a case in which the nesting depth is small and there is strong temporal locality between reads and writes (i.e., a transaction writes to a recently-read memory object). On the other hand, we assume the worst case is a case in which the nesting depth is large and there is weak temporal locality between reads and writes.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.3">Qualitative Performance Analysis</head><p>In the common case, the time complexity of NesTM-L TM barriers can be almost similar to the ones in the baseline STM because the nesting depth is small (i.e., d 1) and only a few entries in the read-set need to be looked up at each write to check the validity due to the strong temporal locality between reads and writes. However, in the worst case, the time complexity of NesTM-L TM barriers is significantly higher than the baseline STM. In contrast, NesTM-H still shows a comparable time complexity as the baseline STM due to the use of hash tables and ABV. Our current NesTM implementation follows NesTM-L; the implementation of NesTM-H is part of our future work.</p><p>In addition to the differences in the time complexity of TM barriers, there are three performance issues to note. First, temporal locality is lost when accessing transactional metadata of nested transactions. Since, when a child transaction commits, its readand write-set entries are merged to its parent, there is no temporal locality for these entries when a new transaction begins on the same core. Second, the same memory objects in the read-set are repeatedly validated across different nesting levels. Finally, when a large number of child transactions simultaneously attempt to commit, contention on the commit-lock of the parent can become the critical performance bottleneck. We quantify these performance issues in Section 5.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="4.">COMPLICATIONS OF CONCURRENT NESTING</head><p>We now discuss subtle correctness issues we have encountered while developing NesTM. We also describe our on-going efforts on the correctness and liveness of NesTM.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="4.1">Invalid Read</head><p>Problem: In the read barrier, reading a voLock and the corresponding memory value does not occur atomically. Because of this, eager STMs are potentially vulnerable to the invalid-read problem. A transaction may incorrectly read an invalid memory value speculatively written by an aborting transaction. If the aborting transaction restores the original voLock value, the validation process at the end of the reading transaction will miss the problem. In flat STMs, this problem can be simply avoided by always incrementing the timestamp values of voLocks even when an aborting transaction releases them. In NesTM, however, this technique cannot be used due to the self-livelock problem. If an aborting descendant increments the timestamp value of the voLock for a memory object, its ancestor that has the memory object in its read-set can be aborted due to that incremented timestamp value. Eventually, the subtree rooted by the ancestor cannot make any forward progress. Solution: To correctly address both invalid-read and self-livelock problems at the same time, we propose the RollbackCounter scheme. On abort, a transaction atomically increases the global RollbackCounter in addition to restoring the values of voLocks in its writeset to the first observed values. When a transaction attempts to read a memory object, it first samples the value of RollbackCounter before reading the value of the associated voLock (line 32 in Algorithm 1). After ensuring the voLock value remains unchanged (line 39), the previously sampled value of RollbackCounter is compared with the current value. If the two values match, it is guaranteed that there has been no aborting transaction since the voLock value was read, thus no possibility of invalid read. If the two values differ, it conservatively avoids the invalid-read problem by retrying the whole process (line 41). Performance impact: Since only a single, global RollbackCounter is used, false positives can degrade the performance by making transactions repeat the process several times even when they did not actually read invalid memory values. Furthermore, the extra code added to access the RollbackCounter in the read barrier can degrade the performance. Possible alternatives: Instead of using the eager version management (VM) scheme, a lazy VM scheme can be used (while still using the encounter-lock scheme) to avoid the invalid-read problem. However, it can cause significant performance issues because the write-set of a transaction is frequently accessed by the transaction itself and its descendants.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="4.2">Non-atomic Commit</head><p>Problem: <ref type="figure" target="#fig_7">Figure 4</ref> illustrates a potential serializability violation scenario due to the non-atomic commit. Initially, GC and TS(A) are set to 0. After reading A at time 3, T1.1 initiates its commit at time <ref type="bibr" target="#b3">4</ref>  <ref type="table">Table 1</ref>: A symbolic comparison of the common-and worst-case time complexity of TM barriers in baseline STM and NesTM. R, W , and d denote read-set size, write-set size, and nesting depth, respectively.  its ancestors (i.e., T1). T1.2 is valid because RV(T1.2)≥TS(A). T1 is not doomed because A is not yet in its read-set (i.e., T1.1's read-set has not been merged yet). Therefore, T1.2 can successfully write to A. At time 11, T1.1 merges its read-set to its parent's. At time 17, T1 successfully commits because it has an ownership for A (transferred from T1.2). However, this violates serializability because T1 eventually commits even when the two reads by T1.1 and T1.2 observe different versions of A. Solution: The cause of this problem is that the commit process of T1.1 does not appear atomic to T1's descendants that validate T1 by calling ValidateReaders. To address this problem, we propose the commit-lock scheme. With this scheme, when a nested transaction attempts to commit, it must acquire the commit-lock of its parent. In addition, when a descendant validates its ancestor by calling ValidateReaders, it must also acquire the commit-lock of the validated ancestor. This ensures that the commit process of a transaction's child appears atomic to a validating descendant of the transaction. In the previous example, with the commit-lock scheme, T1.1's commit either happens before or after the validation by T1.2. In the first case, T1 will be doomed because RV(T1)&lt;TS(A) and eventually aborted. In the second case, T1.1 will be aborted because A is owned by T1.2 when T1.1 attempts to commit. Therefore, no serializability violation occurs in both cases. Performance impact: The commit-lock scheme essentially serializes the commits of child transactions. When a large number of child transactions simultaneously attempt to commit, performance can be hugely degraded due to the serialized commit. Counter increments every time when a transaction is validated by its descendant. When a child transaction attempts to commit, it samples the value of ValidationCounter of the parent. It then validates its read-set without acquiring the commit-lock of the parent. After the read-set validation, it acquires the commit-lock of the parent. It then compares the previously sampled value of ValidationCounter with the current value. If the two values match, it can safely merge its read-set to its parent's because it is guaranteed that there has been no validation by any descendant of the parent. If the two values differ, it releases the commit-lock of the parent and conservatively repeats the whole process. An evaluation of this alternative is left as future work.</p><formula xml:id="formula_0">∼ O(1) O(d) ∼ O(1) O(d) Write O(1) ∼ O(1) O(d · (R + d)) ∼ O(1) O(d) Commit O(R + W ) ∼ O(R + W ) O(d · R + W ) ∼ O(R + W ) O(d + R + W )</formula></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="4.3">Zombie Transactions</head><p>Problem: <ref type="figure" target="#fig_8">Figure 5</ref> illustrates a problematic scenario due to a zombie transaction. Initially, GC=0 and TS(A)=TS(B)=0. At time 0, T1 starts (RV(T1)=0). At time 2, T2 starts (RV(T2)=0). Then, T2 writes to A and B at times 3 and 4. At time 5, T2 commits and GC=1 and TS(A)=TS(B)=1. At time 6, T1.1 starts (RV(T1.1)=1). At time 7, T1.1 can successfully read B because B's owner is the root and RV(T1.1)≥TS(B). However, if a programmer assumes that A is always equal to B within transactions and inserts an assertion check, the program will be unexpectedly terminated by failing the assertion check. Note that if T1 could reach to its commit, it would eventually abort, thus no serializability violation. Other well-known anomalies such as infinite loops can also occur. Currently, NesTM admits zombie transactions because we have not been able to find an efficient solution to avoid them in an unmanaged environment.  </p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="4.4">Correctness Status</head><p>At this point, we do not have a hand proof of the correctness (serializability) and liveness of the NesTM algorithm. Therefore, the correctness and liveness of the NesTM algorithm still remain unchecked. However, we hope that our paper will generate in-depth discussions on formally proving and verifying correctness and liveness guarantees of timestamp-based, concurrently-nested STM.</p><p>To establish some evidence of correctness, we have subjected the NesTM algorithm to exhaustive tests using our model checker (ChkTM) <ref type="bibr" target="#b2">[3]</ref> and simulator. ChkTM verifies every possible execution of a small TM program running on the NesTM model. We configured ChkTM to generate every possible program with four threads (i.e., [1, 2, 1.1, 1.2]), each running only one transaction that performs at most two transactional memory operations (i.e., read or write), each accessing one of the two shared-memory words. ChkTM then explored every possible interleaving of every possible program. ChkTM, thus far, has not reported any serializability violation. Currently, ChkTM fails to verify NesTM with larger configurations (e.g., more threads or memory operations) due to the state space explosion.</p><p>To check the correctness and liveness of NesTM for a larger configuration, we performed extensive random tests by running a small microbenchmark on the implemented NesTM algorithm and simulator. The microbenchmark runs 14 concurrent threads (i.e., [1, 2, 1.1, 1.2, 2.1, 2.2, 1.1.1, 1.1.2, 1.2.1, 1.2.2, 2.1.1, 2.1.2, 2.2.1, 2.2.2]), each running one transaction that performs at most four transactional reads or writes to two shared-memory words. To better expose any potential bugs, we injected random delays at various points in the NesTM code (e.g., between lines 33 and 35 in Algorithm 1). The serializability checker compares the values observed by each transactional read and the final memory state of a concurrent run of the test program with the ones produced in a serial schedule. If this check fails, the checker reports a serializability violation. The liveness checker checks whether the test program successfully terminates or not. So far, NesTM has passed more than one million consecutive random tests without reporting any serializability or liveness violation.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="5.">EVALUATION</head></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="5.1">Methodology</head><p>We use an execution-driven simulator for x86 multi-core systems. <ref type="table" target="#tab_3">Table 2</ref> summarizes architectural parameters. All operations, except for loads and stores, have a CPI of 1.0, however all the details in the memory hierarchy timings are modeled, including contention and queueing events. We use the simulation results as our main results because they allow us to report results for larger CMP configurations and provide detailed performance breakdowns without perturbing the results.   <ref type="figure">Figure 6</ref>: Execution time breakdowns of STAMP applications with 1 thread.</p><p>Our evaluation aims to answer the following three questions: Q1: What is the runtime overhead due to NesTM when we do not need nested parallelism (i.e., running only top-level transactions)? Q2: What is the incremental overhead if we push down the available parallelism to a deeper nesting level (NL)? Q3: How does nested parallelism improve application performance? Q1 and Q3 address the practicality of NesTM, while Q2 provides insights into the overheads and the issues that a nesting-aware runtime system should address.</p><p>For Q1, we use seven of the eight STAMP applications with the simulation datasets <ref type="bibr" target="#b5">[6]</ref> 1 . For Q2, we use two microbenchmarks that implement concurrent hash table (hashtable) and red-black tree (rbtree). Finally, for Q3, we use a microbenchmark, c-hashtable that uses composed hash tables. Further details on the benchmarks are provided later in this section. </p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="5.2">Q1: Overhead for Top-Level Parallelism</head><formula xml:id="formula_1">N P D(%) = TNesT M − TBase TBase × 100</formula><p>Overall, <ref type="table" target="#tab_5">Table 3</ref> shows that the maximum NPD is about 20% across all benchmarks and thread counts. While NesTM barri-   <ref type="figure">Figure 6</ref>) and 16 ( <ref type="figure" target="#fig_9">Figure 7</ref>) threads, respectively. Execution time is broken into "busy" (useful instructions and cache misses), "RB" (read barriers), "WB" (write barriers), "aborted" (time spent on aborted transactions), "commit" (commit overhead), and "other" (work imbalance, etc.). With 1 thread <ref type="figure">(Figure 6</ref>), NPD is relatively high (i.e., NesTM is slower) when transactions include a large number of TM barriers (e.g., intruder, vacation) <ref type="bibr" target="#b5">[6]</ref>. This is mainly due to the extra overhead in NesTM barriers that cannot be amortized in this case. On the other hand, the overhead is negligible when very large transactions with few TM barriers are used (e.g., labyrinth). With more threads <ref type="figure" target="#fig_9">(Figure 7</ref>), more time is spent on aborted transactions with several applications (e.g., intruder, kmeans, yada). This is due to the validation that NesTM performs at the first write to each variable. This extra validation often detects conflicts more aggressively than the baseline STM, leading to more time spent on aborted transactions.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="5.3">Q2: Incremental Overhead of Deeper Nesting</head><p>To study the incremental overhead of pushing down the available parallelism to deeper nesting levels (NLs), we use two microbenchmarks. hashtable and rbtree perform concurrent accesses to a hash table with 4K buckets and a red-black tree. Among 4K operations, 12.5% are inserts (writes) and 87.5% are look-ups (reads). Each benchmark has 4 versions. flat uses only top-level transactions, each performing 16 operations (hashtable) and 4 operations (rbtree). N1 pushes down the parallelism to NL=1, using the same code enclosed with one big outermost transaction 3 . N2 and N3 are implemented by adding more outer transactions in a repeated manner.</p><p>In <ref type="figure">Figures 8 and 9</ref>, we show the execution time breakdowns of hashtable and rbtree. The execution time of each microbenchmark is normalized to the execution time on an STM that flat- tens and serializes nested transactions (i.e., performs all 4K operations sequentially in a top-level transaction). In addition to the segments explained in Section 5.2, each bar contains newly added segments: "CL" (time spent acquiring the commit locks of parents), and "NLC" (time spent committing non-leaf transactions). We observe that NesTM continues to scale up to 16 threads. For example, N1 versions of hashtable and rbtree are faster than the subsumed version by 2.4× and 1.8× with 16 threads. Due to the larger number of conflicts, rbtree does not scale as well as hashtable. <ref type="figure">Figures 8 and 9</ref> also reveal the three major performance challenges in NesTM. First, the runtime overhead of the read and write barriers of nested transactions is more expensive than those of top-level transactions. This is mainly due to more cache misses when accessing each entry in read-and write-sets. Since previously used entries in read-and write-sets of a transaction are merged to its parent, NesTM cannot exploit temporal locality on accessing transactional metadata when it runs nested transactions. In contrast, when top-level transactions are used, there is significant locality in metadata accesses. This performance issue might be mitigated using prefetching techniques.</p><p>Second, commit time increases linearly with the nesting level mainly due to the repeated read-set validation across different nesting levels. Alternatively, a runtime may choose different policies (e.g., serialization, reader-lock) depending on the nesting depth to achieve better performance. Finally, contention on the commitlocks of parents can become a performance bottleneck when a large number of nested transactions simultaneously commit. Since conflicts are infrequent in hashtable even with 16 threads, many child transactions can simultaneously commit and trigger this lock contention. In contrast, due to frequent conflicts in rbtree with 16 threads, this commit-lock contention is not a critical issue.</p><p>To understand the performance impact of transaction sizes, we measure the performance of hashtable by varying the transaction size from 4 to 32 operations per transaction. <ref type="figure" target="#fig_0">Figure 10</ref> presents the normalized execution time with 16 threads. With smaller transactions (e.g., 4), a significant portion of the time is spent on the commit-lock contention because more (small) transactions simultaneously attempt to commit. With larger transactions (e.g., 32), the performance overhead due to the commit-lock contention is mitigated, while more time is spent on aborted (large) transactions.</p><p>To study how much work is required to amortize the overhead of nested transactions, we compare the performance of nested versions of hashtable with flat by varying the amount of computational workload in transactions. The amount of workload is proportional to the number of loop iterations. With little work, NPD is high due to the unamortized overhead of repeated read-set validation. One possible optimization is to use lightweight hardware support for validation <ref type="bibr" target="#b6">[7]</ref>. With sufficient work, the overhead is amortized and nested versions comparably perform (e.g., N1: 39.7% with 1K iterations, N3: 9.9% with 10K iterations) to flat.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="5.4">Q3: Improving Performance using Nested Parallelism</head><p>c-hashtable operates on a two-level structure with customer data with a single, first-level (L1) hash table and multiple, second-level (L2) hash tables. The L1 hash table stores customer information, and the L2 hash tables store customer orders. Each customer operation must be atomic including the updates to both levels. There are three ways in exploiting the parallelism in c-hashtable: (1) outer: parallelism in the L1 hash table across customers, (2) inner: parallelism in the L2 hash tables (multiple transactions from a single customer), and (3) nested: parallelism in both levels. Nested parallelism can be advantageous if each level alone (outer or inner) does not have sufficient parallelism to saturate a large-scale system. In the experiment in <ref type="figure" target="#fig_0">Figure 11</ref>, the L1 hash table has 20 buckets and the L2 hash tables have 15 buckets. There are 256 randomly generated customers and each customer places 32 orders. The three lines in <ref type="figure" target="#fig_0">Figure 11</ref> show the speedup of outer, inner, and nested over the sequential run without TM barriers. At lower thread counts (e.g., 4), outer performs best due to rare conflicts and low overhead (e.g., thread synchronization, coarse-grain transactions). With 16 concurrent threads, however, nested performs best by efficiently exploiting the parallelism at both levels. Scalability of the other versions is limited mainly due to frequent conflicts at higher thread counts.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="6.">RELATED WORK</head><p>Moss and Hosking discussed the reference model for closed and open nesting in transactional memory and described preliminary architectural sketches <ref type="bibr" target="#b16">[16]</ref>. In addition, they proposed a simpler model called linear nesting in which nested transactions run sequentially. There has been previous work on supporting linear nesting in HTM <ref type="bibr" target="#b14">[14,</ref><ref type="bibr" target="#b15">15]</ref> and STM <ref type="bibr" target="#b12">[12,</ref><ref type="bibr" target="#b17">17]</ref>. Our work differs since NesTM targets concurrent nesting.</p><p>Recently, there has been research on supporting nested parallelism in STM <ref type="bibr" target="#b1">[2,</ref><ref type="bibr" target="#b3">4,</ref><ref type="bibr" target="#b18">18,</ref><ref type="bibr" target="#b21">22]</ref>. Agrawal et al. proposed CWSTM, a theoretical STM algorithm that supports nested parallel transactions with the lowest upper bound of time complexity <ref type="bibr" target="#b1">[2]</ref>. In <ref type="bibr" target="#b3">[4]</ref>, Barreto et al. proposed a practical implementation of the CWSTM algorithm. While achieving depth-independent time complexity of TM barriers, their work builds upon rather complex data structures such as concurrent stacks that could introduce additional runtime (especially to top-level transactions) and state overheads <ref type="bibr" target="#b3">[4]</ref>. In contrast, NesTM extends a timestamp-based STM. Ramadan and Witchel proposed SSTM, a lazy STM-based design that supports nested parallel transactions <ref type="bibr" target="#b18">[18]</ref>. However, their work extends a lazy STM and does not provide a detailed performance analysis. Our algorithm differs by extending an eager STM that has lower baseline overheads. Finally, Volos et al. proposed NePaLTM that supports nested parallelism inside transactions <ref type="bibr" target="#b21">[22]</ref>. While efficiently supporting nested parallelism when no or low transactional synchronization is used, NePaLTM serially executes nested parallel transactions using mutual exclusion locks. In contrast, NesTM implements concurrent execution of nested transactions.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="7.">CONCLUSION AND FUTURE WORK</head><p>This paper presented NesTM, an STM system that extends a state-of-the-art eager STM with closed-nested parallel transactions. NesTM is designed to keep state and runtime overheads small. We also discussed the subtle corner cases of concurrent nesting. Finally, we evaluated the performance of NesTM across multiple scenarios. Our future work will focus on a more rigorous correctness argument. We will also investigate how to improve the performance of NesTM by exploring alternative implementations, nesting-aware contention management, and lightweight hardware support.</p></div><figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_0"><head>Figure 1 :</head><label>1</label><figDesc>Figure 1: Comparison of voLocks.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_1"><head>1 :</head><label>1</label><figDesc>procedure TXSTORE(Self , addr, data) 2: if Self.doomed = true or isAnyDoomedAnces(Self ) then 3: TxAbort(Self ) 4: Owner ← getOwner(addr) 5: if Owner = Self then 6: cv ← getVoVal(addr) 7: Self.W S.insert(addr, Memory[addr], cv) 8: Memory[addr] ← data 9: else 10: cnt ← 1 11: repeat 12: cv ← getVoVal(addr) 13: ov ← cv 14: nv ← extractTS(cv) | Self.T ID 15: if extractOwner(cv) ∈ Ances(Self ) then 16:</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_2"><head></head><label></label><figDesc>cnt ← cnt + 1 26: until cnt = C 27: if Self.aborts % p = p − 1 then 28: DoomHighestConflictTx(Self , extractOwner(ov)) 29: TxAbort(Self ) 30: procedure TXCOMMIT(Self ) 31: if Self.doomed = true or isAnyDoomedAnces(Self ) then 32: TxAbort(Self ) 33: wv ← Fetch&amp;Increment(GlobalClock) 34: acquireLock(Self.P arent.commitLock) 35: for all e in Self.RS do 36: cv ← getVoVal(e.addr) 37: Owner ← extractOwner(cv) 38: if Owner = Self then 39: continue 40: else if Owner ∈ Ances(Self ) then 41: if extractTS(cv) &gt; Self.rv then 42: releaseLock(Self.P arent.commitLock) 43: TxAbort(Self ) 44: else 45: releaseLock(Self.P arent.commitLock) 46: if Self.aborts % p = p − 1 then 47: DoomHighestConflictTx(Self , Owner) 48: TxAbort(Self ) 49: mergeRWSetsToParent(Self ) 50: releaseLock(Self.P arent.commitLock) 51: for all e in Self.W S do 52: Owner ← getOwner(e.addr) 53: if Owner = Self then 54: nv ← wv | Self.P arent.T ID 55: setVoVal(e.addr, nv) 56: Self.RS.reset() 57: Self.W S.reset() Algorithm 2: Pseudocode for the basic functions in NesTM.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_3"><head>Figure 2 :</head><label>2</label><figDesc>Figure 2: A livelock scenario avoided by eventual rollback of the outer transaction.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_5"><head>Figure 3 :</head><label>3</label><figDesc>Figure 3: An example of a TM application running on NesTM.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_7"><head>Figure 4 :</head><label>4</label><figDesc>Figure 4: A potential serializability violation scenario due to the non-atomic commit.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_8"><head>Figure 5 :</head><label>5</label><figDesc>Figure 5: A problematic scenario due to a zombie transaction.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_9"><head>Figure 7 :</head><label>7</label><figDesc>Figure 7: Execution time breakdowns of STAMP applications with 16 threads.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_10"><head>Figure 8 :Figure 9 :</head><label>89</label><figDesc>Figure 8: Execution time breakdowns of hashtable.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_11"><head>Figure 10 :</head><label>10</label><figDesc>Figure 10: Execution time breakdowns of hashtable with various transaction sizes.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_12"><head>Figure 11 :</head><label>11</label><figDesc>Figure 11: Scalability of the three versions of c-hashtable.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_3" validated="false"><head>Table 2 :</head><label>2</label><figDesc></figDesc><table>Parameters for the simulated CMP system. 
+
+</table></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_5" validated="false"><head>Table 3 :</head><label>3</label><figDesc></figDesc><table>Normalized performance difference (%) of NesTM 
+relative to the baseline STM for STAMP applications. G, I, K, 
+L, S, V, and Y indicate genome, intruder, kmeans, labyrinth, 
+ssca2, vacation, and yada, respectively. 
+
+0 2 
+
+0.4 
+
+0.6 
+
+0.8 
+
+1.0 
+
+1.2 
+
+1.4 
+
+m. Exec. Time (to Base, 1 Thread) 
+
+Busy 
+RB 
+WB 
+Aborted 
+Commit 
+Other 
+
+0.0 
+
+0.2 
+
+Base 
+NesTM 
+Base 
+NesTM 
+Base 
+NesTM 
+Base 
+NesTM 
+Base 
+NesTM 
+Base 
+NesTM 
+Base 
+NesTM 
+
+genome intruder kmeans labyrinth ssca2 vacation 
+yada 
+
+Norm 
+
+</table></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_6" validated="false"><head>Table 3 compares</head><label>3</label><figDesc>the baseline STM and NesTM running the STAMP benchmarks using only top-level transactions. It lists the normalized performance difference (NPD) 2 calculated using the following equation:</figDesc><table></table></figure>
+
+			<note place="foot" n="1"> We exclude bayes because its non-deterministic behavior makes it difficult to compare results across STMs. 2 A positive NPD means that NesTM is slower.</note>
+
+			<note place="foot" n="3"> While flat and nested versions have different transactional semantics (i.e., whether to perform 4K operations atomically or not), we compare them to investigate performance issues.</note>
+		</body>
+		<back>
+
+			<div type="acknowledgement">
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>Acknowledgements</head><p>We would like to thank Richard Yoo and the anonymous reviewers for their feedback. We also want to thank Sun Microsystems for making the TL2 code available. Woongki Baek was supported by a Samsung Scholarship and an STMicroelectronics Stanford Graduate Fellowship. This work was supported by NSF Awards number 0546060, the Stanford Pervasive Parallelism Lab, and the Gigascale Systems Research Center (GSRC).</p></div>
+			</div>
+
+			<div type="references">
+
+				<listBibl>
+
+<biblStruct xml:id="b0">
+	<monogr>
+		<title level="m" type="main">The OpenMP Application Program Interface Specification</title>
+		<ptr target="http://www.openmp.org" />
+		<imprint>
+			<date type="published" when="2008-05" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b1">
+	<analytic>
+		<title level="a" type="main">Nested parallelism in transactional memory</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">K</forename><surname>Agrawal</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><forename type="middle">T</forename><surname>Fineman</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Sukha</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">PPoPP &apos;08: Proceedings of the 13th ACM SIGPLAN Symposium on Principles and practice of parallel programming</title>
+		<meeting><address><addrLine>New York, NY, USA</addrLine></address></meeting>
+		<imprint>
+			<publisher>ACM</publisher>
+			<date type="published" when="2008" />
+			<biblScope unit="page" from="163" to="174" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b2">
+	<analytic>
+		<title level="a" type="main">Implementing and Evaluating a Model Checker for Transactional Memory Systems</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">W</forename><surname>Baek</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">N</forename><surname>Bronson</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Kozyrakis</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">K</forename><surname>Olukotun</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">ICECCS &apos;10: Proceedings of the 15th IEEE International Conference on Engineering of Complex Computing Systems</title>
+		<imprint>
+			<date type="published" when="2010-03" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b3">
+	<analytic>
+		<title level="a" type="main">Leveraging parallel nesting in transactional memory</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Barreto</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Dragojevi´cdragojevi´c</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>Ferreira</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Guerraoui</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Kapalka</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">PPoPP &apos;10: Proceedings of the 15th ACM SIGPLAN symposium on Principles and practice of parallel programming</title>
+		<meeting><address><addrLine>New York, NY, USA</addrLine></address></meeting>
+		<imprint>
+			<publisher>ACM</publisher>
+			<date type="published" when="2010" />
+			<biblScope unit="page" from="91" to="100" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b4">
+	<analytic>
+		<title level="a" type="main">Load balancing and OpenMP implementation of nested parallelism</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Blikberg</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">T</forename><surname>Sorevik</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Parallel Comput</title>
+		<imprint>
+			<biblScope unit="volume">31</biblScope>
+			<biblScope unit="page" from="984" to="998" />
+			<date type="published" when="2005" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b5">
+	<analytic>
+		<title level="a" type="main">STAMP: Stanford transactional applications for multi-processing</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Minh</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Chung</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Kozyrakis</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">K</forename><surname>Olukotun</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">IISWC &apos;08: Proceedings of The IEEE International Symposium on Workload Characterization</title>
+		<imprint>
+			<date type="published" when="2008-09" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b6">
+	<analytic>
+		<title level="a" type="main">An effective hybrid transactional memory system with strong isolation guarantees</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Minh</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Trautmann</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Chung</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Mcdonald</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">N</forename><surname>Bronson</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Casper</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Kozyrakis</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">K</forename><surname>Olukotun</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the 34th Annual International Symposium on Computer Architecture</title>
+		<meeting>the 34th Annual International Symposium on Computer Architecture</meeting>
+		<imprint>
+			<date type="published" when="2007-06" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b7">
+	<analytic>
+		<title level="a" type="main">Transactional locking II</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Dice</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">O</forename><surname>Shalev</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">N</forename><surname>Shavit</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">DISC&apos;06: Proceedings of the 20th International Symposium on Distributed Computing</title>
+		<imprint>
+			<date type="published" when="2006-03" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b8">
+	<analytic>
+		<title level="a" type="main">Understanding tradeoffs in software transactional memory</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Dice</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">N</forename><surname>Shavit</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">CGO &apos;07: Proceedings of the International Symposium on Code Generation and Optimization</title>
+		<imprint>
+			<date type="published" when="2007-03" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b9">
+	<analytic>
+		<title level="a" type="main">Dynamic performance tuning of word-based software transactional memory</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>Felber</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Fetzer</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">T</forename><surname>Riegel</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">PPoPP &apos;08: Proceedings of the 13th ACM SIGPLAN Symposium on Principles and practice of parallel programming</title>
+		<meeting><address><addrLine>New York, NY, USA</addrLine></address></meeting>
+		<imprint>
+			<publisher>ACM</publisher>
+			<date type="published" when="2008" />
+			<biblScope unit="page" from="237" to="246" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b10">
+	<analytic>
+		<title level="a" type="main">Optimizing memory transactions</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">T</forename><surname>Harris</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Plesko</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Shinnar</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Tarditi</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">PLDI &apos;06: Proceedings of the</title>
+		<imprint>
+			<date type="published" when="2006" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b11">
+	<monogr>
+				<title level="m">ACM SIGPLAN Conference on Programming Language Design and Implementation</title>
+		<meeting><address><addrLine>New York, NY, USA</addrLine></address></meeting>
+		<imprint>
+			<publisher>ACM Press</publisher>
+			<date type="published" when="2006" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b12">
+	<analytic>
+		<title level="a" type="main">Abstract nested transactions</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">T</forename><surname>Harris</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Stipic</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Second ACM SIGPLAN Workshop on Transactional Computing</title>
+		<imprint>
+			<date type="published" when="2007" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b13">
+	<analytic>
+		<title level="a" type="main">Transactional memory: Architectural support for lock-free data structures</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Herlihy</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><forename type="middle">E B</forename><surname>Moss</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the 20th International Symposium on Computer Architecture</title>
+		<meeting>the 20th International Symposium on Computer Architecture</meeting>
+		<imprint>
+			<date type="published" when="1993" />
+			<biblScope unit="page" from="289" to="300" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b14">
+	<analytic>
+		<title level="a" type="main">Architectural Semantics for Practical Transactional Memory</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Mcdonald</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Chung</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">B</forename><forename type="middle">D</forename><surname>Carlstrom</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Minh</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">H</forename><surname>Chafi</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Kozyrakis</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">K</forename><surname>Olukotun</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">ISCA &apos;06: Proceedings of the 33rd annual international symposium on Computer Architecture</title>
+		<meeting><address><addrLine>Washington, DC, USA</addrLine></address></meeting>
+		<imprint>
+			<publisher>IEEE Computer Society</publisher>
+			<date type="published" when="2006-06" />
+			<biblScope unit="page" from="53" to="65" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b15">
+	<analytic>
+		<title level="a" type="main">Supporting nested transactional memory in LogTM</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><forename type="middle">J</forename><surname>Moravan</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Bobba</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">K</forename><forename type="middle">E</forename><surname>Moore</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">L</forename><surname>Yen</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><forename type="middle">D</forename><surname>Hill</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">B</forename><surname>Liblit</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><forename type="middle">M</forename><surname>Swift</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><forename type="middle">A</forename><surname>Wood</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the 12th international conference on Architectural support for programming languages and operating systems</title>
+		<meeting>the 12th international conference on Architectural support for programming languages and operating systems<address><addrLine>New York, NY, USA</addrLine></address></meeting>
+		<imprint>
+			<publisher>ACM Press</publisher>
+			<date type="published" when="2006" />
+			<biblScope unit="page" from="359" to="370" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b16">
+	<analytic>
+		<title level="a" type="main">Nested Transactional Memory: Model and Preliminary Architecture Sketches</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><forename type="middle">E B</forename><surname>Moss</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">T</forename><surname>Hosking</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">OOPSLA 2005 Workshop on Synchronization and Concurrency in Object-Oriented Languages</title>
+		<imprint>
+			<date type="published" when="2005-10" />
+		</imprint>
+		<respStmt>
+			<orgName>SCOOL). University of Rochester</orgName>
+		</respStmt>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b17">
+	<analytic>
+		<title level="a" type="main">Open nesting in software transactional memory</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Y</forename><surname>Ni</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">V</forename><forename type="middle">S</forename><surname>Menon</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A.-R</forename><surname>Adl-Tabatabai</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><forename type="middle">L</forename><surname>Hosking</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><forename type="middle">L</forename><surname>Hudson</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><forename type="middle">E B</forename><surname>Moss</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">B</forename><surname>Saha</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">T</forename><surname>Shpeisman</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">PPoPP &apos;07: Proceedings of the 12th ACM SIGPLAN symposium on Principles and Practice of Parallel Programming</title>
+		<meeting><address><addrLine>New York, NY, USA</addrLine></address></meeting>
+		<imprint>
+			<publisher>ACM Press</publisher>
+			<date type="published" when="2007" />
+			<biblScope unit="page" from="68" to="78" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b18">
+	<analytic>
+		<title level="a" type="main">The Xfork in the Road to Coordinated Sibling Transactions</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">H</forename><forename type="middle">E</forename><surname>Ramadan</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">E</forename><surname>Witchel</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">The Fourth ACM SIGPLAN Workshop on Transactional Computing (TRANSACT 09)</title>
+		<imprint>
+			<date type="published" when="2009-02" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b19">
+	<analytic>
+		<title level="a" type="main">McRT-STM: A high performance software transactional memory system for a multi-core runtime</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">B</forename><surname>Saha</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A.-R</forename><surname>Adl-Tabatabai</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><forename type="middle">L</forename><surname>Hudson</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><forename type="middle">Cao</forename><surname>Minh</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">B</forename><surname>Hertzberg</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">PPoPP &apos;06: Proceedings of the 11th ACM SIGPLAN symposium on Principles and practice of parallel programming</title>
+		<meeting><address><addrLine>New York, NY, USA</addrLine></address></meeting>
+		<imprint>
+			<publisher>ACM Press</publisher>
+			<date type="published" when="2006-03" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b20">
+	<analytic>
+		<title level="a" type="main">Performance Evaluation of OpenMP Applications with Nested Parallelism</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Y</forename><surname>Tanaka</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">K</forename><surname>Taura</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Sato</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Yonezawa</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">LCR &apos;00: Languages, Compilers, and Run-Time Systems for Scalable Computers</title>
+		<meeting><address><addrLine>London, UK</addrLine></address></meeting>
+		<imprint>
+			<publisher>Springer-Verlag</publisher>
+			<date type="published" when="2000" />
+			<biblScope unit="page" from="100" to="112" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b21">
+	<analytic>
+		<title level="a" type="main">NePaLTM: Design and Implementation of Nested Parallelism for Transactional Memory Systems</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">H</forename><surname>Volos</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Welc</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A.-R</forename><surname>Adl-Tabatabai</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">T</forename><surname>Shpeisman</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">X</forename><surname>Tian</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Narayanaswamy</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">ECOOP</title>
+		<imprint>
+			<date type="published" when="2009" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+				</listBibl>
+			</div>
+		</back>
+	</text>
+</TEI>

@@ -1,0 +1,1958 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>BIPSBIPS</p>
+    <p>C O M P U T A T I O N A L R E S E A R C H D I V I S I O N</p>
+    <p>Stencil Computation Optimization and Automatic Tuning on State-of-the-Art</p>
+    <p>Multicore Architectures</p>
+    <p>Kaushik Datta1,2, Mark Murphy2,</p>
+    <p>Vasily Volkov2, Samuel Williams1,2, Jonathan Carter1, Leonid Oliker1,2, David Patterson1,2,</p>
+    <p>John Shalf1, and Katherine Yelick1,2</p>
+    <p>kdatta@cs.berkeley.edu</p>
+  </div>
+  <div class="page">
+    <p>BIPSBIPS Talk Overview</p>
+    <p>Multicore revolution has produced wide variety of architectures  Compilers alone fail to fully exploit multicore resources  Hand-tuning has become infeasible  Automatic tuning is essential for performance and scaling  Local-store machines offer much greater performance and</p>
+    <p>power efficiency at the expense of productivity</p>
+  </div>
+  <div class="page">
+    <p>BIPSBIPS Outline</p>
+    <p>Stencil Code Overview  Cache-based Architectures  Automatic Tuning  Local-store Architectures</p>
+  </div>
+  <div class="page">
+    <p>BIPSBIPS Stencil Code Overview</p>
+    <p>For a given point, a stencil is a fixed subset of nearest neighbors</p>
+    <p>A stencil code updates every point in a regular grid by applying a stencil</p>
+    <p>Used in iterative PDE solvers like Jacobi, Multigrid, and AMR</p>
+    <p>Stencil codes usually bandwidth-bound  Long unit-stride memory accesses  Little reuse of each grid point  Few flops per grid point</p>
+    <p>This talk will focus on a out-of-place 3D 7-point stencil sweeping over a 2563 grid  Problem size &gt; Cache size</p>
+    <p>Adaptive Mesh Refinement (AMR)</p>
+    <p>(x,y,z)</p>
+    <p>x+1</p>
+    <p>x-1</p>
+    <p>y-1 y+1</p>
+    <p>z-1</p>
+    <p>z+1</p>
+  </div>
+  <div class="page">
+    <p>BIPSBIPS Nave Stencil Code</p>
+    <p>We wish to exploit multicore resources  First attempt at writing parallel stencil code:</p>
+    <p>Use pthreads  Parallelize in least contiguous grid dimension  Thread affinity for scaling: multithreading, then multicore,</p>
+    <p>then multisocket</p>
+    <p>x</p>
+    <p>y</p>
+    <p>z (unit-stride)</p>
+    <p>Thread 0</p>
+    <p>Thread 1</p>
+    <p>Thread n</p>
+  </div>
+  <div class="page">
+    <p>BIPSBIPS Outline</p>
+    <p>Stencil Code Overview  Cache-based Architectures  Automatic Tuning  Local-store Architectures</p>
+  </div>
+  <div class="page">
+    <p>BIPSBIPS Cache-Based Architectures</p>
+    <p>Intel Clovertown AMD Barcelona</p>
+    <p>Chipset (4x64b controllers)Chipset (4x64b controllers)</p>
+    <p>CoreCore</p>
+    <p>FSB</p>
+    <p>CoreCore CoreCore CoreCore</p>
+    <p>CoreCore</p>
+    <p>FSB</p>
+    <p>CoreCore CoreCore CoreCore</p>
+    <p>H yp</p>
+    <p>e rT</p>
+    <p>ra n</p>
+    <p>sp o</p>
+    <p>rt H</p>
+    <p>yp e</p>
+    <p>rT ra</p>
+    <p>n sp</p>
+    <p>o rt</p>
+    <p>O p</p>
+    <p>te ro</p>
+    <p>n O</p>
+    <p>p te</p>
+    <p>ro n</p>
+    <p>O p</p>
+    <p>te ro</p>
+    <p>n O</p>
+    <p>p te</p>
+    <p>ro n</p>
+    <p>O p</p>
+    <p>te ro</p>
+    <p>n O</p>
+    <p>p te</p>
+    <p>ro n</p>
+    <p>O p</p>
+    <p>te ro</p>
+    <p>n O</p>
+    <p>p te</p>
+    <p>ro n</p>
+    <p>SRI / xbarSRI / xbar</p>
+    <p>H yp</p>
+    <p>e rT</p>
+    <p>ra n</p>
+    <p>sp o</p>
+    <p>rt H</p>
+    <p>yp e</p>
+    <p>rT ra</p>
+    <p>n sp</p>
+    <p>o rt</p>
+    <p>O p</p>
+    <p>te ro</p>
+    <p>n O</p>
+    <p>p te</p>
+    <p>ro n</p>
+    <p>O p</p>
+    <p>te ro</p>
+    <p>n O</p>
+    <p>p te</p>
+    <p>ro n</p>
+    <p>O p</p>
+    <p>te ro</p>
+    <p>n O</p>
+    <p>p te</p>
+    <p>ro n</p>
+    <p>O p</p>
+    <p>te ro</p>
+    <p>n O</p>
+    <p>p te</p>
+    <p>ro n</p>
+    <p>SRI / xbarSRI / xbar</p>
+    <p>B /s</p>
+    <p>(e a</p>
+    <p>c h</p>
+    <p>d ir</p>
+    <p>e ct</p>
+    <p>io n</p>
+    <p>) Sun Niagara2 (Victoria Falls)</p>
+    <p>(All Dual-Socket)</p>
+    <p>M T</p>
+    <p>S P</p>
+    <p>A R</p>
+    <p>C M</p>
+    <p>T S</p>
+    <p>P A</p>
+    <p>R C</p>
+    <p>M T</p>
+    <p>S P</p>
+    <p>A R</p>
+    <p>C M</p>
+    <p>T S</p>
+    <p>P A</p>
+    <p>R C</p>
+    <p>M T</p>
+    <p>S P</p>
+    <p>A R</p>
+    <p>C M</p>
+    <p>T S</p>
+    <p>P A</p>
+    <p>R C</p>
+    <p>M T</p>
+    <p>S P</p>
+    <p>A R</p>
+    <p>C M</p>
+    <p>T S</p>
+    <p>P A</p>
+    <p>R C</p>
+    <p>M T</p>
+    <p>S P</p>
+    <p>A R</p>
+    <p>C M</p>
+    <p>T S</p>
+    <p>P A</p>
+    <p>R C</p>
+    <p>M T</p>
+    <p>S P</p>
+    <p>A R</p>
+    <p>C M</p>
+    <p>T S</p>
+    <p>P A</p>
+    <p>R C</p>
+    <p>M T</p>
+    <p>S P</p>
+    <p>A R</p>
+    <p>C M</p>
+    <p>T S</p>
+    <p>P A</p>
+    <p>R C</p>
+    <p>M T</p>
+    <p>S P</p>
+    <p>A R</p>
+    <p>C M</p>
+    <p>T S</p>
+    <p>P A</p>
+    <p>R C</p>
+    <p>CrossbarCrossbar</p>
+    <p>M T</p>
+    <p>S P</p>
+    <p>A R</p>
+    <p>C M</p>
+    <p>T S</p>
+    <p>P A</p>
+    <p>R C</p>
+    <p>M T</p>
+    <p>S P</p>
+    <p>A R</p>
+    <p>C M</p>
+    <p>T S</p>
+    <p>P A</p>
+    <p>R C</p>
+    <p>M T</p>
+    <p>S P</p>
+    <p>A R</p>
+    <p>C M</p>
+    <p>T S</p>
+    <p>P A</p>
+    <p>R C</p>
+    <p>M T</p>
+    <p>S P</p>
+    <p>A R</p>
+    <p>C M</p>
+    <p>T S</p>
+    <p>P A</p>
+    <p>R C</p>
+    <p>M T</p>
+    <p>S P</p>
+    <p>A R</p>
+    <p>C M</p>
+    <p>T S</p>
+    <p>P A</p>
+    <p>R C</p>
+    <p>M T</p>
+    <p>S P</p>
+    <p>A R</p>
+    <p>C M</p>
+    <p>T S</p>
+    <p>P A</p>
+    <p>R C</p>
+    <p>M T</p>
+    <p>S P</p>
+    <p>A R</p>
+    <p>C M</p>
+    <p>T S</p>
+    <p>P A</p>
+    <p>R C</p>
+    <p>M T</p>
+    <p>S P</p>
+    <p>A R</p>
+    <p>C M</p>
+    <p>T S</p>
+    <p>P A</p>
+    <p>R C</p>
+    <p>CrossbarCrossbar</p>
+    <p>G B</p>
+    <p>/s (1</p>
+    <p>p e</p>
+    <p>r h</p>
+    <p>u b</p>
+    <p>p e</p>
+    <p>r d</p>
+    <p>ir e</p>
+    <p>ct io</p>
+    <p>n )</p>
+  </div>
+  <div class="page">
+    <p>BIPSBIPS Cache-Based Architectures</p>
+    <p>Intel Clovertown AMD Barcelona</p>
+    <p>Chipset (4x64b controllers)Chipset (4x64b controllers)</p>
+    <p>CoreCore</p>
+    <p>FSB</p>
+    <p>CoreCore CoreCore CoreCore</p>
+    <p>CoreCore</p>
+    <p>FSB</p>
+    <p>CoreCore CoreCore CoreCore</p>
+    <p>H yp</p>
+    <p>e rT</p>
+    <p>ra n</p>
+    <p>sp o</p>
+    <p>rt H</p>
+    <p>yp e</p>
+    <p>rT ra</p>
+    <p>n sp</p>
+    <p>o rt</p>
+    <p>O p</p>
+    <p>te ro</p>
+    <p>n O</p>
+    <p>p te</p>
+    <p>ro n</p>
+    <p>O p</p>
+    <p>te ro</p>
+    <p>n O</p>
+    <p>p te</p>
+    <p>ro n</p>
+    <p>O p</p>
+    <p>te ro</p>
+    <p>n O</p>
+    <p>p te</p>
+    <p>ro n</p>
+    <p>O p</p>
+    <p>te ro</p>
+    <p>n O</p>
+    <p>p te</p>
+    <p>ro n</p>
+    <p>SRI / xbarSRI / xbar</p>
+    <p>H yp</p>
+    <p>e rT</p>
+    <p>ra n</p>
+    <p>sp o</p>
+    <p>rt H</p>
+    <p>yp e</p>
+    <p>rT ra</p>
+    <p>n sp</p>
+    <p>o rt</p>
+    <p>O p</p>
+    <p>te ro</p>
+    <p>n O</p>
+    <p>p te</p>
+    <p>ro n</p>
+    <p>O p</p>
+    <p>te ro</p>
+    <p>n O</p>
+    <p>p te</p>
+    <p>ro n</p>
+    <p>O p</p>
+    <p>te ro</p>
+    <p>n O</p>
+    <p>p te</p>
+    <p>ro n</p>
+    <p>O p</p>
+    <p>te ro</p>
+    <p>n O</p>
+    <p>p te</p>
+    <p>ro n</p>
+    <p>SRI / xbarSRI / xbar</p>
+    <p>B /s</p>
+    <p>(e a</p>
+    <p>c h</p>
+    <p>d ir</p>
+    <p>e ct</p>
+    <p>io n</p>
+    <p>) Sun Niagara2 (Victoria Falls)</p>
+    <p>x86 Superscalar</p>
+    <p>(Features)</p>
+    <p>M T</p>
+    <p>S P</p>
+    <p>A R</p>
+    <p>C M</p>
+    <p>T S</p>
+    <p>P A</p>
+    <p>R C</p>
+    <p>M T</p>
+    <p>S P</p>
+    <p>A R</p>
+    <p>C M</p>
+    <p>T S</p>
+    <p>P A</p>
+    <p>R C</p>
+    <p>M T</p>
+    <p>S P</p>
+    <p>A R</p>
+    <p>C M</p>
+    <p>T S</p>
+    <p>P A</p>
+    <p>R C</p>
+    <p>M T</p>
+    <p>S P</p>
+    <p>A R</p>
+    <p>C M</p>
+    <p>T S</p>
+    <p>P A</p>
+    <p>R C</p>
+    <p>M T</p>
+    <p>S P</p>
+    <p>A R</p>
+    <p>C M</p>
+    <p>T S</p>
+    <p>P A</p>
+    <p>R C</p>
+    <p>M T</p>
+    <p>S P</p>
+    <p>A R</p>
+    <p>C M</p>
+    <p>T S</p>
+    <p>P A</p>
+    <p>R C</p>
+    <p>M T</p>
+    <p>S P</p>
+    <p>A R</p>
+    <p>C M</p>
+    <p>T S</p>
+    <p>P A</p>
+    <p>R C</p>
+    <p>M T</p>
+    <p>S P</p>
+    <p>A R</p>
+    <p>C M</p>
+    <p>T S</p>
+    <p>P A</p>
+    <p>R C</p>
+    <p>CrossbarCrossbar</p>
+    <p>M T</p>
+    <p>S P</p>
+    <p>A R</p>
+    <p>C M</p>
+    <p>T S</p>
+    <p>P A</p>
+    <p>R C</p>
+    <p>M T</p>
+    <p>S P</p>
+    <p>A R</p>
+    <p>C M</p>
+    <p>T S</p>
+    <p>P A</p>
+    <p>R C</p>
+    <p>M T</p>
+    <p>S P</p>
+    <p>A R</p>
+    <p>C M</p>
+    <p>T S</p>
+    <p>P A</p>
+    <p>R C</p>
+    <p>M T</p>
+    <p>S P</p>
+    <p>A R</p>
+    <p>C M</p>
+    <p>T S</p>
+    <p>P A</p>
+    <p>R C</p>
+    <p>M T</p>
+    <p>S P</p>
+    <p>A R</p>
+    <p>C M</p>
+    <p>T S</p>
+    <p>P A</p>
+    <p>R C</p>
+    <p>M T</p>
+    <p>S P</p>
+    <p>A R</p>
+    <p>C M</p>
+    <p>T S</p>
+    <p>P A</p>
+    <p>R C</p>
+    <p>M T</p>
+    <p>S P</p>
+    <p>A R</p>
+    <p>C M</p>
+    <p>T S</p>
+    <p>P A</p>
+    <p>R C</p>
+    <p>M T</p>
+    <p>S P</p>
+    <p>A R</p>
+    <p>C M</p>
+    <p>T S</p>
+    <p>P A</p>
+    <p>R C</p>
+    <p>CrossbarCrossbar</p>
+    <p>G B</p>
+    <p>/s (1</p>
+    <p>p e</p>
+    <p>r h</p>
+    <p>u b</p>
+    <p>p e</p>
+    <p>r d</p>
+    <p>ir e</p>
+    <p>ct io</p>
+    <p>n )</p>
+    <p>Chip MultiThreaded</p>
+    <p>(CMT)</p>
+  </div>
+  <div class="page">
+    <p>BIPSBIPS Cache-Based Architectures</p>
+    <p>Intel Clovertown AMD Barcelona</p>
+    <p>Chipset (4x64b controllers)Chipset (4x64b controllers)</p>
+    <p>CoreCore</p>
+    <p>FSB</p>
+    <p>CoreCore CoreCore CoreCore</p>
+    <p>CoreCore</p>
+    <p>FSB</p>
+    <p>CoreCore CoreCore CoreCore</p>
+    <p>H yp</p>
+    <p>e rT</p>
+    <p>ra n</p>
+    <p>sp o</p>
+    <p>rt H</p>
+    <p>yp e</p>
+    <p>rT ra</p>
+    <p>n sp</p>
+    <p>o rt</p>
+    <p>O p</p>
+    <p>te ro</p>
+    <p>n O</p>
+    <p>p te</p>
+    <p>ro n</p>
+    <p>O p</p>
+    <p>te ro</p>
+    <p>n O</p>
+    <p>p te</p>
+    <p>ro n</p>
+    <p>O p</p>
+    <p>te ro</p>
+    <p>n O</p>
+    <p>p te</p>
+    <p>ro n</p>
+    <p>O p</p>
+    <p>te ro</p>
+    <p>n O</p>
+    <p>p te</p>
+    <p>ro n</p>
+    <p>SRI / xbarSRI / xbar</p>
+    <p>H yp</p>
+    <p>e rT</p>
+    <p>ra n</p>
+    <p>sp o</p>
+    <p>rt H</p>
+    <p>yp e</p>
+    <p>rT ra</p>
+    <p>n sp</p>
+    <p>o rt</p>
+    <p>O p</p>
+    <p>te ro</p>
+    <p>n O</p>
+    <p>p te</p>
+    <p>ro n</p>
+    <p>O p</p>
+    <p>te ro</p>
+    <p>n O</p>
+    <p>p te</p>
+    <p>ro n</p>
+    <p>O p</p>
+    <p>te ro</p>
+    <p>n O</p>
+    <p>p te</p>
+    <p>ro n</p>
+    <p>O p</p>
+    <p>te ro</p>
+    <p>n O</p>
+    <p>p te</p>
+    <p>ro n</p>
+    <p>SRI / xbarSRI / xbar</p>
+    <p>B /s</p>
+    <p>(e a</p>
+    <p>c h</p>
+    <p>d ir</p>
+    <p>e ct</p>
+    <p>io n</p>
+    <p>) Sun Niagara2 (Victoria Falls)</p>
+    <p>(Socket / Core / Thread Count)</p>
+    <p>M T</p>
+    <p>S P</p>
+    <p>A R</p>
+    <p>C M</p>
+    <p>T S</p>
+    <p>P A</p>
+    <p>R C</p>
+    <p>M T</p>
+    <p>S P</p>
+    <p>A R</p>
+    <p>C M</p>
+    <p>T S</p>
+    <p>P A</p>
+    <p>R C</p>
+    <p>M T</p>
+    <p>S P</p>
+    <p>A R</p>
+    <p>C M</p>
+    <p>T S</p>
+    <p>P A</p>
+    <p>R C</p>
+    <p>M T</p>
+    <p>S P</p>
+    <p>A R</p>
+    <p>C M</p>
+    <p>T S</p>
+    <p>P A</p>
+    <p>R C</p>
+    <p>M T</p>
+    <p>S P</p>
+    <p>A R</p>
+    <p>C M</p>
+    <p>T S</p>
+    <p>P A</p>
+    <p>R C</p>
+    <p>M T</p>
+    <p>S P</p>
+    <p>A R</p>
+    <p>C M</p>
+    <p>T S</p>
+    <p>P A</p>
+    <p>R C</p>
+    <p>M T</p>
+    <p>S P</p>
+    <p>A R</p>
+    <p>C M</p>
+    <p>T S</p>
+    <p>P A</p>
+    <p>R C</p>
+    <p>M T</p>
+    <p>S P</p>
+    <p>A R</p>
+    <p>C M</p>
+    <p>T S</p>
+    <p>P A</p>
+    <p>R C</p>
+    <p>CrossbarCrossbar</p>
+    <p>M T</p>
+    <p>S P</p>
+    <p>A R</p>
+    <p>C M</p>
+    <p>T S</p>
+    <p>P A</p>
+    <p>R C</p>
+    <p>M T</p>
+    <p>S P</p>
+    <p>A R</p>
+    <p>C M</p>
+    <p>T S</p>
+    <p>P A</p>
+    <p>R C</p>
+    <p>M T</p>
+    <p>S P</p>
+    <p>A R</p>
+    <p>C M</p>
+    <p>T S</p>
+    <p>P A</p>
+    <p>R C</p>
+    <p>M T</p>
+    <p>S P</p>
+    <p>A R</p>
+    <p>C M</p>
+    <p>T S</p>
+    <p>P A</p>
+    <p>R C</p>
+    <p>M T</p>
+    <p>S P</p>
+    <p>A R</p>
+    <p>C M</p>
+    <p>T S</p>
+    <p>P A</p>
+    <p>R C</p>
+    <p>M T</p>
+    <p>S P</p>
+    <p>A R</p>
+    <p>C M</p>
+    <p>T S</p>
+    <p>P A</p>
+    <p>R C</p>
+    <p>M T</p>
+    <p>S P</p>
+    <p>A R</p>
+    <p>C M</p>
+    <p>T S</p>
+    <p>P A</p>
+    <p>R C</p>
+    <p>M T</p>
+    <p>S P</p>
+    <p>A R</p>
+    <p>C M</p>
+    <p>T S</p>
+    <p>P A</p>
+    <p>R C</p>
+    <p>CrossbarCrossbar</p>
+    <p>G B</p>
+    <p>/s (1</p>
+    <p>p e</p>
+    <p>r h</p>
+    <p>u b</p>
+    <p>p e</p>
+    <p>r d</p>
+    <p>ir e</p>
+    <p>ct io</p>
+    <p>n )</p>
+  </div>
+  <div class="page">
+    <p>BIPSBIPS</p>
+    <p>M T</p>
+    <p>S P</p>
+    <p>A R</p>
+    <p>C M</p>
+    <p>T S</p>
+    <p>P A</p>
+    <p>R C</p>
+    <p>M T</p>
+    <p>S P</p>
+    <p>A R</p>
+    <p>C M</p>
+    <p>T S</p>
+    <p>P A</p>
+    <p>R C</p>
+    <p>M T</p>
+    <p>S P</p>
+    <p>A R</p>
+    <p>C M</p>
+    <p>T S</p>
+    <p>P A</p>
+    <p>R C</p>
+    <p>M T</p>
+    <p>S P</p>
+    <p>A R</p>
+    <p>C M</p>
+    <p>T S</p>
+    <p>P A</p>
+    <p>R C</p>
+    <p>M T</p>
+    <p>S P</p>
+    <p>A R</p>
+    <p>C M</p>
+    <p>T S</p>
+    <p>P A</p>
+    <p>R C</p>
+    <p>M T</p>
+    <p>S P</p>
+    <p>A R</p>
+    <p>C M</p>
+    <p>T S</p>
+    <p>P A</p>
+    <p>R C</p>
+    <p>M T</p>
+    <p>S P</p>
+    <p>A R</p>
+    <p>C M</p>
+    <p>T S</p>
+    <p>P A</p>
+    <p>R C</p>
+    <p>M T</p>
+    <p>S P</p>
+    <p>A R</p>
+    <p>C M</p>
+    <p>T S</p>
+    <p>P A</p>
+    <p>R C</p>
+    <p>CrossbarCrossbar</p>
+    <p>M T</p>
+    <p>S P</p>
+    <p>A R</p>
+    <p>C M</p>
+    <p>T S</p>
+    <p>P A</p>
+    <p>R C</p>
+    <p>M T</p>
+    <p>S P</p>
+    <p>A R</p>
+    <p>C M</p>
+    <p>T S</p>
+    <p>P A</p>
+    <p>R C</p>
+    <p>M T</p>
+    <p>S P</p>
+    <p>A R</p>
+    <p>C M</p>
+    <p>T S</p>
+    <p>P A</p>
+    <p>R C</p>
+    <p>M T</p>
+    <p>S P</p>
+    <p>A R</p>
+    <p>C M</p>
+    <p>T S</p>
+    <p>P A</p>
+    <p>R C</p>
+    <p>M T</p>
+    <p>S P</p>
+    <p>A R</p>
+    <p>C M</p>
+    <p>T S</p>
+    <p>P A</p>
+    <p>R C</p>
+    <p>M T</p>
+    <p>S P</p>
+    <p>A R</p>
+    <p>C M</p>
+    <p>T S</p>
+    <p>P A</p>
+    <p>R C</p>
+    <p>M T</p>
+    <p>S P</p>
+    <p>A R</p>
+    <p>C M</p>
+    <p>T S</p>
+    <p>P A</p>
+    <p>R C</p>
+    <p>M T</p>
+    <p>S P</p>
+    <p>A R</p>
+    <p>C M</p>
+    <p>T S</p>
+    <p>P A</p>
+    <p>R C</p>
+    <p>CrossbarCrossbar</p>
+    <p>G B</p>
+    <p>/s (1</p>
+    <p>p e</p>
+    <p>r h</p>
+    <p>u b</p>
+    <p>p e</p>
+    <p>r d</p>
+    <p>ir e</p>
+    <p>ct io</p>
+    <p>n )</p>
+    <p>Cache-Based Architectures</p>
+    <p>Intel Clovertown AMD Barcelona</p>
+    <p>Chipset (4x64b controllers)Chipset (4x64b controllers)</p>
+    <p>CoreCore</p>
+    <p>FSB</p>
+    <p>CoreCore CoreCore CoreCore</p>
+    <p>CoreCore</p>
+    <p>FSB</p>
+    <p>CoreCore CoreCore CoreCore</p>
+    <p>H yp</p>
+    <p>e rT</p>
+    <p>ra n</p>
+    <p>sp o</p>
+    <p>rt H</p>
+    <p>yp e</p>
+    <p>rT ra</p>
+    <p>n sp</p>
+    <p>o rt</p>
+    <p>O p</p>
+    <p>te ro</p>
+    <p>n O</p>
+    <p>p te</p>
+    <p>ro n</p>
+    <p>O p</p>
+    <p>te ro</p>
+    <p>n O</p>
+    <p>p te</p>
+    <p>ro n</p>
+    <p>O p</p>
+    <p>te ro</p>
+    <p>n O</p>
+    <p>p te</p>
+    <p>ro n</p>
+    <p>O p</p>
+    <p>te ro</p>
+    <p>n O</p>
+    <p>p te</p>
+    <p>ro n</p>
+    <p>SRI / xbarSRI / xbar</p>
+    <p>H yp</p>
+    <p>e rT</p>
+    <p>ra n</p>
+    <p>sp o</p>
+    <p>rt H</p>
+    <p>yp e</p>
+    <p>rT ra</p>
+    <p>n sp</p>
+    <p>o rt</p>
+    <p>O p</p>
+    <p>te ro</p>
+    <p>n O</p>
+    <p>p te</p>
+    <p>ro n</p>
+    <p>O p</p>
+    <p>te ro</p>
+    <p>n O</p>
+    <p>p te</p>
+    <p>ro n</p>
+    <p>O p</p>
+    <p>te ro</p>
+    <p>n O</p>
+    <p>p te</p>
+    <p>ro n</p>
+    <p>O p</p>
+    <p>te ro</p>
+    <p>n O</p>
+    <p>p te</p>
+    <p>ro n</p>
+    <p>SRI / xbarSRI / xbar</p>
+    <p>B /s</p>
+    <p>(e a</p>
+    <p>c h</p>
+    <p>d ir</p>
+    <p>e ct</p>
+    <p>io n</p>
+    <p>) Sun Niagara2 (Victoria Falls)</p>
+    <p>(Stream Bandwidth)</p>
+    <p>Stencil codes typically bandwidth-bound  Stream BW can be loose upper bound</p>
+    <p>on performance</p>
+  </div>
+  <div class="page">
+    <p>BIPSBIPS Nave Performance</p>
+    <p>Intel Clovertown AMD Barcelona</p>
+    <p>Sun Niagara2 (Victoria Falls)</p>
+    <p>Naive Stream-Predicted Performance</p>
+    <p>Best nave: 48% of Stream-predicted Best nave:</p>
+    <p>Best nave: 18% of Stream-predicted</p>
+    <p>Stream-predicted performance assumes:  code achieves Stream bandwidth  only compulsory misses  Using all cores and threads</p>
+    <p>Compiler optimizations alone result in:  small fraction of Stream-predicted</p>
+    <p>performance  no parallel scaling</p>
+    <p>(+icc) (+gcc)</p>
+    <p>(+gcc)</p>
+  </div>
+  <div class="page">
+    <p>BIPSBIPS</p>
+    <p>M T</p>
+    <p>S P</p>
+    <p>A R</p>
+    <p>C M</p>
+    <p>T S</p>
+    <p>P A</p>
+    <p>R C</p>
+    <p>M T</p>
+    <p>S P</p>
+    <p>A R</p>
+    <p>C M</p>
+    <p>T S</p>
+    <p>P A</p>
+    <p>R C</p>
+    <p>M T</p>
+    <p>S P</p>
+    <p>A R</p>
+    <p>C M</p>
+    <p>T S</p>
+    <p>P A</p>
+    <p>R C</p>
+    <p>M T</p>
+    <p>S P</p>
+    <p>A R</p>
+    <p>C M</p>
+    <p>T S</p>
+    <p>P A</p>
+    <p>R C</p>
+    <p>M T</p>
+    <p>S P</p>
+    <p>A R</p>
+    <p>C M</p>
+    <p>T S</p>
+    <p>P A</p>
+    <p>R C</p>
+    <p>M T</p>
+    <p>S P</p>
+    <p>A R</p>
+    <p>C M</p>
+    <p>T S</p>
+    <p>P A</p>
+    <p>R C</p>
+    <p>M T</p>
+    <p>S P</p>
+    <p>A R</p>
+    <p>C M</p>
+    <p>T S</p>
+    <p>P A</p>
+    <p>R C</p>
+    <p>M T</p>
+    <p>S P</p>
+    <p>A R</p>
+    <p>C M</p>
+    <p>T S</p>
+    <p>P A</p>
+    <p>R C</p>
+    <p>CrossbarCrossbar</p>
+    <p>M T</p>
+    <p>S P</p>
+    <p>A R</p>
+    <p>C M</p>
+    <p>T S</p>
+    <p>P A</p>
+    <p>R C</p>
+    <p>M T</p>
+    <p>S P</p>
+    <p>A R</p>
+    <p>C M</p>
+    <p>T S</p>
+    <p>P A</p>
+    <p>R C</p>
+    <p>M T</p>
+    <p>S P</p>
+    <p>A R</p>
+    <p>C M</p>
+    <p>T S</p>
+    <p>P A</p>
+    <p>R C</p>
+    <p>M T</p>
+    <p>S P</p>
+    <p>A R</p>
+    <p>C M</p>
+    <p>T S</p>
+    <p>P A</p>
+    <p>R C</p>
+    <p>M T</p>
+    <p>S P</p>
+    <p>A R</p>
+    <p>C M</p>
+    <p>T S</p>
+    <p>P A</p>
+    <p>R C</p>
+    <p>M T</p>
+    <p>S P</p>
+    <p>A R</p>
+    <p>C M</p>
+    <p>T S</p>
+    <p>P A</p>
+    <p>R C</p>
+    <p>M T</p>
+    <p>S P</p>
+    <p>A R</p>
+    <p>C M</p>
+    <p>T S</p>
+    <p>P A</p>
+    <p>R C</p>
+    <p>M T</p>
+    <p>S P</p>
+    <p>A R</p>
+    <p>C M</p>
+    <p>T S</p>
+    <p>P A</p>
+    <p>R C</p>
+    <p>CrossbarCrossbar</p>
+    <p>G B</p>
+    <p>/s (1</p>
+    <p>p e</p>
+    <p>r h</p>
+    <p>u b</p>
+    <p>p e</p>
+    <p>r d</p>
+    <p>ir e</p>
+    <p>ct io</p>
+    <p>n )</p>
+    <p>Cache-Based Architectures</p>
+    <p>Intel Clovertown AMD Barcelona</p>
+    <p>Chipset (4x64b controllers)Chipset (4x64b controllers)</p>
+    <p>CoreCore</p>
+    <p>FSB</p>
+    <p>CoreCore CoreCore CoreCore</p>
+    <p>CoreCore</p>
+    <p>FSB</p>
+    <p>CoreCore CoreCore CoreCore</p>
+    <p>H yp</p>
+    <p>e rT</p>
+    <p>ra n</p>
+    <p>sp o</p>
+    <p>rt H</p>
+    <p>yp e</p>
+    <p>rT ra</p>
+    <p>n sp</p>
+    <p>o rt</p>
+    <p>O p</p>
+    <p>te ro</p>
+    <p>n O</p>
+    <p>p te</p>
+    <p>ro n</p>
+    <p>O p</p>
+    <p>te ro</p>
+    <p>n O</p>
+    <p>p te</p>
+    <p>ro n</p>
+    <p>O p</p>
+    <p>te ro</p>
+    <p>n O</p>
+    <p>p te</p>
+    <p>ro n</p>
+    <p>O p</p>
+    <p>te ro</p>
+    <p>n O</p>
+    <p>p te</p>
+    <p>ro n</p>
+    <p>SRI / xbarSRI / xbar</p>
+    <p>H yp</p>
+    <p>e rT</p>
+    <p>ra n</p>
+    <p>sp o</p>
+    <p>rt H</p>
+    <p>yp e</p>
+    <p>rT ra</p>
+    <p>n sp</p>
+    <p>o rt</p>
+    <p>O p</p>
+    <p>te ro</p>
+    <p>n O</p>
+    <p>p te</p>
+    <p>ro n</p>
+    <p>O p</p>
+    <p>te ro</p>
+    <p>n O</p>
+    <p>p te</p>
+    <p>ro n</p>
+    <p>O p</p>
+    <p>te ro</p>
+    <p>n O</p>
+    <p>p te</p>
+    <p>ro n</p>
+    <p>O p</p>
+    <p>te ro</p>
+    <p>n O</p>
+    <p>p te</p>
+    <p>ro n</p>
+    <p>SRI / xbarSRI / xbar</p>
+    <p>B /s</p>
+    <p>(e a</p>
+    <p>c h</p>
+    <p>d ir</p>
+    <p>e ct</p>
+    <p>io n</p>
+    <p>) Sun Niagara2 (Victoria Falls)</p>
+    <p>(Cache Capacity Per Thread)</p>
+    <p>Nave codes working set &gt; 2 MB/thread  Only the Clovertown has a chance of</p>
+    <p>running well  Barcelona and Victoria Falls will</p>
+    <p>definitely suffer capacity misses</p>
+  </div>
+  <div class="page">
+    <p>BIPSBIPS Potential Problems</p>
+    <p>What are possible performance bottlenecks with the nave code?  Poor data placement  Conflict misses  Capacity misses  Poor functional unit usage  Low memory bandwidth  Compiler not exploiting the ISA  Unneeded write allocation  Low cache capacity/thread</p>
+    <p>NUMA-aware allocation</p>
+    <p>Array padding</p>
+    <p>Core blocking Register blocking Software prefetching SIMDization</p>
+    <p>Cache bypass</p>
+    <p>Thread blocking</p>
+    <p>&amp; Solutions</p>
+  </div>
+  <div class="page">
+    <p>BIPSBIPS Performance</p>
+    <p>Intel Clovertown AMD Barcelona</p>
+    <p>Sun Niagara2 (Victoria Falls)</p>
+    <p>(Naive)</p>
+    <p>Naive</p>
+    <p>Stream-Predicted Performance</p>
+  </div>
+  <div class="page">
+    <p>BIPSBIPS NUMA Optimization</p>
+    <p>Intel Clovertown AMD Barcelona</p>
+    <p>Sun Niagara2 (Victoria Falls)</p>
+    <p>H yp</p>
+    <p>e rT</p>
+    <p>ra n</p>
+    <p>sp o</p>
+    <p>rt H</p>
+    <p>yp e</p>
+    <p>rT ra</p>
+    <p>n sp</p>
+    <p>o rt</p>
+    <p>O p</p>
+    <p>te ro</p>
+    <p>n O</p>
+    <p>p te</p>
+    <p>ro n</p>
+    <p>O p</p>
+    <p>te ro</p>
+    <p>n O</p>
+    <p>p te</p>
+    <p>ro n</p>
+    <p>O p</p>
+    <p>te ro</p>
+    <p>n O</p>
+    <p>p te</p>
+    <p>ro n</p>
+    <p>O p</p>
+    <p>te ro</p>
+    <p>n O</p>
+    <p>p te</p>
+    <p>ro n</p>
+    <p>SRI / xbarSRI / xbar</p>
+    <p>H yp</p>
+    <p>e rT</p>
+    <p>ra n</p>
+    <p>sp o</p>
+    <p>rt H</p>
+    <p>yp e</p>
+    <p>rT ra</p>
+    <p>n sp</p>
+    <p>o rt</p>
+    <p>O p</p>
+    <p>te ro</p>
+    <p>n O</p>
+    <p>p te</p>
+    <p>ro n</p>
+    <p>O p</p>
+    <p>te ro</p>
+    <p>n O</p>
+    <p>p te</p>
+    <p>ro n</p>
+    <p>O p</p>
+    <p>te ro</p>
+    <p>n O</p>
+    <p>p te</p>
+    <p>ro n</p>
+    <p>O p</p>
+    <p>te ro</p>
+    <p>n O</p>
+    <p>p te</p>
+    <p>ro n</p>
+    <p>SRI / xbarSRI / xbar</p>
+    <p>B /s</p>
+    <p>(e a</p>
+    <p>c h</p>
+    <p>d ir</p>
+    <p>e ct</p>
+    <p>io n</p>
+    <p>)</p>
+    <p>M T</p>
+    <p>S P</p>
+    <p>A R</p>
+    <p>C M</p>
+    <p>T S</p>
+    <p>P A</p>
+    <p>R C</p>
+    <p>M T</p>
+    <p>S P</p>
+    <p>A R</p>
+    <p>C M</p>
+    <p>T S</p>
+    <p>P A</p>
+    <p>R C</p>
+    <p>M T</p>
+    <p>S P</p>
+    <p>A R</p>
+    <p>C M</p>
+    <p>T S</p>
+    <p>P A</p>
+    <p>R C</p>
+    <p>M T</p>
+    <p>S P</p>
+    <p>A R</p>
+    <p>C M</p>
+    <p>T S</p>
+    <p>P A</p>
+    <p>R C</p>
+    <p>M T</p>
+    <p>S P</p>
+    <p>A R</p>
+    <p>C M</p>
+    <p>T S</p>
+    <p>P A</p>
+    <p>R C</p>
+    <p>M T</p>
+    <p>S P</p>
+    <p>A R</p>
+    <p>C M</p>
+    <p>T S</p>
+    <p>P A</p>
+    <p>R C</p>
+    <p>M T</p>
+    <p>S P</p>
+    <p>A R</p>
+    <p>C M</p>
+    <p>T S</p>
+    <p>P A</p>
+    <p>R C</p>
+    <p>M T</p>
+    <p>S P</p>
+    <p>A R</p>
+    <p>C M</p>
+    <p>T S</p>
+    <p>P A</p>
+    <p>R C</p>
+    <p>CrossbarCrossbar</p>
+    <p>M T</p>
+    <p>S P</p>
+    <p>A R</p>
+    <p>C M</p>
+    <p>T S</p>
+    <p>P A</p>
+    <p>R C</p>
+    <p>M T</p>
+    <p>S P</p>
+    <p>A R</p>
+    <p>C M</p>
+    <p>T S</p>
+    <p>P A</p>
+    <p>R C</p>
+    <p>M T</p>
+    <p>S P</p>
+    <p>A R</p>
+    <p>C M</p>
+    <p>T S</p>
+    <p>P A</p>
+    <p>R C</p>
+    <p>M T</p>
+    <p>S P</p>
+    <p>A R</p>
+    <p>C M</p>
+    <p>T S</p>
+    <p>P A</p>
+    <p>R C</p>
+    <p>M T</p>
+    <p>S P</p>
+    <p>A R</p>
+    <p>C M</p>
+    <p>T S</p>
+    <p>P A</p>
+    <p>R C</p>
+    <p>M T</p>
+    <p>S P</p>
+    <p>A R</p>
+    <p>C M</p>
+    <p>T S</p>
+    <p>P A</p>
+    <p>R C</p>
+    <p>M T</p>
+    <p>S P</p>
+    <p>A R</p>
+    <p>C M</p>
+    <p>T S</p>
+    <p>P A</p>
+    <p>R C</p>
+    <p>M T</p>
+    <p>S P</p>
+    <p>A R</p>
+    <p>C M</p>
+    <p>T S</p>
+    <p>P A</p>
+    <p>R C</p>
+    <p>CrossbarCrossbar</p>
+    <p>G B</p>
+    <p>/s (1</p>
+    <p>p e</p>
+    <p>r h</p>
+    <p>u b</p>
+    <p>p e</p>
+    <p>r d</p>
+    <p>ir e</p>
+    <p>ct io</p>
+    <p>n )</p>
+    <p>Chipset (4x64b controllers)Chipset (4x64b controllers)</p>
+    <p>CoreCore</p>
+    <p>FSB</p>
+    <p>CoreCore CoreCore CoreCore</p>
+    <p>CoreCore</p>
+    <p>FSB</p>
+    <p>CoreCore CoreCore CoreCore</p>
+    <p>All DRAMs are highlighted in red  Only Barcelona and Victoria Falls are</p>
+    <p>NUMA architectures  We co-located data on same socket as</p>
+    <p>thread processing it</p>
+  </div>
+  <div class="page">
+    <p>BIPSBIPS Performance</p>
+    <p>Intel Clovertown AMD Barcelona</p>
+    <p>Sun Niagara2 (Victoria Falls)</p>
+    <p>(+ NUMA)</p>
+    <p>+ NUMA Naive</p>
+    <p>Stream-Predicted Performance</p>
+  </div>
+  <div class="page">
+    <p>BIPSBIPS Array Padding Optimization</p>
+    <p>Conflict misses may occur on low-associativity caches  Each array was padded by a tuned amount to minimize conflicts</p>
+    <p>x</p>
+    <p>y</p>
+    <p>z (unit-stride)</p>
+    <p>Thread 0</p>
+    <p>Thread 1</p>
+    <p>Thread n</p>
+    <p>pa dd</p>
+    <p>in g</p>
+  </div>
+  <div class="page">
+    <p>BIPSBIPS Performance</p>
+    <p>Intel Clovertown AMD Barcelona</p>
+    <p>Sun Niagara2 (Victoria Falls)</p>
+    <p>(+ Array Padding)</p>
+    <p>+ Array Padding + NUMA Naive</p>
+    <p>Stream-Predicted Performance</p>
+  </div>
+  <div class="page">
+    <p>BIPSBIPS Problem Decomposition</p>
+    <p>+Y</p>
+    <p>+Z</p>
+    <p>Decomposition of the Grid into a Chunk of Core Blocks</p>
+    <p>+X (unit stride)NY</p>
+    <p>N Z</p>
+    <p>NX</p>
+    <p>Large chunks enable efficient NUMA Allocation  Small chunks exploit LLC shared caches</p>
+    <p>Decomposition into Thread Blocks</p>
+    <p>CY</p>
+    <p>C Z</p>
+    <p>CX</p>
+    <p>TYTX</p>
+    <p>Exploit caches shared among threads within a core</p>
+    <p>(across an SMP)</p>
+    <p>Decomposition into Register Blocks</p>
+    <p>RY</p>
+    <p>TY</p>
+    <p>C Z</p>
+    <p>TX</p>
+    <p>RX RZ</p>
+    <p>Make DLP/ILP explicit  Make register reuse explicit</p>
+    <p>This decomposition is universal across all examined architectures  Decomposition does not change data structure  Need to choose best block sizes for each hierarchy level</p>
+  </div>
+  <div class="page">
+    <p>BIPSBIPS Performance</p>
+    <p>Intel Clovertown AMD Barcelona</p>
+    <p>Sun Niagara2 (Victoria Falls)</p>
+    <p>(+ Core Blocking)</p>
+    <p>+ Core Blocking + Array Padding + NUMA Naive</p>
+    <p>Stream-Predicted Performance</p>
+  </div>
+  <div class="page">
+    <p>BIPSBIPS Performance</p>
+    <p>Intel Clovertown AMD Barcelona</p>
+    <p>Sun Niagara2 (Victoria Falls)</p>
+    <p>(+ Register Blocking)</p>
+    <p>+ Register Blocking + Core Blocking + Array Padding + NUMA Naive</p>
+    <p>Stream-Predicted Performance</p>
+  </div>
+  <div class="page">
+    <p>BIPSBIPS Performance</p>
+    <p>Intel Clovertown AMD Barcelona</p>
+    <p>Sun Niagara2 (Victoria Falls)</p>
+    <p>(+ Software Prefetch)</p>
+    <p>+ Software Prefetch + Register Blocking + Core Blocking + Array Padding + NUMA Naive</p>
+    <p>Stream-Predicted Performance</p>
+  </div>
+  <div class="page">
+    <p>BIPSBIPS Performance</p>
+    <p>Intel Clovertown AMD Barcelona</p>
+    <p>Sun Niagara2 (Victoria Falls)</p>
+    <p>(+ SIMD)</p>
+    <p>+ SIMD + Software Prefetch + Register Blocking + Core Blocking + Array Padding + NUMA Naive</p>
+    <p>Stream-Predicted Performance</p>
+  </div>
+  <div class="page">
+    <p>BIPSBIPS Cache Bypass Optimization</p>
+    <p>We do not use initial values in the write array and will overwrite them</p>
+    <p>We can eliminate write array cache line fills with SSE intrinsic  Reduces memory traffic from 24 B/point to 16 B/point- 33%</p>
+    <p>improvement!</p>
+    <p>Write Array</p>
+    <p>DRAM</p>
+    <p>Read Array</p>
+    <p>Chip</p>
+  </div>
+  <div class="page">
+    <p>BIPSBIPS Performance</p>
+    <p>Intel Clovertown AMD Barcelona</p>
+    <p>Sun Niagara2 (Victoria Falls)</p>
+    <p>(+ Cache Bypass)</p>
+    <p>+ Cache Bypass + SIMD + Software Prefetch + Register Blocking + Core Blocking + Array Padding + NUMA Naive</p>
+    <p>Stream-Predicted Performance</p>
+  </div>
+  <div class="page">
+    <p>BIPSBIPS Performance</p>
+    <p>Intel Clovertown AMD Barcelona</p>
+    <p>Sun Niagara2 (Victoria Falls)</p>
+    <p>(+ Thread Blocking)</p>
+    <p>+ Cache Bypass + SIMD</p>
+    <p>+ Thread Blocking</p>
+    <p>+ Software Prefetch + Register Blocking + Core Blocking + Array Padding + NUMA Naive</p>
+    <p>Stream-Predicted Performance</p>
+  </div>
+  <div class="page">
+    <p>BIPSBIPS Performance</p>
+    <p>Intel Clovertown AMD Barcelona</p>
+    <p>Sun Niagara2 (Victoria Falls)</p>
+    <p>(Full Tuning)</p>
+    <p>+ Cache Bypass + SIMD</p>
+    <p>+ Thread Blocking</p>
+    <p>+ Software Prefetch + Register Blocking + Core Blocking + Array Padding + NUMA Naive</p>
+    <p>Stream-Predicted Performance</p>
+    <p>Best tuned: 70% of Stream</p>
+    <p>predicted</p>
+    <p>Best tuned: 94% of Stream</p>
+    <p>predicted</p>
+    <p>Best tuned: 72% of Stream</p>
+    <p>predicted</p>
+  </div>
+  <div class="page">
+    <p>BIPSBIPS Tuning Speedup</p>
+    <p>Intel Clovertown AMD Barcelona</p>
+    <p>Sun Niagara2 (Victoria Falls)</p>
+    <p>(Over Best Nave Code)</p>
+    <p>+ Cache Bypass + SIMD</p>
+    <p>+ Thread Blocking</p>
+    <p>+ Software Prefetch + Register Blocking + Core Blocking + Array Padding + NUMA Naive</p>
+    <p>Stream-Predicted Performance</p>
+  </div>
+  <div class="page">
+    <p>BIPSBIPS Parallel Scaling Speedup</p>
+    <p>Intel Clovertown AMD Barcelona</p>
+    <p>Sun Niagara2 (Victoria Falls)</p>
+    <p>(Over Single Core Performance)</p>
+    <p>+ Cache Bypass + SIMD</p>
+    <p>+ Thread Blocking</p>
+    <p>+ Software Prefetch + Register Blocking + Core Blocking + Array Padding + NUMA Naive</p>
+    <p>Stream-Predicted Performance</p>
+  </div>
+  <div class="page">
+    <p>BIPSBIPS Outline</p>
+    <p>Stencil Code Overview  Cache-based Architectures  Automatic Tuning  Local-store Architectures</p>
+  </div>
+  <div class="page">
+    <p>BIPSBIPS Parameter Space Explosion</p>
+    <p>Applied optimizations were:  NUMA-aware allocation  Array padding  Core blocking  Register blocking  Software prefetching  SIMDization  Cache bypass  Thread blocking</p>
+    <p>Each optimization has an associated set of parameters  Size of the configuration space quickly becomes intractable</p>
+  </div>
+  <div class="page">
+    <p>BIPSBIPS Automatic Tuning</p>
+    <p>Hand-tuning across diverse architectures and core counts is impractical</p>
+    <p>Need an effective approach that is:  portable  scalable  requires minimal programmer effort (for coding or tuning)</p>
+    <p>We let the machine search the parameter space intelligently to find a (near-)optimal configuration (autotuning)</p>
+    <p>Autotuning has proven track record (e.g., ATLAS, SPIRAL, FFTW, OSKI)</p>
+  </div>
+  <div class="page">
+    <p>BIPSBIPS Traversing the Parameter Space</p>
+    <p>Exhaustive search is impossible  To make problem tractable, we:  ordered the optimizations  applied them consecutively  Every platform had its own set of best parameters  This was indeed effective</p>
+    <p>Opt. #1 Parameters</p>
+    <p>O p</p>
+    <p>t. #</p>
+    <p>a ra</p>
+    <p>m e</p>
+    <p>te rs</p>
+    <p>O pt</p>
+    <p>. # 3</p>
+    <p>P ar</p>
+    <p>am et</p>
+    <p>er s</p>
+  </div>
+  <div class="page">
+    <p>BIPSBIPS Outline</p>
+    <p>Stencil Code Overview  Cache-based Architectures  Automatic Tuning  Local-store Architectures</p>
+  </div>
+  <div class="page">
+    <p>BIPSBIPS</p>
+    <p>Local-Store Architectures</p>
+    <p>IBM QS22 Cell Blade NVIDIA GTX280</p>
+    <p>&lt;32GB 800MHz DDR2 DIMMs&lt;32GB 800MHz DDR2 DIMMs</p>
+    <p>EIB (Ring Network)EIB (Ring Network)</p>
+    <p>SPESPE</p>
+    <p>MFCMFC</p>
+    <p>SPESPE</p>
+    <p>MFCMFC</p>
+    <p>SPESPE</p>
+    <p>MFCMFC</p>
+    <p>SPESPE</p>
+    <p>MFCMFC</p>
+    <p>MFCMFC MFCMFC MFCMFC MFCMFC</p>
+    <p>SPESPE SPESPE SPESPE SPESPE</p>
+    <p>c o</p>
+    <p>n tr</p>
+    <p>o lle</p>
+    <p>rs 4</p>
+    <p>x6 4</p>
+    <p>b c o</p>
+    <p>n tr</p>
+    <p>o lle</p>
+    <p>rs</p>
+    <p>BIFBIF</p>
+    <p>VMT PPE VMT PPE</p>
+    <p>&lt;32GB 800MHz DDR2 DIMMs&lt;32GB 800MHz DDR2 DIMMs</p>
+    <p>EIB (Ring Network)EIB (Ring Network)</p>
+    <p>BIFBIF</p>
+    <p>VMT PPE VMT PPE</p>
+    <p>SPESPE</p>
+    <p>MFCMFC</p>
+    <p>SPESPE</p>
+    <p>MFCMFC</p>
+    <p>SPESPE</p>
+    <p>MFCMFC</p>
+    <p>SPESPE</p>
+    <p>MFCMFC</p>
+    <p>&lt; 2</p>
+    <p>B /s</p>
+    <p>(e a</p>
+    <p>c h</p>
+    <p>d ir</p>
+    <p>e ct</p>
+    <p>io n</p>
+    <p>)</p>
+    <p>co n</p>
+    <p>tr o</p>
+    <p>lle rs</p>
+    <p>co n</p>
+    <p>tr o</p>
+    <p>lle rs MFCMFC MFCMFC MFCMFC MFCMFC</p>
+    <p>SPESPE SPESPE SPESPE SPESPE</p>
+    <p>in te</p>
+    <p>rc o</p>
+    <p>n n</p>
+    <p>e ct</p>
+    <p>in te</p>
+    <p>rc o</p>
+    <p>n n</p>
+    <p>e ct</p>
+    <p>PCIePCIe</p>
+    <p>Thread Cluster</p>
+    <p>L2 (Textures only)L2 (Textures only)</p>
+    <p>Thread Cluster</p>
+    <p>Thread Cluster</p>
+    <p>Thread Cluster</p>
+    <p>Thread Cluster</p>
+    <p>Thread Cluster</p>
+    <p>Thread Cluster</p>
+    <p>Thread Cluster</p>
+    <p>Thread Cluster</p>
+    <p>Thread Cluster</p>
+    <p>Streaming Multiprocessor</p>
+    <p>S P</p>
+    <p>S P</p>
+    <p>S P</p>
+    <p>S P</p>
+    <p>S P</p>
+    <p>S P</p>
+    <p>S P</p>
+    <p>S P</p>
+    <p>S P</p>
+    <p>S P</p>
+    <p>S P</p>
+    <p>S P</p>
+    <p>S P</p>
+    <p>S P</p>
+    <p>S P</p>
+    <p>S P</p>
+    <p>SFUSFU SFUSFU</p>
+    <p>double precisiondouble precision</p>
+    <p>sharedshared</p>
+    <p>Load/Store coalescingLoad/Store coalescing</p>
+    <p>single fetch, issue to multiple cores</p>
+    <p>Texture UnitTexture Unit</p>
+    <p>L1 (Textures only)L1 (Textures only)</p>
+    <p>(Both Heterogeneous)</p>
+  </div>
+  <div class="page">
+    <p>BIPSBIPS</p>
+    <p>Local-Store Architectures</p>
+    <p>IBM QS22 Cell Blade NVIDIA GTX280</p>
+    <p>&lt;32GB 800MHz DDR2 DIMMs&lt;32GB 800MHz DDR2 DIMMs</p>
+    <p>EIB (Ring Network)EIB (Ring Network)</p>
+    <p>SPESPE</p>
+    <p>MFCMFC</p>
+    <p>SPESPE</p>
+    <p>MFCMFC</p>
+    <p>SPESPE</p>
+    <p>MFCMFC</p>
+    <p>SPESPE</p>
+    <p>MFCMFC</p>
+    <p>MFCMFC MFCMFC MFCMFC MFCMFC</p>
+    <p>SPESPE SPESPE SPESPE SPESPE</p>
+    <p>c o</p>
+    <p>n tr</p>
+    <p>o lle</p>
+    <p>rs 4</p>
+    <p>x6 4</p>
+    <p>b c o</p>
+    <p>n tr</p>
+    <p>o lle</p>
+    <p>rs</p>
+    <p>BIFBIF</p>
+    <p>VMT PPE VMT PPE</p>
+    <p>&lt;32GB 800MHz DDR2 DIMMs&lt;32GB 800MHz DDR2 DIMMs</p>
+    <p>EIB (Ring Network)EIB (Ring Network)</p>
+    <p>BIFBIF</p>
+    <p>VMT PPE VMT PPE</p>
+    <p>SPESPE</p>
+    <p>MFCMFC</p>
+    <p>SPESPE</p>
+    <p>MFCMFC</p>
+    <p>SPESPE</p>
+    <p>MFCMFC</p>
+    <p>SPESPE</p>
+    <p>MFCMFC</p>
+    <p>&lt; 2</p>
+    <p>B /s</p>
+    <p>(e a</p>
+    <p>c h</p>
+    <p>d ir</p>
+    <p>e ct</p>
+    <p>io n</p>
+    <p>)</p>
+    <p>co n</p>
+    <p>tr o</p>
+    <p>lle rs</p>
+    <p>co n</p>
+    <p>tr o</p>
+    <p>lle rs MFCMFC MFCMFC MFCMFC MFCMFC</p>
+    <p>SPESPE SPESPE SPESPE SPESPE</p>
+    <p>in te</p>
+    <p>rc o</p>
+    <p>n n</p>
+    <p>e ct</p>
+    <p>in te</p>
+    <p>rc o</p>
+    <p>n n</p>
+    <p>e ct</p>
+    <p>PCIePCIe</p>
+    <p>Thread Cluster</p>
+    <p>L2 (Textures only)L2 (Textures only)</p>
+    <p>Thread Cluster</p>
+    <p>Thread Cluster</p>
+    <p>Thread Cluster</p>
+    <p>Thread Cluster</p>
+    <p>Thread Cluster</p>
+    <p>Thread Cluster</p>
+    <p>Thread Cluster</p>
+    <p>Thread Cluster</p>
+    <p>Thread Cluster</p>
+    <p>Streaming Multiprocessor</p>
+    <p>S P</p>
+    <p>S P</p>
+    <p>S P</p>
+    <p>S P</p>
+    <p>S P</p>
+    <p>S P</p>
+    <p>S P</p>
+    <p>S P</p>
+    <p>S P</p>
+    <p>S P</p>
+    <p>S P</p>
+    <p>S P</p>
+    <p>S P</p>
+    <p>S P</p>
+    <p>S P</p>
+    <p>S P</p>
+    <p>SFUSFU SFUSFU</p>
+    <p>double precisiondouble precision</p>
+    <p>sharedshared</p>
+    <p>Load/Store coalescingLoad/Store coalescing</p>
+    <p>single fetch, issue to multiple cores</p>
+    <p>Texture UnitTexture Unit</p>
+    <p>L1 (Textures only)L1 (Textures only)</p>
+    <p>Direct Memory Access</p>
+    <p>Highly Multithreaded</p>
+    <p>(Features)</p>
+  </div>
+  <div class="page">
+    <p>BIPSBIPS</p>
+    <p>Local-Store Architectures</p>
+    <p>IBM QS22 Cell Blade NVIDIA GTX280</p>
+    <p>&lt;32GB 800MHz DDR2 DIMMs&lt;32GB 800MHz DDR2 DIMMs</p>
+    <p>EIB (Ring Network)EIB (Ring Network)</p>
+    <p>SPESPE</p>
+    <p>MFCMFC</p>
+    <p>SPESPE</p>
+    <p>MFCMFC</p>
+    <p>SPESPE</p>
+    <p>MFCMFC</p>
+    <p>SPESPE</p>
+    <p>MFCMFC</p>
+    <p>MFCMFC MFCMFC MFCMFC MFCMFC</p>
+    <p>SPESPE SPESPE SPESPE SPESPE</p>
+    <p>c o</p>
+    <p>n tr</p>
+    <p>o lle</p>
+    <p>rs 4</p>
+    <p>x6 4</p>
+    <p>b c o</p>
+    <p>n tr</p>
+    <p>o lle</p>
+    <p>rs</p>
+    <p>BIFBIF</p>
+    <p>VMT PPE VMT PPE</p>
+    <p>&lt;32GB 800MHz DDR2 DIMMs&lt;32GB 800MHz DDR2 DIMMs</p>
+    <p>EIB (Ring Network)EIB (Ring Network)</p>
+    <p>BIFBIF</p>
+    <p>VMT PPE VMT PPE</p>
+    <p>SPESPE</p>
+    <p>MFCMFC</p>
+    <p>SPESPE</p>
+    <p>MFCMFC</p>
+    <p>SPESPE</p>
+    <p>MFCMFC</p>
+    <p>SPESPE</p>
+    <p>MFCMFC</p>
+    <p>&lt; 2</p>
+    <p>B /s</p>
+    <p>(e a</p>
+    <p>c h</p>
+    <p>d ir</p>
+    <p>e ct</p>
+    <p>io n</p>
+    <p>)</p>
+    <p>co n</p>
+    <p>tr o</p>
+    <p>lle rs</p>
+    <p>co n</p>
+    <p>tr o</p>
+    <p>lle rs MFCMFC MFCMFC MFCMFC MFCMFC</p>
+    <p>SPESPE SPESPE SPESPE SPESPE</p>
+    <p>in te</p>
+    <p>rc o</p>
+    <p>n n</p>
+    <p>e ct</p>
+    <p>in te</p>
+    <p>rc o</p>
+    <p>n n</p>
+    <p>e ct</p>
+    <p>PCIePCIe</p>
+    <p>Thread Cluster</p>
+    <p>L2 (Textures only)L2 (Textures only)</p>
+    <p>Thread Cluster</p>
+    <p>Thread Cluster</p>
+    <p>Thread Cluster</p>
+    <p>Thread Cluster</p>
+    <p>Thread Cluster</p>
+    <p>Thread Cluster</p>
+    <p>Thread Cluster</p>
+    <p>Thread Cluster</p>
+    <p>Thread Cluster</p>
+    <p>Streaming Multiprocessor</p>
+    <p>S P</p>
+    <p>S P</p>
+    <p>S P</p>
+    <p>S P</p>
+    <p>S P</p>
+    <p>S P</p>
+    <p>S P</p>
+    <p>S P</p>
+    <p>S P</p>
+    <p>S P</p>
+    <p>S P</p>
+    <p>S P</p>
+    <p>S P</p>
+    <p>S P</p>
+    <p>S P</p>
+    <p>S P</p>
+    <p>SFUSFU SFUSFU</p>
+    <p>double precisiondouble precision</p>
+    <p>sharedshared</p>
+    <p>Load/Store coalescingLoad/Store coalescing</p>
+    <p>single fetch, issue to multiple cores</p>
+    <p>Texture UnitTexture Unit</p>
+    <p>L1 (Textures only)L1 (Textures only)</p>
+    <p>(Socket / Core Count)</p>
+  </div>
+  <div class="page">
+    <p>BIPSBIPS</p>
+    <p>Local-Store Architectures</p>
+    <p>IBM QS22 Cell Blade NVIDIA GTX280</p>
+    <p>&lt;32GB 800MHz DDR2 DIMMs&lt;32GB 800MHz DDR2 DIMMs</p>
+    <p>EIB (Ring Network)EIB (Ring Network)</p>
+    <p>SPESPE</p>
+    <p>MFCMFC</p>
+    <p>SPESPE</p>
+    <p>MFCMFC</p>
+    <p>SPESPE</p>
+    <p>MFCMFC</p>
+    <p>SPESPE</p>
+    <p>MFCMFC</p>
+    <p>MFCMFC MFCMFC MFCMFC MFCMFC</p>
+    <p>SPESPE SPESPE SPESPE SPESPE</p>
+    <p>c o</p>
+    <p>n tr</p>
+    <p>o lle</p>
+    <p>rs 4</p>
+    <p>x6 4</p>
+    <p>b c o</p>
+    <p>n tr</p>
+    <p>o lle</p>
+    <p>rs</p>
+    <p>BIFBIF</p>
+    <p>VMT PPE VMT PPE</p>
+    <p>&lt;32GB 800MHz DDR2 DIMMs&lt;32GB 800MHz DDR2 DIMMs</p>
+    <p>EIB (Ring Network)EIB (Ring Network)</p>
+    <p>BIFBIF</p>
+    <p>VMT PPE VMT PPE</p>
+    <p>SPESPE</p>
+    <p>MFCMFC</p>
+    <p>SPESPE</p>
+    <p>MFCMFC</p>
+    <p>SPESPE</p>
+    <p>MFCMFC</p>
+    <p>SPESPE</p>
+    <p>MFCMFC</p>
+    <p>&lt; 2</p>
+    <p>B /s</p>
+    <p>(e a</p>
+    <p>c h</p>
+    <p>d ir</p>
+    <p>e ct</p>
+    <p>io n</p>
+    <p>)</p>
+    <p>co n</p>
+    <p>tr o</p>
+    <p>lle rs</p>
+    <p>co n</p>
+    <p>tr o</p>
+    <p>lle rs MFCMFC MFCMFC MFCMFC MFCMFC</p>
+    <p>SPESPE SPESPE SPESPE SPESPE</p>
+    <p>in te</p>
+    <p>rc o</p>
+    <p>n n</p>
+    <p>e ct</p>
+    <p>in te</p>
+    <p>rc o</p>
+    <p>n n</p>
+    <p>e ct</p>
+    <p>PCIePCIe</p>
+    <p>Thread Cluster</p>
+    <p>L2 (Textures only)L2 (Textures only)</p>
+    <p>Thread Cluster</p>
+    <p>Thread Cluster</p>
+    <p>Thread Cluster</p>
+    <p>Thread Cluster</p>
+    <p>Thread Cluster</p>
+    <p>Thread Cluster</p>
+    <p>Thread Cluster</p>
+    <p>Thread Cluster</p>
+    <p>Thread Cluster</p>
+    <p>Streaming Multiprocessor</p>
+    <p>S P</p>
+    <p>S P</p>
+    <p>S P</p>
+    <p>S P</p>
+    <p>S P</p>
+    <p>S P</p>
+    <p>S P</p>
+    <p>S P</p>
+    <p>S P</p>
+    <p>S P</p>
+    <p>S P</p>
+    <p>S P</p>
+    <p>S P</p>
+    <p>S P</p>
+    <p>S P</p>
+    <p>S P</p>
+    <p>SFUSFU SFUSFU</p>
+    <p>double precisiondouble precision</p>
+    <p>sharedshared</p>
+    <p>Load/Store coalescingLoad/Store coalescing</p>
+    <p>single fetch, issue to multiple cores</p>
+    <p>Texture UnitTexture Unit</p>
+    <p>L1 (Textures only)L1 (Textures only)</p>
+    <p>(Stream Bandwidth)</p>
+  </div>
+  <div class="page">
+    <p>BIPSBIPS Tuning</p>
+    <p>Tuning for local-store platforms typically easier  Data movement explicitly controlled by DMAs (Cell) or</p>
+    <p>SIMT loads/stores (GPU)  The search space is limited by the register file and local</p>
+    <p>store sizes  Heuristics based on local memory size usually effective</p>
+    <p>Cell: blocks for 256 KB local store  GTX280: blocks for 64 KB register file on each SM</p>
+    <p>(Local Store Architectures)</p>
+  </div>
+  <div class="page">
+    <p>BIPSBIPS</p>
+    <p>Performance</p>
+    <p>IBM QS22 Cell Blade NVIDIA GTX280</p>
+    <p>(Full Tuning- Double Precision Results)</p>
+    <p>+SIMD</p>
+    <p>+Core Blocking</p>
+    <p>+NUMA</p>
+    <p>+DMA</p>
+    <p>+Thread Blocking</p>
+    <p>Both platforms are much faster than cache-based machines  Neither machine can run portable C code</p>
+    <p>N a v</p>
+    <p>e C</p>
+    <p>U D</p>
+    <p>A o</p>
+    <p>n h</p>
+    <p>o s t</p>
+    <p>N a v</p>
+    <p>e C</p>
+    <p>U D</p>
+    <p>A o</p>
+    <p>n d</p>
+    <p>e v ic</p>
+    <p>e</p>
+  </div>
+  <div class="page">
+    <p>BIPSBIPS Summary (All Architectures)</p>
+    <p>Performance:</p>
+    <p>Power Efficiency:</p>
+    <p>Clovertown</p>
+    <p>Barcelona</p>
+    <p>Victoria Falls</p>
+    <p>Cell Blade</p>
+    <p>GTX280</p>
+    <p>Cache-based</p>
+    <p>GTX280-Host</p>
+    <p>Local store-based</p>
+  </div>
+  <div class="page">
+    <p>BIPSBIPS Conclusions</p>
+    <p>Compiler alone achieves poor performance  between 17%-48% of Stream-predicted performance  no parallel scaling</p>
+    <p>Autotuning is essential to achieving good performance  1.5x-5.6x speedups across diverse architectures  Automatic tuning is necessary for scalability  With few exceptions, the same code was used</p>
+    <p>The Cell and GTX280 show much better performance and power efficiency than cache-based machines, but with productivity loss  Both codes are platform-specific  Data movement must be explicitly managed</p>
+  </div>
+  <div class="page">
+    <p>BIPSBIPS Questions?</p>
+    <p>I am hoping to graduate in summer 2009  Kaushik Datta:  kdatta@cs.berkeley.edu  http://www.cs.berkeley.edu/~kdatta</p>
+    <p>Many thanks to my co-authors:  Mark Murphy  Vasily Volkov  Sam Williams  Jonathan Carter  Leonid Oliker  David Patterson  John Shalf  Kathy Yelick</p>
+  </div>
+</Presentation>

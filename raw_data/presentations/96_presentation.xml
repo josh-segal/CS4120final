@@ -1,0 +1,279 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>CheckFence: Checking Consistency of Concurrent Data Types</p>
+    <p>on Relaxed Memory Models</p>
+    <p>Sebastian Burckhardt Rajeev Alur</p>
+    <p>Milo M. K. Martin</p>
+    <p>Department of Computer and Information Science</p>
+    <p>University of Pennsylvania</p>
+    <p>June 6, 2007</p>
+  </div>
+  <div class="page">
+    <p>General Motivation</p>
+    <p>Multi-threaded Software Shared-memory Multiprocessor</p>
+    <p>Concurrent Executions</p>
+    <p>Bugs</p>
+  </div>
+  <div class="page">
+    <p>Specific Motivation</p>
+    <p>Multi-threaded Software lock-free synchronization (intentional races)</p>
+    <p>Shared-memory Multiprocessor with relaxed memory model</p>
+    <p>Concurrent Executions not always sequentially consistent</p>
+    <p>Bugs</p>
+  </div>
+  <div class="page">
+    <p>concurrency libaries with lock-free synchronization</p>
+    <p>... are simple, fast, and safe to use  concurrent versions of queues, sets, maps, etc.</p>
+    <p>more concurrency, less waiting</p>
+    <p>fewer deadlocks</p>
+    <p>... are notoriously hard to design and verify  tricky interleavings routinely escape reasoning and testing</p>
+    <p>exposed to relaxed memory models code needs to contain memory fences for correct operation!</p>
+    <p>Specific Motivation</p>
+  </div>
+  <div class="page">
+    <p>... are simple, fast, and safe to use  concurrent versions of queues, sets, vectors, etc.</p>
+    <p>more concurrency, less waiting</p>
+    <p>fewer deadlocks</p>
+    <p>... are notoriously hard to design and verify  tricky interleavings</p>
+    <p>exposed to relaxed memory models code needs memory fences for correct operations</p>
+    <p>Specific Motivation</p>
+    <p>DATA TYPE IMPLEMENTATIONS ARE TINY tens to hundreds lines of code</p>
+    <p>CLIENT PROGRAMS MAY BE LARGE thousands, millions lines of code</p>
+    <p>concurrency libaries with lock-free synchronization</p>
+  </div>
+  <div class="page">
+    <p>Bridging the Gap</p>
+    <p>Architecture: + Multiprocessors</p>
+    <p>+ Relaxed memory models</p>
+    <p>Concurrent Algorithms: + Lock-free queues, sets, deques</p>
+    <p>Computer-Aided Verification: + Model check C code</p>
+    <p>+ Sound counterexamples</p>
+    <p>CheckFence Tool</p>
+    <p>methodology described in our papers in [CAV 2006], [PLDI 2007]</p>
+  </div>
+  <div class="page">
+    <p>Example: Nonblocking Queue</p>
+    <p>The implementation</p>
+    <p>optimized: no locks.</p>
+    <p>not race-free</p>
+    <p>exposed to memory model</p>
+    <p>The client program</p>
+    <p>on multiple processors</p>
+    <p>calls operations</p>
+    <p>....</p>
+    <p>... enqueue(1)</p>
+    <p>... enqueue(2)</p>
+    <p>....</p>
+    <p>.... ....</p>
+    <p>Processor 1</p>
+    <p>....</p>
+    <p>...</p>
+    <p>... a = dequeue() b = dequeue()</p>
+    <p>Processor 2</p>
+    <p>void enqueue(int val) { ... }</p>
+    <p>int dequeue() { ... }</p>
+  </div>
+  <div class="page">
+    <p>Michael &amp; Scotts Nonblocking Queue [Principles of Distributed Computing (PODC) 1996]</p>
+    <p>boolean_t dequeue(queue_t *queue, value_t *pvalue) { node_t *head; node_t *tail; node_t *next;</p>
+    <p>while (true) { head = queue-&gt;head; tail = queue-&gt;tail; next = head-&gt;next; if (head == queue-&gt;head) { if (head == tail) { if (next == 0) return false; cas(&amp;queue-&gt;tail, (uint32) tail, (uint32) next); } else { *pvalue = next-&gt;value; if (cas(&amp;queue-&gt;head, (uint32) head, (uint32) next)) break; } } } delete_node(head); return true; }</p>
+    <p>head tail</p>
+  </div>
+  <div class="page">
+    <p>Correctness Condition</p>
+    <p>Data type implementations must appear sequentially consistent to the client program:</p>
+    <p>the observed argument and return values must be consistent with some interleaved, atomic execution of the operations.</p>
+    <p>enqueue(1) dequeue() -&gt; 2</p>
+    <p>enqueue(2) dequeue() -&gt; 1</p>
+    <p>Observation Witness Interleaving</p>
+    <p>enqueue(1) enqueue(2) dequeue() -&gt; 1</p>
+    <p>dequeue() -&gt; 2</p>
+    <p>Observation  Witness Interleaving</p>
+  </div>
+  <div class="page">
+    <p>Part II: Solution</p>
+  </div>
+  <div class="page">
+    <p>Bounded Model Checker</p>
+    <p>Pass: all executions of the test are observationally equivalent to a serial execution</p>
+    <p>Fail: CheckFence</p>
+    <p>Memory Model Axioms</p>
+    <p>Inconclusive: runs out of time or memory</p>
+  </div>
+  <div class="page">
+    <p>Demo: CheckFence Tool</p>
+  </div>
+  <div class="page">
+    <p>Example: Memory Model Bug</p>
+    <p>Processor 1 links new node into list</p>
+    <p>Processor 2 reads value at head of list</p>
+    <p>--&gt; Processor 2 loads uninitialized value</p>
+    <p>... 3 node-&gt;value = 2; ... 1 head = node; ...</p>
+    <p>... 2 value = head-&gt;value; ...</p>
+    <p>Processor 1 reorders the stores! memory accesses happen in order 1 2 3</p>
+    <p>adding a fence between lines on left side prevents reordering.</p>
+    <p>head</p>
+  </div>
+  <div class="page">
+    <p>Tool Architecture</p>
+    <p>C code</p>
+    <p>Symbolic Test</p>
+    <p>Trace</p>
+    <p>Symbolic test is nondeterministic, has exponentially many executions (due to symbolic inputs, dyn. memory allocation, interleaving/reordering of instructions).</p>
+    <p>CheckFence solves for bad executions.</p>
+  </div>
+  <div class="page">
+    <p>C code</p>
+    <p>Symbolic Test</p>
+    <p>Trace</p>
+    <p>Symbolic Test</p>
+    <p>automatic, lazy loop unrolling</p>
+    <p>automatic specification mining (enumerate correct observations)</p>
+    <p>construct CNF formula whose solutions correspond precisely to the concurrent executions</p>
+  </div>
+  <div class="page">
+    <p>Which Memory Model?  Memory models are</p>
+    <p>platform dependent &amp; ridden with details</p>
+    <p>We use a conservative abstract approximation Relaxed to capture common effects</p>
+    <p>Once code is correct for Relaxed, it is correct for stronger models</p>
+    <p>Finding simple, general abstraction is hard (work in progress)</p>
+    <p>TSO</p>
+    <p>PSO</p>
+    <p>IA-32</p>
+    <p>Alpha</p>
+    <p>Relaxed</p>
+    <p>RMO</p>
+    <p>z6 SC</p>
+  </div>
+  <div class="page">
+    <p>Part VI: Results</p>
+  </div>
+  <div class="page">
+    <p>Type Description loc Source</p>
+    <p>Queue Two-lock queue 80 M. Michael and L. Scott (PODC 1996)Queue Non-blocking queue 98</p>
+    <p>Set Lazy list-based set 141 Heller et al. (OPODIS 2005)</p>
+    <p>Set Nonblocking list 174 T. Harris (DISC 2001)</p>
+    <p>Deque snark algorithm 159 D. Detlefs et al. (DISC 2000)</p>
+    <p>LL/VL/SC CAS-based 74 M. Moir (PODC 1997)</p>
+    <p>LL/VL/SC Bounded Tags 198</p>
+    <p>Studied Algorithms</p>
+  </div>
+  <div class="page">
+    <p>regular</p>
+    <p>bugs</p>
+    <p>Bounded Tags</p>
+    <p>CAS-based</p>
+    <p>fixed snark</p>
+    <p>original snark</p>
+    <p>Nonblocking list</p>
+    <p>Lazy list-based set</p>
+    <p>Non-blocking queue</p>
+    <p>Two-lock queue</p>
+    <p>Description</p>
+    <p>Deque</p>
+    <p>LL/VL/SC</p>
+    <p>LL/VL/SC</p>
+    <p>Deque</p>
+    <p>Set</p>
+    <p>Set</p>
+    <p>Queue</p>
+    <p>Queue</p>
+    <p>Type</p>
+    <p>Results  snark algorithm has 2 known bugs, we found them  lazy list-based set had a unknown bug</p>
+    <p>(missing initialization; missed by formal correctness proof [CAV 2006] because of hand-translation of pseudocode)</p>
+  </div>
+  <div class="page">
+    <p># Fences inserted</p>
+    <p>regular</p>
+    <p>bugs</p>
+    <p>Store Store</p>
+    <p>Load Load</p>
+    <p>Dependent Loads</p>
+    <p>Aliased Loads</p>
+    <p>Bounded Tags</p>
+    <p>CAS-based</p>
+    <p>fixed snark</p>
+    <p>original snark</p>
+    <p>Nonblocking list</p>
+    <p>Lazy list-based set</p>
+    <p>Non-blocking queue</p>
+    <p>Two-lock queue</p>
+    <p>Description</p>
+    <p>Deque</p>
+    <p>LL/VL/SC</p>
+    <p>LL/VL/SC</p>
+    <p>Deque</p>
+    <p>Set</p>
+    <p>Set</p>
+    <p>Queue</p>
+    <p>Queue</p>
+    <p>Type</p>
+    <p>Results  snark algorithm has 2 known bugs, we found them  lazy list-based set had a unknown bug</p>
+    <p>(missing initialization; missed by formal correctness proof [CAV 2006] because of hand-translation of pseudocode)</p>
+    <p>Many failures on relaxed memory model  inserted fences by hand to fix them  small testcases sufficient for this purpose</p>
+  </div>
+  <div class="page">
+    <p>Typical Tool Performance</p>
+    <p>Very efficient on small testcases (&lt; 100 memory accesses) Example (nonblocking queue): T0 = i (e | d) T1 = i (e | e | d | d ) - find counterexamples within a few seconds - verify within a few minutes - enough to cover all 9 fences in nonblocking queue</p>
+    <p>Slows down with increasing number of memory accesses in test Example (snark deque): Dq = ( pop_l | pop_l | pop_r | pop_r | push_l | push_l | push_r | push_r ) - has 134 memory accesses (77 loads, 57 stores) - Dq finds second snark bug within ~1 hour</p>
+    <p>Does not scale past ~300 memory accesses</p>
+  </div>
+  <div class="page">
+    <p>Related Work</p>
+    <p>Bounded Software Model Checking Clarke, Kroening, Lerda (TACAS'04) Rabinovitz, Grumberg (CAV'05)</p>
+    <p>Correctness Conditions for Concurrent Data Types Herlihy, Wing (TOPLAS'90) Alur, McMillan, Peled (LICS'96)</p>
+    <p>Operational Memory Models &amp; Explicit Model Checking Park, Dill (SPAA'95) Huynh, Roychoudhury (FM'06)</p>
+    <p>Axiomatic Memory Models &amp; SAT solvers Yang, Gopalakrishnan, Lindstrom, Slind (IPDPS'04)</p>
+  </div>
+  <div class="page">
+    <p>Contribution First model checker for C code on relaxed memory models.</p>
+    <p>Handles ``reasonable subset of C (conditionals, loops, pointers, arrays, structures, function calls, dynamic memory allocation)</p>
+    <p>No formal specifications or annotations required</p>
+    <p>Requires manually written test suite</p>
+    <p>Soundly verifies &amp; falsifies individual tests, produces counterexamples</p>
+    <p>Relaxed Memory Models</p>
+    <p>Lock-free implementations</p>
+    <p>Software Verification</p>
+  </div>
+  <div class="page">
+    <p>END</p>
+  </div>
+  <div class="page">
+    <p>Bounded Model Checker</p>
+    <p>Pass: all executions of the test are observationally equivalent to a serial execution</p>
+    <p>Fail: CheckFence</p>
+    <p>Memory Model Axioms</p>
+    <p>Inconclusive: runs out of time or memory</p>
+  </div>
+  <div class="page">
+    <p>Future Work</p>
+    <p>Make CheckFence publicly available</p>
+    <p>Experiment with more memory models  hardware (PPC, Itanium), language (Java, C++ volatiles)</p>
+    <p>Improve solver component  enhance SAT solver support for total/partial orders</p>
+    <p>Develop reasoning techniques for relaxed memory models</p>
+    <p>Develop scalable methods for finding specific, common bugs</p>
+    <p>Build concurrent library</p>
+  </div>
+  <div class="page">
+    <p>Axioms for Relaxed</p>
+    <p>A set of addresses V set of values X set of memory accesses S  X subset of stores L  X subset of loads a(x) memory address of x v(x) value loaded or stored by x</p>
+    <p>&lt;p is a partial order over X (program order)</p>
+    <p>&lt;m is a total order over X (memory order)</p>
+    <p>For a load l  L, define the following set of stores that are visible to l: S(l) = { s  S | a(s) = a(l) and (s &lt;m l or s &lt;p l ) }</p>
+    <p>Executions for the model Relaxed are defined by the following axioms: 1. If x &lt;p y and a(x) = a(y) and y  S, then x &lt;m y</p>
+  </div>
+  <div class="page">
+    <p>2  0</p>
+    <p>Relaxed Memory Model Example  Example:</p>
+    <p>output not sequentially consistent (that is, not consistent with any interleaved execution) !</p>
+    <p>processor 1 may perform stores out of order</p>
+    <p>processor 2 may perform loads out of order</p>
+    <p>relaxed ordering guarantees improve processor performance</p>
+    <p>Q: Why doesnt everything break? A: Relaxations are designed in a way to guarantee that</p>
+    <p>uniprocessor programs are safe  race-free programs are safe</p>
+    <p>x = 1 y = 2</p>
+    <p>print y print x</p>
+    <p>thread 1 thread 2</p>
+  </div>
+</Presentation>

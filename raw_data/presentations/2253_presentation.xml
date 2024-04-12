@@ -1,0 +1,130 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>Designing a Storage Software Stack for Accelerators Shinichi Awamoto1, Erich Focht2, Michio Honda3</p>
+    <p>&lt;shinichi.awamoto@gmail.com&gt;</p>
+  </div>
+  <div class="page">
+    <p>SoC-based Accelerators</p>
+    <p>photos from: xilinx.com, www.mellanox.com, uk.nec.com, nvidia.com</p>
+    <p>SmartNICs</p>
+    <p>Xilinx Zynq NEC SX-Aurora TSUBASA Vector Engine</p>
+    <p>general core</p>
+    <p>special core</p>
+    <p>execute the entire application code unlike GPUs.</p>
+    <p>GPU kernel function</p>
+  </div>
+  <div class="page">
+    <p>The I/O problem in the accelerator</p>
+    <p>general core</p>
+    <p>special core</p>
+    <p>I/O access</p>
+    <p>But still, the host system mediates data access, which incurs overhead.</p>
+  </div>
+  <div class="page">
+    <p>How does this problem happen? Multiple data copies and dispatch inside of redirected system calls increase latency.</p>
+    <p>Even on microbenchmarks, the overhead is obvious.</p>
+    <p>K</p>
+    <p>U Acc . A</p>
+    <p>HW</p>
+    <p>Acc . OS</p>
+    <p>L</p>
+    <p>H CPU</p>
+    <p>D</p>
+    <p>Acc . D</p>
+    <p>Acc . D c</p>
+    <p>bc</p>
+    <p>P c. C PCI H b</p>
+  </div>
+  <div class="page">
+    <p>Designing a Storage Stack</p>
+    <p>Design options</p>
+    <p>Linux kernel library (RoEduNet 10) Expensive kernel emulation</p>
+    <p>Buffer cache sharing e.g. GPUfs (ASPLOS 13), SPIN (ATC 17) Only DMAs are mitigated.</p>
+    <p>Heterogeneous-arch kernels e.g. Multikernel (SOSP 09), Popcorn Linux (ASPLOS 17) No kernel context in the accelerator</p>
+    <p>Goal: Fast storage access in the accelerator applications.</p>
+    <p>ext4fs overhead</p>
+    <p>Conventional system software does not perform well on wimpy accelerator cores.</p>
+  </div>
+  <div class="page">
+    <p>Accelerator storage stack</p>
+    <p>NVMe device driver within the accelerator user-space</p>
+    <p>File system for data organization and buffer caches</p>
+    <p>LevelDB for KVS interface</p>
+    <p>Ke e</p>
+    <p>U e</p>
+    <p>HW</p>
+    <p>Acce . FS Le e DB</p>
+    <p>D ec I/O E e</p>
+    <p>Acce . Ag ibc</p>
+    <p>Di</p>
+    <p>Ha a</p>
+    <p>PCIe H b</p>
+    <p>P c. C e Acce . De ice</p>
+  </div>
+  <div class="page">
+    <p>host physical memory space</p>
+    <p>registers</p>
+    <p>accelarators memory space</p>
+    <p>DMA buffers</p>
+    <p>Direct I/O Engine</p>
+    <p>DMA buffersregisters</p>
+    <p>remapping</p>
+    <p>How Direct I/O Engine controls SSDs?</p>
+    <p>UIO manages a device access right on the host side.</p>
+    <p>Device registers and DMA buffers are remapped using APIs provided by the accelerator vendor.</p>
+    <p>No host side intervention is needed throughout the entire process.</p>
+  </div>
+  <div class="page">
+    <p>AccelFS provides file names, organized data, buffer caches without sacrifice of performance. The current ext2-like design would be replaced with accelerator-aware implementation.</p>
+    <p>LevelDB is also ported on top of AccelFS. As a further step, we are exploring accelerator specific optimizations. (e.g. vectorized LSM-tree compactions)</p>
+    <p>AccelFS &amp; LevelDB</p>
+  </div>
+  <div class="page">
+    <p>Evaluation  Host: Intel Xeon Gold 6126 (2.60GHz, 12-core) 96GB RAM</p>
+    <p>Accelerator: NEC SX-Aurora TSUBASA  NVMe SSD: Samsung EVO 970</p>
+    <p>photos from: sx-aurora.github.io</p>
+  </div>
+  <div class="page">
+    <p>Microbenchmarks How much does HAYAGUI improve file operations?</p>
+    <p>read, write and write+sync  In baselines, read(2), write(2), fdatasync(2) are used.</p>
+    <p>20-99% reduction in latency</p>
+    <p>Lo w</p>
+    <p>er is</p>
+    <p>b et</p>
+    <p>te r.</p>
+  </div>
+  <div class="page">
+    <p>LevelDB evaluation (db_bench) How much does HAYAGUI improve KVS workloads?</p>
+    <p>sequential and random access workloads via db_bench  33-81% latency improvements</p>
+    <p>Lo w</p>
+    <p>er is</p>
+    <p>b et</p>
+    <p>te r.</p>
+  </div>
+  <div class="page">
+    <p>LevelDB evaluation (YCSB) Realistic KVS workloads  Small- or medium-sized data  12-89% throughput improvements</p>
+    <p>H ig</p>
+    <p>he r i</p>
+    <p>s be</p>
+    <p>tt er</p>
+    <p>.</p>
+  </div>
+  <div class="page">
+    <p>Genome sequence matching app How does Hayagui improve realistic apps?</p>
+    <p>an accelerator application analyzing DNA sequences  Bulk-read workloads  33-46% reduction in execution time</p>
+    <p>(2.1GB)</p>
+    <p>(7.0GB)</p>
+    <p>(15.0GB) Smaller is better.</p>
+  </div>
+  <div class="page">
+    <p>Summary  On SoC-based accelerators, I/O access matters.  HAYAGUI: an accelerator storage stack</p>
+    <p>reads and writes the storage medium directly.  provides various interfaces: raw I/O, file system and KVS  outperforms the system call redirection baselines</p>
+    <p>Ongoing work  Is the direct access architecture feasible in other accelerators?  How do we overcome the weakness of general-purpose cores in accelerators?  How could we exploit specialized engines in accelerators?  Is it possible to build a generic, one-size-fit-all storage stack for accelerators?</p>
+  </div>
+  <div class="page">
+    <p>Designing a Storage Software Stack for Accelerators</p>
+    <p>Thank You Q&amp;A Shinichi Awamoto1, Erich Focht2, Michio Honda3</p>
+    <p>&lt;shinichi.awamoto@gmail.com&gt;</p>
+  </div>
+</Presentation>

@@ -1,0 +1,448 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>SpanFS: A Scalable File System on</p>
+    <p>Fast Storage Devices</p>
+    <p>Junbin Kang, Benlong Zhang, Tianyu Wo, Weiren Yu,</p>
+    <p>Lian Du, Shuai Ma and Jinpeng Huai</p>
+    <p>Beihang University</p>
+  </div>
+  <div class="page">
+    <p>Advances of emerging hardware</p>
+    <p>Multi-/many-core processors  High parallelism</p>
+    <p>Flash-based or next-generation NVM-based SSDs  High parallelism</p>
+    <p>Low latency</p>
+    <p>NVM  NVMNVM SSD</p>
+    <p>core core core CPU</p>
+    <p>I/O</p>
+    <p>The advanced hardware is expected to deliver high application-level I/O parallelism</p>
+  </div>
+  <div class="page">
+    <p>Software deficiency can be a bottleneck</p>
+    <p>NVM  NVMNVM SSD</p>
+    <p>core core core CPU</p>
+    <p>Software Poor scalability can be a bottleneck</p>
+  </div>
+  <div class="page">
+    <p>Scalability Evaluation</p>
+    <p>SysBench: 4KB synchronous writes to 128 files</p>
+    <p>Ideal performance</p>
+    <p>Ext4</p>
+    <p>Baseline performance</p>
+    <p>SpanFS performance</p>
+  </div>
+  <div class="page">
+    <p>Scalability Evaluation</p>
+    <p>XFS Btrfs</p>
+    <p>ZFS</p>
+  </div>
+  <div class="page">
+    <p>Why file systems scale poorly ?</p>
+    <p>We focus on the scalability issues of journaling file systems</p>
+    <p>We take Ext4/JBD2 as an example for analysis</p>
+  </div>
+  <div class="page">
+    <p>Why file systems scale poorly ?</p>
+    <p>Log Area Primary Storage Area</p>
+    <p>.</p>
+    <p>committing checkpointing</p>
+    <p>I/O by OS write-back or by a checkpoint</p>
+    <p>OS buffer</p>
+    <p>logging</p>
+    <p>Journal thread</p>
+    <p>Client threads</p>
+    <p>Wait queues</p>
+    <p>JBD2 mechanism</p>
+    <p>Journaled buffer</p>
+    <p>transaction</p>
+    <p>Checkpoint list</p>
+  </div>
+  <div class="page">
+    <p>Why file systems scale poorly ?</p>
+    <p>Issue #1: serialization of journaling activities on devices Sequential transaction commits Sequential transaction checkpoints</p>
+    <p>Journaling needs to ensure transaction order for correctness Dependencies between transactions</p>
+  </div>
+  <div class="page">
+    <p>Why file systems scale poorly ?</p>
+    <p>Issue #2: unavoidable use of shared data structures</p>
+  </div>
+  <div class="page">
+    <p>Why file systems scale poorly ?</p>
+    <p>Log Area Primary Storage Area</p>
+    <p>.</p>
+    <p>committingcheckpointing I/O by OS write-back or by a checkpoint</p>
+    <p>OS buffer</p>
+    <p>logging</p>
+    <p>Journal thread</p>
+    <p>Client threads</p>
+    <p>Wait queues</p>
+    <p>JBD2 mechanism</p>
+    <p>Journaled buffer</p>
+    <p>transaction</p>
+    <p>Centralized journal buffer list</p>
+    <p>Counters on transaction states</p>
+    <p>Centralized checkpoint list</p>
+    <p>Journal states: log head and tail</p>
+  </div>
+  <div class="page">
+    <p>Why file systems scale poorly ?</p>
+    <p>Issue #2: unavoidable use of shared data structures</p>
+    <p>Shared data structures Synchronization</p>
+    <p>Journaling states j_state_lock (read-write lock)</p>
+    <p>Shared counters Atomic operation</p>
+    <p>On-disk structures bh state lock (bit-based spin lock)</p>
+    <p>Journaling buffer list J_list_lock (spin lock)</p>
+    <p>Checkpoint transaction list J_list_lock (spin lock)</p>
+    <p>Wait queues J_wait_done_commit (spin lock)</p>
+  </div>
+  <div class="page">
+    <p>Data profiling</p>
+    <p>Lock contention limits the file system scalability</p>
+  </div>
+  <div class="page">
+    <p>Can they all be fixed using parallel programming techniques?</p>
+    <p>Scalable read-write locks  E.g., RCU locks [McKenney 01] and Prwlocks [Liu</p>
+    <p>14]  They are scalable for read-mostly workloads  JBD2 has many writes to the shared states</p>
+    <p>Per-core counters  E.g., sloppy counters [Boyd-Wickizer 10] and</p>
+    <p>Refcache [Clements 13]  It is very expensive when reading the true values</p>
+    <p>of these counters [Clements 13]</p>
+  </div>
+  <div class="page">
+    <p>Can they all be fixed by using parallel programming techniques?</p>
+    <p>Per-core data structures  Using Per-core lists may be effective for the</p>
+    <p>journaling buffer lists  It is not suitable for the checkpoint transaction</p>
+    <p>list  JBD2 needs to checkpoint the transactions in</p>
+    <p>sequence for correctness</p>
+    <p>Per-core wait queues [Liu 14]  It can be effective to solve the JBD2 wait queue</p>
+    <p>bottleneck</p>
+  </div>
+  <div class="page">
+    <p>Summary</p>
+    <p>Using parallel programming techniques cannot fix all the bottlenecks</p>
+    <p>The centralized journaling design Issue #1: Serialization of I/O activities Issue #2: The use of shared data structures</p>
+    <p>We need a new file system structure</p>
+  </div>
+  <div class="page">
+    <p>Our solution: SpanFS</p>
+    <p>Replace the centralized file system service with multiple micro file system services called domains</p>
+    <p>Provide parallel file system services</p>
+  </div>
+  <div class="page">
+    <p>Parallel file system services</p>
+    <p>Domain B Domain CDomain A</p>
+    <p>Journaling instance</p>
+    <p>On-disk structures On-disk structures On-disk structures</p>
+    <p>buffer</p>
+    <p>I/O activities</p>
+    <p>Committing, checkpointing and OS write-back</p>
+    <p>logging</p>
+    <p>Journaled buffer</p>
+    <p>I/O activities I/O activities</p>
+    <p>Journaling instance</p>
+    <p>buffer</p>
+    <p>logging</p>
+    <p>Journaling instance</p>
+    <p>buffer</p>
+    <p>logging</p>
+    <p>Journaling thread</p>
+  </div>
+  <div class="page">
+    <p>Beneath the file system: global device buffer cache address space</p>
+    <p>File system</p>
+    <p>Radix index Tree</p>
+    <p>Global tree lock</p>
+    <p>Concurrent inserts</p>
+    <p>page</p>
+    <p>Global private lock</p>
+    <p>Concurrent access to buffer list</p>
+    <p>page</p>
+    <p>block block</p>
+    <p>Block storage device</p>
+  </div>
+  <div class="page">
+    <p>Dedicated buffer cache address space</p>
+    <p>On-disk structures On-disk structures On-disk structures</p>
+    <p>Radix Tree</p>
+    <p>page</p>
+    <p>Radix Tree</p>
+    <p>page</p>
+    <p>Radix Tree</p>
+    <p>page</p>
+    <p>Domain Domain Domain</p>
+  </div>
+  <div class="page">
+    <p>Distributed namespace</p>
+    <p>DomainDomain Domain</p>
+    <p>root</p>
+    <p>Directory</p>
+    <p>File</p>
+  </div>
+  <div class="page">
+    <p>Distributed namespace</p>
+    <p>Distributed object  Store shadow dentry under the parent directory  Distribute its inode to a remote domain</p>
+    <p>/home</p>
+    <p>Shadow dentry</p>
+    <p>Normal dentry</p>
+    <p>inode</p>
+    <p>inode</p>
+    <p>Domain A Domain B</p>
+  </div>
+  <div class="page">
+    <p>Crash consistency issues</p>
+    <p>/home</p>
+    <p>Shadow dentry</p>
+    <p>Normal dentry</p>
+    <p>inode</p>
+    <p>inode</p>
+    <p>What will happen if system crashes during creation ?</p>
+    <p>Crash</p>
+  </div>
+  <div class="page">
+    <p>Possible inconsistency states</p>
+    <p>/home</p>
+    <p>Shadow dentry</p>
+    <p>Normal dentry</p>
+    <p>inode</p>
+    <p>/span</p>
+    <p>Crash</p>
+    <p>Null</p>
+    <p>/home</p>
+    <p>Normal dentry</p>
+    <p>inode</p>
+    <p>/span</p>
+    <p>Crash inode</p>
+    <p>Stale Objects</p>
+    <p>Storage Garbage</p>
+  </div>
+  <div class="page">
+    <p>Crash consistency model</p>
+    <p>We propose to build logical connection between domains beyond journaling</p>
+  </div>
+  <div class="page">
+    <p>Logical connection beyond journaling</p>
+    <p>Bidirectional index</p>
+    <p>/home</p>
+    <p>Shadow dentry</p>
+    <p>Normal dentry</p>
+    <p>inode</p>
+    <p>/span</p>
+    <p>Remote dentry</p>
+    <p>inode</p>
+    <p>Domain A Domain B</p>
+    <p>A set of span directories per domain</p>
+  </div>
+  <div class="page">
+    <p>Crash consistency model</p>
+    <p>Stale object deletion  Integrity validation during lookup and readdir  Remove the shadow dentries without remote objects</p>
+    <p>Garbage Collection (GC)  Background GC thread runs in case of a system crash  GC deletes the remote objects without shadow dentries</p>
+  </div>
+  <div class="page">
+    <p>Distributed synchronization</p>
+    <p>Applications usually issue fsync() to explicitly persist their data</p>
+    <p>/</p>
+    <p>Domain A</p>
+    <p>user file</p>
+    <p>Domain B Domain C</p>
+    <p>fsync()</p>
+  </div>
+  <div class="page">
+    <p>Distributed synchronization</p>
+    <p>/</p>
+    <p>Domain A</p>
+    <p>user file</p>
+    <p>Domain B Domain C</p>
+    <p>fsync()</p>
+  </div>
+  <div class="page">
+    <p>Possible inconsistency states</p>
+    <p>/</p>
+    <p>Domain A</p>
+    <p>file</p>
+    <p>Domain B Domain C</p>
+    <p>fsync()</p>
+    <p>The path to the target object is</p>
+    <p>lost The target object becomes</p>
+    <p>an orphan object</p>
+  </div>
+  <div class="page">
+    <p>Intuitive solution</p>
+    <p>Iteratively synchronize all the objects along the file path until reaching the root directory  Similar to what Ext4 with no journaling does</p>
+    <p>The distributed synchronization latency is long:</p>
+    <p>Latency = latency(O1) + latency(O2) + . + latency(On)</p>
+  </div>
+  <div class="page">
+    <p>Parallel two-phase synchronization  Leverage the client-server architecture of JBD2 to</p>
+    <p>commit the transactions in parallel</p>
+    <p>Check and wait for their completion in the end</p>
+    <p>Domain B Domain CDomain A</p>
+    <p>Commit Request Completion Notification</p>
+    <p>Journaling instance</p>
+    <p>buffer</p>
+    <p>logging</p>
+    <p>Journaling instance</p>
+    <p>buffer</p>
+    <p>logging</p>
+    <p>Journaling instance</p>
+    <p>buffer</p>
+    <p>logging</p>
+  </div>
+  <div class="page">
+    <p>Committing phase</p>
+    <p>Domain B Domain CDomain A</p>
+    <p>Commit Request</p>
+    <p>Journaling instance</p>
+    <p>buffer</p>
+    <p>logging</p>
+    <p>Journaling instance</p>
+    <p>buffer</p>
+    <p>logging</p>
+    <p>Journaling instance</p>
+    <p>buffer</p>
+    <p>logging</p>
+    <p>Deliver transaction commit requests</p>
+  </div>
+  <div class="page">
+    <p>Validating phase</p>
+    <p>Domain B Domain CDomain A</p>
+    <p>Journaling instance</p>
+    <p>buffer</p>
+    <p>logging</p>
+    <p>Journaling instance</p>
+    <p>buffer</p>
+    <p>logging</p>
+    <p>Journaling instance</p>
+    <p>buffer</p>
+    <p>logging</p>
+    <p>Completion Notification</p>
+    <p>Wait queue Wait queue Wait queue</p>
+    <p>Check whether it is completed</p>
+    <p>If not, wait for completion</p>
+  </div>
+  <div class="page">
+    <p>Rename</p>
+    <p>The rename operation may involve multiple JBD2 handles across multiple domains</p>
+    <p>We proposed the ordered transaction commit mechanism to achieve rename atomicity  Control the commit sequence of the JBD2 handles  System crashes lead to a small number of inconsistencies  These inconsistency states can be verified online</p>
+  </div>
+  <div class="page">
+    <p>Experiments</p>
+    <p>We implemented SpanFS based on Ext4 in Linux 3.18.0</p>
+    <p>We evaluated SpanFS against Ext4 on an intel 32 core machine with a FusionIO SSD</p>
+  </div>
+  <div class="page">
+    <p>Create T</p>
+    <p>h ro</p>
+    <p>u g</p>
+    <p>h p</p>
+    <p>u t</p>
+    <p>(1 K</p>
+    <p>r e</p>
+    <p>q /s</p>
+    <p>)</p>
+  </div>
+  <div class="page">
+    <p>Append</p>
+    <p>T h</p>
+    <p>ro u</p>
+    <p>g h</p>
+    <p>p u</p>
+    <p>t (1</p>
+    <p>K r</p>
+    <p>e q</p>
+    <p>/s )</p>
+  </div>
+  <div class="page">
+    <p>Truncate T</p>
+    <p>h ro</p>
+    <p>u g</p>
+    <p>h p</p>
+    <p>u t</p>
+    <p>(1 K</p>
+    <p>r e</p>
+    <p>q /s</p>
+    <p>)</p>
+  </div>
+  <div class="page">
+    <p>Delete T</p>
+    <p>h ro</p>
+    <p>u g</p>
+    <p>h p</p>
+    <p>u t</p>
+    <p>(1 K</p>
+    <p>r e</p>
+    <p>q /s</p>
+    <p>)</p>
+  </div>
+  <div class="page">
+    <p>Data profiling</p>
+  </div>
+  <div class="page">
+    <p>Sequential buffered writes T</p>
+    <p>h ro</p>
+    <p>u g</p>
+    <p>h p</p>
+    <p>u t</p>
+    <p>(1 0</p>
+    <p>B /s</p>
+    <p>)</p>
+  </div>
+  <div class="page">
+    <p>Sequential synchronous writes T</p>
+    <p>h ro</p>
+    <p>u g</p>
+    <p>h p</p>
+    <p>u t</p>
+    <p>(1 0</p>
+    <p>B /s</p>
+    <p>)</p>
+  </div>
+  <div class="page">
+    <p>Fileserver T</p>
+    <p>h ro</p>
+    <p>u g</p>
+    <p>h p</p>
+    <p>u t</p>
+    <p>(1 0</p>
+    <p>B /s</p>
+    <p>)</p>
+  </div>
+  <div class="page">
+    <p>Varmail T</p>
+    <p>h ro</p>
+    <p>u g</p>
+    <p>h p</p>
+    <p>u t</p>
+    <p>(1 0</p>
+    <p>B /s</p>
+    <p>)</p>
+  </div>
+  <div class="page">
+    <p>Dbench T</p>
+    <p>h ro</p>
+    <p>u g</p>
+    <p>h p</p>
+    <p>u t</p>
+    <p>(1 0</p>
+    <p>B /s</p>
+    <p>)</p>
+  </div>
+  <div class="page">
+    <p>Garbage collection performance</p>
+    <p>The time taken to scan different numbers of files by GC</p>
+  </div>
+  <div class="page">
+    <p>Garbage collection performance</p>
+    <p>Measure the GC performance impact on the foreground I/O workloads  Prepare 3.2 millions of files  Run the GC thread after remount  Run 32 Varmail instances for 60 s</p>
+    <p>The GC thread takes 21.9 s to complete the scan</p>
+    <p>The total throughput of the Varmail workload has been degraded by 12%</p>
+  </div>
+  <div class="page">
+    <p>Conclusion</p>
+    <p>Present an exhaustive analysis of the scalability bottlenecks of existing file systems.</p>
+    <p>Attribute the scalability issues to their centralized design  Contention on shared data structures in memory  Serialization of I/O actions on devices</p>
+    <p>Propose a novel journaling file system SpanFS to achieve scalability on many-core</p>
+    <p>Demonstrate that SpanFS scales much better than the baseline</p>
+  </div>
+  <div class="page">
+    <p>Thanks</p>
+  </div>
+</Presentation>

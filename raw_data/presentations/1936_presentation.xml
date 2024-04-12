@@ -1,0 +1,130 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>LEVERAGING MPIS ONE-SIDED COMMUNICATION INTERFACE FOR SHARED-MEMORY PROGRAMMING</p>
+    <p>Torsten Hoefler, James Dinan, Darius Buntinas, Pavan Balaji, Brian Barrett, Ron Brightwell, William Gropp, Vivek Kale, Rajeev Thakur</p>
+  </div>
+  <div class="page">
+    <p>Multi- and manycore is ubiquitous  They offer shared memory that allows: 1. Sharing of data structures</p>
+    <p>Reduce copies/effective memory consumption x NUMA accesses</p>
+    <p>THE SHARED MEMORY REALITY</p>
+    <p>Slide 2 of 20 T. Hoefler, J. Dinan, D. Buntinas, P. Balaji, B. Barrett, R. Brightwell, W. Gropp, V. Kale, R. Thakur</p>
+  </div>
+  <div class="page">
+    <p>MPI offers shared memory optimizations  But real zero copy is impossible</p>
+    <p>MPI+X to utilize shared memory  X={OpenMP, pthreads, UPC }</p>
+    <p>Complex interactions between models  Deadlocks possible  Race conditions made easy  Slowdown due to higher MPI thread level</p>
+    <p>Requirements are often simple  Switching programming models not necessary?</p>
+    <p>STATE OF THE ART PROGRAMMING</p>
+    <p>Slide 3 of 20 T. Hoefler, J. Dinan, D. Buntinas, P. Balaji, B. Barrett, R. Brightwell, W. Gropp, V. Kale, R. Thakur</p>
+  </div>
+  <div class="page">
+    <p>One may use POSIX shm calls to create shared memory segments?</p>
+    <p>Several issues: 1. Allocation is not collective and users</p>
+    <p>would have to deal with NUMA intricacies 2. Cleanup of shm regions is problematic in the</p>
+    <p>presence of abnormal termination 3. MPIs interface allows easy support for</p>
+    <p>debuggers and performance tools</p>
+    <p>WHY NOT JUST USE OS TOOLS?</p>
+    <p>Slide 4 of 20 T. Hoefler, J. Dinan, D. Buntinas, P. Balaji, B. Barrett, R. Brightwell, W. Gropp, V. Kale, R. Thakur</p>
+  </div>
+  <div class="page">
+    <p>MPI offers two memory models:  Unified: public and private window are identical  Separate: public and private window are separate</p>
+    <p>Type is attached as attribute to window  MPI_WIN_MODEL</p>
+    <p>MPI-3.0 ONE SIDED MEMORY MODELS</p>
+    <p>MPI_UNIFIED MPI_SEPARATE</p>
+    <p>Slide 5 of 20 T. Hoefler, J. Dinan, D. Buntinas, P. Balaji, B. Barrett, R. Brightwell, W. Gropp, V. Kale, R. Thakur</p>
+  </div>
+  <div class="page">
+    <p>MPI_WIN_ALLOCATE_SHARED(  size - in Bytes (of calling process)  disp_unit - addressing offset in Bytes  info - specify optimization hints  comm - input communicator  baseptr - returned pointer  win  returned window</p>
+    <p>) The creation call is collective</p>
+    <p>CREATING A SHARED MEMORY WINDOW</p>
+    <p>Slide 6 of 20 T. Hoefler, J. Dinan, D. Buntinas, P. Balaji, B. Barrett, R. Brightwell, W. Gropp, V. Kale, R. Thakur</p>
+  </div>
+  <div class="page">
+    <p>All processes in comm must be in shared memory  Fulfilling the unified window requirements</p>
+    <p>Each process gets a pointer to its segment  Does not know other processes pointer</p>
+    <p>Query function:  MPI_WIN_SHARED_QUERY(win, rank, size,</p>
+    <p>disp_unit, baseptr) Query ranks size, disp_unit, and baseptr</p>
+    <p>HOW DO I USE IT?</p>
+    <p>Slide 7 of 20 T. Hoefler, J. Dinan, D. Buntinas, P. Balaji, B. Barrett, R. Brightwell, W. Gropp, V. Kale, R. Thakur</p>
+  </div>
+  <div class="page">
+    <p>Or: How do I know which processes share memory?</p>
+    <p>MPI_COMM_SPLIT_TYPE(comm, split_type, key, info, newcomm)  split_type = MPI_COMM_TYPE_SHARED  Splits communicator into maximum shared</p>
+    <p>memory islands  Portable</p>
+    <p>CREATING SHARED MEMORY COMMUNICATORS</p>
+    <p>Slide 8 of 20 T. Hoefler, J. Dinan, D. Buntinas, P. Balaji, B. Barrett, R. Brightwell, W. Gropp, V. Kale, R. Thakur</p>
+  </div>
+  <div class="page">
+    <p>SCHEMATIC OVERVIEW</p>
+    <p>Slide 9 of 20 T. Hoefler, J. Dinan, D. Buntinas, P. Balaji, B. Barrett, R. Brightwell, W. Gropp, V. Kale, R. Thakur</p>
+  </div>
+  <div class="page">
+    <p>Principle of least surprise (default) Memory is consecutive across ranks Allows for inter-rank address calculations i.e., rank is first Byte starts right after rank i-1s</p>
+    <p>last Byte  Optimizations allowed</p>
+    <p>Specify info alloc_shared_noncontig  May create non-contiguous regions  Must use win_shared_query</p>
+    <p>MEMORY LAYOUT</p>
+    <p>Slide 10 of 20 T. Hoefler, J. Dinan, D. Buntinas, P. Balaji, B. Barrett, R. Brightwell, W. Gropp, V. Kale, R. Thakur</p>
+  </div>
+  <div class="page">
+    <p>Contiguous (default)  Reduce total size to rank 0  Rank 0 creates shared memory segment  Broadcast address and key  Exscan to get local offset  O(log P) time and O(P) total storage</p>
+    <p>IMPLEMENTATION OPTIONS I</p>
+    <p>Slide 11 of 20 T. Hoefler, J. Dinan, D. Buntinas, P. Balaji, B. Barrett, R. Brightwell, W. Gropp, V. Kale, R. Thakur</p>
+  </div>
+  <div class="page">
+    <p>Noncontiguous (specify alloc_shared_noncontig)  Option 1:</p>
+    <p>Each rank creates his own segment</p>
+    <p>Option 2:  Rank 0 creates one segment but</p>
+    <p>pads to page boundaries</p>
+    <p>IMPLEMENTATION OPTIONS II</p>
+    <p>Slide 12 of 20 T. Hoefler, J. Dinan, D. Buntinas, P. Balaji, B. Barrett, R. Brightwell, W. Gropp, V. Kale, R. Thakur</p>
+  </div>
+  <div class="page">
+    <p>E.g., OpenMP at the loop level  Have MPI processes share common memory</p>
+    <p>Retain all MPI features, e.g., collective etc.</p>
+    <p>USE CASES</p>
+    <p>Slide 13 of 20 T. Hoefler, J. Dinan, D. Buntinas, P. Balaji, B. Barrett, R. Brightwell, W. Gropp, V. Kale, R. Thakur</p>
+  </div>
+  <div class="page">
+    <p>Two fundamental benefits: 1. Avoid tag matching and MPI stack 2. Avoid expensive fine-grained synchronization</p>
+    <p>Full interface implemented in Open MPI and MPICH2  Similar implementation and performance</p>
+    <p>Evaluated on 2.2 GHz AMD Opteron  Six cores</p>
+    <p>FAST SHARED MEMORY COMMUNICATION</p>
+    <p>Slide 14 of 20 T. Hoefler, J. Dinan, D. Buntinas, P. Balaji, B. Barrett, R. Brightwell, W. Gropp, V. Kale, R. Thakur</p>
+  </div>
+  <div class="page">
+    <p>NxN grid decomposed in 2D  Dims_create, cart_create, isend/irecv, waitall</p>
+    <p>FIVE-POINT STENCIL EXAMPLE</p>
+    <p>Slide 15 of 20 T. Hoefler, J. Dinan, D. Buntinas, P. Balaji, B. Barrett, R. Brightwell, W. Gropp, V. Kale, R. Thakur</p>
+  </div>
+  <div class="page">
+    <p>30-60% lower communication overhead!</p>
+    <p>COMMUNICATION TIMES</p>
+    <p>Slide 16 of 20 T. Hoefler, J. Dinan, D. Buntinas, P. Balaji, B. Barrett, R. Brightwell, W. Gropp, V. Kale, R. Thakur</p>
+  </div>
+  <div class="page">
+    <p>The whole array is allocated in shared memory</p>
+    <p>Significant impact of alloc_shared_noncontig</p>
+    <p>NUMA EFFECTS?</p>
+    <p>Slide 17 of 20 T. Hoefler, J. Dinan, D. Buntinas, P. Balaji, B. Barrett, R. Brightwell, W. Gropp, V. Kale, R. Thakur</p>
+  </div>
+  <div class="page">
+    <p>MPI-3.0 offers support for shared memory  Ratified last week, standard available online</p>
+    <p>MPICH2 as well as Open MPI implement the complete interface  Should be in official releases soon</p>
+    <p>We demonstrated two use-cases  Showed application speedup for a simple code  Performance may vary (depends on architecture)</p>
+    <p>SUMMARY</p>
+    <p>Slide 18 of 20 T. Hoefler, J. Dinan, D. Buntinas, P. Balaji, B. Barrett, R. Brightwell, W. Gropp, V. Kale, R. Thakur</p>
+  </div>
+  <div class="page">
+    <p>MPI is (more) ready for multicore!  Supports coherent shared memory  Offers easy-to-use and portable interface  Mix&amp;match with other MPI functions</p>
+    <p>We plan to evaluate  Different use-cases and applications</p>
+    <p>The Forum continues discussion  Non-coherent shared memory?</p>
+    <p>CONCLUSIONS &amp; FUTURE WORK</p>
+    <p>Slide 19 of 20 T. Hoefler, J. Dinan, D. Buntinas, P. Balaji, B. Barrett, R. Brightwell, W. Gropp, V. Kale, R. Thakur</p>
+  </div>
+  <div class="page">
+    <p>ACKNOWLEDGMENTS  The MPI Forum</p>
+    <p>Especially the RMA working group!</p>
+    <p>Slide 20 of 20 T. Hoefler, J. Dinan, D. Buntinas, P. Balaji, B. Barrett, R. Brightwell, W. Gropp, V. Kale, R. Thakur</p>
+  </div>
+</Presentation>

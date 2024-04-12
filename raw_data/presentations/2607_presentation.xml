@@ -1,0 +1,850 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>Scalable Error Isolation for Distributed Systems</p>
+    <p>Diogo Behrens, Sergei Arnautov, Christof Fetzer (TU Dresden) Marco Serafini (Qatar Computing Research Institute) Flavio P. Junqueira (Microsoft Research, Cambridge)</p>
+    <p>May 6, 2015</p>
+  </div>
+  <div class="page">
+    <p>Motivation</p>
+  </div>
+  <div class="page">
+    <p>Motivation</p>
+  </div>
+  <div class="page">
+    <p>Motivation</p>
+    <p>Mesa: Geo-Replicated, Near Real-Time, Scalable Data Warehousing</p>
+    <p>Ashish Gupta, Fan Yang, Jason Govig, Adam Kirsch, Kelvin Chan Kevin Lai, Shuo Wu, Sandeep Govind Dhoot, Abhilash Rajesh Kumar, Ankur Agiwal Sanjay Bhansali, Mingsheng Hong, Jamie Cameron, Masood Siddiqi, David Jones</p>
+    <p>Jeff Shute, Andrey Gubarev, Shivakumar Venkataraman, Divyakant Agrawal Google, Inc.</p>
+    <p>ABSTRACT Mesa is a highly scalable analytic data warehousing system that stores critical measurement data related to Googles Internet advertising business. Mesa is designed to satisfy</p>
+    <p>ness critical nature of this data result in unique technical and operational challenges for processing, storing, and querying. The requirements for such a data store are:</p>
+  </div>
+  <div class="page">
+    <p>Motivation</p>
+    <p>Mesa: Geo-Replicated, Near Real-Time, Scalable Data Warehousing</p>
+    <p>Ashish Gupta, Fan Yang, Jason Govig, Adam Kirsch, Kelvin Chan Kevin Lai, Shuo Wu, Sandeep Govind Dhoot, Abhilash Rajesh Kumar, Ankur Agiwal Sanjay Bhansali, Mingsheng Hong, Jamie Cameron, Masood Siddiqi, David Jones</p>
+    <p>Jeff Shute, Andrey Gubarev, Shivakumar Venkataraman, Divyakant Agrawal Google, Inc.</p>
+    <p>ABSTRACT Mesa is a highly scalable analytic data warehousing system that stores critical measurement data related to Googles Internet advertising business. Mesa is designed to satisfy</p>
+    <p>ness critical nature of this data result in unique technical and operational challenges for processing, storing, and querying. The requirements for such a data store are:</p>
+    <p>key sample to be a partition boundary whenever the sum of the weights of the samples for the current partition exceeds n/p. The crucial observation here is that the number of row keys in a particular delta that are not properly accounted for in the current cumulative weight is at most s (or 0 if the current row key sample was taken from this particular delta). The total error is bounded by (m  1)s. Hence, the maximum number of input rows per partition is at most n/p + (m  1)s. Since most delta versions can be spanned with a small value of m (to support fast queries), we can typically afford to set a large value for s and compensate for the partition imbalance by increasing the total number of partitions. Since s is large and determines the sampling ratio (i.e., one out of every s rows), the total number of samples read by the MapReduce launcher is small.</p>
+    <p>with Mesa tables (e.g., to support new features or to improve query performance). Some common forms of schema change include adding or dropping columns (both key and value), adding or removing indexes, and adding or removing entire tables (particularly creating roll-up tables, such as creating a materialized view of monthly time series data from a previously existing table with daily granularity). Hundreds of Mesa tables go through schema changes every month. Since Mesa data freshness and availability are critical to</p>
+    <p>Googles business, all schema changes must be online: neither queries nor updates may block while a schema change is in progress. Mesa uses two main techniques to perform online schema changes: a simple but expensive method that covers all cases, and an optimized method that covers many important common cases. The nave method Mesa uses to perform online schema</p>
+    <p>changes is to (i) make a separate copy of the table with data stored in the new schema version at a fixed update version, (ii) replay any updates to the table generated in the meantime until the new schema version is current, and (iii) switch the schema version used for new queries to the new schema version as an atomic controller BigTable metadata operation. Older queries may continue to run against the old schema version for some amount of time before the old schema version is dropped to reclaim space. This method is reliable but expensive, particularly for</p>
+    <p>schema changes involving many tables. For example, suppose that a user wants to add a new value column to a family of related tables. The nave schema change method requires doubling the disk space and update/compaction processing resources for the duration of the schema change. Instead, Mesa performs a linked schema change to han</p>
+    <p>dle this case by treating the old and new schema versions as one for update/compaction. Specifically, Mesa makes the schema change visible to new queries immediately, handles conversion to the new schema version at query time on the fly (using a default value for the new column), and similarly writes all new deltas for the table in the new schema version. Thus, a linked schema change saves 50% of the disk space and update/compaction resources when compared to the nave method, at the cost of some small additional computation in the query path until the next base compaction. Linked schema change is not applicable in certain cases, for example when a schema change reorders the key columns in an existing table, necessitating a re-sorting of the existing</p>
+    <p>data. Despite such limitations, linked schema change is effective at conserving resources (and speeding up the schema change process) for many common types of schema changes.</p>
+    <p>are administered independently and are shared among many services at Google to host and process data. For any computation, there is a non-negligible probability that faulty hardware or software will cause incorrect data to be generated and/or stored. Simple file level checksums are not sufficient to defend against such events because the corruption can occur transiently in CPU or RAM. At Mesas scale, these seemingly rare events are common. Guarding against such corruptions is an important goal in Mesas overall design.</p>
+    <p>Although Mesa deploys multiple instances globally, each instance manages delta versions independently. At the logical level all instances store the same data, but the specific delta versions (and therefore files) are different. Mesa leverages this diversity to guard against faulty machines and human errors through a combination of online and offline data verification processes, each of which exhibits a different trade-off between accuracy and cost. Online checks are done at every update and query operation. When writing deltas, Mesa performs row ordering, key range, and aggregate value checks. Since Mesa deltas store rows in sorted order, the libraries for writing Mesa deltas explicitly enforce this property; violations result in a retry of the corresponding controller/worker operation. When generating cumulative deltas, Mesa combines the key ranges and the aggregate values of the spanning deltas and checks whether they match the output delta. These checks discover rare corruptions in Mesa data that occur during computations and not in storage. They can also uncover bugs in computation implementation. Mesas sparse index and data files also store checksums for each row block, which Mesa verifies whenever a row block is read. The index files themselves also contain checksums for header and index data.</p>
+    <p>In addition to these per-instance verifications, Mesa periodically performs global offline checks, the most comprehensive of which is a global checksum for each index of a table across all instances. During this process, each Mesa instance computes a strong row-order-dependent checksum and a weak row-order-independent checksum for each index at a particular version, and a global component verifies that the table data is consistent across all indexes and instances (even though the underlying file level data may be represented differently). Mesa generates alerts whenever there is a checksum mismatch.</p>
+    <p>As a lighter weight offline process, Mesa also runs a global aggregate value checker that computes the spanning set of the most recently committed version of every index of a table in every Mesa instance, reads the aggregate values of those deltas from metadata, and aggregates them appropriately to verify consistency across all indexes and instances. Since Mesa performs this operation entirely on metadata, it is much more efficient than the full global checksum.</p>
+    <p>When a table is corrupted, a Mesa instance can automatically reload an uncorrupted copy of the table from another instance, usually from a nearby datacenter. If all instances are corrupted, Mesa can restore an older version of the table from a backup and replay subsequent updates.</p>
+  </div>
+  <div class="page">
+    <p>Motivation</p>
+    <p>Mesa: Geo-Replicated, Near Real-Time, Scalable Data Warehousing</p>
+    <p>Ashish Gupta, Fan Yang, Jason Govig, Adam Kirsch, Kelvin Chan Kevin Lai, Shuo Wu, Sandeep Govind Dhoot, Abhilash Rajesh Kumar, Ankur Agiwal Sanjay Bhansali, Mingsheng Hong, Jamie Cameron, Masood Siddiqi, David Jones</p>
+    <p>Jeff Shute, Andrey Gubarev, Shivakumar Venkataraman, Divyakant Agrawal Google, Inc.</p>
+    <p>ABSTRACT Mesa is a highly scalable analytic data warehousing system that stores critical measurement data related to Googles Internet advertising business. Mesa is designed to satisfy</p>
+    <p>ness critical nature of this data result in unique technical and operational challenges for processing, storing, and querying. The requirements for such a data store are:</p>
+    <p>key sample to be a partition boundary whenever the sum of the weights of the samples for the current partition exceeds n/p. The crucial observation here is that the number of row keys in a particular delta that are not properly accounted for in the current cumulative weight is at most s (or 0 if the current row key sample was taken from this particular delta). The total error is bounded by (m  1)s. Hence, the maximum number of input rows per partition is at most n/p + (m  1)s. Since most delta versions can be spanned with a small value of m (to support fast queries), we can typically afford to set a large value for s and compensate for the partition imbalance by increasing the total number of partitions. Since s is large and determines the sampling ratio (i.e., one out of every s rows), the total number of samples read by the MapReduce launcher is small.</p>
+    <p>with Mesa tables (e.g., to support new features or to improve query performance). Some common forms of schema change include adding or dropping columns (both key and value), adding or removing indexes, and adding or removing entire tables (particularly creating roll-up tables, such as creating a materialized view of monthly time series data from a previously existing table with daily granularity). Hundreds of Mesa tables go through schema changes every month. Since Mesa data freshness and availability are critical to</p>
+    <p>Googles business, all schema changes must be online: neither queries nor updates may block while a schema change is in progress. Mesa uses two main techniques to perform online schema changes: a simple but expensive method that covers all cases, and an optimized method that covers many important common cases. The nave method Mesa uses to perform online schema</p>
+    <p>changes is to (i) make a separate copy of the table with data stored in the new schema version at a fixed update version, (ii) replay any updates to the table generated in the meantime until the new schema version is current, and (iii) switch the schema version used for new queries to the new schema version as an atomic controller BigTable metadata operation. Older queries may continue to run against the old schema version for some amount of time before the old schema version is dropped to reclaim space. This method is reliable but expensive, particularly for</p>
+    <p>schema changes involving many tables. For example, suppose that a user wants to add a new value column to a family of related tables. The nave schema change method requires doubling the disk space and update/compaction processing resources for the duration of the schema change. Instead, Mesa performs a linked schema change to han</p>
+    <p>dle this case by treating the old and new schema versions as one for update/compaction. Specifically, Mesa makes the schema change visible to new queries immediately, handles conversion to the new schema version at query time on the fly (using a default value for the new column), and similarly writes all new deltas for the table in the new schema version. Thus, a linked schema change saves 50% of the disk space and update/compaction resources when compared to the nave method, at the cost of some small additional computation in the query path until the next base compaction. Linked schema change is not applicable in certain cases, for example when a schema change reorders the key columns in an existing table, necessitating a re-sorting of the existing</p>
+    <p>data. Despite such limitations, linked schema change is effective at conserving resources (and speeding up the schema change process) for many common types of schema changes.</p>
+    <p>are administered independently and are shared among many services at Google to host and process data. For any computation, there is a non-negligible probability that faulty hardware or software will cause incorrect data to be generated and/or stored. Simple file level checksums are not sufficient to defend against such events because the corruption can occur transiently in CPU or RAM. At Mesas scale, these seemingly rare events are common. Guarding against such corruptions is an important goal in Mesas overall design.</p>
+    <p>Although Mesa deploys multiple instances globally, each instance manages delta versions independently. At the logical level all instances store the same data, but the specific delta versions (and therefore files) are different. Mesa leverages this diversity to guard against faulty machines and human errors through a combination of online and offline data verification processes, each of which exhibits a different trade-off between accuracy and cost. Online checks are done at every update and query operation. When writing deltas, Mesa performs row ordering, key range, and aggregate value checks. Since Mesa deltas store rows in sorted order, the libraries for writing Mesa deltas explicitly enforce this property; violations result in a retry of the corresponding controller/worker operation. When generating cumulative deltas, Mesa combines the key ranges and the aggregate values of the spanning deltas and checks whether they match the output delta. These checks discover rare corruptions in Mesa data that occur during computations and not in storage. They can also uncover bugs in computation implementation. Mesas sparse index and data files also store checksums for each row block, which Mesa verifies whenever a row block is read. The index files themselves also contain checksums for header and index data.</p>
+    <p>In addition to these per-instance verifications, Mesa periodically performs global offline checks, the most comprehensive of which is a global checksum for each index of a table across all instances. During this process, each Mesa instance computes a strong row-order-dependent checksum and a weak row-order-independent checksum for each index at a particular version, and a global component verifies that the table data is consistent across all indexes and instances (even though the underlying file level data may be represented differently). Mesa generates alerts whenever there is a checksum mismatch.</p>
+    <p>As a lighter weight offline process, Mesa also runs a global aggregate value checker that computes the spanning set of the most recently committed version of every index of a table in every Mesa instance, reads the aggregate values of those deltas from metadata, and aggregates them appropriately to verify consistency across all indexes and instances. Since Mesa performs this operation entirely on metadata, it is much more efficient than the full global checksum.</p>
+    <p>When a table is corrupted, a Mesa instance can automatically reload an uncorrupted copy of the table from another instance, usually from a nearby datacenter. If all instances are corrupted, Mesa can restore an older version of the table from a backup and replay subsequent updates.</p>
+    <p>CRC for messages! ECC for memory! CPU??</p>
+  </div>
+  <div class="page">
+    <p>From data corruption to service disruption</p>
+    <p>process pi process pj</p>
+    <p>buffer</p>
+    <p>variables</p>
+    <p>buffer</p>
+    <p>variables</p>
+    <p>+</p>
+  </div>
+  <div class="page">
+    <p>From data corruption to service disruption</p>
+    <p>process pi process pj</p>
+    <p>buffer</p>
+    <p>variables</p>
+    <p>buffer</p>
+    <p>variables</p>
+    <p>+</p>
+  </div>
+  <div class="page">
+    <p>From data corruption to service disruption</p>
+    <p>process pi process pj</p>
+    <p>buffer</p>
+    <p>variables</p>
+    <p>buffer</p>
+    <p>variables</p>
+    <p>+</p>
+  </div>
+  <div class="page">
+    <p>From data corruption to service disruption</p>
+    <p>process pi process pj</p>
+    <p>buffer</p>
+    <p>variables</p>
+    <p>buffer</p>
+    <p>variables</p>
+    <p>+</p>
+    <p>error propagation</p>
+  </div>
+  <div class="page">
+    <p>From data corruption to service disruption</p>
+    <p>process pi process pj</p>
+    <p>buffer</p>
+    <p>variables</p>
+    <p>buffer</p>
+    <p>variables</p>
+    <p>+</p>
+    <p>error propagation</p>
+    <p>ECC?</p>
+  </div>
+  <div class="page">
+    <p>From data corruption to service disruption</p>
+    <p>process pi process pj</p>
+    <p>buffer</p>
+    <p>variables</p>
+    <p>buffer</p>
+    <p>variables</p>
+    <p>+</p>
+    <p>error propagation</p>
+    <p>ECC?</p>
+    <p>CRC?</p>
+  </div>
+  <div class="page">
+    <p>This talk is about. . .</p>
+    <p>http://micha81.deviantart.com/art/How-To-Kill-a-Zombie-T-Shirt-108157364</p>
+  </div>
+  <div class="page">
+    <p>This talk is about. . .</p>
+    <p>iso lat</p>
+    <p>e</p>
+    <p>http://micha81.deviantart.com/art/How-To-Kill-a-Zombie-T-Shirt-108157364</p>
+  </div>
+  <div class="page">
+    <p>Goal: error isolation</p>
+    <p>process pi process pj</p>
+    <p>buffer</p>
+    <p>variables</p>
+    <p>buffer</p>
+    <p>variables</p>
+    <p>+</p>
+    <p>discard!</p>
+  </div>
+  <div class="page">
+    <p>Goal: error isolation</p>
+    <p>process pi process pj</p>
+    <p>buffer</p>
+    <p>variables</p>
+    <p>buffer</p>
+    <p>variables</p>
+    <p>+ error</p>
+    <p>isolation</p>
+    <p>discard!</p>
+  </div>
+  <div class="page">
+    <p>How to deal with data corruptions?</p>
+  </div>
+  <div class="page">
+    <p>DIY: Ad hoc software checks</p>
+    <p>while (1) {</p>
+    <p>switch(state) {</p>
+    <p>case INIT: {</p>
+    <p>// create socket , bind and listen</p>
+    <p>fd = socket(AF_INET , SOCK_STREAM , 0);</p>
+    <p>if (fd &lt; 0) {</p>
+    <p>perror(&quot;socket&quot;);</p>
+    <p>return EXIT_FAILURE;</p>
+    <p>}</p>
+    <p>// this is important , so that if a process restarts , it can</p>
+    <p>// quickly reuse the same port</p>
+    <p>int on = 1;</p>
+    <p>if (setsockopt(fd, SOL_SOCKET , SO_REUSEADDR , &amp;on , sizeof(on)) &lt; 0) {</p>
+    <p>perror(&quot;setsockopt&quot;);</p>
+    <p>return EXIT_FAILURE;</p>
+    <p>}</p>
+    <p>bzero(&amp;addr , sizeof(addr ));</p>
+    <p>addr.sin_family = AF_INET;</p>
+    <p>addr.sin_addr.s_addr = htonl(INADDR_ANY );</p>
+    <p>addr.sin_port = htons(port);</p>
+    <p>if (bind(fd, (struct sockaddr *) &amp;addr , sizeof(addr)) &lt; 0) {</p>
+    <p>perror(&quot;bind&quot;);</p>
+    <p>return EXIT_FAILURE;</p>
+    <p>}</p>
+    <p>if (listen(fd, 2) &lt; 0) {</p>
+    <p>perror(&quot;listen&quot;);</p>
+    <p>return EXIT_FAILURE;</p>
+    <p>}</p>
+    <p>// initialize ukv service</p>
+    <p>ukv = ukv_init ();</p>
+    <p>state = ACCT;</p>
+    <p>break;</p>
+    <p>}</p>
+    <p>case RECV: {</p>
+    <p>// once a connection is accepted , read from the connection</p>
+    <p>// until it is closed</p>
+    <p>read = recvfrom(cfd , buffer , BUFSIZE , 0, (struct sockaddr *) &amp;caddr , &amp;len);</p>
+    <p>if (read &lt;= 0) {</p>
+    <p>perror(&quot;recvfrom&quot;);</p>
+    <p>close(cfd);</p>
+    <p>state = ACCT;</p>
+    <p>break;</p>
+    <p>}</p>
+    <p>buffer[read] = \0;</p>
+    <p>msg = buffer;</p>
+    <p>state = PROC;</p>
+    <p>break;</p>
+    <p>}</p>
+    <p>case PROC: {</p>
+    <p>r = ukv_recv(ukv , msg);</p>
+    <p>if (!r) state = FINI;</p>
+    <p>else state = SEND;</p>
+    <p>break;</p>
+    <p>}</p>
+    <p>case SEND: {</p>
+    <p>sendto(cfd , r, strlen(r), 0,</p>
+    <p>(struct sockaddr *) &amp;caddr , sizeof(caddr ));</p>
+    <p>ukv_done(ukv , r);</p>
+    <p>state = RECV;</p>
+    <p>break;</p>
+    <p>} 7 / 28</p>
+  </div>
+  <div class="page">
+    <p>DIY: Ad hoc software checks</p>
+    <p>I Complex, time consuming</p>
+    <p>I Which errors to consider?</p>
+    <p>I No principled approach</p>
+    <p>while (1) {</p>
+    <p>switch(state) {</p>
+    <p>case INIT: {</p>
+    <p>// create socket , bind and listen</p>
+    <p>fd = socket(AF_INET , SOCK_STREAM , 0);</p>
+    <p>if (fd &lt; 0) {</p>
+    <p>perror(&quot;socket&quot;);</p>
+    <p>return EXIT_FAILURE;</p>
+    <p>}</p>
+    <p>// this is important , so that if a process restarts , it can</p>
+    <p>// quickly reuse the same port</p>
+    <p>int on = 1;</p>
+    <p>if (setsockopt(fd, SOL_SOCKET , SO_REUSEADDR , &amp;on , sizeof(on)) &lt; 0) {</p>
+    <p>perror(&quot;setsockopt&quot;);</p>
+    <p>return EXIT_FAILURE;</p>
+    <p>}</p>
+    <p>bzero(&amp;addr , sizeof(addr ));</p>
+    <p>addr.sin_family = AF_INET;</p>
+    <p>addr.sin_addr.s_addr = htonl(INADDR_ANY );</p>
+    <p>addr.sin_port = htons(port);</p>
+    <p>if (bind(fd, (struct sockaddr *) &amp;addr , sizeof(addr)) &lt; 0) {</p>
+    <p>perror(&quot;bind&quot;);</p>
+    <p>return EXIT_FAILURE;</p>
+    <p>}</p>
+    <p>if (listen(fd, 2) &lt; 0) {</p>
+    <p>perror(&quot;listen&quot;);</p>
+    <p>return EXIT_FAILURE;</p>
+    <p>}</p>
+    <p>// initialize ukv service</p>
+    <p>ukv = ukv_init ();</p>
+    <p>state = ACCT;</p>
+    <p>break;</p>
+    <p>}</p>
+    <p>case RECV: {</p>
+    <p>// once a connection is accepted , read from the connection</p>
+    <p>// until it is closed</p>
+    <p>read = recvfrom(cfd , buffer , BUFSIZE , 0, (struct sockaddr *) &amp;caddr , &amp;len);</p>
+    <p>if (read &lt;= 0) {</p>
+    <p>perror(&quot;recvfrom&quot;);</p>
+    <p>close(cfd);</p>
+    <p>state = ACCT;</p>
+    <p>break;</p>
+    <p>}</p>
+    <p>buffer[read] = \0;</p>
+    <p>msg = buffer;</p>
+    <p>state = PROC;</p>
+    <p>break;</p>
+    <p>}</p>
+    <p>case PROC: {</p>
+    <p>r = ukv_recv(ukv , msg);</p>
+    <p>if (!r) state = FINI;</p>
+    <p>else state = SEND;</p>
+    <p>break;</p>
+    <p>}</p>
+    <p>case SEND: {</p>
+    <p>sendto(cfd , r, strlen(r), 0,</p>
+    <p>(struct sockaddr *) &amp;caddr , sizeof(caddr ));</p>
+    <p>ukv_done(ukv , r);</p>
+    <p>state = RECV;</p>
+    <p>break;</p>
+    <p>} 7 / 28</p>
+  </div>
+  <div class="page">
+    <p>Principled approach: Byzantine fault tolerance</p>
+    <p>client</p>
+    <p>servers</p>
+    <p>agreement protocol</p>
+  </div>
+  <div class="page">
+    <p>Principled approach: Byzantine fault tolerance</p>
+    <p>client</p>
+    <p>servers</p>
+    <p>agreement protocol</p>
+    <p>I Expensive replication</p>
+    <p>I Performance degradation</p>
+    <p>I Multithreading?</p>
+  </div>
+  <div class="page">
+    <p>Principled approach: Local hardening</p>
+    <p>I Instruction duplication (SWIFT, CGO05)</p>
+    <p>+ compiler technique  not designed for distributed systems  last-mile faults (no error isolation)</p>
+    <p>I PASC (ATC12)</p>
+    <p>+ achieves error isolation  large memory overhead (2x)  no support for multithreading</p>
+  </div>
+  <div class="page">
+    <p>Principled approach: Local hardening</p>
+    <p>I Instruction duplication (SWIFT, CGO05)</p>
+    <p>+ compiler technique  not designed for distributed systems  last-mile faults (no error isolation)</p>
+    <p>I PASC (ATC12)</p>
+    <p>+ achieves error isolation  large memory overhead (2x)  no support for multithreading</p>
+  </div>
+  <div class="page">
+    <p>Principled approach: Local hardening</p>
+    <p>I Instruction duplication (SWIFT, CGO05)</p>
+    <p>+ compiler technique  not designed for distributed systems  last-mile faults (no error isolation)</p>
+    <p>I PASC (ATC12)</p>
+    <p>+ achieves error isolation  large memory overhead (2x)  no support for multithreading</p>
+  </div>
+  <div class="page">
+    <p>Scalable Error Isolation A new approach</p>
+  </div>
+  <div class="page">
+    <p>Scalable Error Isolation (SEI)</p>
+    <p>Local hardening No additional messages exchanged; Local redundancy in space and time</p>
+    <p>End-to-end CRCs for communication and computation</p>
+    <p>Formal guarantees Fault model and correctness proof</p>
+  </div>
+  <div class="page">
+    <p>Scalable Error Isolation (SEI)</p>
+    <p>Local hardening No additional messages exchanged; Local redundancy in space and time</p>
+    <p>End-to-end CRCs for communication and computation</p>
+    <p>Formal guarantees Fault model and correctness proof</p>
+  </div>
+  <div class="page">
+    <p>Scalable Error Isolation (SEI)</p>
+    <p>Local hardening No additional messages exchanged; Local redundancy in space and time</p>
+    <p>End-to-end CRCs for communication and computation</p>
+    <p>Formal guarantees Fault model and correctness proof</p>
+  </div>
+  <div class="page">
+    <p>Scalability dimensions</p>
+    <p>Memory scalability Small footprint (ECC or other error codes)</p>
+    <p>Thread scalability Support for multithreaded applications</p>
+    <p>main() Codebase scalability Compiler technique reduces developer work</p>
+  </div>
+  <div class="page">
+    <p>Scalability dimensions</p>
+    <p>Memory scalability Small footprint (ECC or other error codes)</p>
+    <p>Thread scalability Support for multithreaded applications</p>
+    <p>main() Codebase scalability Compiler technique reduces developer work</p>
+  </div>
+  <div class="page">
+    <p>Scalability dimensions</p>
+    <p>Memory scalability Small footprint (ECC or other error codes)</p>
+    <p>Thread scalability Support for multithreaded applications</p>
+    <p>main() Codebase scalability Compiler technique reduces developer work</p>
+  </div>
+  <div class="page">
+    <p>Scalability dimensions</p>
+    <p>Memory scalability Small footprint (ECC or other error codes)</p>
+    <p>Thread scalability Support for multithreaded applications</p>
+    <p>main() Codebase scalability Compiler technique reduces developer work</p>
+  </div>
+  <div class="page">
+    <p>Outline</p>
+    <p>Overview of SEI Requirements, fault model, and algorithm</p>
+    <p>Challenges Support for multithreaded applications</p>
+    <p>foo() Implementation: libsei Library for C-based programs</p>
+    <p>Evaluation</p>
+    <p>Fault coverage and performance overhead</p>
+  </div>
+  <div class="page">
+    <p>Outline</p>
+    <p>Overview of SEI Requirements, fault model, and algorithm</p>
+    <p>Challenges Support for multithreaded applications</p>
+    <p>foo() Implementation: libsei Library for C-based programs</p>
+    <p>Evaluation</p>
+    <p>Fault coverage and performance overhead</p>
+  </div>
+  <div class="page">
+    <p>Target applications</p>
+    <p>I Event based  message passing</p>
+    <p>Event handler</p>
+    <p>State</p>
+    <p>I Multithreaded applications  Critical sections to access shared variables  Hierarchical locking (consistent order) to avoid</p>
+    <p>deadlocks</p>
+  </div>
+  <div class="page">
+    <p>Target applications</p>
+    <p>I Event based  message passing</p>
+    <p>Event handler</p>
+    <p>State</p>
+    <p>I Multithreaded applications  Critical sections to access shared variables  Hierarchical locking (consistent order) to avoid</p>
+    <p>deadlocks</p>
+  </div>
+  <div class="page">
+    <p>Arbitrary State Corruption (ASC) Model</p>
+    <p>Faults corrupt any number of variables</p>
+    <p>S1 S2 S3 S4 S5</p>
+    <p>S4 S  5</p>
+    <p>instr instr instr instr instr</p>
+    <p>instr instr</p>
+    <p>ASC fault</p>
+    <p>Assumptions:</p>
+    <p>I Fault frequency: at most one 1 fault per event handler</p>
+    <p>I Corruption coverage: detection codes work, e.g., ECC, CRC</p>
+  </div>
+  <div class="page">
+    <p>Arbitrary State Corruption (ASC) Model</p>
+    <p>Faults corrupt any number of variables</p>
+    <p>S1 S2 S3 S4 S5</p>
+    <p>S4 S  5</p>
+    <p>instr instr instr instr instr</p>
+    <p>instr instr</p>
+    <p>ASC fault</p>
+    <p>Assumptions:</p>
+    <p>I Fault frequency: at most one 1 fault per event handler</p>
+    <p>I Corruption coverage: detection codes work, e.g., ECC, CRC</p>
+  </div>
+  <div class="page">
+    <p>Arbitrary State Corruption (ASC) Model</p>
+    <p>Faults corrupt any number of variables</p>
+    <p>S1 S2 S3 S4 S5</p>
+    <p>S4 S  5</p>
+    <p>instr instr instr instr instr</p>
+    <p>instr instr</p>
+    <p>ASC fault</p>
+    <p>Assumptions:</p>
+    <p>I Fault frequency: at most one 1 fault per event handler</p>
+    <p>I Corruption coverage: detection codes work, e.g., ECC, CRC</p>
+  </div>
+  <div class="page">
+    <p>Hardening with SEI</p>
+    <p>Event handler</p>
+    <p>Check input</p>
+    <p>First execution</p>
+    <p>Reset</p>
+    <p>Second execution</p>
+    <p>Validation</p>
+    <p>transformation</p>
+  </div>
+  <div class="page">
+    <p>Hardening with SEI</p>
+    <p>Check input</p>
+    <p>First execution</p>
+    <p>Reset</p>
+    <p>Second execution</p>
+    <p>Validation</p>
+    <p>discard message if CRC invalid</p>
+  </div>
+  <div class="page">
+    <p>Hardening with SEI</p>
+    <p>Check input</p>
+    <p>First execution</p>
+    <p>Reset</p>
+    <p>Second execution</p>
+    <p>Validation</p>
+    <p>discard message if CRC invalid</p>
+    <p>check read variables</p>
+  </div>
+  <div class="page">
+    <p>Hardening with SEI</p>
+    <p>Check input</p>
+    <p>First execution</p>
+    <p>Reset</p>
+    <p>Second execution</p>
+    <p>Validation</p>
+    <p>discard message if CRC invalid</p>
+    <p>check read variables</p>
+  </div>
+  <div class="page">
+    <p>Hardening with SEI</p>
+    <p>Check input</p>
+    <p>First execution</p>
+    <p>Reset</p>
+    <p>Second execution</p>
+    <p>Validation</p>
+    <p>discard message if CRC invalid</p>
+    <p>check read variables, snapshot original state</p>
+  </div>
+  <div class="page">
+    <p>Hardening with SEI</p>
+    <p>Check input</p>
+    <p>First execution</p>
+    <p>Reset</p>
+    <p>Second execution</p>
+    <p>Validation</p>
+    <p>discard message if CRC invalid</p>
+    <p>check read variables, snapshot original state</p>
+    <p>restore snapshot, record state modifications</p>
+  </div>
+  <div class="page">
+    <p>Hardening with SEI</p>
+    <p>Check input</p>
+    <p>First execution</p>
+    <p>Reset</p>
+    <p>Second execution</p>
+    <p>Validation</p>
+    <p>discard message if CRC invalid</p>
+    <p>check read variables, snapshot original state</p>
+    <p>restore snapshot, record state modifications</p>
+    <p>check read variables, record modified variables</p>
+  </div>
+  <div class="page">
+    <p>Hardening with SEI</p>
+    <p>Check input</p>
+    <p>First execution</p>
+    <p>Reset</p>
+    <p>Second execution</p>
+    <p>Validation</p>
+    <p>discard message if CRC invalid</p>
+    <p>check read variables, snapshot original state</p>
+    <p>restore snapshot, record state modifications</p>
+    <p>check read variables, record modified variables</p>
+    <p>compare state modifications</p>
+  </div>
+  <div class="page">
+    <p>Hardening with SEI</p>
+    <p>Check input</p>
+    <p>First execution</p>
+    <p>Reset</p>
+    <p>Second execution</p>
+    <p>Validation</p>
+    <p>discard message if CRC invalid</p>
+    <p>check read variables, snapshot original state</p>
+    <p>restore snapshot, record state modifications</p>
+    <p>check read variables, record modified variables</p>
+    <p>compare state modifications</p>
+  </div>
+  <div class="page">
+    <p>Hardening with SEI</p>
+    <p>Check input</p>
+    <p>First execution</p>
+    <p>Reset</p>
+    <p>Second execution</p>
+    <p>Validation</p>
+    <p>discard message if CRC invalid</p>
+    <p>check read variables, snapshot original state</p>
+    <p>restore snapshot, record state modifications</p>
+    <p>check read variables, record modified variables, and calculates CRC</p>
+    <p>compare state modifications</p>
+    <p>invalid CRC, discard! 17 / 28</p>
+  </div>
+  <div class="page">
+    <p>Outline</p>
+    <p>Overview of SEI Requirements, fault model, and algorithm</p>
+    <p>Challenges Support for multithreaded applications</p>
+    <p>foo() Implementation: libsei Library for C-based programs</p>
+    <p>Evaluation</p>
+    <p>Fault coverage and performance overhead</p>
+  </div>
+  <div class="page">
+    <p>Deterministic event handling with multithreading</p>
+    <p>C First execution Reset Second execution Validation</p>
+    <p>but no faults!</p>
+    <p>C First execution . . .</p>
+    <p>lock unlock</p>
+    <p>read v=A</p>
+    <p>lock unlock</p>
+    <p>write v=B</p>
+    <p>lock unlock</p>
+    <p>read v=B</p>
+    <p>T1</p>
+    <p>T2</p>
+    <p>m1</p>
+    <p>m2 19 / 28</p>
+  </div>
+  <div class="page">
+    <p>Deterministic event handling with multithreading</p>
+    <p>C First execution Reset Second execution V S</p>
+    <p>C First execution . . .</p>
+    <p>read v=A</p>
+    <p>block. . .</p>
+    <p>lock</p>
+    <p>write v=B</p>
+    <p>read v=A</p>
+    <p>lock unlock</p>
+    <p>T1</p>
+    <p>T2</p>
+    <p>m1</p>
+    <p>m2 19 / 28</p>
+  </div>
+  <div class="page">
+    <p>Outline</p>
+    <p>Overview of SEI Requirements, fault model, and algorithm</p>
+    <p>Challenges Support for multithreaded applications</p>
+    <p>foo() Implementation: libsei Library for C-based programs</p>
+    <p>Evaluation</p>
+    <p>Fault coverage and performance overhead</p>
+  </div>
+  <div class="page">
+    <p>libsei: SEI implementation in C bitbucket.org/db7/libsei</p>
+    <p>while(1) {</p>
+    <p>ilen = recv_msg(imsg, &amp;crc);</p>
+    <p>if (__begin(imsg, ilen, crc)) {</p>
+    <p>do_something_here(msg);</p>
+    <p>omsg = create message(&amp;olen);</p>
+    <p>__output_append(omsg, olen);</p>
+    <p>__output_done();</p>
+    <p>__end(); // end of handler</p>
+    <p>} else continue; //discard invalid</p>
+    <p>send_msg(omsg, olen, CRC(omsg, olen));</p>
+    <p>}</p>
+    <p>I Annotate event handler with __begin and __end</p>
+    <p>I Annotate messages __output* for annotation __crc_pop for next CRC</p>
+    <p>I Compile with GCC  4.7 state updates within handler instrumented with TM pass</p>
+    <p>I libsei does the rest  executes handler twice  calculates CRCs  validates state updates</p>
+  </div>
+  <div class="page">
+    <p>libsei: SEI implementation in C bitbucket.org/db7/libsei</p>
+    <p>while(1) {</p>
+    <p>ilen = recv_msg(imsg, &amp;crc);</p>
+    <p>if (__begin(imsg, ilen, crc)) {</p>
+    <p>do_something_here(msg);</p>
+    <p>omsg = create message(&amp;olen);</p>
+    <p>__output_append(omsg, olen);</p>
+    <p>__output_done();</p>
+    <p>__end(); // end of handler</p>
+    <p>} else continue; //discard invalid</p>
+    <p>send_msg(omsg, olen, CRC(omsg, olen));</p>
+    <p>}</p>
+    <p>I Annotate event handler with __begin and __end</p>
+    <p>I Annotate messages __output* for annotation __crc_pop for next CRC</p>
+    <p>I Compile with GCC  4.7 state updates within handler instrumented with TM pass</p>
+    <p>I libsei does the rest  executes handler twice  calculates CRCs  validates state updates</p>
+  </div>
+  <div class="page">
+    <p>libsei: SEI implementation in C bitbucket.org/db7/libsei</p>
+    <p>while(1) {</p>
+    <p>ilen = recv_msg(imsg, &amp;crc);</p>
+    <p>if (__begin(imsg, ilen, crc)) {</p>
+    <p>do_something_here(msg);</p>
+    <p>omsg = create message(&amp;olen);</p>
+    <p>__output_append(omsg, olen);</p>
+    <p>__output_done();</p>
+    <p>__end(); // end of handler</p>
+    <p>} else continue; //discard invalid</p>
+    <p>send_msg(omsg, olen, CRC(omsg, olen));</p>
+    <p>}</p>
+    <p>I Annotate event handler with __begin and __end</p>
+    <p>I Annotate messages __output* for annotation __crc_pop for next CRC</p>
+    <p>I Compile with GCC  4.7 state updates within handler instrumented with TM pass</p>
+    <p>I libsei does the rest  executes handler twice  calculates CRCs  validates state updates</p>
+  </div>
+  <div class="page">
+    <p>libsei: SEI implementation in C bitbucket.org/db7/libsei</p>
+    <p>while(1) {</p>
+    <p>ilen = recv_msg(imsg, &amp;crc);</p>
+    <p>if (__begin(imsg, ilen, crc)) {</p>
+    <p>do_something_here(msg);</p>
+    <p>omsg = create message(&amp;olen);</p>
+    <p>__output_append(omsg, olen);</p>
+    <p>__output_done();</p>
+    <p>__end(); // end of handler</p>
+    <p>} else continue; //discard invalid</p>
+    <p>send_msg(omsg, olen, __crc_pop());</p>
+    <p>}</p>
+    <p>I Annotate event handler with __begin and __end</p>
+    <p>I Annotate messages __output* for annotation __crc_pop for next CRC</p>
+    <p>I Compile with GCC  4.7 state updates within handler instrumented with TM pass</p>
+    <p>I libsei does the rest  executes handler twice  calculates CRCs  validates state updates</p>
+  </div>
+  <div class="page">
+    <p>libsei: SEI implementation in C bitbucket.org/db7/libsei</p>
+    <p>while(1) {</p>
+    <p>ilen = recv_msg(imsg, &amp;crc);</p>
+    <p>if (__begin(imsg, ilen, crc)) {</p>
+    <p>do_something_here(msg);</p>
+    <p>omsg = create message(&amp;olen);</p>
+    <p>__output_append(omsg, olen);</p>
+    <p>__output_done();</p>
+    <p>__end(); // end of handler</p>
+    <p>} else continue; //discard invalid</p>
+    <p>send_msg(omsg, olen, __crc_pop());</p>
+    <p>}</p>
+    <p>I Annotate event handler with __begin and __end</p>
+    <p>I Annotate messages __output* for annotation __crc_pop for next CRC</p>
+    <p>I Compile with GCC  4.7 state updates within handler instrumented with TM pass</p>
+    <p>I libsei does the rest  executes handler twice  calculates CRCs  validates state updates</p>
+  </div>
+  <div class="page">
+    <p>libsei: SEI implementation in C bitbucket.org/db7/libsei</p>
+    <p>while(1) {</p>
+    <p>ilen = recv_msg(imsg, &amp;crc);</p>
+    <p>if (__begin(imsg, ilen, crc)) {</p>
+    <p>do_something_here(msg);</p>
+    <p>omsg = create message(&amp;olen);</p>
+    <p>__output_append(omsg, olen);</p>
+    <p>__output_done();</p>
+    <p>__end(); // end of handler</p>
+    <p>} else continue; //discard invalid</p>
+    <p>send_msg(omsg, olen, __crc_pop());</p>
+    <p>}</p>
+    <p>I Annotate event handler with __begin and __end</p>
+    <p>I Annotate messages __output* for annotation __crc_pop for next CRC</p>
+    <p>I Compile with GCC  4.7 state updates within handler instrumented with TM pass</p>
+    <p>I libsei does the rest  executes handler twice  calculates CRCs  validates state updates</p>
+  </div>
+  <div class="page">
+    <p>Outline</p>
+    <p>Overview of SEI Requirements, fault model, and algorithm</p>
+    <p>Challenges Support for multithreaded applications</p>
+    <p>foo() Implementation: libsei Library for C-based programs</p>
+    <p>Evaluation</p>
+    <p>Fault coverage and performance overhead</p>
+  </div>
+  <div class="page">
+    <p>Use cases</p>
+    <p>I memcached  Key-value store  Widely used as cache for databases  Internally, a huge hash table with eviction queues  Multithreaded</p>
+    <p>I Deadwood  DNS recursive server  Single-threaded  See paper for results</p>
+  </div>
+  <div class="page">
+    <p>Use cases</p>
+    <p>I memcached  Key-value store  Widely used as cache for databases  Internally, a huge hash table with eviction queues  Multithreaded</p>
+    <p>I Deadwood  DNS recursive server  Single-threaded  See paper for results</p>
+  </div>
+  <div class="page">
+    <p>Fault coverage: targeted software fault injection</p>
+    <p>Fault group Variant Undetected SEI-detected Crash/other</p>
+    <p>Control flow native 9.66% - 90.34% SEI 0.06% 14.70% 85.23%</p>
+    <p>Data flow native 44.18% - 55.82% SEI 0.15% 57.55% 42.29%</p>
+    <p>SEI: two orders of magnitude fewer undetected errors</p>
+  </div>
+  <div class="page">
+    <p>Fault coverage: targeted software fault injection</p>
+    <p>Fault group Variant Undetected SEI-detected Crash/other</p>
+    <p>Control flow native 9.66% - 90.34% SEI 0.06% 14.70% 85.23%</p>
+    <p>Data flow native 44.18% - 55.82% SEI 0.15% 57.55% 42.29%</p>
+    <p>SEI: two orders of magnitude fewer undetected errors</p>
+  </div>
+  <div class="page">
+    <p>Fault coverage: targeted software fault injection</p>
+    <p>Fault group Variant Undetected SEI-detected Crash/other</p>
+    <p>Control flow native 9.66% - 90.34% SEI 0.06% 14.70% 85.23%</p>
+    <p>Data flow native 44.18% - 55.82% SEI 0.15% 57.55% 42.29%</p>
+    <p>SEI: two orders of magnitude fewer undetected errors</p>
+  </div>
+  <div class="page">
+    <p>Fault coverage: targeted software fault injection</p>
+    <p>Fault group Variant Undetected SEI-detected Crash/other</p>
+    <p>Control flow native 9.66% - 90.34% SEI 0.06% 14.70% 85.23%</p>
+    <p>Data flow native 44.18% - 55.82% SEI 0.15% 57.55% 42.29%</p>
+    <p>SEI: two orders of magnitude fewer undetected errors</p>
+  </div>
+  <div class="page">
+    <p>Fault coverage: CPU undervolting</p>
+  </div>
+  <div class="page">
+    <p>Fault coverage: CPU undervolting</p>
+    <p>Detected Undetected</p>
+    <p>M a n ife</p>
+    <p>st e d e</p>
+    <p>rr o rs</p>
+    <p>native SEI</p>
+  </div>
+  <div class="page">
+    <p>Fault coverage: CPU undervolting</p>
+    <p>Detected Undetected</p>
+    <p>M a n ife</p>
+    <p>st e d e</p>
+    <p>rr o rs</p>
+    <p>native SEI</p>
+  </div>
+  <div class="page">
+    <p>Fault coverage: CPU undervolting</p>
+    <p>Detected Undetected</p>
+    <p>M a n ife</p>
+    <p>st e d e</p>
+    <p>rr o rs</p>
+    <p>native SEI</p>
+    <p>error isolation</p>
+    <p>SEI: no undetected errors</p>
+  </div>
+  <div class="page">
+    <p>memcached performance: threads and key range</p>
+    <p>threads</p>
+    <p>th ro</p>
+    <p>u g h p u t (k</p>
+    <p>.r e q /s</p>
+    <p>)</p>
+    <p>SEI native</p>
+    <p>key range, log(key)</p>
+    <p>th ro</p>
+    <p>u g h p u t (k</p>
+    <p>.r e q /s</p>
+    <p>)</p>
+    <p>SEI native</p>
+    <p>SEI: little overhead with  128 B and ranges of  100 keys</p>
+  </div>
+  <div class="page">
+    <p>memcached performance: threads and key range</p>
+    <p>threads</p>
+    <p>th ro</p>
+    <p>u g h p u t (k</p>
+    <p>.r e q /s</p>
+    <p>)  SEI native</p>
+    <p>key range, log(key)</p>
+    <p>th ro</p>
+    <p>u g h p u t (k</p>
+    <p>.r e q /s</p>
+    <p>)</p>
+    <p>SEI native</p>
+    <p>SEI: little overhead with  128 B and ranges of  100 keys</p>
+  </div>
+  <div class="page">
+    <p>memcached performance: threads and key range</p>
+    <p>threads</p>
+    <p>th ro</p>
+    <p>u g h p u t (k</p>
+    <p>.r e q /s</p>
+    <p>)  SEI native</p>
+    <p>key range, log(key) th</p>
+    <p>ro u g h p u t (k</p>
+    <p>.r e q /s</p>
+    <p>)</p>
+    <p>SEI native</p>
+    <p>SEI: little overhead with  128 B and ranges of  100 keys</p>
+  </div>
+  <div class="page">
+    <p>memcached performance: threads and key range</p>
+    <p>threads</p>
+    <p>th ro</p>
+    <p>u g h p u t (k</p>
+    <p>.r e q /s</p>
+    <p>)  SEI native</p>
+    <p>key range, log(key) th</p>
+    <p>ro u g h p u t (k</p>
+    <p>.r e q /s</p>
+    <p>)</p>
+    <p>SEI native</p>
+    <p>SEI: little overhead with  128 B and ranges of  100 keys</p>
+  </div>
+  <div class="page">
+    <p>Conclusion</p>
+    <p>I Algorithm: Scalable Error Isolation (SEI)</p>
+    <p>Local and end-to-end  Effective against data corruptions</p>
+    <p>I Implementation: libsei</p>
+    <p>No memory overhead with ECC  Little performance overhead with non-CPU</p>
+    <p>intensive applications  Implementation is open source</p>
+  </div>
+  <div class="page">
+    <p>Thank you! Questions?</p>
+    <p>Source code and technical report: http://bitbucket.org/db7/libsei</p>
+  </div>
+</Presentation>

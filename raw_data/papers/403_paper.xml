@@ -1,0 +1,662 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<TEI xmlns="http://www.tei-c.org/ns/1.0" 
+xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+xsi:schemaLocation="http://www.tei-c.org/ns/1.0 /Users/atharsefid/Desktop/grobid-0.5.3/grobid-home/schemas/xsd/Grobid.xsd"
+ xmlns:xlink="http://www.w3.org/1999/xlink">
+	<teiHeader xml:lang="en">
+		<encodingDesc>
+			<appInfo>
+				<application version="0.5.3" ident="GROBID" when="2019-03-26T16:35+0000">
+					<ref target="https://github.com/kermitt2/grobid">GROBID - A machine learning software for extracting information from scholarly documents</ref>
+				</application>
+			</appInfo>
+		</encodingDesc>
+		<fileDesc>
+			<titleStmt>
+				<title level="a" type="main">Learning the Structure of Markov Logic Networks</title>
+			</titleStmt>
+			<publicationStmt>
+				<publisher/>
+				<availability status="unknown"><licence/></availability>
+			</publicationStmt>
+			<sourceDesc>
+				<biblStruct>
+					<analytic>
+						<author>
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Stanley</forename><surname>Kok</surname></persName>
+							<email>koks@cs.washington.edu</email>
+							<affiliation key="aff0">
+								<orgName type="department">Department of Computer Science &amp; Engineering</orgName>
+								<orgName type="institution">University of Washington</orgName>
+								<address>
+									<postCode>98195</postCode>
+									<settlement>Seattle</settlement>
+									<region>WA</region>
+									<country key="US">USA</country>
+								</address>
+							</affiliation>
+						</author>
+						<author>
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Pedro</forename><surname>Domingos</surname></persName>
+							<email>pedrod@cs.washington.edu</email>
+							<affiliation key="aff0">
+								<orgName type="department">Department of Computer Science &amp; Engineering</orgName>
+								<orgName type="institution">University of Washington</orgName>
+								<address>
+									<postCode>98195</postCode>
+									<settlement>Seattle</settlement>
+									<region>WA</region>
+									<country key="US">USA</country>
+								</address>
+							</affiliation>
+						</author>
+						<title level="a" type="main">Learning the Structure of Markov Logic Networks</title>
+					</analytic>
+					<monogr>
+						<imprint>
+							<date/>
+						</imprint>
+					</monogr>
+				</biblStruct>
+			</sourceDesc>
+		</fileDesc>
+		<profileDesc>
+			<abstract>
+				<p>Markov logic networks (MLNs) combine logic and probability by attaching weights to first-order clauses, and viewing these as templates for features of Markov networks. In this paper we develop an algorithm for learning the structure of MLNs from relational databases, combining ideas from inductive logic programming (ILP) and feature induction in Markov networks. The algorithm performs a beam or shortest-first search of the space of clauses, guided by a weighted pseudo-likelihood measure. This requires computing the optimal weights for each candidate structure, but we show how this can be done efficiently. The algorithm can be used to learn an MLN from scratch, or to refine an existing knowledge base. We have applied it in two real-world domains, and found that it outperforms using off-the-shelf ILP systems to learn the MLN structure, as well as pure ILP, purely probabilistic and purely knowledge-based approaches .</p>
+			</abstract>
+		</profileDesc>
+	</teiHeader>
+	<text xml:lang="en">
+		<body>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="1.">Introduction</head><p>Statistical learning handles uncertainty in a robust and principled way. Relational learning (also known as inductive logic programming) models domains involving multiple relations. Recent years have seen a surge of interest in combining the two, driven by the realization that many (if not most) applications require both, and by the growing maturity of the two fields ( <ref type="bibr" target="#b6">Dietterich et al., 2003</ref>). Most approaches to date combine a logical language (e.g., Prolog, description logics) with Bayesian networks (e.g., <ref type="bibr" target="#b8">Friedman et al. (1999)</ref>; <ref type="bibr" target="#b14">Kersting and De Raedt (2001)</ref>). However, the need to avoid cycles in Bayesian networks causes many difficulties when extending them to relational representations ( <ref type="bibr" target="#b24">Taskar et al., 2002</ref>). An alternative is to use undirected graphical models, also known as Markov networks or Markov random fields. This is the approach taken in relational Markov networks ( <ref type="bibr" target="#b24">Taskar et al., 2002</ref>). However, RMNs use a very restricted logical language (conjunctive database queries), and this limits the complexity of phenomena they can efficiently represent. In particular, RMNs require space exponential in the size of the cliques in the underlying Markov network. Recently, <ref type="bibr">Richard- son and Domingos (2004)</ref> introduced Markov logic networks (MLNs), which allow the features of the underlying Markov network to be specified by arbitrary formulas in finite first-order logic, and can compactly represent distributions involving large cliques.</p><p>Richardson and Domingos used an off-the-shelf ILP system (CLAUDIEN ( <ref type="bibr" target="#b2">De Raedt &amp; Dehaspe, 1997)</ref>) to learn the structure of MLNs. This is unlikely to give the best results, because CLAUDIEN (like other ILP systems) is designed to simply find clauses that hold with some accuracy and frequency in the data, not to maximize the data's likelihood (and hence the quality of the MLN's probabilistic predictions). In this paper, we develop an algorithm for learning the structure of MLNs by directly optimizing a likelihood-type measure, and show experimentally that it outperforms the approach of Richardson and Domingos. The resulting system is arguably the most powerful combination to date of statistical and relational learning, while still having acceptable computational requirements.</p><p>We begin by briefly reviewing the necessary background in ILP (Section 2), Markov networks (Section 3), and Markov logic networks (Section 4). We then describe in detail our algorithm for structure learning in MLNs (Section 5). Finally, we report our experiments with the new algorithm and discuss their results (Section 6).</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="2.">Logic and ILP</head><p>A first-order knowledge base (KB) is a set of sentences or formulas in first-order logic <ref type="bibr" target="#b9">(Genesereth &amp; Nilsson, 1987)</ref>. Formulas are constructed using four types of symbols: constants, variables, functions, and predicates. Constant symbols represent objects in the domain of interest (e.g., people: Anna, Bob, Chris, etc.). Variable symbols range over the objects in the domain. Function symbols (e.g., MotherOf) represent mappings from tuples of objects to objects. Predicate symbols represent relations among objects in the domain (e.g., Friends) or attributes of objects (e.g., Smokes). A term is any expression representing an object in the domain. It can be a constant, a variable, or a function applied to a tuple of terms. For example, <ref type="bibr">Anna, x, and MotherOf(x)</ref> are terms. An atomic formula or atom is a predicate symbol applied to a tuple of terms (e.g., Friends(x, MotherOf(Anna))). A ground term is a term containing no variables. A ground atom or ground predicate is an atomic formula all of whose arguments are ground terms. Formulas are recursively constructed from atomic formulas using logical connectives and quantifiers. A positive literal is an atomic formula; a negative literal is a negated atomic formula. A KB in clausal form is a conjunction of clauses, a clause being a disjunction of literals. A definite clause is a clause with exactly one positive literal (the head, with the negative literals constituting the body). A possible world or Herbrand interpretation assigns a truth value to each possible ground predicate.</p><p>ILP systems learn clausal KBs from relational databases, or refine existing <ref type="bibr">KBs (Lavrač &amp; Džeroski, 1994)</ref>. In the learning from entailment setting, the system searches for clauses that entail all positive examples of some relation (e.g., Friends) and no negative ones. For example, FOIL <ref type="bibr" target="#b17">(Quinlan, 1990</ref>) learns each definite clause by starting with the target relation as the head and greedily adding literals to the body. In the learning from interpretations setting, the examples are databases, and the system searches for clauses that are true in them. For example, CLAUDIEN <ref type="bibr" target="#b2">(De Raedt &amp; Dehaspe, 1997)</ref>, starting with a trivially false clause, repeatedly forms all possible refinements of the current clauses by adding literals, and adds to the KB the ones that satisfy a minimum accuracy and coverage criterion.</p><p>MACCENT <ref type="bibr" target="#b4">(Dehaspe, 1997</ref>) is an early example of a system that combines ILP with probability. It finds the maximum entropy distribution over a set of classes consistent with a set of constraints expressed as clauses. Like our algorithm, it builds on Markov network ideas; however, it only performs classification, while the goal here is to do general probability estimation (i.e., learn the joint distribution of all predicates). Also, MACCENT only allows deterministic background knowledge, while MLNs allow it to be uncertain; and MACCENT classifies each example separately, while MLNs allow for collective classification.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.">Markov Networks</head><p>A Markov network (also known as Markov random field) is a model for the joint distribution of a set of variables X = (X 1 , X 2 , . . . , X n ) ∈ X (Della <ref type="bibr" target="#b5">Pietra et al., 1997)</ref>. It is composed of an undirected graph G and a set of potential functions φ k . The graph has a node for each variable, and the model has a potential function for each clique in the graph. A potential function is a non-negative real-valued function of the state of the corresponding clique. The joint distribution represented by a Markov network is given by</p><formula xml:id="formula_0">P (X = x) = 1 Z 񮽙 k φ k (x {k} )<label>(1)</label></formula><p>where x {k} is the state of the kth clique (i.e., the state of the variables that appear in that clique). Z, known as the partition function, is given by Z = 񮽙 x∈X 񮽙 k φ k (x {k} ). Markov networks are often conveniently represented as log-linear models, with each clique potential replaced by an exponentiated weighted sum of features of the state, leading to</p><formula xml:id="formula_1">P (X = x) = 1 Z exp   񮽙 j w j f j (x)  <label>(2)</label></formula><p>A feature may be any real-valued function of the state. This paper will focus on binary features, f j (x) ∈ {0, 1}. In the most direct translation from the potential-function form (Equation 1), there is one feature corresponding to each possible state x {k} of each clique, with its weight being log φ k (x {k} ). This representation is exponential in the size of the cliques. However, we are free to specify a much smaller number of features (e.g., logical functions of the state of the clique), allowing for a more compact representation than the potential-function form, particularly when large cliques are present. MLNs take advantage of this.</p><p>Markov network weights have traditionally been learned using iterative scaling (Della <ref type="bibr" target="#b5">Pietra et al., 1997</ref>). However, maximizing the likelihood (or posterior) using a quasiNewton optimization method like L-BFGS has recently been found to be much faster <ref type="bibr" target="#b21">(Sha &amp; Pereira, 2003)</ref>. Work on learning the structure (i.e., the features) of Markov networks has been relatively sparse to date. Della <ref type="bibr" target="#b5">Pietra et al. (1997)</ref> induce conjunctive features by starting with a set of atomic features (the original variables), conjoining each current feature with each atomic feature, adding to the network the conjunction that most increases likelihood, and repeating. <ref type="bibr" target="#b16">McCallum (2003)</ref> extends this to the case of conditional random fields, which are Markov networks trained to maximize the conditional likelihood of a set of outputs given a set of inputs.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="4.">Markov Logic Networks</head><p>A first-order KB can be seen as a set of hard constraints on the set of possible worlds: if a world violates even one formula, it has zero probability. The basic idea in MLNs is to soften these constraints: when a world violates one formula in the KB it is less probable, but not impossible. The fewer formulas a world violates, the more probable it is. Each formula has an associated weight that reflects how strong a constraint it is: the higher the weight, the greater the difference in log probability between a world that satisfies the formula and one that does not, other things being equal. </p><formula xml:id="formula_2">i in L.</formula><p>Thus there is an edge between two nodes of M L,C iff the corresponding ground predicates appear together in at least one grounding of one formula in L. An MLN can be viewed as a template for constructing Markov networks. From Definition 4.1 and Equations 1 and 2, the probability distribution over possible worlds x specified by the ground Markov network M L,C is given by</p><formula xml:id="formula_3">P (X = x) = 1 Z exp 񮽙 F 񮽙 i=1 w i n i (x) 񮽙 (3)</formula><p>where F is the number formulas in the MLN and n i (x) is the number of true groundings of F i in x. As formula weights increase, an MLN increasingly resembles a purely logical KB, becoming equivalent to one in the limit of all infinite weights.</p><p>In this paper we will focus on MLNs whose formulas are function-free clauses and assume domain closure, ensuring that the Markov networks generated are finite <ref type="bibr">(Richard- son &amp; Domingos, 2004</ref>). In this case, the groundings of a formula are formed simply by replacing its variables with constants in all possible ways.  <ref type="table">, Table II</ref>) for details.</p><p>MLN weights can be learned by maximizing the likelihood of a relational database. (As often in ILP, a closedworld assumption is made, whereby all ground atoms not in the database are assumed false.) However, as in Markov networks, this requires computing the expected number of true groundings of each formula, which can take exponential time. Although this computation can be done approximately using Markov chain Monte Carlo inference (Della <ref type="bibr" target="#b5">Pietra et al., 1997</ref>), Richardson and Domingos found this to be too slow. Instead, they maximized the pseudo-likelihood of the data, a widely-used alternative <ref type="bibr" target="#b0">(Besag, 1975)</ref>. If x is a possible world (relational database) and x l is the lth ground atom's truth value, the pseudo-log-likelihood of x given weights w is</p><formula xml:id="formula_4">log P * w (X = x) = n 񮽙 l=1 log P w (X l = x l |M B x (X l )) (4)</formula><p>where M B x (X l ) is the state of X l 's Markov blanket in the data (i.e., the truth values of the ground atoms it appears in some ground formula with), and</p><formula xml:id="formula_5">P (X l = x l |M B x (X l )) = exp 񮽙񮽙 F i=1 wini(x) 񮽙 exp 񮽙񮽙 F i=1 wini(x [X l =0] 񮽙 +exp 񮽙񮽙 F i=1 wini(x [X l =1] 񮽙 (5)</formula><p>where n i (x) is the number of true groundings of the ith formula in x, n i (x <ref type="bibr">[X l =0]</ref> ) is the number of true groundings of the ith formula when we force X l = 0 and leave the remaining data unchanged, and similarly for n i (x <ref type="bibr">[X l =1]</ref> ).</p><p>Singla and  proposed a discriminative approach to learning MLN weights, but did not learn MLN structure, like we do here. Richardson and Domingos first learned the structure of an MLN using CLAUDIEN, and then learned maximum pseudo-likelihood weights for it using L-BFGS. In the next section we propose a sounder approach.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="5.">Structure Learning in MLNs</head><p>MLN structure learning can start from an empty network or from an existing KB. Either way, like <ref type="bibr" target="#b18">Richardson and Domingos (2004)</ref>, we have found it useful to start by adding all unit clauses (single predicates) to the MLN. The weights of these capture (roughly speaking) the marginal distributions of the predicates, allowing the longer clauses to focus on modeling predicate dependencies.</p><p>The design space for MLN structure learning algorithms includes the choice of evaluation measure, clause construction operators, search strategy, and speedup methods. We discuss each of these in turn.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="5.1.">Evaluation Measures</head><p>We initially used the same pseudo-likelihood measure as Richardson and Domingos (Equation 4). However, we found this to give undue weight to the largest-arity predicates, resulting in poor modeling of the rest. We thus defined the weighted pseudo-log-likelihood (WPLL) as</p><formula xml:id="formula_6">log P • w (X = x) = 񮽙 r∈R c r 񮽙 gr k=1 log P w (X r,k = x r,k |M B x (X r,k )) (6)</formula><p>where R is the set of first-order predicates, g r is the number of groundings of first-order predicate r, and x r,k is the truth value (0 or 1) of the kth grounding of r. The choice of predicate weights c r depends on the user's goals. In our experiments, we simply set c r = 1/g r , which has the effect of weighting all first-order predicates equally. If modeling a predicate is not important (e.g., because it will always be part of the evidence), we set its weight to zero. We used WPLL in all versions of MLN learning in our experiments.</p><p>To combat overfitting, we penalize the WPLL with a struc-</p><formula xml:id="formula_7">ture prior of e −α 񮽙 F i=1</formula><p>di , where d i is the number of predicates that differ between the current version of the clause and the original one. (If the clause is new, this is simply its length.) This is similar to the approach used in learning Bayesian networks <ref type="bibr" target="#b10">(Heckerman et al., 1995)</ref>. Following Richardson and Domingos, we also penalize each weight with a Gaussian prior.</p><p>A potentially serious problem that arises when evaluating candidate clauses using WPLL is that the optimal (maximum WPLL) weights need to be computed for each candidate. Given that this involves numerical optimization, and may need to be done thousands or millions of times, it could easily make the algorithm too slow to be practical. Indeed, in the UW-CSE domain (see next section), we found that learning the weights using L-BFGS took 3 minutes on average, which is fast enough if only done once, but unfeasible to do for every candidate clause. Della <ref type="bibr" target="#b5">Pietra et al. (1997)</ref> and <ref type="bibr" target="#b16">McCallum (2003)</ref> address this problem by assuming that the weights of previous features do not change when testing a new one. Surprisingly, we found this to be unnecessary if we use the very simple approach of initializing L-BFGS with the current weights (and zero weight for a new clause). Although in principle all weights could change as the result of introducing or modifying a clause, in practice this seldom happens. Second-order, quadraticconvergence methods like L-BFGS are known to be very fast if started near the optimum. This is what happens in our case; L-BFGS typically converges in just a few iterations, sometimes one. The time required to evaluate a clause is in fact dominated by the time required to compute the number of its true groundings in the data, and this is a problem we focus on in Subsection 5.4.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="5.2.">Clause Construction Operators</head><p>When learning an MLN from scratch (i.e., from a set of unit clauses), the natural operator to use is the addition of a literal to a clause. When refining a hand-coded KB, the goal is to correct the errors made by the human experts. These errors include omitting conditions from rules and including spurious ones, and can be corrected by operators that add and remove literals from a clause. These are the basic operators that we use. In addition, we have found that many common errors (wrong direction of implication, wrong use of connectives with quantifiers, etc.) can be corrected at the clause level by flipping the signs of predicates, and we also allow this. When adding a literal to a clause, we consider all possible ways in which the literal's variables can be shared with existing ones, subject to the constraint that the new literal must contain at least one variable that appears in an existing one. To control the size of the search space, we set a limit on the number of distinct variables in a clause. We only try removing literals from the original hand-coded clauses or their descendants, and we only consider removing a literal if it leaves at least one path of shared variables between each pair of remaining literals.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="5.3.">Search Strategies</head><p>We have implemented two search strategies, one faster and one more complete. The first approach adds clauses to the MLN one at a time, using beam search to find the best clause to add: starting with the unit clauses and the expertsupplied ones, we apply each legal literal addition and deletion to each clause, keep the b best ones, apply the operators to those, and repeat until no new clause improves the WPLL. The chosen clause is the one with highest WPLL found in any iteration of the search. If the new clause is a refinement of a hand-coded one, it replaces it. (Notice that, even though we both add and delete literals, no loops can occur because each change must improve WPLL to be accepted.)</p><p>The second approach adds k clauses at a time to the MLN, and is similar to that of <ref type="bibr" target="#b16">McCallum (2003)</ref>. In contrast to beam search, which adds the best clause of any length found, this approach adds all "good" clauses of length l before attempting any of length l + 1. We call it shortest-first search. <ref type="table" target="#tab_1">Table 1</ref> shows the structure learning algorithm in pseudocode, <ref type="table" target="#tab_2">Table 2</ref> shows beam search, and <ref type="table" target="#tab_4">Table 3</ref> shows shortest-first search for the case where the initial MLN contains only unit clauses.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="5.4.">Speedup Techniques</head><p>The algorithms described in the previous section may be very slow, particularly in large domains. However, they can be greatly sped up using a combination of techniques that we now describe.</p><p>• <ref type="bibr" target="#b18">Richardson and Domingos (2004)</ref> list several ways of speeding up the computation of the pseudo-loglikelihood and its gradient, and we apply them to the WPLL (Equation 6). In addition, in Equation 5 we ignore all clauses that the predicate does not appear in.</p><p>• When learning MLN weights to evaluate candidate clauses, we use a looser convergence threshold and lower maximum number of iterations for L-BFGS than when updating the MLN with the chosen clause(s).</p><p>• We compute the contribution of a predicate to the WPLL approximately by uniformly sampling a fraction of its groundings (true and false ones separately), computing the conditional likelihood of each one (Equation 5), and extrapolating the average. The number of samples can be chosen to guarantee that, with high confidence, the chosen clause(s) are the same that would be obtained if we computed the WPLL exactly. This effectively makes the runtime of the WPLL computation independent of the number of predicate groundings <ref type="bibr">(Hulten &amp; Domin- gos, 2002</ref>). At the end of the algorithm we do a final round of weight learning without subsampling.</p><p>• We use a similar strategy to compute the number of true groundings of a clause, required for the WPLL and its gradient. In particular, we use the algorithm of <ref type="bibr" target="#b12">Karp and Luby (1983)</ref>. In practice, we found that the estimates converge much faster than the algorithm specifies, so we run the convergence test of DeGroot and Schervish (2002, p. 707) after every 100 samples and terminate if it succeeds. In addition, we use looser convergence criteria during candidate clause evaluation than during update with the chosen clause. (See Sebag and Rouveirol (1997) for a related use of sampling in ILP.)</p><p>• When most clause weights do not change significantly with each run of L-BFGS, neither do most conditional log-likelihoods (CLLs) of ground predicates (log of Equation 5). We take advantage of this by storing the CLL of each sampled ground predicate, and only recomputing it if a clause weight affecting it changes by more  than some threshold δ. When a CLL changes, we subtract its old value from the total WPLL and add the new one. The computation of the gradient of the WPLL is similarly optimized.</p><p>• We use a lexicographic ordering on clauses to avoid redundant computations for clauses that are syntactically identical. (However, we do not detect clauses that are semantically equivalent but syntactically different; this is an NP-complete problem.) We also cache the new clauses created during each search and their counts, avoiding the need to recompute them in later searches.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="6.">Experiments</head></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="6.1.">Databases</head><p>We carried out experiments on two publiclyavailable databases: the UW-CSE database used by <ref type="bibr" target="#b18">Richardson and Domingos (2004)</ref>   <ref type="figure">AdvisedBy(person1, person2)</ref>, etc. Using typed variables, the total number of possible ground predicates is 4,055,575. The database contains a total of 3212 tuples (ground atoms). We used the handcoded knowledge base provided with it, which includes 94  formulas stating regularities like: each student has at most one advisor; if a student is an author of a paper, so is her advisor; etc. Notice that these statements are not always true, but are typically true.</p><p>The Cora dataset is a collection of 1295 different citations to 112 computer science research papers. We used the author, venue, title and year fields. The goal is to determine which pairs of citations refer to the same paper (i.e., to infer the truth values of all groundings of SameCitation(c1, c2)). These values are available in the data. Additionally, we can attempt to deduplicate the author, title and venue strings, and we labeled these manually. We defined predicates for each field that discretize the percentage of words that two strings have in common. For example, WordsInCommonInTitle20%(title1, title2) is true iff the two titles have 0-20% of their words in common. These predicates are always given as evidence, and we do not attempt to predict them. Using typed variables, the total number of possible ground predicates is 5,225,411. The database contained a total of 378,589 tuples (ground atoms). A hand-crafted KB for this domain was provided by a colleague; it contains 26 clauses stating regularities like: if two citations are the same, their authors, venues, etc., are the same, and vice-versa; if two fields of the same type have many words in common, they are the same; etc.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="6.2.">Systems</head><p>We compared nine versions of MLN learning: weight learning applied to the hand-coded KB (MLN(KB)); structure learning using CLAUDIEN, FOIL and Aleph <ref type="bibr">(Srini- vasan, 2000</ref>) followed by weight learning (respectively MLN(CL), MLN(FO) and MLN(AL)); structure learning using CLAUDIEN with the KB providing the language bias as in <ref type="bibr" target="#b18">Richardson and Domingos (2004)</ref>, followed by weight learning on the output of CLAUDIEN merged with the KB (MLN(KB+CL)); structure learning using our algorithm with beam search, starting from an empty MLN (MLN(SLB)), starting from the hand-coded KB (MLN(KB+SLB)), and starting from an empty MLN but allowing hand-coded clauses to be added during the first search step (MLN(SLB+KB)); and structure learning using our algorithm with shortest-first search, starting from an empty MLN (MLN(SLS)). We added unit clauses to all nine systems. In addition, we compared MLN learning with three pure ILP approaches (CLAUDIEN (CL), FOIL (FO), and Aleph (AL)), a pure knowledge-based approach (the hand-coded KB (KB)), the combination of CLAUDIEN and the hand-coded KB as described above (KB+CL), and two pure probabilistic approaches (naive Bayes (NB) <ref type="bibr" target="#b7">(Domingos &amp; Pazzani, 1997)</ref> and Bayesian networks (BN) <ref type="bibr" target="#b10">(Heckerman et al., 1995)</ref>). Notice that ILP learners like FOIL and Aleph are not directly comparable with MLNs (or CLAUDIEN), because they only learn to predict designated target predicates, as opposed to finding arbitrary regularities over all predicates. For an approximate comparison, we used FOIL and Aleph to learn rules with each predicate as the target in turn.</p><p>We used the algorithm of Richardson and Domingos to construct attributes for the naive Bayes and Bayesian network learners. Since our goal is to measure predictive performance over all predicates, not just the AdvisedBy(x, y) predicate that Domingos and Richardson focused on, we learned a naive Bayes classifier and a Bayesian network for each predicate. (Attempting to learn a single Bayesian network to predict all predicates simultaneously gave very poor results; this is not surprising, since in this case there are only four examples to learn from -one per training area.) Following Richardson and Domingos, we tried using order-1 and order-1+2 attributes, and report the best results.</p><p>We used the same settings for CLAUDIEN as Richardson and Domingos, and let CLAUDIEN run for 24 hours on a Sun Blade 1000 workstation. <ref type="bibr">1</ref> We used the default FOIL parameter settings except for the maximum number of variables per clause, which we set to 5 (UW-CSE) and 6 (Cora), and the minimum clause accuracy, which we set to 50%. For Aleph, we used all of the default settings except for the maximum clause length, which we set to 4 (UW-CSE) and 7 (Cora). The parameters used for our structure learning algorithms were as follows: α = 0.01 (UW-CSE) and 0.001 (Cora); maximum variables per clause = 5 (UW-CSE) and 6 (Cora); 2 񮽙 = 1 (UW-CSE) and 0.01 (Cora); δ = 10 −4 ; s = 200; m = 100, 000; l max = 3 (UW-CSE) and 7 (Cora); and k = 10 (UW-CSE) and 1 (Cora). L-BFGS was run with the following parameters: maximum iterations = 10,000 (tight) and 10 (loose); convergence threshold = 10 −5 (tight) and 10 −4 (loose). The mean and variance of the Gaussian prior were set to 0 and 100, respectively, in all runs. Parameters were set in an ad hoc manner, and per-fold optimization using a validation set could conceivably yield better results.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="6.3.">Methodology</head><p>In the UW-CSE domain, we used the same leave-one-areaout methodology as <ref type="bibr" target="#b18">Richardson and Domingos (2004)</ref>. In the Cora domain, we performed five runs with train-test splits of approximately equal size, ensuring that no true set of matching records was split between train and test sets to avoid contamination. For each system on each test set, we measured the conditional log-likelihood (CLL) and area under the precision-recall curve (AUC) for each predicate. The advantage of the CLL is that it directly measures the quality of the probability estimates produced. The advantage of the AUC is that it is insensitive to the large number of true negatives (i.e., ground atoms that are false and predicted to be false). The CLL of a predicate is the average over all its groundings of the log of Equation 5, which we smoothed by using a weighted average of this value with a prior of 0.5 (with weights of 0.99 and 0.01, respectively). The precision-recall curve for a predicate is computed by varying the threshold CLL above which a ground atom is predicted to be true. For both CLL and AUC, the values we report are averages over all predicates (in the UW-CSE domain) or all non-evidence predicates (in the Cora domain), with all predicates weighted equally. We computed the standard deviations of the AUCs using the method of <ref type="bibr" target="#b18">Richardson and Domingos (2004)</ref>. To obtain probabilities from the ILP models and hand-coded KBs (required to compute CLLs and AUCs), we treated them as MLNs with all equal infinite weights.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="6.4.">Results</head><p>The results on the UW-CSE domain are shown in <ref type="table" target="#tab_0">Table 4</ref>, and the results on Cora are shown in <ref type="table" target="#tab_6">Table 5</ref>. <ref type="bibr">3</ref> All versions of our MLN structure learning algorithm greatly outper-   form using ILP systems to learn MLN structure, in both CLL and AUC, in both domains. This is consistent with our hypothesis that directly optimizing (pseudo-)likelihood when learning structure yields better models. In both domains, shortest-first search starting from an empty network (MLN(SLS)) gives the best overall results, but is much slower than beam search (MLN(SLB)) (see below).</p><p>The purely logical approaches (CL, FO, AL, KB and KB+CL) did quite poorly. This occurred because they assigned very low probabilities to true ground atoms whenever they were not entailed by the logical KB, and this occurred quite often. Learning weights for the hand-coded KBs was quite helpful, confirming the utility of transforming KBs into MLNs. However, structure learning gave the best overall results. In the UW-CSE domain, refining the hand-coded KB (MLN(KB+SLB)) did not improve on learning from scratch. Structure learning was unable to break out of the local optimum represented by MLN(KB), leading to poor performance. This problem is overcome if we start instead from an empty KB but allow hand-coded clauses to be added during the first step of beam search (MLN(SLB+KB)).</p><p>MLNs also greatly outperformed the purely probabilistic approaches (NB and BN). This was particularly noticeable in the UW-CSE domain, which contains little conventional attribute-value data but much relational information.</p><p>In the UW-CSE domain, shortest-first search without the speedups described in Subsection 5.4 did not finish running in 24 hours on a cluster of 15 dual-CPU 2.8 GHz Pentium 4 machines. With the speedups, it took an average of 5.3 hours. For beam search, the speedups reduced average running time from 13.7 hours to 8.8 hours on a standard 2.8 GHz Pentium 4 CPU. To investigate the contribution of each speed-up technique, we reran shortest-first search on one fold of the UW-CSE domain, leaving out one technique at a time. Clause and predicate sampling provide the largest speedups (six-fold and five-fold, respectively), and weight thresholding the smallest (1.025). None of the techniques adversely affect AUC, and predicate sampling is the only one that significantly reduces CLL (disabling it improves CLL from −0.059 to −0.038). Inference times were relatively short, taking a maximum of 1 minute (UW-CSE) and 12 minutes (Cora) on a standard 2.8 GHz Pentium 4 CPU.</p><p>We have also applied our algorithms to two time-changing domains, and shown that they outperform pure ILP and purely probabilistic approaches there <ref type="bibr" target="#b19">(Sanghai et al., 2005</ref>).</p><p>In summary, both our algorithms are effective; we recommend using shortest-first search when accuracy is paramount, and beam search when speed is a concern.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="7.">Conclusion and Future Work</head><p>Markov logic networks are a powerful combination of firstorder logic and probability. We have introduced an algorithm to automatically learn first-order clauses and their weights in MLNs. Empirical tests with real-world data in two domains have shown the promise of our approach.</p><p>Directions for future work include speeding up the counting of the number of true groundings of a first-order clause (the most significant bottleneck in our algorithm), studying alternate weight learning approaches, probabilistically bounding the loss in accuracy due to subsampling, and extending our approach to probabilistic predicate discovery.</p></div><figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_0"><head></head><label></label><figDesc>Appearing in Proceedings of the 22 nd International Conference on Machine Learning, Bonn, Germany, 2005. Copyright 2005 by the author(s)/owner(s).</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_1"><head></head><label></label><figDesc>For example, if C = {Anna, Bob}, the formula ∀x Smokes(x) ⇒ Cancer(x) in the MLN L yields the features Smokes(Anna) ⇒ Cancer(Anna) and Smokes(Bob) ⇒ Cancer(Bob) in the ground Markov network M L,C . See Richardson and Domingos (2004</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_2"><head>function</head><label></label><figDesc>FindBestClauses(R, M LN , Score, Clauses0 , DB) inputs: R, a set of predicates M LN , a clausal Markov logic network Score, WPLL of M LN Clauses0, a set of clauses DB, a relational database output: BestClause, a clause to be added to M LN BestClause ← ∅ BestGain ← 0 Beam ← Clauses0 Save the weights of the clauses in M LN repeat Candidates ← CreateCandidateClauses(Beam, R) for each clause c ∈ Candidates Add c to M LN LearnWeights(M LN , DB) Gain(c) ← WPLL(M LN , DB) − Score Remove c from M LN Restore the weights of the clauses in M LN Beam ← {The b clauses c ∈ Candidates with highest Gain(c) &gt; 0 and with W eight(c) &gt; 񮽙 &gt; 0 } if Gain(Best clause c * in Beam) &gt; BestGain BestClause ← c * BestGain ← Gain(c * ) until Beam = ∅ or BestGain has not changed in two iterations return {BestClause}</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_3"><head>function</head><label></label><figDesc>FindBestClauses(R, M LN , Score, Clauses0 , DB) inputs: R, a set of predicates M LN , a clausal Markov logic network Score, WPLL of M LN Clauses0, a set of clauses DB, a relational database output: BestClauses, a set of clauses to be added to M LN Save the weights of the clauses in M LN if this is the first time FindBestClauses is called Candidates ← ∅ l ← 1 repeat if l = 1 or this is not the first iteration of the repeat loop if there is no clause in Candidates of length &lt; l that was not previously extended l ← l + 1 Clauses ← {Clauses of length l−1 in M LN not previ- ously extended } ∪ {s best clauses of length l−1 in Candidates not previously extended } Candidates ← Candidates ∪ CreateCandidateClauses(Clauses, R) for each clause c ∈ Candidates not previously evaluated Add c to M LN LearnWeights(M LN , DB) Gain(c) ← WPLL(M LN , DB) − Score Remove c from M LN Restore the weights of the clauses in M LN Candidates ← {m best clauses in Candidates} until l = lmax or there is a clause c ∈ Candidates with Gain(c) &gt; 0 and W eight(c) &gt; 񮽙 &gt; 0 BestClauses ← {The k clauses c ∈ Candidates with highest Gain(c) &gt; 0 and with W eight(c) &gt; 񮽙 &gt; 0 } Candidates ← Candidates \ BestClauses return BestClauses</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_0" validated="false"><head>Definition 4 .1 (Richardson &amp; Domingos, 2004) A Markov logic network L is a set of pairs (F i , w i ), where F i isM L,C contains one feature for each possible grounding of each formula F i in L.w i associated with F</head><label>4</label><figDesc></figDesc><table>a 
+formula in first-order logic and w i is a real number. To-
+gether with a finite set of constants C = {c 1 , c 2 , . . . , c |C| }, 
+it defines a Markov network M L,C (Equations 1 and 2) as 
+follows: 
+
+1. M L,C contains one binary node for each possible 
+grounding of each predicate appearing in L. The value 
+of the node is 1 if the ground predicate is true, and 0 
+otherwise. 
+
+2. The value of this feature is 1 if 
+the ground formula is true, and 0 otherwise. The weight 
+of the feature is the </table></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_1" validated="false"><head>Table 1 . MLN structure learning algorithm. function StructLearn(R, M LN ,</head><label>1</label><figDesc></figDesc><table>DB) 
+inputs: R, a set of predicates 
+M LN , a clausal Markov logic network 
+DB, a relational database 
+output: Modified M LN 
+Add all unit clauses from R to M LN 
+for each non-unit clause c in M LN (optionally) 
+Try all combinations of sign flips of literals in c, and 
+keep the one that gives the highest WPLL(M LN , DB) 
+Clauses0 ← {All clauses in M LN } 
+LearnWeights(M LN , DB) 
+Score ← WPLL(M LN , DB) 
+repeat 
+Clauses ← FindBestClauses(R, M LN , Score, Clauses0 , DB) 
+if Clauses 񮽙 = ∅ 
+Add Clauses to M LN 
+LearnWeights(M LN , DB) 
+Score ← WPLL(M LN , DB) 
+until Clauses = ∅ 
+for each non-unit clause c in M LN 
+Prune c from M LN unless this decreases WPLL(M LN , DB) 
+return M LN 
+
+</table></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_2" validated="false"><head>Table 2 . Beam search for the best clause.</head><label>2</label><figDesc></figDesc><table></table></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_3" validated="false"><head></head><label></label><figDesc>(available at http://www.cs.washington.edu/ai/mln), and McCallum's Cora database of computer science citations as seg- mented by Bilenko and Mooney (2003) (available at http://www.cs.utexas.edu/users/ml/riddle/data/cora.tar.gz). The UW-CSE domain consists of 22 predicates and 1158 constants divided into 10 types. Types include: publication, person, course, etc. Predicates include: Professor(person),</figDesc><table></table></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_4" validated="false"><head>Table 3 . Shortest-first search for the best clauses.</head><label>3</label><figDesc></figDesc><table></table></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_5" validated="false"><head>Table 4 . Experimental results on the UW-CSE database.</head><label>4</label><figDesc></figDesc><table>System 
+CLL 
+AUC 
+MLN(SLS) 
+−0.061±0.004 0.533±0.003 
+MLN(SLB) 
+−0.088±0.005 0.472±0.004 
+MLN(KB+SLB) −0.140±0.005 0.430±0.003 
+MLN(SLB+KB) −0.071±0.005 0.551±0.003 
+MLN(KB+CL) 
+−0.115±0.005 0.506±0.004 
+MLN(CL) 
+−0.151±0.005 0.306±0.001 
+MLN(FO) 
+−0.208±0.006 0.140±0.000 
+MLN(AL) 
+−0.223±0.006 0.148±0.001 
+MLN(KB) 
+−0.142±0.005 0.429±0.003 
+KB+CL 
+−0.789±0.012 0.318±0.003 
+CL 
+−0.574±0.010 0.170±0.004 
+FO 
+−0.661±0.003 0.131±0.001 
+AL 
+−0.579±0.006 0.117±0.000 
+KB 
+−0.812±0.011 0.266±0.003 
+NB 
+−0.370±0.005 0.390±0.003 
+BN 
+−0.166±0.004 0.397±0.002 
+
+</table></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_6" validated="false"><head>Table 5 .</head><label>5</label><figDesc>Experimental results on the Cora database.</figDesc><table></table></figure>
+
+			<note place="foot" n="1"> CLAUDIEN only runs on Solaris machines.</note>
+
+			<note place="foot" n="2"> In the Cora domain, we further sped up learning by using syntactic restrictions on clauses similar to CLAU-DIEN&apos;s declarative bias; details are in an online appendix at http://www.cs.washington.edu/ai/lsmln. 3 We tried Aleph with many different parameter settings on Cora, but it always crashed by running out of memory.</note>
+		</body>
+		<back>
+
+			<div type="acknowledgement">
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>Acknowledgments: We thank Matt Richardson and Parag</head><p>Singla for helpful discussions. This work was partly funded by ONR grant N00014-02-1-0408, and by a Sloan Fellowship and an NSF CAREER Award to the second author.</p></div>
+			</div>
+
+			<div type="references">
+
+				<listBibl>
+
+<biblStruct xml:id="b0">
+	<analytic>
+		<title level="a" type="main">Statistical analysis of non-lattice data</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Besag</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">The Statistician</title>
+		<imprint>
+			<biblScope unit="volume">24</biblScope>
+			<biblScope unit="page" from="179" to="195" />
+			<date type="published" when="1975" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b1">
+	<analytic>
+		<title level="a" type="main">Adaptive duplicate detection using learnable string similarity measures</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Bilenko</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Mooney</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. KDD-03</title>
+		<meeting>KDD-03</meeting>
+		<imprint>
+			<date type="published" when="2003" />
+			<biblScope unit="page" from="39" to="48" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b2">
+	<monogr>
+				<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">L</forename><surname>De Raedt</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">L</forename><surname>Dehaspe</surname></persName>
+		</author>
+		<title level="m">Clausal discovery. Machine Learning</title>
+		<imprint>
+			<date type="published" when="1997" />
+			<biblScope unit="volume">26</biblScope>
+			<biblScope unit="page" from="99" to="146" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b3">
+	<monogr>
+		<title level="m" type="main">Probability and statistics</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><forename type="middle">H</forename><surname>Degroot</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><forename type="middle">J</forename><surname>Schervish</surname></persName>
+		</author>
+		<imprint>
+			<date type="published" when="2002" />
+			<publisher>Addison Wesley</publisher>
+			<pubPlace>Boston, MA</pubPlace>
+		</imprint>
+	</monogr>
+	<note>3rd edition</note>
+</biblStruct>
+
+<biblStruct xml:id="b4">
+	<analytic>
+		<title level="a" type="main">Maximum entropy modeling with clausal constraints</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">L</forename><surname>Dehaspe</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. ILP-97</title>
+		<meeting>ILP-97</meeting>
+		<imprint>
+			<date type="published" when="1997" />
+			<biblScope unit="page" from="109" to="125" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b5">
+	<analytic>
+		<title level="a" type="main">Inducing features of random fields</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Della</forename><surname>Pietra</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Della Pietra</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">V</forename><surname>Lafferty</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">IEEE Trans. on Pattern Analysis and Machine Intelligence</title>
+		<imprint>
+			<biblScope unit="volume">19</biblScope>
+			<biblScope unit="page" from="380" to="392" />
+			<date type="published" when="1997" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b6">
+	<monogr>
+				<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">T</forename><surname>Dietterich</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">L</forename><surname>Getoor</surname></persName>
+		</author>
+		<title level="m">Proc. ICML-2004 Wkshp. on Statistical Relational Learning</title>
+		<editor>Murphy, K.</editor>
+		<meeting>ICML-2004 Wkshp. on Statistical Relational Learning<address><addrLine>Banff, Canada</addrLine></address></meeting>
+		<imprint>
+			<date type="published" when="2003" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b7">
+	<analytic>
+		<title level="a" type="main">On the optimality of the simple Bayesian classifier under zero-one loss</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>Domingos</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Pazzani</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Machine Learning</title>
+		<imprint>
+			<date type="published" when="1997" />
+			<biblScope unit="volume">29</biblScope>
+			<biblScope unit="page" from="103" to="130" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b8">
+	<analytic>
+		<title level="a" type="main">Learning probabilistic relational models</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">N</forename><surname>Friedman</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">L</forename><surname>Getoor</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Koller</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Pfeffer</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. IJCAI-99</title>
+		<meeting>IJCAI-99</meeting>
+		<imprint>
+			<date type="published" when="1999" />
+			<biblScope unit="page" from="1300" to="1307" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b9">
+	<monogr>
+		<title level="m" type="main">Logical foundations of artificial intelligence</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><forename type="middle">R</forename><surname>Genesereth</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">N</forename><forename type="middle">J</forename><surname>Nilsson</surname></persName>
+		</author>
+		<imprint>
+			<date type="published" when="1987" />
+			<publisher>Morgan Kaufmann</publisher>
+			<pubPlace>San Mateo, CA</pubPlace>
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b10">
+	<analytic>
+		<title level="a" type="main">Learning Bayesian networks: The combination of knowledge &amp; statistical data</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Heckerman</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Geiger</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><forename type="middle">M</forename><surname>Chickering</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Machine Learning</title>
+		<imprint>
+			<date type="published" when="1995" />
+			<biblScope unit="volume">20</biblScope>
+			<biblScope unit="page" from="197" to="243" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b11">
+	<analytic>
+		<title level="a" type="main">Mining complex models from arbitrarily large databases in constant time</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">G</forename><surname>Hulten</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>Domingos</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. KDD-02</title>
+		<meeting>KDD-02</meeting>
+		<imprint>
+			<date type="published" when="2002" />
+			<biblScope unit="page" from="525" to="531" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b12">
+	<monogr>
+		<title/>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Karp</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Luby</surname></persName>
+		</author>
+		<imprint>
+			<date type="published" when="1983" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b13">
+	<analytic>
+		<title level="a" type="main">Monte Carlo algorithms for enumeration and reliability problems</title>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. FOCS-83</title>
+		<meeting>FOCS-83</meeting>
+		<imprint>
+			<biblScope unit="page" from="56" to="64" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b14">
+	<analytic>
+		<title level="a" type="main">Towards combining inductive logic programming with Bayesian networks</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">K</forename><surname>Kersting</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">L</forename><surname>De Raedt</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. ILP-01</title>
+		<meeting>ILP-01</meeting>
+		<imprint>
+			<date type="published" when="2001" />
+			<biblScope unit="page" from="118" to="131" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b15">
+	<monogr>
+		<title level="m" type="main">Inductive logic programming: Techniques and applications</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">N</forename><surname>Lavrač</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Džeroski</surname></persName>
+		</author>
+		<imprint>
+			<date type="published" when="1994" />
+			<publisher>Ellis Horwood</publisher>
+			<pubPlace>Chichester, UK</pubPlace>
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b16">
+	<analytic>
+		<title level="a" type="main">Efficiently inducing features of conditional random fields</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Mccallum</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. UAI-03</title>
+		<meeting>UAI-03</meeting>
+		<imprint>
+			<date type="published" when="2003" />
+			<biblScope unit="page" from="403" to="410" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b17">
+	<analytic>
+		<title level="a" type="main">Learning logical definitions from relations</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><forename type="middle">R</forename><surname>Quinlan</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Machine Learning</title>
+		<imprint>
+			<date type="published" when="1990" />
+			<biblScope unit="volume">5</biblScope>
+			<biblScope unit="page" from="239" to="266" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b18">
+	<analytic>
+		<title level="a" type="main">Markov logic networks</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Richardson</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>Domingos</surname></persName>
+		</author>
+		<ptr target="http://www.cs.washington.edu/homes/pedrod/mln.pdf" />
+	</analytic>
+	<monogr>
+		<title level="j">Tech. Rept.). Dept. Comp. Sci. &amp; Eng</title>
+		<imprint>
+			<date type="published" when="2004" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b19">
+	<analytic>
+		<title level="a" type="main">Learning models of relational stochastic processes</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Sanghai</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>Domingos</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Weld</surname></persName>
+		</author>
+		<ptr target="http://www.-cs.washington.edu/homes/pedrod/lmrsp.pdf" />
+	</analytic>
+	<monogr>
+		<title level="j">Tech. Rept.). Dept. Comp. Sci. &amp; Eng</title>
+		<imprint>
+			<date type="published" when="2005" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b20">
+	<analytic>
+		<title level="a" type="main">Tractable induction and classification in first-order logic via stochastic matching</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Sebag</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Rouveirol</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. IJCAI-97</title>
+		<meeting>IJCAI-97</meeting>
+		<imprint>
+			<date type="published" when="1997" />
+			<biblScope unit="page" from="888" to="893" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b21">
+	<analytic>
+		<title level="a" type="main">Shallow parsing with conditional random fields</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">F</forename><surname>Sha</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">F</forename><surname>Pereira</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. HLT-NAACL-03</title>
+		<meeting>HLT-NAACL-03</meeting>
+		<imprint>
+			<date type="published" when="2003" />
+			<biblScope unit="page" from="134" to="141" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b22">
+	<analytic>
+		<title level="a" type="main">Discriminative training of Markov logic networks</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>Singla</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>Domingos</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. AAAI-05</title>
+		<meeting>AAAI-05</meeting>
+		<imprint>
+			<date type="published" when="2005" />
+		</imprint>
+	</monogr>
+	<note>to appear</note>
+</biblStruct>
+
+<biblStruct xml:id="b23">
+	<monogr>
+		<title level="m" type="main">The Aleph manual</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Srinivasan</surname></persName>
+		</author>
+		<imprint>
+			<date type="published" when="2000" />
+		</imprint>
+		<respStmt>
+			<orgName>Computing Laboratory, Oxford University</orgName>
+		</respStmt>
+	</monogr>
+<note type="report_type">Tech. Rept.</note>
+</biblStruct>
+
+<biblStruct xml:id="b24">
+	<analytic>
+		<title level="a" type="main">Discriminative probabilistic models for relational data</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">B</forename><surname>Taskar</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>Abbeel</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Koller</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. UAI-02</title>
+		<meeting>UAI-02</meeting>
+		<imprint>
+			<date type="published" when="2002" />
+			<biblScope unit="page" from="485" to="492" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+				</listBibl>
+			</div>
+		</back>
+	</text>
+</TEI>

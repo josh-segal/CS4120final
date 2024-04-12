@@ -1,0 +1,197 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>Fragmentation Considered</p>
+    <p>Vulnerable</p>
+    <p>Yossi Gilad &amp; Amir Herzberg Computer Science Department, Bar Ilan University</p>
+  </div>
+  <div class="page">
+    <p>Overview</p>
+    <p>IP fragmentation recap</p>
+    <p>`Easy case fragment miss-association attacks</p>
+    <p>Fragmentation attacks in tunnels</p>
+    <p>Conclusions</p>
+  </div>
+  <div class="page">
+    <p>IP Fragmentation - Recap</p>
+    <p>Today: attacks on IP fragmentation  Blind (spoofing only) attacker</p>
+    <p>Interception and DoS attacks.</p>
+    <p>The Internet is a diverse network  Different Maximal Transmission Units (MTUs) on</p>
+    <p>different links/nets</p>
+    <p>What if |long-pkt|&gt;MTU?</p>
+    <p>Router Alice Router (fragment)</p>
+    <p>LongPkt</p>
+    <p>Router Defragment</p>
+    <p>MTU LongPkt</p>
+  </div>
+  <div class="page">
+    <p>IP Fragmentation - Recap</p>
+    <p>Solution 1: Path MTU discovery (PMTUd)  Discard oversized pkt, inform sender (via ICMP)  Requires connection</p>
+    <p>Solution 2: IP fragmentation  Break long pkt into fragments (|frag|&lt;MTU)  Fragment at: any node (IPv4) / only src (IPv6)  Defragment: only at destination</p>
+    <p>According to: source, destination, protocol &amp; frag ID</p>
+    <p>Router Alice Router (fragment)</p>
+    <p>LongPkt</p>
+    <p>Router</p>
+    <p>Long Pkt Long Pkt Long Pkt Long Pkt</p>
+    <p>LongPkt</p>
+    <p>Bob (Defragment)</p>
+    <p>MTU</p>
+  </div>
+  <div class="page">
+    <p>Fragmentation considered Harmful</p>
+    <p>IP fragmentation is conceptually easy, but  Wasteful/harmful [KentMogul87]  Complexities: may arrive late or out of order, overlap  How much storage? How long keep fragments in</p>
+    <p>cache?</p>
+    <p>But: still often used  PMTUd often fails (for UDP, no ICMP feedback,)  Fragmentation is common in UDP and tunneled traffic</p>
+    <p>[Shannon02]</p>
+  </div>
+  <div class="page">
+    <p>Fragmentation considered Harmful</p>
+    <p>Implementation vulnerabilities:  Memory allocation DoS attacks: TearDrop, Rose  Tiny fragment evasion of firewalls</p>
+    <p>Specification vulnerabilities:  Fragment cache overflow attack [KPS03]</p>
+    <p>Zalewski (2003) notes that fragmented TCP traffic can be vulnerable to (blind) TCP injections</p>
+    <p>Fragment mis-association attack [M04,rfc4963]</p>
+  </div>
+  <div class="page">
+    <p>Fragment Misassociation Attack</p>
+    <p>HDR+1480B (ID=x)</p>
+    <p>HDR+500B, ID=x, offset=980</p>
+    <p>Fragment mis-association attack: Send fake 2nd frag with same ID</p>
+    <p>MTU= 1000B</p>
+    <p>MTU= 1500B</p>
+    <p>HDR+980B, ID=x, offset=0</p>
+    <p>But, |cache|&lt;&lt;#frags (drop%&lt;&lt;1%)</p>
+    <p>SrcIP=Alice, Dst=Bob, ID=1, Offset=980, MF=0</p>
+    <p>SrcIP=Alice, Dst=Bob, ID=2, Offset=980, MF=0 . SrcIP=Alice, Dst=Bob, ID=b, Offset=980, MF=0</p>
+    <p>(if xb)</p>
+    <p>(stays in cache till timeout or kills next ID=x frg)</p>
+  </div>
+  <div class="page">
+    <p>What if</p>
+    <p>Frag mis-association has low drop rate  What if attacker can find the `next ID?</p>
+    <p>Trivial to `kill packet (DoS)  Can also `inject a fragment</p>
+    <p>Need to fix checksum  Checksum can be disabled for UDP</p>
+    <p>How is the IP ID chosen (by the sender)?  Usually a counter  this is specifically</p>
+    <p>recommended by IPv6 specification  Two main approaches:</p>
+    <p>Global counter (Windows)  Per-destination counter (Linux)</p>
+  </div>
+  <div class="page">
+    <p>Sometimes, ID Exposing Is Easy</p>
+    <p>When the sender uses a global identifier  Just by observing any packet from the sender</p>
+    <p>When the attacker has a zombie behind the NAT with the destination  Can also intercept fragments!</p>
+    <p>Rewrite transport layer header</p>
+  </div>
+  <div class="page">
+    <p>Sometimes, ID Exposing Is Easy</p>
+    <p>Intercepting fragments</p>
+    <p>SrcIP=Alice, DstIP=NAT, ID=i+1, Offset=1480, MF=0</p>
+    <p>A. Src-IP=Alice, Dst-IP=NAT, ID=i+1, Offset=0, MF=1, Dst-port: Bobs</p>
+    <p>B. SrcIP=Alice, DstIP=NAT, ID=i+1, Offset=1480, MF=0</p>
+    <p>discarded</p>
+    <p>SrcIP=Alice, DstIP=NAT, ID=i+1, Offset=0, MF=1, Dst-port: Zombies, No chksum</p>
+    <p>Defrag &amp; forward to Zombie</p>
+    <p>mis-associated with Alice frag. B</p>
+    <p>cached</p>
+  </div>
+  <div class="page">
+    <p>Fragment Interception: Results</p>
+    <p>Results for IP tables based NAT</p>
+    <p>F ra</p>
+    <p>g m e n t</p>
+    <p>in te</p>
+    <p>rc e p ti o n r</p>
+    <p>a ti o</p>
+    <p>Attacker's bandwidth mbit/sec</p>
+    <p>the cache</p>
+    <p>cache</p>
+  </div>
+  <div class="page">
+    <p>Other Cases?</p>
+    <p>Can similar attacks apply when sender uses per-destination IP-IDs?  Easy: if there is NAT (shown before)</p>
+    <p>What if there is no NAT?</p>
+    <p>Yes!  For a tunnel scenario</p>
+  </div>
+  <div class="page">
+    <p>ID Exposing Attack</p>
+    <p>Alice and Bob are connected via a tunnel</p>
+    <p>Main difference from NAT scenario:  Packets `on the Internet have a different IP header</p>
+    <p>Adversarial agent, PuZo, can not `see the `Internet ID</p>
+    <p>Improved motivation: fragmentation is common in tunnels</p>
+    <p>In talk: Zombie (to receive raw IP packet)  In paper: Puppet (running in sandbox)</p>
+  </div>
+  <div class="page">
+    <p>ID Exposing Attack</p>
+    <p>Use packet loss as a side channel to identify the current ID within the tunnel</p>
+    <p>We assume no benign traffic or packet loss  Full version shows how to deal with those</p>
+  </div>
+  <div class="page">
+    <p>ID Exposing Attack  Basic Version</p>
+    <p>GWA GWB PuZo S</p>
+    <p>Get File</p>
+    <p>Misassociated</p>
+    <p>Begin</p>
+  </div>
+  <div class="page">
+    <p>ID Exposing Attack  Basic Version</p>
+    <p>GWA GWB PuZo S</p>
+    <p>.</p>
+    <p>.</p>
+    <p>.</p>
+    <p>.</p>
+    <p>.</p>
+    <p>.</p>
+    <p>.</p>
+    <p>.</p>
+    <p>.</p>
+    <p>.</p>
+    <p>.</p>
+    <p>.</p>
+  </div>
+  <div class="page">
+    <p>ID Exposing Attack - Meet in the Middle</p>
+    <p>But if n is the number of possible identifiers, this attack requires to send O(n) packets.  216 for IPv4, for 232 IPv6</p>
+    <p>Revise with meet in the middle technique</p>
+  </div>
+  <div class="page">
+    <p>ID Exposing Attack - Meet in the Middle</p>
+    <p>Send fragments  lay traps</p>
+    <p>Narrow the search space to  Detect loss  assume `ID hit (frag. mis-association)</p>
+    <p>Exhaustive search over all remaining IDs</p>
+    <p>Reduced number of packets to O( )  Also feasible for IPv6 (n = 232)</p>
+    <p>nn</p>
+    <p>n</p>
+    <p>n</p>
+  </div>
+  <div class="page">
+    <p>Continual Deny &amp; Expose</p>
+    <p>Mal has the current ID  Goal: deny fragmented traffic</p>
+    <p>Main Difficulty: maintain synchronization with current IP ID  Incremented for every packet (regardless of</p>
+    <p>arrival/loss)</p>
+  </div>
+  <div class="page">
+    <p>Continual Deny &amp; Expose</p>
+    <p>Basic idea: use PuZo to `monitor IP ID progress  Send two sequences of spoofed fragments with</p>
+    <p>consecutive IDs</p>
+    <p>Small `gap of unset IDs between them</p>
+    <p>PuZo makes a periodic request for data</p>
+    <p>Response arrives  ID within the gap</p>
+    <p>Send the next sequence</p>
+  </div>
+  <div class="page">
+    <p>Continual Deny &amp; Expose - Results</p>
+    <p>Success depends on the number of forged fragment attacker can `cache in  Usually 64 or no limitation (except cache size, 6500+)</p>
+    <p>L o ss</p>
+    <p>R a te</p>
+    <p>Attacker's bandwidth Mbit/sec</p>
+    <p>Open source, 256 Open source, 64 Commercial, 256 Commercial, 64</p>
+  </div>
+  <div class="page">
+    <p>Conclusions</p>
+    <p>Fix IP ID  Add appropriate defenses to network firewalls,</p>
+    <p>IDS/IPS</p>
+    <p>Need to improve specification of networking protocols  Need to develop validation techniques</p>
+    <p>Further motivation for [Gont11]</p>
+  </div>
+  <div class="page">
+    <p>Questions?</p>
+  </div>
+</Presentation>

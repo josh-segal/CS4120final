@@ -1,0 +1,415 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>Supporting Objects in Run-Time Bytecode Specialization</p>
+    <p>Reynald Affeldt, Hidehiko Masuhara, Eijiro Sumii, Akinori Yonezawa</p>
+    <p>University of Tokyo</p>
+  </div>
+  <div class="page">
+    <p>Run-Time Specialization (RTS) RTS optimizes program code at run-time</p>
+    <p>More precisely:</p>
+    <p>static input + original code RTS  residual code</p>
+    <p>Typical applications:</p>
+    <p>computations done:</p>
+    <p>repeatedly with similar inputs</p>
+    <p>with an unfortunate timing</p>
+    <p>input not available at compile-time</p>
+  </div>
+  <div class="page">
+    <p>Motivation Optimize object-oriented (OO) programs by RTS</p>
+    <p>OO programs are typically slower than imperative programs:</p>
+    <p>they are more generic</p>
+    <p>object-orientation is costly</p>
+    <p>RTS is well adapted:</p>
+    <p>specialization trades genericity for performance</p>
+    <p>it is a general optimization technique</p>
+    <p>RTS has proved to be efficient for several languages</p>
+  </div>
+  <div class="page">
+    <p>Contributions Design and implement RTS for an OO language, namely Java:</p>
+    <p>efficient residual code regarding OO overheads</p>
+    <p>elimination of dynamic allocation</p>
+    <p>elimination of memory accesses (including destructive updates)</p>
+    <p>elimination of virtual dispatches</p>
+    <p>better automation of the specialization process</p>
+    <p>as few annotations by the user as possible</p>
+    <p>correctness statement</p>
+    <p>We hope it can lead ultimately to:</p>
+    <p>a system easier to use</p>
+    <p>favoring extensive residual code reuse</p>
+  </div>
+  <div class="page">
+    <p>Outline</p>
+  </div>
+  <div class="page">
+    <p>Complex Arithmetic A class for complex numbers:</p>
+    <p>class Complex {</p>
+    <p>float re, im;</p>
+    <p>Complex mul (Complex z) {</p>
+    <p>return new Complex (...);</p>
+    <p>}</p>
+    <p>Complex add (Complex c) {</p>
+    <p>return new Complex (...);</p>
+    <p>}</p>
+    <p>}</p>
+    <p>A complex function:</p>
+    <p>// f (z, c) = z  z + c</p>
+    <p>Complex f (Complex z, Complex c) {</p>
+    <p>Complex prod = z.mul (z);</p>
+    <p>return prod.add (c);</p>
+    <p>}</p>
+  </div>
+  <div class="page">
+    <p>Original, To-Be Optimized Application Computation of an array of complex numbers:</p>
+    <p>for (int i = 0; i &lt; n; n++) {</p>
+    <p>c[i] = f (a[i ], b[i ]);</p>
+    <p>}</p>
+    <p>Assume that a[i] happens to be always i</p>
+    <p>Optimization by specialization of f w.r.t. its first argument</p>
+  </div>
+  <div class="page">
+    <p>Off-Line Specialization</p>
+    <p>z static, c dynamic</p>
+    <p>Complex f (Complex z, Complex c) {</p>
+    <p>Complex prod = z.mul (z);</p>
+    <p>return prod.add (c);</p>
+    <p>}</p>
+    <p>Complex mul (Complex z) {</p>
+    <p>return new Complex</p>
+    <p>(re  z.re  im  z.im,</p>
+    <p>re  z.im + im  z.re);</p>
+    <p>}</p>
+    <p>Complex add (Complex c) {</p>
+    <p>return new Complex</p>
+    <p>(re + c.re, im + c.im);</p>
+    <p>}</p>
+    <p>z = i</p>
+    <p>// f res(c) = 1 + c</p>
+    <p>Complex f res (Complex c) {</p>
+    <p>return new Complex</p>
+    <p>(1 + c.re, 0 + c.im);</p>
+    <p>}</p>
+    <p>The residual code features:</p>
+    <p>less calculations</p>
+    <p>less object creations</p>
+    <p>less method calls</p>
+    <p>OO specialization is effective</p>
+  </div>
+  <div class="page">
+    <p>Outline</p>
+  </div>
+  <div class="page">
+    <p>One-Dimensional Geometry A class for one-dimensional points:</p>
+    <p>class Point {</p>
+    <p>int x = 0;</p>
+    <p>void update (int a) { x = x + a; }</p>
+    <p>static Point make (int s, int d) {</p>
+    <p>Point p = new Point ();</p>
+    <p>p.update (s);</p>
+    <p>p.update (d);</p>
+    <p>p.update (s);</p>
+    <p>return p;</p>
+    <p>}</p>
+    <p>}</p>
+  </div>
+  <div class="page">
+    <p>Original Application Computation of two one-dimensional points:</p>
+    <p>int u = Console.getInt ();</p>
+    <p>Point a = Point. make (u, 7);</p>
+    <p>Point b = Point. make (u, 11);</p>
+    <p>int v = a.x + b.x;</p>
+    <p>int w = a == b;</p>
+    <p>Specialization of make w.r.t. u</p>
+  </div>
+  <div class="page">
+    <p>Naive and Incorrect Off-Line Specialization</p>
+    <p>s static, d dynamic</p>
+    <p>static Point make (int s , int d) {</p>
+    <p>Point p = new Point ();</p>
+    <p>p.update (s);</p>
+    <p>p.update (d);</p>
+    <p>p.update (s);</p>
+    <p>return p;</p>
+    <p>}</p>
+    <p>s = 42</p>
+    <p>static Point make res (int d) {</p>
+    <p>_p.update (d);</p>
+    <p>_p.update (42);</p>
+    <p>return _p;</p>
+    <p>}</p>
+    <p>( p is the point created during specialization; we say it is stored in the specialization store )</p>
+  </div>
+  <div class="page">
+    <p>Problems with Objects The original application cannot be simply rewritten:</p>
+    <p>int u = Console.getInt ();</p>
+    <p>Point a = Point. make (u, 7);</p>
+    <p>Point b = Point. make (u, 11);</p>
+    <p>int v = a.x + b.x; // 91 + 95</p>
+    <p>int w = a == b; // false</p>
+    <p>int u = Console.getInt ();</p>
+    <p>Point a = make res (7);</p>
+    <p>Point b = make res (11);</p>
+    <p>int v = a.x + b.x; // 144 + 144</p>
+    <p>int w = a == b; // true</p>
+    <p>Original cause: Application, specializer and residual code share the same heap</p>
+  </div>
+  <div class="page">
+    <p>Approaches Immediate approaches:</p>
+    <p>perform over-specialization</p>
+    <p>require annotations by the user</p>
+    <p>enforce residualization</p>
+    <p>None is satisfactory</p>
+    <p>Our approach:</p>
+    <p>as few annotations as possible</p>
+    <p>efficiency achieved by improving specialization rules</p>
+  </div>
+  <div class="page">
+    <p>Outline</p>
+  </div>
+  <div class="page">
+    <p>About Specialization Rules (1/2) Main idea: distinguish operations in terms of staticness</p>
+    <p>For instance, memory accesses as in statements of the form:</p>
+    <p>lhs = p.x;</p>
+    <p>if p.x, then the memory access can be evaluated during specialization</p>
+    <p>if p.x, then the memory access must be residualized during specialization</p>
+    <p>But in general, this static/dynamic dichotomy is not sufficient</p>
+  </div>
+  <div class="page">
+    <p>About Specialization Rules (2/2) Key idea: distinguish operations in terms of visibility</p>
+    <p>For instance, (static) object creations as in statements of the form:</p>
+    <p>lhs = new class name(. . .);</p>
+    <p>or (static) destructive updates as in statements of the form:</p>
+    <p>p.x = rhs;</p>
+    <p>if visible, residualization and evaluation during specialization</p>
+    <p>if invisible, evaluation during specialization</p>
+  </div>
+  <div class="page">
+    <p>If Visible, Residualization and Evaluation s static, d dynamic</p>
+    <p>static Point make (int s , int d) {</p>
+    <p>Point p = newVIS Point ();</p>
+    <p>p.update (s);</p>
+    <p>p.update (d);</p>
+    <p>p.update (s);</p>
+    <p>return p;</p>
+    <p>}</p>
+    <p>s = 42</p>
+    <p>static Point make res (int d) {</p>
+    <p>Point p = new Point ();</p>
+    <p>p.x = 42 + d;</p>
+    <p>p.x = p.x + 42;</p>
+    <p>return p;</p>
+    <p>}</p>
+    <p>Enforced residualization guarantees correctness</p>
+    <p>Evaluation during specialization enables efficient residual code</p>
+  </div>
+  <div class="page">
+    <p>If Invisible, Evaluation (1/2) Extraction of small segments:</p>
+    <p>Set set = new Set ();</p>
+    <p>for (int i = 0; i &lt; n; i++) {</p>
+    <p>if ( areClose (a[i ], b[i]))</p>
+    <p>set.add (new Segment (a[i], b[i]));</p>
+    <p>}</p>
+    <p>Assume that a[i] happens to be always 42</p>
+    <p>Optimization by specialization of areClose w.r.t. it first argument</p>
+  </div>
+  <div class="page">
+    <p>If Invisible, Evaluation (2/2)</p>
+    <p>s static, d dynamic</p>
+    <p>boolean areClose (int s, int d) {</p>
+    <p>Point a = newINVIS Point ();</p>
+    <p>Point b = newINVIS Point ();</p>
+    <p>a.update (s);</p>
+    <p>b.update (d);</p>
+    <p>return a.distance (b) &lt; 10;</p>
+    <p>}</p>
+    <p>s = 42</p>
+    <p>boolean areClose res (int d) {</p>
+    <p>_b.update (d);</p>
+    <p>return _a.distance (_b) &lt; 10;</p>
+    <p>}</p>
+    <p>( b and a are the points stored in the specialization store)</p>
+    <p>Reuse of objects yield more efficient residual code</p>
+    <p>Specialization of destructive updates does not infringe correctness</p>
+  </div>
+  <div class="page">
+    <p>Outline</p>
+  </div>
+  <div class="page">
+    <p>Correctness Statement for RTS Two components:</p>
+  </div>
+  <div class="page">
+    <p>Valid Code Replacement Mix equation (reminder):</p>
+    <p>t = f (s , d ); t = f s (d);</p>
+  </div>
+  <div class="page">
+    <p>Valid Code Replacement Mix equation (extended with heaps):</p>
+    <p>(t, Ht) = f (s, Hs , d, Hd ); (t, Ht) = fs,Hs (d, Hd );</p>
+    <p>Describe arguments and results in terms of:</p>
+    <p>heap equivalence (including a notion of reachability )</p>
+    <p>additional requirements for the values of references</p>
+    <p>because of reference lifting</p>
+    <p>because references can be compared</p>
+    <p>(see the paper for more details)</p>
+  </div>
+  <div class="page">
+    <p>Valid Code Replacement Example:</p>
+    <p>Point a = Point. make (s, d); Point a = make res (d);</p>
+    <p>Condition on arguments: s is expected to be indeed 42</p>
+    <p>Condition on results: Points a and a must have the same coordinate</p>
+    <p>Additional requirement: a and a must be fresh references</p>
+  </div>
+  <div class="page">
+    <p>Valid Specialization Usage Informally:</p>
+    <p>statement 1;</p>
+    <p>f_s = spec (f, s);</p>
+    <p>statement 2;</p>
+    <p>statement 3;</p>
+    <p>t = f s (d);</p>
+    <p>statement 1;</p>
+    <p>statement 2;</p>
+    <p>f_s = spec (f, s);</p>
+    <p>statement 3;</p>
+    <p>t = f s (d);</p>
+    <p>Specify the interactions between specialization and the application:</p>
+    <p>specialization cannot break the semantics of the application</p>
+    <p>the application cannot break the semantics of specialization</p>
+  </div>
+  <div class="page">
+    <p>Valid Specialization Usage Example:</p>
+    <p>statement 1;</p>
+    <p>make_res = spec (make, s);</p>
+    <p>statement 2;</p>
+    <p>statement 3;</p>
+    <p>Point a = Point. make res (d);</p>
+    <p>statement 1;</p>
+    <p>statement 2;</p>
+    <p>make_res = spec (make, s);</p>
+    <p>statement 3;</p>
+    <p>Point a = make res (d);</p>
+    <p>Condition on the interaction: spec cannot perform visible side-effects</p>
+  </div>
+  <div class="page">
+    <p>Outline</p>
+  </div>
+  <div class="page">
+    <p>Implementation Strategy Based on Masuhara and Yonezawas BCS:</p>
+    <p>RTS for the Java bytecode language</p>
+    <p>end-to-end bytecode-level approach:</p>
+    <p>type-based binding-time analysis</p>
+    <p>cogen-by-hand approach</p>
+    <p>run-time code generation</p>
+    <p>Extended to:</p>
+    <p>an OO subset of the Java bytecode language</p>
+    <p>new rules for binding-time analysis and code generation</p>
+    <p>interface with compile-time analyses</p>
+  </div>
+  <div class="page">
+    <p>Implementation Overview</p>
+    <p>Residual code</p>
+    <p>Original code</p>
+    <p>Original application</p>
+    <p>Rewritten applicationBindingtime</p>
+    <p>specification</p>
+    <p>BCS</p>
+    <p>Specializer</p>
+    <p>BindingtimeCompiletime</p>
+    <p>Specializer</p>
+    <p>Code generator generator</p>
+    <p>Annotated method</p>
+    <p>analysisanalyses</p>
+    <p>Offline Runtime</p>
+    <p>Results</p>
+    <p>values Dynamic</p>
+    <p>values Static</p>
+    <p>Original code</p>
+  </div>
+  <div class="page">
+    <p>Performance Measurements Test Programs:</p>
+    <p>Object-oriented version of standard applications:</p>
+    <p>Power function</p>
+    <p>Mandelbrot sets drawer</p>
+    <p>Ray tracer</p>
+    <p>Environment for Experiments:</p>
+    <p>Standard virtual machines with Just-in-time compilation</p>
+  </div>
+  <div class="page">
+    <p>Power Function Speed-up raise / raise res</p>
+    <p>Recursive Iterative</p>
+    <p>UltraSparc Hotspot (Sun 1.3) 5.4 1.5</p>
+    <p>Intel x86 Hotspot (Sun 1.3) 1.9 1.3</p>
+    <p>Intel x86 Classic (IBM 1.3) 5.9 4.4</p>
+    <p>Mandelbrot Sets Drawer Speed-up eval / eval res</p>
+    <p>UltraSparc Hotspot (Sun 1.3) 1.07</p>
+    <p>Intel x86 Hotspot (Sun 1.3) 0.95</p>
+    <p>Intel x86 Classic (IBM 1.3) 1.05</p>
+  </div>
+  <div class="page">
+    <p>Ray Tracer</p>
+    <p>Speed-up Overhead (ms)</p>
+    <p>closest / Specialization JIT</p>
+    <p>closest res Subject Residual</p>
+    <p>method code</p>
+    <p>UltraSparc Hotspot (Sun 1.3) 1.18 10 196 200</p>
+    <p>Intel x86 Hotspot (Sun 1.3) 1.25 7 115 100</p>
+    <p>Intel x86 Classic (IBM 1.3) 1.26 6 208 557</p>
+    <p>Break-even points</p>
+    <p>No JIT overhead JIT overhead</p>
+    <p>Hotspot (Sun 1.3) 5,646  138,421 &lt; 0  9,755</p>
+    <p>Classic (IBM 1.3) 277,582 174,939</p>
+  </div>
+  <div class="page">
+    <p>Measurements Summary Speed-ups are comparable to related work:</p>
+    <p>compile-time specialization for Java</p>
+    <p>run-time specialization for C++</p>
+    <p>The environment for experiments complicates interpretation:</p>
+    <p>unfriendly environment:</p>
+    <p>dynamic compilation  more overhead</p>
+    <p>small time window  less optimizations</p>
+    <p>overlapping optimizations</p>
+    <p>behavior hard to predict</p>
+  </div>
+  <div class="page">
+    <p>Outline</p>
+  </div>
+  <div class="page">
+    <p>Related Work: Compile-time Techniques</p>
+    <p>Compile-time specialization for C:</p>
+    <p>C-Mix [Andersen93]</p>
+    <p>Tempo [Consel &amp; Noel96]</p>
+    <p>Specialization and object-orientation:</p>
+    <p>Elimination of virtual dispatches [Lea90, Dean et al.94]</p>
+    <p>Partial evaluation formalization and implementation [Schultz99-01]</p>
+    <p>Partial evaluation during interpretation:</p>
+    <p>Correctness and experiments [Asai01]</p>
+  </div>
+  <div class="page">
+    <p>Related Work: Run-time Techniques</p>
+    <p>Run-time specialization for imperative languages:</p>
+    <p>Tempo [Consel &amp; Noel96]</p>
+    <p>DyC [Grant et al.97]</p>
+    <p>BCS [Masuhara &amp; Yonezawa01]</p>
+    <p>Run-time specialization for object-oriented languages:</p>
+    <p>C++ [Fujinami98]</p>
+    <p>Specialization classes [Volanschi et al.97]</p>
+  </div>
+  <div class="page">
+    <p>Conclusion Design RTS for an OO subset of Java:</p>
+    <p>efficient residual code regarding OO operations</p>
+    <p>better automation of the specialization process</p>
+    <p>correctness statement</p>
+    <p>Experimental implementation:</p>
+    <p>end-to-end bytecode-level approach</p>
+    <p>effective in practice (e.g., 26% speed-up for a ray tracer)</p>
+  </div>
+  <div class="page">
+    <p>Future Work Complete the implementation:</p>
+    <p>access modifiers, constructors, . . .</p>
+    <p>Increase effectiveness:</p>
+    <p>selective inlining</p>
+    <p>allow visible side-effects during specialization</p>
+    <p>Reuse of objects in the specialization store as presented here:</p>
+    <p>is not thread-safe</p>
+    <p>may withhold many objects</p>
+    <p>Formal proof of correctness</p>
+  </div>
+</Presentation>

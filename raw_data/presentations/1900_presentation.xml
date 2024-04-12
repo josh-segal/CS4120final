@@ -1,0 +1,176 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>JavaScript for Extending Low-latency In-memory Key-value Stores</p>
+    <p>Tian Zhang Ryan Stutsman</p>
+  </div>
+  <div class="page">
+    <p>Todays large scale key-value stores (e.g. Ramcloud, FaRM,etc.) are able to:</p>
+    <p>Store TBs ~ PBs of data.  2~5s end to end access time.</p>
+    <p>Req</p>
+    <p>Perform billions of operations per second.</p>
+    <p>Not yet.</p>
+    <p>Have todays applications been able to properly leverage such systems?</p>
+    <p>Introduction</p>
+  </div>
+  <div class="page">
+    <p>Semantic Gap  Implementing high level semantics with KVS APIs requires many roundtrips.</p>
+    <p>key:1; value: lchild 2, rchild 3 key:2; value: lchild 4, rchild 5 key:3; value: no child key:4; value: no child key:5; value: no child</p>
+    <p>Get() 2~5s Key Value StorageApplication</p>
+    <p>Server Get() 2~5s Get() 2~5s Get() 2~5s Get() 2~5s</p>
+  </div>
+  <div class="page">
+    <p>Semantic Gap  Implementing high level semantics with KVS APIs requires many roundtrips.</p>
+    <p>key:1; value: lchild 2, rchild 3 key:2; value: lchild 4, rchild 5 key:3; value: no child key:4; value: no child key:5; value: no child</p>
+    <p>TreeTraversal()</p>
+    <p>Key Value StorageApplication Server</p>
+  </div>
+  <div class="page">
+    <p>Existing Solution - Customized KVS  Facebook has implemented TAO, a social graph data model in Memcache.</p>
+    <p>Entities (e.g. people) are modeled as objects, their connections as associations.</p>
+    <p>TAO stores objects and association lists, and provide APIs to operate on them.</p>
+    <p>Memcache</p>
+    <p>Hash Table</p>
+    <p>Key Value</p>
+    <p>Default API</p>
+    <p>get() set()</p>
+    <p>delete()</p>
+    <p>TAO</p>
+    <p>Hash Table</p>
+    <p>Key Value</p>
+    <p>TAO API</p>
+    <p>object_add() object_get() assoc_add()</p>
+  </div>
+  <div class="page">
+    <p>Other customized KVS:</p>
+    <p>- Md-hbase with multi-attribute access support.</p>
+    <p>- Comet with application-specific actions.</p>
+    <p>- G-store with consistent multi-key access support.</p>
+    <p>Disadvantage : ad-hoc solutions for specific applications, not general.</p>
+    <p>Existing Solution - Customized KVS</p>
+  </div>
+  <div class="page">
+    <p>Our Solution - Runtime Extensibility  A more general solution is to allow pushing custom logic to KVS at runtime.</p>
+    <p>The KVS can be dynamically reconfigured to support new applications.</p>
+    <p>Key Value Storage</p>
+    <p>TreeTraversal() {   }</p>
+    <p>GraphTraversal() {   }</p>
+  </div>
+  <div class="page">
+    <p>More to Consider - Cloud Service</p>
+    <p>Key Value Storage</p>
+    <p>App 1 App 2</p>
+    <p>App n</p>
+    <p>Cloud</p>
+    <p>Elasticity Scalability</p>
+    <p>Combining workloads improves utilization.</p>
+    <p>Deploying the system on cloud to leverage the elasticity and scalability.</p>
+  </div>
+  <div class="page">
+    <p>Challenge - Isolation with Low Overhead</p>
+    <p>KVS is fast, server processes requests in 2 s.</p>
+    <p>- Its performance extremely sensitive to any overhead, even cache misses.  Security isolation incurs 3 sources of overhead:</p>
+    <p>- The cost of safer languages.</p>
+    <p>- Context switches between protection domains.</p>
+    <p>- Interactions with DB across protection domain boundaries.</p>
+  </div>
+  <div class="page">
+    <p>SQL - Difficult to implement new operators or complex algorithms.</p>
+    <p>- Leading to ad-hoc extensions such as SimSQL, SciDB etc.</p>
+    <p>Native/C++ - Flexible. Need process isolation, interactions happen over IPC.</p>
+    <p>JavaScript - Flexible. Embedding V8 engine in DB process.</p>
+    <p>Approaches</p>
+  </div>
+  <div class="page">
+    <p>Our expectation : JavaScript may be slower than C++:</p>
+    <p>- JIT compiler doesnt optimize as aggressively as C++ compiler.</p>
+    <p>- Less static type information.</p>
+    <p>- Garbage collection.</p>
+    <p>C++ vs. JavaScript</p>
+  </div>
+  <div class="page">
+    <p>Experiment setup:</p>
+    <p>- Compare same query logics written in C++ and JavaScript.</p>
+    <p>- We also compare these queries written in C++ and compiled to asm.js.</p>
+    <p>- Queries process 1 GB of records with varied selectivity and compute intensity.</p>
+    <p>- We dont consider GC in this experiment, assume procedures are often short.</p>
+    <p>C++ vs. JavaScript</p>
+  </div>
+  <div class="page">
+    <p>For our memory intensive query, JavaScript is 27% slower than C++.</p>
+    <p>Performance of asm.js is just 2% slower than C++.</p>
+    <p>C++ vs. JavaScript</p>
+  </div>
+  <div class="page">
+    <p>For our compute intensive query, JavaScript is faster than C++.</p>
+    <p>Glibcs pow implementation may be the cause of slower performance of C++.</p>
+    <p>C++ vs. JavaScript</p>
+  </div>
+  <div class="page">
+    <p>Isolation Costs, Process vs. V8</p>
+    <p>Isolation of C++ code is done using process.</p>
+    <p>- DB APIs invoked over IPC.  Isolation of JavaScript code is done with V8::Context.</p>
+    <p>- DB APIs invoked in the same process through wrappers.</p>
+  </div>
+  <div class="page">
+    <p>Isolation Costs, Process vs. V8</p>
+    <p>DB process</p>
+    <p>Client processes</p>
+    <p>Boundary crossing 11.4 faster</p>
+    <p>Client V8 contexts</p>
+    <p>DB process</p>
+    <p>Measured the time of process switch and V8 context switch.</p>
+    <p>V8::Contexts switch is 11.4x faster than processes.</p>
+  </div>
+  <div class="page">
+    <p>Isolation Costs, Process vs. V8</p>
+    <p>Client process</p>
+    <p>DB process null()</p>
+    <p>func()</p>
+    <p>JS script</p>
+    <p>DB null()</p>
+    <p>func() 31 ns</p>
+    <p>Data access 72 faster</p>
+    <p>Measured the time of invoking a DB API.</p>
+    <p>Invocation from JS is 72x faster than over IPC.</p>
+  </div>
+  <div class="page">
+    <p>Evaluation Summary</p>
+    <p>We compare SQL, C++ &amp; JavaScript for their suitability of implementing our idea.</p>
+    <p>SQL is ruled out for its limited generality.</p>
+    <p>C++ is ruled out for high isolation overhead.</p>
+    <p>JavaScript is promising with generality, performance and low isolation overhead.</p>
+  </div>
+  <div class="page">
+    <p>Why Not Software Fault Isolation</p>
+    <p>For SFI, interactions require copying data between client procedure and DB.</p>
+    <p>For data intensive procedures, that means huge overhead.</p>
+    <p>Interactions in SFI</p>
+    <p>DB</p>
+    <p>Client proc()</p>
+    <p>func()memcpy</p>
+  </div>
+  <div class="page">
+    <p>Design</p>
+    <p>Leverage scatter-gather list &amp; zero copy DMA</p>
+    <p>Leverage kernel bypassing networking (DPDK)</p>
+    <p>Eliminating garbage collection</p>
+    <p>Expose low level database abstractions</p>
+    <p>NIC</p>
+    <p>Dispatcher core</p>
+    <p>Worker cores</p>
+    <p>V8::C ontexts</p>
+    <p>V8::Context 1 var raws = getTable(t);  });</p>
+    <p>Gather List</p>
+  </div>
+  <div class="page">
+    <p>Conclusion &amp; Research Questions</p>
+    <p>Conclusion:</p>
+    <p>- We propose JavaScript for extending low latency in-memory KV store.</p>
+    <p>- The challenge is to keep overhead under a small fraction of 2 s.</p>
+    <p>- Evaluation shows JavaScript as a promising choice with low isolation cost and good performance.</p>
+    <p>Call for feedbacks:</p>
+    <p>- What interesting APIs can be built?</p>
+    <p>- Is there other potentially better approaches that we overlooked?</p>
+  </div>
+</Presentation>

@@ -1,0 +1,426 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>GearDB: A GC-free Key-Value Store on HM-SMR Drives with Gear Compaction</p>
+    <p>Ting Yao1,2, Jiguang Wan1, Ping Huang2, Yiwen Zhang1, Zhiwen Liu1</p>
+    <p>Changsheng Xie1, and Xubin He2</p>
+  </div>
+  <div class="page">
+    <p>Outline</p>
+    <p>Background and Motivation Why do we run KV stores on SMR drives?</p>
+    <p>Challenges</p>
+    <p>GearDB</p>
+    <p>Evaluation</p>
+    <p>Conclusion</p>
+  </div>
+  <div class="page">
+    <p>SMR Drives  Shingled Magnetic Recording (SMR)</p>
+    <p>Increasing disk areal density</p>
+    <p>Properties:  Overlapping tracks</p>
+    <p>Zones</p>
+    <p>Free read</p>
+    <p>Random write complexity</p>
+    <p>Sequential write is preferred : Log-structured</p>
+    <p>Types: Drive-managed (DM-SMR), Host-aware (HA-SMR), and Hostmanaged (HM-SMR)</p>
+    <p>Track N</p>
+    <p>Track N+1</p>
+    <p>Track N+2</p>
+    <p>Track N+3</p>
+    <p>W rite</p>
+    <p>r</p>
+    <p>Rd</p>
+    <p>Zone</p>
+  </div>
+  <div class="page">
+    <p>Host-managed SMR Drives (HM-SMR)</p>
+    <p>Advantages:  Large capacity</p>
+    <p>Low total cost of ownership (TCO)</p>
+    <p>Predictable performance</p>
+    <p>Seagate: 13TB Seagate ST13125NM007 (Test Drive)</p>
+    <p>Exos X14 14TB 512E SATA HM-SMR</p>
+    <p>West Digital:15 TB Ultrastar DC HC620 SMR Hard Drive</p>
+  </div>
+  <div class="page">
+    <p>HM-SMR Drives</p>
+    <p>Best For Applications  Write data sequentially</p>
+    <p>Read data randomly</p>
+    <p>Require predictable performance</p>
+    <p>Control of how data is handled</p>
+    <p>Application domains:  Social media, cloud storage, life sciences</p>
+  </div>
+  <div class="page">
+    <p>LSM-tree based Key-value stores</p>
+    <p>Applications :</p>
+    <p>Properties:  Batched sequential writes: high write throughput</p>
+    <p>Fast read</p>
+    <p>Fast range queries</p>
+    <p>NoSQL: concerns predictable performance</p>
+    <p>Trend: increasing demand on KV stores capacity 6</p>
+  </div>
+  <div class="page">
+    <p>KV stores on HM-SMR</p>
+    <p>LSM-tree based KV stores</p>
+    <p>Batched sequential write</p>
+    <p>Good for hard disk drives</p>
+    <p>Demand large capacity</p>
+    <p>Concern predictable performance</p>
+    <p>HM-SMR drives</p>
+    <p>Require sequential writes</p>
+    <p>Provide large capacity</p>
+    <p>Predictable performance</p>
+    <p>Low total cost of ownership (TCO)</p>
+  </div>
+  <div class="page">
+    <p>KV stores on HM-SMR</p>
+    <p>LSM-tree based KV stores</p>
+    <p>Batched sequential write</p>
+    <p>Good for hard disk drives</p>
+    <p>Demand large capacity</p>
+    <p>Concern predictable performance</p>
+    <p>HM-SMR drives</p>
+    <p>Require sequential writes</p>
+    <p>Provide large capacity</p>
+    <p>Predictable performance</p>
+    <p>Low total cost of ownership (TCO)</p>
+    <p>SMORE form NetApp [MSST 17];</p>
+    <p>SMR based key-value store from</p>
+    <p>Huawei [SDC15];</p>
+  </div>
+  <div class="page">
+    <p>Outline</p>
+    <p>Background and Motivation Why do we run KV stores on SMR drives?</p>
+    <p>Challenge</p>
+    <p>GearDB</p>
+    <p>Evaluation</p>
+    <p>Conclusion</p>
+  </div>
+  <div class="page">
+    <p>Redundant Cleaning Processes</p>
+    <p>L2</p>
+    <p>L1</p>
+    <p>Ln</p>
+    <p>L0</p>
+    <p>Memory</p>
+    <p>Disk</p>
+    <p>Cm</p>
+    <p>SSTable</p>
+    <p>HM-SMR</p>
+    <p>Zone 1 Zone 2 Li</p>
+    <p>L0 L1 L1 L2 L0 L2 Ln Ln L1</p>
+    <p>Log structured write on HM-SMR drives: SSTables form different levels with different compaction frequencies</p>
+    <p>are mixed in a same zone.</p>
+  </div>
+  <div class="page">
+    <p>Redundant Cleaning Processes</p>
+    <p>L2</p>
+    <p>L1</p>
+    <p>Ln</p>
+    <p>L0</p>
+    <p>Memory</p>
+    <p>Disk</p>
+    <p>Cm</p>
+    <p>SSTable</p>
+    <p>HM-SMR</p>
+    <p>Zone 1 Zone 2 Li</p>
+    <p>L0 L1 L1 L2 L0 L2 Ln Ln L1 L2 L2</p>
+    <p>R e</p>
+    <p>ad</p>
+    <p>Merge &amp; Sort</p>
+    <p>L2</p>
+  </div>
+  <div class="page">
+    <p>Goals of GearDB</p>
+    <p>L2</p>
+    <p>L1</p>
+    <p>Ln</p>
+    <p>L0</p>
+    <p>Memory</p>
+    <p>Disk</p>
+    <p>Cm</p>
+    <p>SSTable</p>
+    <p>HM-SMR</p>
+    <p>Zone 1 Zone 2 Li</p>
+    <p>L0 L1 L1 L2 L0 L2 Ln Ln L1 L2 L2 R</p>
+    <p>e ad</p>
+    <p>Merge &amp; Sort</p>
+    <p>L2</p>
+    <p>Improve compaction efficiency</p>
+  </div>
+  <div class="page">
+    <p>Motivational tests</p>
+    <p>LevelDB on an HM-SMR drive with two GCs Ldb-Greedy: Zones with the most invalid data</p>
+    <p>Ldb-Cost Benefits: Zones with the oldest age and the lowest space utilization</p>
+    <p>Trigger GC: free space under 20%</p>
+    <p>Migrating valid data from one zone to another.</p>
+    <p>Randomly loading an 80 GB dataset to restricted disk space</p>
+    <p>(Making valid data takes 80% of the disk space)</p>
+  </div>
+  <div class="page">
+    <p>Overhead of on-disk GC</p>
+    <p>Record the valid data volume and time consumption of GCs in every ten minutes.</p>
+    <p>50% of the execution time is spent on GCs when valid data volume is 70% of disk space.</p>
+    <p>Garbage collections take a substantial proportion of the system execution time.</p>
+    <p>Degrade system performance.</p>
+  </div>
+  <div class="page">
+    <p>Poor Space Utilization</p>
+    <p>85% of zones have a zone space utilization ranges from 45% to 80%.</p>
+    <p>(Zone Space Utilization = Valid</p>
+    <p>)</p>
+    <p>Overall disk space utilization: 60%</p>
+    <p>(Space Utilization =</p>
+    <p>)</p>
+    <p>O p</p>
+    <p>e ra</p>
+    <p>ti o</p>
+    <p>n s/</p>
+    <p>s Disk space utilization</p>
+    <p>Ldb-CB</p>
+    <p>Ldb-Greedy</p>
+    <p>Changing the threshold of GCs, we will get different space utilization.</p>
+    <p>System performance decreases with disk space utilization.</p>
+  </div>
+  <div class="page">
+    <p>GearDBan LSM-tree based KV store on HM-SMR drives aims to achieve both high performance and space efficiency.</p>
+    <p>GCs bring large overhead Poor space utilization System performance degrades with</p>
+    <p>the increase of disk space utilization</p>
+  </div>
+  <div class="page">
+    <p>Outline</p>
+    <p>Background and Motivation Why do we run KV stores on SMR drives?</p>
+    <p>Challenges</p>
+    <p>GearDB</p>
+    <p>Evaluation</p>
+    <p>Conclusion</p>
+  </div>
+  <div class="page">
+    <p>Overall Architecture</p>
+    <p>New disk layout Mitigate fragments</p>
+    <p>Compaction Window Restrict compactions and</p>
+    <p>fragments in CWs</p>
+    <p>Gear compaction Clean zones automatically</p>
+    <p>HM-controller</p>
+    <p>LSM-trees</p>
+    <p>GearDB Compaction window</p>
+    <p>A New On-disk Data Layout</p>
+    <p>Gear Compaction</p>
+    <p>T10 Zone Block Command</p>
+    <p>HM-SMR (Zone Block Device)</p>
+    <p>L0 L0</p>
+    <p>Zone 1 Zone 2 Zone 3</p>
+    <p>L0 L1 L1 L1 L2 L2 L2 Ln Ln Ln</p>
+    <p>Zone 4</p>
+  </div>
+  <div class="page">
+    <p>New disk layout</p>
+    <p>Key idea: Each zone only serves</p>
+    <p>SSTables from one level.</p>
+    <p>Each level has multiple zones.</p>
+    <p>SSTables in a zone share similar age</p>
+    <p>and same compaction frequency</p>
+    <p>Less fragmented disk space</p>
+    <p>L0</p>
+    <p>L1</p>
+    <p>Ln</p>
+    <p>LSM-tree</p>
+    <p>L2</p>
+    <p>L3</p>
+    <p>L0 L1 L2 L3 Ln HM-SMR</p>
+    <p>Zone of Li</p>
+    <p>CW in Li</p>
+    <p>SSTable in Li</p>
+    <p>ZBC/ZAC Interface</p>
+    <p>L2</p>
+  </div>
+  <div class="page">
+    <p>Compaction window (CW)</p>
+    <p>For each level, a group of zones are selected rotationally to construct a compaction window.</p>
+    <p>Each level has a CW.</p>
+    <p>A CW contains a group of zones of one level. (e.g., k=4)</p>
+    <p>= 1</p>
+    <p>(1    )</p>
+    <p>CW is used to restrict compactions and fragments.</p>
+    <p>L0</p>
+    <p>L1</p>
+    <p>Ln</p>
+    <p>LSM-tree</p>
+    <p>L2</p>
+    <p>L3</p>
+    <p>L0 L1 L2 L3 Ln HM-SMR</p>
+    <p>Zone of Li</p>
+    <p>CW in Li</p>
+    <p>SSTable in Li</p>
+    <p>ZBC/ZAC Interface</p>
+    <p>L2L0 L1</p>
+  </div>
+  <div class="page">
+    <p>Gear compaction</p>
+    <p>L0</p>
+    <p>L1</p>
+    <p>L2</p>
+    <p>L3</p>
+    <p>SSTable on disks</p>
+    <p>Sorted data in memory</p>
+    <p>Gear compaction aims to automatically clean compaction windows by conducting compaction only within CWs.</p>
+    <p>*Here we only show SSTables in each levels compaction window.</p>
+  </div>
+  <div class="page">
+    <p>Gear compaction</p>
+    <p>Step 1:  Fetch compaction data into memory</p>
+    <p>Merge and sort</p>
+    <p>Divide the resultant data into three parts</p>
+    <p>Out_cw Li, In_cw Li, and Out Li</p>
+    <p>L0</p>
+    <p>L1</p>
+    <p>L2</p>
+    <p>L3</p>
+    <p>SSTable on disks</p>
+    <p>Sorted data in memory 1</p>
+    <p>In_cw L2</p>
+    <p>Out_cw L2</p>
+    <p>Out L2</p>
+  </div>
+  <div class="page">
+    <p>Gear compaction</p>
+    <p>Out_cw Li : data overlapped with some SSTables that are out of Lis compaction window</p>
+    <p>Step 2: write data Out_cw L2 back to L1</p>
+    <p>L0</p>
+    <p>L1</p>
+    <p>L2</p>
+    <p>L3</p>
+    <p>SSTable on disks</p>
+    <p>Sorted data in memory 1</p>
+    <p>In_cw L2</p>
+    <p>Out_cw L2</p>
+    <p>Out L2</p>
+    <p>Out_cw L2</p>
+  </div>
+  <div class="page">
+    <p>Gear compaction</p>
+    <p>Out Li : data does not overlap any SSTables in Li  Step 3: dump data Out L2 to L2 to reduce further compactions</p>
+    <p>L0</p>
+    <p>L1</p>
+    <p>L2</p>
+    <p>L3</p>
+    <p>SSTable on disks</p>
+    <p>Sorted data in memory 1</p>
+    <p>In_cw L2</p>
+    <p>Out_cw L2</p>
+    <p>Out L2</p>
+    <p>Out_cw L2</p>
+    <p>Out L2</p>
+  </div>
+  <div class="page">
+    <p>Gear compaction</p>
+    <p>In_cw Li: data overlapped with some SSTables in Lis CW</p>
+    <p>Step 4: Compact the data In_cw L2 with the overlapped SSTables in</p>
+    <p>L2s CW</p>
+    <p>L0</p>
+    <p>L1</p>
+    <p>L2</p>
+    <p>L3</p>
+    <p>SSTable on disks</p>
+    <p>Sorted data in memory 1</p>
+    <p>In_cw L2</p>
+    <p>Out_cw L2</p>
+    <p>Out L2</p>
+    <p>Out_cw L2</p>
+    <p>Out L2</p>
+    <p>In_cw L2</p>
+    <p>Out_cw L3</p>
+    <p>Out L3</p>
+    <p>In_cw L3</p>
+  </div>
+  <div class="page">
+    <p>Gear compaction</p>
+    <p>Proceed recursively in compaction windows, level by level.</p>
+    <p>Stop when compactions reach the highest level or resultant data does not overlap the CW in the next level.</p>
+    <p>L0</p>
+    <p>L1</p>
+    <p>L2</p>
+    <p>L3</p>
+    <p>SSTable on disks</p>
+    <p>Sorted data in memory 1</p>
+    <p>Out_cw L2</p>
+    <p>Out L2</p>
+    <p>In_cw L2</p>
+    <p>Out_cw L3</p>
+    <p>Out L3</p>
+    <p>In_cw L3</p>
+    <p>Out L3</p>
+    <p>Out_cw L3</p>
+    <p>In_cw L3</p>
+  </div>
+  <div class="page">
+    <p>Automatically reclaim CWs</p>
+    <p>Gear compactions only proceed within CWs</p>
+    <p>Invalid data is restricted within CWs</p>
+    <p>Zones filled with invalid data can be reused as empty zones</p>
+    <p>GearDB reclaims CWs automatically with gear compactions</p>
+  </div>
+  <div class="page">
+    <p>Reclaim CWs in a Gear fashion</p>
+    <p>A gear represents a level (Li)</p>
+    <p>A sector is a compaction window</p>
+    <p>A single move of a gear: reclaiming zones in a CW by compaction</p>
+    <p>A full round move of a gear: reclaiming all zones in Li by compaction</p>
+    <p>Reclaim all CWs in Li -&gt; clean one CW in Li+1  A full round moving of a gear -&gt; one move</p>
+    <p>in the driven gear</p>
+    <p>Li</p>
+    <p>Li+1</p>
+    <p>A Compaction window in Li</p>
+    <p>Li+2</p>
+    <p>Ln</p>
+  </div>
+  <div class="page">
+    <p>Evaluation Setup  Comparisons</p>
+    <p>GearDB</p>
+    <p>Ldb-Greedy: LevelDB with greedy GCs</p>
+    <p>Ldb-CB: LevelDB with cost-benefit GCs</p>
+    <p>Test environment</p>
+    <p>Linux 64-bit Linux 4.15.0-34-generic</p>
+    <p>CPU 8 * Intel(R) Core(TM) i7-6700 CPU @ 3.40GHz</p>
+    <p>Memory 32 GB</p>
+    <p>HM-SMR 13TB Seagate ST13125NM007 Random 4 KB request (IOPS): 163(R) Sequential (MB/s): 180(R), 178(W)</p>
+    <p>Defaults Key size=16 bytes, Value size = 4 KB, SSTable size = 4 MB</p>
+  </div>
+  <div class="page">
+    <p>What has GearDB achieved?</p>
+    <p>Random load an 80 GB dataset  Random Load performance: 1.7 higher than LevelDB  Space Utilization: 90%  High random load performance and space efficiency</p>
+  </div>
+  <div class="page">
+    <p>Write and Read Performance</p>
+    <p>Random Write: 1.71 faster than Ldb-Greedy 1.73 faster than Ldb-CB</p>
+    <p>Sequential Write: 1.37 faster than Ldb-Greedy 1.39 faster than Ldb-CB</p>
+    <p>Random Read Sequential Read</p>
+  </div>
+  <div class="page">
+    <p>Why does GearDB perform better?</p>
+    <p>Break down the random load time into different operations</p>
+    <p>Eliminate device level GCs More efficient compaction</p>
+  </div>
+  <div class="page">
+    <p>Compaction Efficiency</p>
+    <p>The latency of each compaction during the random loading.  Reduce over 5000 compactions.  The overall compaction latency of GearDB is 55% of LevelDB.</p>
+  </div>
+  <div class="page">
+    <p>Space Efficiency</p>
+    <p>Zone space utilization after randomly loading 20, 40, 60, and 80 GB databases.</p>
+    <p>GearDB occupies fewer zones</p>
+    <p>GearDB shows a bimodal zone space utilization: most zones are nearly full, and a few zones are nearly empty restricts fragments in a CWs</p>
+    <p>GearDB maintains a high space utilization consistently (i.e., nearly 90%)</p>
+  </div>
+  <div class="page">
+    <p>Conclusion</p>
+    <p>Conventional Key-value stores on HM-SMR drives  Redundant cleaning processes in application levels and storage levels</p>
+    <p>Poor performance and inefficient space utilization</p>
+    <p>We propose GearDB to eliminate on-disk GCs and improve compaction efficiency  New data layout</p>
+    <p>Compaction windows</p>
+    <p>Gear compaction algorithm</p>
+    <p>1.7 speedup for random writes with a zone space utilization of 90% 35</p>
+  </div>
+  <div class="page">
+    <p>Thanks! Q&amp;A</p>
+    <p>Open-source code: https://github.com/PDS-Lab/GearDB Email: tingyao@hust.edu.cn</p>
+  </div>
+</Presentation>

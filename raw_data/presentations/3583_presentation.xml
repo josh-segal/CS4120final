@@ -1,0 +1,211 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>Tong Zhang1, Wenbo Shen2, Dongyoon Lee3, Changhee Jung4, Ahmed M. Azab5, Ruowen Wang5</p>
+    <p>PeX: A Permission Check Analysis Framework for Linux Kernel</p>
+  </div>
+  <div class="page">
+    <p>Permission Control in Linux Is Complex</p>
+    <p>e.g., SELinux, AppArmor</p>
+    <p>/bin/ping only has cap_net_raw (no more suid, full root)</p>
+    <p>e.g., drwxr-xr-x for /root</p>
+    <p>Many permission checks are placed in an ad-hoc manner, hard to guarantee all of them are placed correctly</p>
+    <p>x</p>
+  </div>
+  <div class="page">
+    <p>prctl(new);write(new)</p>
+    <p>SyS_write(new)</p>
+    <p>vfs_write</p>
+    <p>file-&gt;f_op-&gt;write</p>
+    <p>SyS_prctl(new)</p>
+    <p>security_file_permission</p>
+    <p>set_task_comm(new)</p>
+    <p>comm_write(new)</p>
+    <p>Privileged functionPermission check function</p>
+    <p>Example: Missing Permission Check is a Problem Two methods to change a process name</p>
+    <p>Method 1: Use /proc/pid/comm file</p>
+    <p>Method 2: Use prctl system call</p>
+    <p>Goal: design a static analysis tool to find out permission check bugs (missing, inconsistent and redundant permission checks)</p>
+    <p>bypass</p>
+  </div>
+  <div class="page">
+    <p>prctl(new);write(new)</p>
+    <p>SyS_write(new)</p>
+    <p>vfs_write</p>
+    <p>file-&gt;f_op-&gt;write</p>
+    <p>SyS_prctl(new)</p>
+    <p>security_file_permission</p>
+    <p>set_task_comm(new)</p>
+    <p>comm_write(new)</p>
+    <p>ICFG</p>
+    <p>Path Can Be Represented in Interprocedural Control Flow Graph</p>
+  </div>
+  <div class="page">
+    <p>Traverse Interprocedural Control Flow Graph to Find Bugs</p>
+    <p>Permission Check Function</p>
+    <p>Privileged Function</p>
+    <p>Explore ICFG for all user reachable path to find out bugs</p>
+    <p>First thing: we need to build an ICFG</p>
+    <p>Good Path Bad Path</p>
+  </div>
+  <div class="page">
+    <p>Challenge 1: Indirect Calls Makes Precise ICFG Hard to Build</p>
+    <p>Kernel frequently uses function pointer to call real driver implementation</p>
+    <p>file-&gt;f_op-&gt;write_iter</p>
+    <p>ext4_file_write_iter  btrfs_file_write_iter  cifs_file_write_iter  nfs_file_write</p>
+    <p>Indirect Call</p>
+    <p>VFS layer Network Layer</p>
+    <p>sk-&gt;sk_prot-&gt;sendmsg</p>
+    <p>ipv4 inet_send_msg  ipv6 inet_send_msg</p>
+  </div>
+  <div class="page">
+    <p>ssize_t Write (struct file *, char __user *, size_t , loff_t *) ssize_t Read (struct file *, char __user *, size_t , loff_t *)</p>
+    <p>Challenge 1: No Precise and Scalable Solution  Typed based approach (function signature)  imprecise ssize_t __vfs_write(struct file* file,) {</p>
+    <p>file-&gt;f_op-&gt;write(file, p, count, pos); }</p>
+    <p>Advanced pointer analysis: not scalable</p>
+    <p>They do not scale for Linux kernel (~16 MLoC) SVF2(used by K-Miner1,a static tool kernel analysis)</p>
+    <p>K-Miner: Gens, David, et al. &quot;K-Miner: Uncovering Memory Corruption in Linux.&quot; NDSS. 2018. SVF: Sui, Yulei, and Jingling Xue. &quot;On-demand strong update analysis via value-flow refinement.&quot; Proceedings of the 2016 24th ACM SIGSOFT international symposium on foundations of software engineering. ACM, 2016.</p>
+    <p>Can be applied to a smaller codebase, which harms soundness</p>
+    <p>x</p>
+  </div>
+  <div class="page">
+    <p>Challenge 2: Three Other Things We Dont Know</p>
+    <p>write(new)</p>
+    <p>SyS_write(new)</p>
+    <p>vfs_write</p>
+    <p>file-&gt;f_op-&gt;write</p>
+    <p>security_file_permission</p>
+    <p>set_task_comm(new)</p>
+    <p>comm_write(new)</p>
+    <p>Privileged function</p>
+    <p>Permission check function</p>
+    <p>Indirect Call Direct Call</p>
+  </div>
+  <div class="page">
+    <p>PeX Workflow</p>
+    <p>KIRIN Indirect Call</p>
+    <p>Pointer Analysis ICFG</p>
+    <p>Privileged Function Detection</p>
+    <p>Permission Check</p>
+    <p>Wrapper Detection</p>
+    <p>Permission Check Error</p>
+    <p>Detection</p>
+    <p>Kernel Source</p>
+    <p>(IR)</p>
+    <p>Challenge 1</p>
+    <p>Challenge 2</p>
+    <p>Permission check functions provided by user</p>
+    <p>Bug Report</p>
+  </div>
+  <div class="page">
+    <p>KIRIN Observation: Most Indirect Calls(~90%) in Linux Kernel Use Well Defined Interface</p>
+    <p>Observation: kernel has well defined interface to connect different component together</p>
+    <p>Filesystem</p>
+    <p>struct file_operations { loff_t (*llseek) (struct file *, loff_t, int); ssize_t (*read) (struct file *, char __user *, size_t, loff_t *); ssize_t (*write) (struct file *, char __user *, size_t, loff_t *); int (*open) (struct inode *, struct file *); int (*release) (struct inode *, struct file *);  }</p>
+    <p>Network protocol</p>
+    <p>struct proto_ops { int (*connect) (struct socket *sock, struct sockaddr</p>
+    <p>*vaddr, int sockaddr_len, int flags); int (*listen) (struct socket *sock, int len); int (*sendmsg) (struct socket *sock, struct msghdr</p>
+    <p>*m, size_t total_len); int (*recvmsg) (struct socket *sock, struct msghdr</p>
+    <p>*m, size_t total_len, int flags);  }</p>
+  </div>
+  <div class="page">
+    <p>KIRIN Step 1: Trace and Collect All Struct Initializations</p>
+    <p>file_operations proc_pid_set_comm_operations {</p>
+    <p>.open = comm_open,</p>
+    <p>.read = seq_read,</p>
+    <p>.write = comm_write,</p>
+    <p>.llseek = seq_lseek,</p>
+    <p>.release = single_release, }</p>
+    <p>KIRIN trace all statically and dynamically initialized struct</p>
+    <p>.write = ext4_file_write .write = vfat_file_write</p>
+  </div>
+  <div class="page">
+    <p>ssize_t __vfs_write(struct file* file,) {</p>
+    <p>file-&gt;f_op-&gt;write</p>
+    <p>KIRIN Step 2: Match Indirect Call Target Using Interface</p>
+    <p>struct file_operations {</p>
+    <p>ssize_t (*read) (struct file *, char __user *, size_t, loff_t *); ssize_t (*write) (struct file *, char __user *, size_t, loff_t *);</p>
+    <p>}</p>
+    <p>Calling write function in struct file_operations</p>
+    <p>Possible callee: comm_write</p>
+    <p>Step 2 analyze the callsite</p>
+    <p>better precision than type-based method</p>
+    <p>better scalability than SVF because the analys is simpler</p>
+  </div>
+  <div class="page">
+    <p>PeX Workflow</p>
+    <p>KIRIN Indirect Call</p>
+    <p>Pointer Analysis ICFG</p>
+    <p>Privileged Function Detection</p>
+    <p>Permission Check</p>
+    <p>Wrapper Detection</p>
+    <p>Permission Check Error</p>
+    <p>Detection</p>
+    <p>Kernel Source</p>
+    <p>(IR)</p>
+    <p>Challenge 1</p>
+    <p>Challenge 2</p>
+    <p>Permission check functions</p>
+    <p>provided by user Bug Report</p>
+  </div>
+  <div class="page">
+    <p>Dominator Based Privileged Function Detection</p>
+    <p>write(new)</p>
+    <p>SyS_write(new)</p>
+    <p>vfs_write</p>
+    <p>file-&gt;f_op-&gt;write</p>
+    <p>security_file_permission</p>
+    <p>set_task_comm(new)</p>
+    <p>comm_write(new)</p>
+    <p>Privileged function call</p>
+    <p>Permission check function</p>
+    <p>- the dominator analysis</p>
+    <p>privileged function</p>
+    <p>bar</p>
+    <p>foo</p>
+    <p>x</p>
+    <p>callsite</p>
+  </div>
+  <div class="page">
+    <p>Traverse ICFG for Permission Check Error Detection</p>
+    <p>Indirect Call Direct Call</p>
+    <p>Permission Check Function</p>
+    <p>Privileged FunctionICFG</p>
+    <p>Bad Path</p>
+    <p>x</p>
+  </div>
+  <div class="page">
+    <p>Implementation and Evaluation</p>
+    <p>LLVM/Clang-6</p>
+    <p>Generate a single-file vmlinux.bc using wllvm</p>
+    <p>Evaluation</p>
+    <p>Linux-v4.18.5</p>
+    <p>defconfig(2.4M LoC)</p>
+    <p>allyesconfig(15.9MLoC)</p>
+    <p>Implementation</p>
+  </div>
+  <div class="page">
+    <p>PeX-KIRIN PeX-TYPE PeX-K-Miner</p>
+    <p>Number of Bugs Detected</p>
+    <p>ICFG generated by K</p>
+    <p>Miner is not sound, so</p>
+    <p>it detects less bugs</p>
+    <p>(Imprecise ICFG) (unsound ICFG)</p>
+    <p>Detection Capability  defconfig (2.4M LoC), PeX-KIRIN is Better</p>
+  </div>
+  <div class="page">
+    <p>Detection Capability  defconfig (2.4M LoC), PeX-KIRIN is Better</p>
+    <p>DAC CAP LSM</p>
+    <p>Number of Warnings</p>
+    <p>PeX-KIRIN PeX-TYPE PeX-K-Miner</p>
+  </div>
+  <div class="page">
+    <p>Conclusions  PeX: a static permission check analysis framework for Linux kernel</p>
+    <p>KIRIN: kernel call graph analysis</p>
+    <p>Permission check functions/Privileged functions and their mappings</p>
+    <p>Evaluated Linux kernel v4.18.5 and found 36 permission check bugs</p>
+  </div>
+  <div class="page">
+    <p>Thank you !</p>
+  </div>
+</Presentation>

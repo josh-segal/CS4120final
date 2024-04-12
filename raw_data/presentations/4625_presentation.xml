@@ -1,0 +1,307 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>Architectural Semantics for Practical Transactional Memory</p>
+    <p>Austen McDonald, JaeWoong Chung,</p>
+    <p>Brian D. Carlstrom, Chi Cao Minh, Hassan Chafi,</p>
+    <p>Christos Kozyrakis and Kunle Olukotun</p>
+    <p>Computer Systems Laboratory</p>
+    <p>Stanford University</p>
+    <p>http://tcc.stanford.edu</p>
+  </div>
+  <div class="page">
+    <p>We Need Transactional Memory</p>
+    <p>CMPs are here but their programming model is broken</p>
+    <p>Uniprocessors limited by power, complexity, wire latency</p>
+    <p>Coarse- vs. fine-grained locks</p>
+    <p>serialization vs. deadlocks, races, and priority inversion</p>
+    <p>Poor composability, not fault-tolerant,</p>
+    <p>Transactional Memory (TM) systems are promising</p>
+    <p>Programmer-defined, atomic, isolated regions</p>
+    <p>Demonstrated performance potential</p>
+    <p>Many TM systems exist with different tradeoffs</p>
+    <p>[TRL], [TCC], [U/LTM], [VTM], [LogTM], [ASTM], [McRT],</p>
+    <p>But we lack something</p>
+  </div>
+  <div class="page">
+    <p>TM Needs an Architecture</p>
+    <p>A hardware/software interface</p>
+    <p>Unified semantic model for developers</p>
+    <p>Support transactional programming languages</p>
+    <p>Support common OS functionality</p>
+    <p>Enables fair evaluation of TM systems</p>
+    <p>Now we have xbegin and xend</p>
+    <p>Need more to implement real systems, compare designs, and evaluate tradeoffs</p>
+    <p>Questions</p>
+    <p>How does TM interact with library-based software?</p>
+    <p>How do we handle I/O &amp; system calls within transactions?</p>
+    <p>How do we handle exceptions &amp; contention within transactions?</p>
+    <p>How do we build implement TM programming languages?</p>
+  </div>
+  <div class="page">
+    <p>Architectural Semantics for TM</p>
+    <p>We define rich semantics for transactional memory</p>
+    <p>Thorough ISA-level specification of TM semantics</p>
+    <p>Applicable to all TM systems</p>
+    <p>Rich support for PL &amp; OS functionality</p>
+    <p>Our approach: identify three ISA primitives</p>
+    <p>PL &amp; OS use primitives for higher level functionality</p>
+    <p>ISA provides primitives, but not end-to-end solutions</p>
+    <p>Software defines user-level API and other properties</p>
+  </div>
+  <div class="page">
+    <p>Outline</p>
+    <p>Motivation</p>
+    <p>Architectural semantics for TM</p>
+    <p>Basic ISA-level primitives</p>
+    <p>ISA implementation (hardware &amp; software)</p>
+    <p>Implementation Overview</p>
+    <p>HW and SW components</p>
+    <p>Examples and Evaluation</p>
+    <p>Example ISA uses</p>
+    <p>Performance analysis</p>
+    <p>Conclusions</p>
+  </div>
+  <div class="page">
+    <p>Two-phase Transaction Commit</p>
+    <p>Conventional: monolithic commit in one step</p>
+    <p>Finalize validation (no conflicts)</p>
+    <p>Atomically commit the transaction write-set</p>
+    <p>New: two-phase commit process</p>
+    <p>xvalidate finalizes validation, xcommit commits write-set</p>
+    <p>Other code can run in between two steps</p>
+    <p>Code is logically part of the transaction</p>
+    <p>Example uses</p>
+    <p>Finalize I/O operations within transactions</p>
+    <p>Coordinate with other software for permission to commit</p>
+    <p>Correctness/security checkers, transaction synchronizers,</p>
+  </div>
+  <div class="page">
+    <p>Transactional Handlers</p>
+    <p>Conventional: TM events processed by hardware</p>
+    <p>Commit: commit write-set and proceed with following code</p>
+    <p>Violation on conflict: rollback transaction and re-execute</p>
+    <p>New: all TM events processed by software handlers</p>
+    <p>Fast, user-level handlers for commit, violation, and abort</p>
+    <p>Software can register multiple handlers per transaction</p>
+    <p>Stack of handlers maintained in software</p>
+    <p>Handlers have access to all transactional state</p>
+    <p>They decide what to commit or rollback, to re-execute or not,</p>
+    <p>Example uses:</p>
+    <p>Contention managers</p>
+    <p>I/O operations within transactions &amp; conditional synchronization</p>
+    <p>Code for finalizing or compensating actions</p>
+  </div>
+  <div class="page">
+    <p>Closed-nested Transactions</p>
+    <p>xbegin</p>
+    <p>lots_of_work()</p>
+    <p>count++</p>
+    <p>xvalidate; xcommit</p>
+    <p>xbegin</p>
+    <p>...</p>
+    <p>xbegin</p>
+    <p>count++</p>
+    <p>xvalidate; xcommit</p>
+    <p>xvalidate; xcommit</p>
+    <p>Closed Nesting</p>
+    <p>Composable libraries</p>
+    <p>Performance improvement</p>
+    <p>Alternative control flow upon nested abort</p>
+  </div>
+  <div class="page">
+    <p>Closed-nested Transactions</p>
+    <p>xbegin</p>
+    <p>...</p>
+    <p>xbegin</p>
+    <p>ld A</p>
+    <p>st B</p>
+    <p>xvalidate; xcommit</p>
+    <p>xvalidate; xcommit</p>
+    <p>T1</p>
+    <p>T2</p>
+    <p>T1s Read-Set T1s Write-Set</p>
+    <p>T2s Read-Set T2s Write-Set</p>
+    <p>{  } {  }</p>
+    <p>Closed-nested Semantics</p>
+    <p>{ A } { B }</p>
+    <p>{ , A } { , B }</p>
+    <p>Memory</p>
+  </div>
+  <div class="page">
+    <p>Open-nested Transactions</p>
+    <p>xbegin</p>
+    <p>...</p>
+    <p>sbrk: ...</p>
+    <p>[modify free list]</p>
+    <p>...</p>
+    <p>xvalidate; xcommit</p>
+    <p>Open Nesting  Escape surrounding atomicity to update shared state</p>
+    <p>System calls</p>
+    <p>Communication between transactions/OS/scheduler/etc.</p>
+    <p>Performance improvements</p>
+    <p>Preserves atomicity unlike pause/non-transactional regions</p>
+    <p>xbegin</p>
+    <p>...</p>
+    <p>sbrk:</p>
+    <p>xbegin_open</p>
+    <p>...</p>
+    <p>[modify free list]</p>
+    <p>xvalidate; xcommit</p>
+    <p>...</p>
+    <p>xvalidate; xcommit</p>
+    <p>Shared OS</p>
+    <p>state</p>
+  </div>
+  <div class="page">
+    <p>Open-nested Transactions</p>
+    <p>xbegin</p>
+    <p>...</p>
+    <p>xbegin_open</p>
+    <p>ld A</p>
+    <p>st B</p>
+    <p>xvalidate; xcommit</p>
+    <p>xvalidate; xcommit</p>
+    <p>T1</p>
+    <p>T2</p>
+    <p>T1s Read-Set T1s Write-Set</p>
+    <p>T2s Read-Set T2s Write-Set</p>
+    <p>{  } {  }</p>
+    <p>Open-nested Semantics</p>
+    <p>{ A } { B }</p>
+    <p>Memory</p>
+  </div>
+  <div class="page">
+    <p>Implementation Overview</p>
+    <p>Software</p>
+    <p>Stack to track state and handlers</p>
+    <p>Like activation records for function calls</p>
+    <p>Works with nested transactions, multiple handlers per transaction</p>
+    <p>Handlers like user-level exceptions</p>
+    <p>Hardware</p>
+    <p>A few new instructions &amp; registers</p>
+    <p>Registers mostly for faster access of state logically in the stack</p>
+    <p>Modified cache design for nested transactions</p>
+    <p>Independent tracking of read-set and write-set</p>
+  </div>
+  <div class="page">
+    <p>Transaction Stack</p>
+    <p>TCB</p>
+    <p>Frame 1</p>
+    <p>TCB</p>
+    <p>Frame 2</p>
+    <p>TCB</p>
+    <p>Frame 3</p>
+    <p>TCB</p>
+    <p>Stack</p>
+    <p>base_ptr</p>
+    <p>top_ptr</p>
+    <p>Register Checkpoint</p>
+    <p>Read-set / Write-Set</p>
+    <p>Status Word</p>
+    <p>Commit Handler Code</p>
+    <p>Base Commit Handler</p>
+    <p>Top Commit Handler</p>
+    <p>X2: Handler &amp; Args</p>
+    <p>X2: Handler &amp; Args</p>
+    <p>X1: Handler &amp; Args</p>
+    <p>X3: Handler &amp; Args</p>
+    <p>X3: Handler &amp; Args</p>
+    <p>Transaction</p>
+    <p>Control Block Commit</p>
+    <p>Handlers</p>
+    <p>Stack</p>
+    <p>X2: Handler &amp; Args</p>
+    <p>X2: Handler &amp; Args</p>
+    <p>= in registers</p>
+    <p>= in thread-private,</p>
+    <p>cachable main memory</p>
+    <p>= in cache / log</p>
+    <p>xbegin</p>
+    <p>...</p>
+    <p>xbegin</p>
+    <p>...</p>
+    <p>xbegin</p>
+    <p>...</p>
+    <p>xend</p>
+    <p>xend</p>
+    <p>xend</p>
+    <p>X1: Handler &amp; Args</p>
+    <p>X1: Handler &amp; Args</p>
+    <p>X1: Handler &amp; Args</p>
+    <p>X1: Handler &amp; Args</p>
+  </div>
+  <div class="page">
+    <p>Nesting Implementation</p>
+    <p>Track multiple read-set and writes-sets in hardware</p>
+    <p>Two Options: multi-tracking vs. associativity-based  Differences in cost of searching, committing, and merging</p>
+    <p>Multi-tracking best with eager versioning, associativity best with lazy</p>
+    <p>Both schemes benefit from lazy merging on commit</p>
+    <p>Need virtualization to handle overflow  See our upcoming ASPLOS paper [Chung, et al.]</p>
+    <p>See paper for further details</p>
+    <p>V</p>
+    <p>MOESI</p>
+    <p>D E R4R1 R2 R3 W4W1 W2 W3 Data</p>
+    <p>NL1 NL2 NL3 NL4</p>
+    <p>(a)</p>
+    <p>NL1:0</p>
+    <p>Tag</p>
+    <p>=</p>
+    <p>Lookup</p>
+    <p>Address</p>
+    <p>Match?</p>
+    <p>V</p>
+    <p>MOESI</p>
+    <p>D E Data</p>
+    <p>(b)</p>
+    <p>Tag</p>
+    <p>=</p>
+    <p>Lookup</p>
+    <p>Address</p>
+    <p>Match? Match</p>
+    <p>Level</p>
+  </div>
+  <div class="page">
+    <p>Example Use: Transactional I/O</p>
+    <p>xbegin</p>
+    <p>write(buf, len):</p>
+    <p>register violation handler to de-alloc tmpBuf</p>
+    <p>alloc tmpBuf</p>
+    <p>cpy tmpBuf &lt;- buf</p>
+    <p>push &amp;tmpBuf, len; commit handler stack</p>
+    <p>push _writeCode; commit handler stack</p>
+    <p>xvalidate</p>
+    <p>pop _writeCode and args</p>
+    <p>run _writeCode</p>
+    <p>xcommit</p>
+  </div>
+  <div class="page">
+    <p>Example Use: Performance Tuning</p>
+    <p>Single warehouse SPECjbb2000</p>
+    <p>One transaction per task</p>
+    <p>Order, payment, status,</p>
+    <p>Irregular code with lots of concurrency</p>
+    <p>On an 8-way TM CMP</p>
+    <p>Closed nesting: speedup 3.94</p>
+    <p>Nesting around B-tree updates to reduce violation cost</p>
+    <p>2.0x over flattening</p>
+    <p>Open nesting: speedup 4.25</p>
+    <p>For unique order ID generation to reduce number of violations</p>
+    <p>2.2x over flattening</p>
+    <p>Similar results for other benchmarks</p>
+    <p>SPECjbb Closed SPECjbb Open S p e e d u p o v e r F la tt e n in g</p>
+  </div>
+  <div class="page">
+    <p>Conclusions</p>
+    <p>Transactional memory must provide rich semantics</p>
+    <p>Support common PL &amp; OS features</p>
+    <p>Enable PL &amp; OS research around transactions</p>
+    <p>This work</p>
+    <p>Architectural specification of rich TM semantics</p>
+    <p>Three basic primitives</p>
+    <p>Two phase commit, transactional handlers, nested transactions</p>
+    <p>Hardware and software conventions for implementation</p>
+    <p>Demonstrated uses for rich functionality &amp; performance</p>
+    <p>Implemented Atomos [Carlstrom, et al.] transactional programming language</p>
+  </div>
+</Presentation>

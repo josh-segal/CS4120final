@@ -1,0 +1,621 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>Designing a True Direct-Access File System with DevFS</p>
+    <p>Yuangang Wang, Jun Xu, Gopinath Palani</p>
+    <p>Huawei Technologies</p>
+    <p>Sudarsun Kannan, Andrea Arpaci-Dusseau, Remzi Arpaci-Dusseau</p>
+    <p>University of Wisconsin-Madison</p>
+  </div>
+  <div class="page">
+    <p>Modern Fast Storage Hardware</p>
+    <p>Faster nonvolatile memory technologies such as NVMe, 3D Xpoint</p>
+    <p>Hard Drives</p>
+    <p>H/W Lat: 7.1ms 68us 12us</p>
+    <p>BW: 2.6MB/s 250MB/s 1.3GB/s</p>
+    <p>S/W cost: 8us 8us 6us</p>
+    <p>OS cost: 5us 5us 4us</p>
+    <p>PCIe-Flash 3D Xpoint</p>
+    <p>Bottlenecks shift from hardware to software (file system) 2</p>
+  </div>
+  <div class="page">
+    <p>Why Use OS File System?</p>
+    <p>Millions of applications use OS-level file system (FS)</p>
+    <p>Object stores have been designed to reduce OS cost [HDFS, CEPH]</p>
+    <p>- Need faster file systems and not new interface</p>
+    <p>- Guarantees integrity, concurrency, crash-consistency, and security</p>
+    <p>User-level POSIX-based FS fail to satisfy fundamental properties</p>
+    <p>- Developers unwilling to modify POSIX-interface</p>
+  </div>
+  <div class="page">
+    <p>DevFS</p>
+    <p>NVMe</p>
+    <p>Application</p>
+    <p>Read/Write data</p>
+    <p>Metadata</p>
+    <p>Data</p>
+    <p>Data</p>
+    <p>Data</p>
+    <p>Device-level File System (DevFS)</p>
+    <p>Move file system into the device hardware</p>
+    <p>Use device-level CPU and memory for DevFS</p>
+    <p>Apps. bypass OS for control and data plane</p>
+    <p>DevFS handles integrity, concurreny, crash</p>
+    <p>consistency, and security</p>
+    <p>Achieves true direct-access</p>
+    <p>FS kernel</p>
+    <p>Check security</p>
+    <p>Update metadata</p>
+    <p>Update data</p>
+    <p>Check security</p>
+    <p>Update metadata</p>
+    <p>Update data</p>
+  </div>
+  <div class="page">
+    <p>Limited memory inside the device</p>
+    <p>DevFS lack visibility to OS state (e.g., process permission)</p>
+    <p>Challenges of Hardware File System</p>
+    <p>- Reverse-cache inactive file system structures to host memory</p>
+    <p>- Make OS share required (process) information with down-call</p>
+  </div>
+  <div class="page">
+    <p>Emulate DevFS at the device-driver level</p>
+    <p>Benchmarks - more than 2X write and 1.8X read throughput</p>
+    <p>Performance</p>
+    <p>Snappy compression application - up to 22% higher throughput</p>
+    <p>Memory-optimized design reduces file system memory by 5X</p>
+    <p>Compare DevFS with state-of-the-art NOVA file system</p>
+  </div>
+  <div class="page">
+    <p>Introduction</p>
+    <p>Background</p>
+    <p>Motivation</p>
+    <p>DevFSDesign</p>
+    <p>Evaluation</p>
+    <p>Conclusion</p>
+    <p>Outline</p>
+  </div>
+  <div class="page">
+    <p>FS kernel</p>
+    <p>Check security</p>
+    <p>Update metadata Update data</p>
+    <p>NVMe</p>
+    <p>Application</p>
+    <p>Read/Write data</p>
+    <p>Maintain security, manage integrity, crashconsistency, and concurrency</p>
+    <p>Metadata</p>
+    <p>Data</p>
+    <p>Data</p>
+    <p>Data</p>
+    <p>Traditional S/W Storage Stack</p>
+  </div>
+  <div class="page">
+    <p>FS kernel</p>
+    <p>Check security</p>
+    <p>Update metadata Update data</p>
+    <p>NVMe</p>
+    <p>Application</p>
+    <p>Read/Write data</p>
+    <p>Metadata</p>
+    <p>Data</p>
+    <p>Data</p>
+    <p>Data</p>
+    <p>Traditional S/W Storage Stack</p>
+    <p>User-to-kernel switch for every data plane operation</p>
+    <p>High software-indirection latency before storage access</p>
+  </div>
+  <div class="page">
+    <p>SSD</p>
+    <p>FS library</p>
+    <p>Application</p>
+    <p>Read/Write data</p>
+    <p>FS kernel</p>
+    <p>Challenge 1: How to bypass OS and provide direct-storage access?</p>
+    <p>Holy grail of Storage Research</p>
+    <p>Challenge 2: How to provide direct-access without compromising integrity, concurrency, crash-consistency, and security?</p>
+    <p>Metadata Data</p>
+  </div>
+  <div class="page">
+    <p>Prior approaches have attempted to provide user-level direct access</p>
+    <p>Classes of Direct-Access File Systems</p>
+    <p>We categorize them into four classes:</p>
+    <p>- Hybrid user-level</p>
+    <p>- Hybrid user-level with trusted server (Microkernel approach)</p>
+    <p>- Hybrid device</p>
+    <p>Full device-level file system (proposed)</p>
+  </div>
+  <div class="page">
+    <p>Hybrid User-level File System</p>
+    <p>NVMe</p>
+    <p>FS kernel</p>
+    <p>Application FS lib</p>
+    <p>Read/Write Data</p>
+    <p>Sharing, protection</p>
+    <p>Split file system into user library and kernel file components</p>
+    <p>Library handles data plane (e.g., read, write) and manages metadata</p>
+    <p>Kernel FS handles control plane (e.g., file creation)</p>
+    <p>Well known hybrid approaches - Arrakis (OSDI 14) - Strata (SOSP 17)</p>
+    <p>Create file</p>
+  </div>
+  <div class="page">
+    <p>Hybrid Device File System</p>
+    <p>File system split across user-level library, kernel, and hardware</p>
+    <p>Control and data-plane operations same as hybrid user-level FS</p>
+    <p>However, some functionalities moved inside the hardware</p>
+    <p>Well known hybrid approaches - Moneta-D (ASPLOS 12)</p>
+    <p>Application</p>
+    <p>Read/Write Data</p>
+    <p>NVMe</p>
+    <p>FS kernel</p>
+    <p>FS lib</p>
+    <p>Sharing, protection</p>
+    <p>Manage metadata</p>
+    <p>FS H/W Perm. Check</p>
+    <p>Tx</p>
+    <p>- TxDev (OSDI 08) Create file</p>
+  </div>
+  <div class="page">
+    <p>Introduction</p>
+    <p>Background</p>
+    <p>Motivation</p>
+    <p>DevFSDesign</p>
+    <p>Evaluation</p>
+    <p>Conclusion</p>
+    <p>Outline</p>
+  </div>
+  <div class="page">
+    <p>File System Properties</p>
+    <p>Integrity</p>
+    <p>Crash-consistency</p>
+    <p>Security</p>
+    <p>- Correctness of FS metadata for single &amp; concurrent access</p>
+    <p>- FS metadata consistent after a failure</p>
+    <p>- No permission violation for both control and data-plane - OS-level file system checks permission for control and data plane</p>
+  </div>
+  <div class="page">
+    <p>NVMe</p>
+    <p>FS kernel</p>
+    <p>Application FS lib</p>
+    <p>Coordinate sharing, protection</p>
+    <p>Manage metadata Direct-access for the data-plane</p>
+    <p>Hybrid User-level FS Integrity Problem</p>
+    <p>Create file Metadata</p>
+    <p>Data</p>
+    <p>Arrakis (OSDI 14), Strata (SOSP 17)</p>
+  </div>
+  <div class="page">
+    <p>Hybrid User-level FS Integrity Problem</p>
+    <p>NVMe</p>
+    <p>FS kernel</p>
+    <p>Application FS lib</p>
+    <p>Coordinate sharing, protection</p>
+    <p>Manage metadata Untrusted (buggy or malicious)</p>
+    <p>Metadata Data</p>
+    <p>Metadata Data</p>
+    <p>Can compromise metadata integrity and impact crash consistency</p>
+    <p>Data plane security compromised</p>
+    <p>Create file</p>
+  </div>
+  <div class="page">
+    <p>Set bitmap Append</p>
+    <p>Update inode</p>
+    <p>Data block</p>
+    <p>Set bitmap Append</p>
+    <p>Update inode</p>
+    <p>inode { size = 0 m_time = 2</p>
+    <p>}</p>
+    <p>inode { size = 4K m_time = 1</p>
+    <p>}</p>
+    <p>Append(F1, buff, 4k) Append(F1, buff, 4k)App. 1 FS lib</p>
+    <p>App. 2 FS lib</p>
+    <p>Concurrent Access?</p>
+    <p>Arrakis and Strata trap into OS for data-plane and control plane  No direct access</p>
+    <p>Skip locking</p>
+  </div>
+  <div class="page">
+    <p>Approaches Summary</p>
+    <p>Class File System</p>
+    <p>In te</p>
+    <p>gr it</p>
+    <p>y</p>
+    <p>C ra</p>
+    <p>sh C</p>
+    <p>o n</p>
+    <p>si st</p>
+    <p>en cy</p>
+    <p>S ec</p>
+    <p>u ri</p>
+    <p>ty</p>
+    <p>C o</p>
+    <p>n cu</p>
+    <p>rr en</p>
+    <p>cy</p>
+    <p>P O</p>
+    <p>S IX</p>
+    <p>su</p>
+    <p>p p</p>
+    <p>o rt</p>
+    <p>D ir</p>
+    <p>ec t</p>
+    <p>ac ce</p>
+    <p>ss</p>
+    <p>Kernel-level FS NOVA</p>
+    <p>Hybrid user-level FS</p>
+    <p>Arrakis</p>
+    <p>Strata</p>
+    <p>Microkernel Aerie</p>
+    <p>Hybrid-device FS Moneta-D</p>
+    <p>TxDev</p>
+    <p>FUSE Ext4-FUSE</p>
+    <p>Device FS DevFS</p>
+  </div>
+  <div class="page">
+    <p>Introduction</p>
+    <p>Background</p>
+    <p>Motivation</p>
+    <p>DevFSDesign</p>
+    <p>Evaluation</p>
+    <p>Conclusion</p>
+    <p>Outline</p>
+  </div>
+  <div class="page">
+    <p>DevFS</p>
+    <p>NVMe</p>
+    <p>Application</p>
+    <p>Read/Write data</p>
+    <p>Metadata</p>
+    <p>Data</p>
+    <p>Data</p>
+    <p>Data</p>
+    <p>Device-level File System (DevFS)</p>
+    <p>Move file system into the device hardware</p>
+    <p>Use device-level CPU and memory for DevFS</p>
+    <p>Apps. bypass OS for control and data plane</p>
+    <p>DevFS handles integrity, concurreny, crash</p>
+    <p>consistency, and security</p>
+    <p>Achieves true direct-access</p>
+    <p>FS kernel</p>
+    <p>Check security</p>
+    <p>Update metadata</p>
+    <p>Update data</p>
+    <p>Check security</p>
+    <p>Update metadata</p>
+    <p>Update data</p>
+  </div>
+  <div class="page">
+    <p>DevFS</p>
+    <p>DevFS Internals</p>
+    <p>Controller CPU</p>
+    <p>Global structures</p>
+    <p>On-disk file metadata</p>
+    <p>In-memory metadata</p>
+    <p>Super Block</p>
+    <p>Bitmaps Inodes Dentries</p>
+    <p>Super Block</p>
+    <p>Bitmaps Inodes Dentries</p>
+    <p>Per-file structures</p>
+  </div>
+  <div class="page">
+    <p>DevFS Internals</p>
+    <p>Per-file structures</p>
+    <p>Controller CPU</p>
+    <p>Submission queue (SQ)</p>
+    <p>Completion queue (SQ)</p>
+    <p>Journal Data</p>
+    <p>Per-file blocks</p>
+    <p>Per-file Journal</p>
+    <p>In-memory filemap tree /root</p>
+    <p>/root/dir/root/proc</p>
+    <p>filemap { *dentry *inode; *queues</p>
+    <p>*mem_journal *disk_journal</p>
+    <p>}</p>
+    <p>Global structures</p>
+    <p>On-disk file metadata</p>
+    <p>In-memory metadata</p>
+    <p>Super Block</p>
+    <p>Bitmaps Inodes Dentries</p>
+    <p>Super Block</p>
+    <p>Bitmaps Inodes Dentries</p>
+    <p>Modern storage device contain multiple CPUs  Support up to 64K I/O queues</p>
+    <p>To exploit concurrency, each file has own I/O queue and journal</p>
+    <p>DevFS</p>
+  </div>
+  <div class="page">
+    <p>DevFS Internals</p>
+    <p>Per-file structures</p>
+    <p>Vaddr = CreateBuffer()</p>
+    <p>Controller CPU</p>
+    <p>Submission queue (SQ)</p>
+    <p>Completion queue (SQ)</p>
+    <p>Journal Data</p>
+    <p>Per-file blocks</p>
+    <p>Per-file Journal</p>
+    <p>Application User FS lib</p>
+    <p>In-memory filemap tree /root</p>
+    <p>/root/dir/root/proc</p>
+    <p>filemap { *dentry *inode; *queues</p>
+    <p>*mem_journal *disk_journal</p>
+    <p>}</p>
+    <p>Global structures</p>
+    <p>On-disk file metadata</p>
+    <p>In-memory metadata</p>
+    <p>Super Block</p>
+    <p>Bitmaps Inodes Dentries</p>
+    <p>Super Block</p>
+    <p>Bitmaps Inodes Dentries</p>
+    <p>OS allocated command buffer</p>
+    <p>DevFS</p>
+  </div>
+  <div class="page">
+    <p>Per-file structures</p>
+    <p>Application User FS lib</p>
+    <p>On-disk file metadata</p>
+    <p>In-memory metadata</p>
+    <p>In-memory filemap tree /root</p>
+    <p>/root/dir/root/proc</p>
+    <p>filemap { *dentry *inode; *queues</p>
+    <p>*mem_journal *disk_journal</p>
+    <p>}</p>
+    <p>Submission queue (SQ)</p>
+    <p>Completion queue (SQ)</p>
+    <p>Global structures</p>
+    <p>Controller CPU</p>
+    <p>DevFS I/O Operation</p>
+    <p>Cmd</p>
+    <p>Cmd</p>
+    <p>Super Block</p>
+    <p>Bitmaps Inodes Dentries</p>
+    <p>Super Block</p>
+    <p>Bitmaps Inodes Dentries</p>
+    <p>Journal Journal</p>
+    <p>Journal Data</p>
+    <p>Per-file blocks</p>
+    <p>Open(f1)</p>
+    <p>Per-file Journal</p>
+    <p>OS allocated command buffer</p>
+    <p>DevFS</p>
+  </div>
+  <div class="page">
+    <p>Per-file structures</p>
+    <p>Application User FS lib</p>
+    <p>On-disk file metadata</p>
+    <p>In-memory metadata</p>
+    <p>In-memory filemap tree /root</p>
+    <p>/root/dir/root/proc</p>
+    <p>filemap { *dentry *inode; *queues</p>
+    <p>*mem_journal *disk_journal</p>
+    <p>}</p>
+    <p>Submission queue (SQ)</p>
+    <p>Completion queue (SQ)</p>
+    <p>Global structures</p>
+    <p>Controller CPU</p>
+    <p>DevFS I/O Operation</p>
+    <p>Cmd</p>
+    <p>Cmd</p>
+    <p>Super Block</p>
+    <p>Bitmaps Inodes Dentries</p>
+    <p>Super Block</p>
+    <p>Bitmaps Inodes Dentries</p>
+    <p>Journal Journal Journal</p>
+    <p>Journal Data</p>
+    <p>Per-file blocks</p>
+    <p>Open(f1)</p>
+    <p>Per-file Journal</p>
+    <p>OS allocated command buffer</p>
+    <p>DevFS</p>
+  </div>
+  <div class="page">
+    <p>Per-file structures</p>
+    <p>Application User FS lib</p>
+    <p>On-disk file metadata</p>
+    <p>In-memory metadata</p>
+    <p>In-memory filemap tree /root</p>
+    <p>/root/dir/root/proc</p>
+    <p>filemap { *dentry *inode; *queues</p>
+    <p>*mem_journal *disk_journal</p>
+    <p>}</p>
+    <p>Submission queue (SQ)</p>
+    <p>Completion queue (SQ)</p>
+    <p>Global structures</p>
+    <p>Controller CPU</p>
+    <p>DevFS I/O Operation</p>
+    <p>Cmd</p>
+    <p>Cmd</p>
+    <p>Super Block</p>
+    <p>Bitmaps Inodes Dentries</p>
+    <p>Super Block</p>
+    <p>Bitmaps Inodes Dentries</p>
+    <p>Journal Journal Journal</p>
+    <p>Journal Data</p>
+    <p>Per-file blocks</p>
+    <p>Write(fd, buff, 4k, off=3)</p>
+    <p>Per-file Journal</p>
+    <p>OS allocated command buffer</p>
+    <p>DevFS</p>
+  </div>
+  <div class="page">
+    <p>Capacitors safely flush memory state to storage after power failure</p>
+    <p>Capacitance support improves performance</p>
+    <p>Capacitance Benefits Inside H/W</p>
+    <p>DevFS uses device memory for file system state - Can avoid writing in-memory state to disk journal - Overcomes the double writes problem</p>
+    <p>Writing journals to storage has high overheads  Modern storage devices have device-level capacitors</p>
+  </div>
+  <div class="page">
+    <p>Limited memory inside the storage device</p>
+    <p>DevFS lack visibility to OS state (e.g., process permission)</p>
+    <p>Challenges of Hardware File System</p>
+    <p>- Reverse-cache inactive file system structures to host memory</p>
+    <p>- Make OS share required information with down-call</p>
+    <p>- Please see the paper for more details</p>
+    <p>todays focus</p>
+  </div>
+  <div class="page">
+    <p>Device Memory Limitation</p>
+    <p>RAM used mainly by file translation layer (FTL)</p>
+    <p>Device RAM size constrained by cost ($) and power consumption</p>
+    <p>- RAM size proportional to FTLs logical-to-physical block mapping</p>
+    <p>- Example: 512 GB SSD uses 2 GB RAM to support translations</p>
+    <p>Unlike kernel FS, device FS footprint must be kept small</p>
+  </div>
+  <div class="page">
+    <p>Memory Consuming File Structures  Our analysis shows four in-memory structures using 90% of memory</p>
+    <p>- Inode (840 bytes) - created for file open, not freed until deletion - Dentry (192 bytes) - created for file open, kept in a cache - File pointer (256 bytes) - released when file is closed - Others (156 bytes) - e.g., DevFS file map structure</p>
+    <p>- DevFS memory consumption ~1.2 GB (60% of device memory)  Simple workload - open and close 1 million files</p>
+  </div>
+  <div class="page">
+    <p>Reducing Memory Usage</p>
+    <p>Reverse Caching</p>
+    <p>On-demand allocation of structures</p>
+    <p>- Structures such as filemap not used after file is closed</p>
+    <p>- Allocated after first write and released when a file is closed</p>
+    <p>- Move inactive structures to host memory</p>
+  </div>
+  <div class="page">
+    <p>Device memory Inode list</p>
+    <p>Dentry list File Ptr list</p>
+    <p>DevFS</p>
+    <p>Reverse-Caching to Reduce Memory</p>
+    <p>Host memory Inode Cache</p>
+    <p>Dentry Cache</p>
+    <p>Host</p>
+    <p>Application</p>
+    <p>Move inactive inode and dentry structures to host memory</p>
+  </div>
+  <div class="page">
+    <p>Decompose FS Structures  Reverse caching for a complicated for inode  Inodes fields accessed even file closing (e.g., directory traversal)</p>
+    <p>Frequently moving between host cache and device can be expensive!</p>
+    <p>Our solution  split file system structures (e.g., inode) into a host and device structure</p>
+  </div>
+  <div class="page">
+    <p>Devfs inode structure</p>
+    <p>struct devfs_inode_info {</p>
+    <p>inode_list</p>
+    <p>page_tree</p>
+    <p>journals</p>
+    <p>.</p>
+    <p>struct inode vfs_inode</p>
+    <p>}</p>
+    <p>Decompose FS Structures</p>
+    <p>Decomposed DevFS structure</p>
+    <p>struct devfs_inode_info { /*always kept in device*/ struct *inode_device</p>
+    <p>/*moved to host after close*/ struct *inode_host</p>
+    <p>}</p>
+  </div>
+  <div class="page">
+    <p>Introduction</p>
+    <p>Background</p>
+    <p>Motivation</p>
+    <p>DevFS Design</p>
+    <p>Evaluation</p>
+    <p>Conclusion</p>
+    <p>Outline</p>
+  </div>
+  <div class="page">
+    <p>Evaluation</p>
+    <p>- Filebench - Snappy  widely used multi-threaded file compression</p>
+    <p>Benchmarks and Applications</p>
+    <p>Evaluation comparison - NOVA  state-of-the-art in-kernel NVM file system - DevFS-nave  DevFS without direct access - DevFS-cap  without direct access but with capacitor support - DevFS-cap-direct  capacitor support + direct access</p>
+    <p>For direct-access, benchmark and applications run as driver</p>
+  </div>
+  <div class="page">
+    <p>Filebench - Random Write</p>
+    <p>O ps</p>
+    <p>/S ec</p>
+    <p>o nd NOVA DevFS-nave</p>
+    <p>DevFS-cap DevFS-cap-direct</p>
+    <p>DevFS-nave suffers from high journaling overhead</p>
+    <p>DevFS-cap uses capacitors to avoid on-disk journaling</p>
+    <p>DevFS-cap-direct achieves true direct-access bypassing OS</p>
+  </div>
+  <div class="page">
+    <p>O ps</p>
+    <p>/S ec</p>
+    <p>o nd</p>
+    <p>NOVA DevFS-nave DevFS-cap DevFS-cap-direct</p>
+    <p>Snappy Compression Performance</p>
+    <p>File Size</p>
+    <p>Read a file Compress Write output Sync file</p>
+    <p>Gains even for compute + I/O intensive application</p>
+  </div>
+  <div class="page">
+    <p>Memory Reduction Benefits</p>
+    <p>Cap Demand Dentry Inode + Dentry</p>
+    <p>M em</p>
+    <p>o ry</p>
+    <p>U sa</p>
+    <p>ge (</p>
+    <p>M B</p>
+    <p>)</p>
+    <p>filemap dentry inode</p>
+    <p>Demand allocation reduces memory consumption by 156MB (14%)</p>
+    <p>Inode and Dentry reverse caching reduces memory by 5X</p>
+    <p>No memory reduction</p>
+    <p>On-demand FS structures</p>
+    <p>Reverse caching Dentry</p>
+    <p>Reverse caching Dentry + Inode</p>
+    <p>Filebench  File Create workload (Create 1M files and close files)</p>
+  </div>
+  <div class="page">
+    <p>Cap Demand Dentry Inode + Dentry</p>
+    <p>Inode + Dentry +</p>
+    <p>Direct</p>
+    <p>K O</p>
+    <p>ps /s</p>
+    <p>ec Memory Reduction Performance Impact</p>
+    <p>Dentry and Inode reverse caching overhead less than 14%  Overhead mainly due to structure movement cost</p>
+  </div>
+  <div class="page">
+    <p>Summary</p>
+    <p>Motivation - Eliminating OS overhead and providing direct access is critical - Hybrid user-level file systems compromise fundamental properties</p>
+    <p>Solution - We design DevFS that moves FS into the storage H/W - Provides direct-access without compromising FS properties - To reduce memory footprint of DevFS designs reverse-caching</p>
+    <p>Evaluation - Emulated DevFS shows up to 2X I/O performance gains - Reduces memory usage by 5X with 14% performance impact</p>
+  </div>
+  <div class="page">
+    <p>Conclusion</p>
+    <p>We are moving towards a storage era with microsecond latency</p>
+    <p>Eliminating software (OS) overhead is critical - But without compromising fundamental storage properties</p>
+    <p>Near-hardware access latency requires embedding S/W into H/W</p>
+    <p>We take first step towards moving file system in H/W</p>
+    <p>Several challenges such as H/W integration, support for RAID,</p>
+    <p>snapshots, and deduplication yet to be addressed</p>
+  </div>
+  <div class="page">
+    <p>Permission Checking</p>
+    <p>APP</p>
+    <p>User-FS</p>
+    <p>OS</p>
+    <p>Host CPU Credentials</p>
+    <p>Set credential in DevFS</p>
+    <p>DevFS credential region</p>
+    <p>Permission manager</p>
+    <p>Write(UID, buff, 4k,off=1)</p>
+    <p>payload=buff ops = READ</p>
+    <p>UID= 1 off = 1</p>
+    <p>size = 4K</p>
+    <p>t_cred = get_task_cred(CPUID) inode_cred= get_inode_cred(fd) compare_cred(t_cred, inode_cred)</p>
+    <p>Process scheduled to CPU</p>
+    <p>User space</p>
+  </div>
+  <div class="page">
+    <p>Concurrent Access</p>
+    <p>O ps</p>
+    <p>/S ec</p>
+    <p>o nd</p>
+    <p>#. Of Instances</p>
+    <p>NOVA DevFS [+cap] DevFS [+cap +direct]</p>
+    <p>Limited device CPUs restricts DevFS scaling</p>
+    <p>Limited CPUs inside device</p>
+    <p>DevFS uses only 4 device CPU 45</p>
+  </div>
+  <div class="page">
+    <p>Slow CPU Impact  Snappy 4KB</p>
+    <p>O ps</p>
+    <p>/s ec</p>
+    <p>CPU Frequency (GHz)</p>
+    <p>DevFS [+cap] DevFS [+cap +direct]</p>
+  </div>
+  <div class="page">
+    <p>Questions?</p>
+    <p>Thanks!</p>
+  </div>
+</Presentation>

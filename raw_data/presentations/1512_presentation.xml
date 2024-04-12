@@ -1,0 +1,373 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>LADS: Optimizing Data Transfers using Layout-Aware Data Scheduling</p>
+    <p>Youngjae Kim</p>
+    <p>Scott Atchley Geoffroy Vallee Galen M. Shipman</p>
+    <p>Oak Ridge National Laboratory</p>
+    <p>* Galen is currently with Los Alamos National Lab.</p>
+  </div>
+  <div class="page">
+    <p>Outline</p>
+    <p>Background  Motivation  LADS: Layout-Aware Data Scheduler  Problem Definition  Design  Evaluation  Conclusion</p>
+  </div>
+  <div class="page">
+    <p>Leading Research Requires the Use of Extreme-scale Resources across DOE</p>
+    <p>Big Data Challenges in Science Domains  Extreme-scale Resources</p>
+    <p>Computational facilities  ALCF, NERSC, and OLCF  1 exabyte generated per year by 2018</p>
+    <p>Coupling data  Is to combine two different data sets physically stored on</p>
+    <p>different institutes to use for big data analysis purpose</p>
+    <p>Many examples of coupling data today:  Nuclear interaction datasets generated at NERSC needed at the OLCF for Petascale</p>
+    <p>simulation</p>
+    <p>Climate simulations run at ALCF and OLCF validated with BER data sets at ORNL data centers</p>
+    <p>Unfortunately data-sets do not exist in isolation!</p>
+  </div>
+  <div class="page">
+    <p>Enabling Network Technology</p>
+    <p>DOEs Energy Science Network (Esnet)  Network infrastructure between many DOE facilities</p>
+    <p>Improved data transfer rate  Currently at 100Gb/s, mostly likely to support 400Gb/s  1Tb/s in near future</p>
+    <p>However, this network improvement only contributes the network transfer rate.</p>
+    <p>Data sets are stored at slow storage systems.</p>
+  </div>
+  <div class="page">
+    <p>OLCF center-wide PFS and clients</p>
+    <p>Titan Cray XK7</p>
+    <p>Scalable I/O Network (SION)  InfiniBand</p>
+    <p>Eos Cray XC30</p>
+    <p>Rhea Analysis Cluster</p>
+    <p>Everest Viz</p>
+    <p>Cluster</p>
+    <p>Data Transfer Nodes</p>
+    <p>OSS OSS</p>
+    <p>OSS OSS</p>
+    <p>atlas1</p>
+    <p>OSS OSS</p>
+    <p>OSS OSS</p>
+    <p>atlas2</p>
+    <p>Th e</p>
+    <p>Sp id</p>
+    <p>er F</p>
+    <p>ile S</p>
+    <p>ys te</p>
+    <p>m</p>
+    <p>The PFS can become the bottleneck for data transfers.</p>
+    <p>Data Transfer Nodes</p>
+  </div>
+  <div class="page">
+    <p>Problem and Challenge</p>
+    <p>Data transfer nodes (DTNs) are a focal point for impedance match between the faster networks and the relatively slower storage systems (PFS).</p>
+    <p>BW PFS BW network &lt;</p>
+    <p>DTN (Source) BW network</p>
+    <p>DTN (Sink)</p>
+    <p>DTN (Source)</p>
+    <p>DTN (Sink)</p>
+  </div>
+  <div class="page">
+    <p>Key Question</p>
+    <p>How to improve the underutilized PFS bandwidth  for big data transfers?</p>
+  </div>
+  <div class="page">
+    <p>Outline</p>
+    <p>Background  Motivation  LADS: Layout-Aware Data Scheduler  Problem Definition  Design  Evaluation  Conclusion</p>
+  </div>
+  <div class="page">
+    <p>General Parallel File Systems</p>
+    <p>Parallel File Systems  Lustre, IBMs GPFS, PVFS, PanFS</p>
+    <p>Lustre  Two types of servers</p>
+    <p>MDS and OSS</p>
+    <p>Metadata server (MDS)  Holds the directory tree  Stores metadata about each file (except for size)  Once file is opened, I/O to file does not involve the MDS</p>
+    <p>Object storage server (OSS)  Manages OSTs (disk/LUN)  OSTs hold stripes of the file contents</p>
+    <p>Think RAID0  Maintains the locking for the file contents it is responsible for</p>
+    <p>Lustre Client</p>
+    <p>File open and file I/O in Lustre</p>
+    <p>MDS</p>
+    <p>File open request</p>
+    <p>File metadata File X (obj j, obj k)</p>
+    <p>OST1 OST2 OSTn</p>
+    <p>Write (obj K)</p>
+  </div>
+  <div class="page">
+    <p>Observation form the PFS</p>
+    <p>PFS is viewed as a single name space.</p>
+    <p>However, traditional data transfer tools do not fully utilize the available parallelism on</p>
+    <p>the PFS for I/Os.</p>
+    <p>However it is not a single disk, but the arrays of multiple disks with servers.</p>
+    <p>PFS has been designed for parallel I/Os.</p>
+  </div>
+  <div class="page">
+    <p>Problem(1): Traditional File Based Approach</p>
+    <p>Ignoring file layout information  A complete file can be assigned to each thread, and each thread works</p>
+    <p>on the file until the file is read.  Multiple threads can interfere each other on accessing the same OST.</p>
+    <p>Thread 1 reads File C. Thread 2 reads File B. Thread 1</p>
+    <p>Thread 2</p>
+    <p>OST2 OST3</p>
+    <p>OST1 OST3 OST1 OST3</p>
+    <p>Thread 1</p>
+    <p>Thread 2</p>
+    <p>OST1 OST3 OST1 OST3</p>
+    <p>OST1</p>
+    <p>OST2</p>
+    <p>OST3</p>
+    <p>File A File B File C</p>
+    <p>OST4</p>
+    <p>OST3 Contention</p>
+    <p>T1</p>
+    <p>T2</p>
+  </div>
+  <div class="page">
+    <p>Problem(2): Traditional File Based Approach</p>
+    <p>Ignoring file layout information  Multiple threads can work on a single file.</p>
+    <p>The parallelism can be limited by a stripe width of a file in the PFS.</p>
+    <p>OST1</p>
+    <p>OST2</p>
+    <p>OST3</p>
+    <p>File A File B File C</p>
+    <p>All io threads T[1-4] access File B.</p>
+    <p>OST4</p>
+    <p>T1 1 OST1</p>
+    <p>T2 3 OST1</p>
+    <p>T3 2 OST3</p>
+    <p>T4 4 OST3</p>
+    <p>OST1 Contention</p>
+    <p>OST3 Contention</p>
+    <p>T1 T2 T3 T4</p>
+  </div>
+  <div class="page">
+    <p>Bulk Data Movement Software</p>
+    <p>GridFTP  Requires Globus Toolkit  Supports multiple I/O threads, but it implements a file based approach</p>
+    <p>bbcp  The most popular data transfer tool for convenience reason, not for performance  Implements a file based approach</p>
+    <p>RFTP [SC11]  It is a file based approach, not fully utilizing underlying object layouts on the PFS</p>
+    <p>SCP  A single thread secure copy tool</p>
+    <p>None of these tools are optimized for fully utilizing the parallelism on PFS for big data</p>
+    <p>transfers.</p>
+  </div>
+  <div class="page">
+    <p>Traditional file transfers tools employ a logical view of files.</p>
+    <p>On the other hand, LADS uses the physical view of files, instead of a logical  view of files.</p>
+    <p>LADS can understand  The physical layout of files in which files are composed of data objects  The set of storage targets that hold the objects  The topology of storage servers and targets</p>
+  </div>
+  <div class="page">
+    <p>Solution: Object Based Approach</p>
+    <p>Aware of file layout information  A thread can work on any slice (object) on any OST.</p>
+    <p>OST1 OST2</p>
+    <p>OST3</p>
+    <p>File A File B File C</p>
+    <p>OST4</p>
+    <p>File D</p>
+    <p>OST5 OST6 OST7 OST8</p>
+    <p>File E</p>
+    <p>Thread 1 reads obj 1 of File B. Thread 2 reads obj 2 of File B. Thread 3 reads obj 1 of File D. Thread 4 reads obj 2 of File E.</p>
+    <p>None of I/O threads contend for OSTs. Parallelism = 4 (# of threads)</p>
+    <p>T1 T2 T3 T4</p>
+  </div>
+  <div class="page">
+    <p>LADS: Design Goals</p>
+    <p>Parallelism on Multi-core CPUs</p>
+    <p>Portability for Modern Network Technologies</p>
+    <p>Parallelism on PFS</p>
+    <p>HotSpot/Congestion Avoidance</p>
+    <p>End-to-End Data Transfer Optimization Solving the impedance mismatch problem between the faster network and</p>
+    <p>slower storage system</p>
+  </div>
+  <div class="page">
+    <p>Common Communication Interface</p>
+    <p>A new generic, communication abstraction layer  A network Application Programming Interface (API) for inter-process</p>
+    <p>communication</p>
+    <p>Design goals  Portability, Scalability, Performance, Robustness, Simplicity</p>
+    <p>Network solutions that CCI is currently supporting</p>
+    <p>Sockets (TCP, UDP), verbs (InifiBand, RoCE, iWarp), Cray uGNI, and a high-performance kernel-level Ethernet</p>
+    <p>[CCI HOTI11] S. Atchley, D. Dillow, G. Shipman, P. Geoffray, J. Squyres, G. Bosilca and R. Minnich, The Common Communication Interface (CCI) In the Proceedings of 19th IEEE Symposium on High Performance Interconnects (HOTI), 2011. CCI Website: http://cci-forum.com`</p>
+  </div>
+  <div class="page">
+    <p>LADS Architecture Overview</p>
+    <p>EP</p>
+    <p>Master io threads Comm</p>
+    <p>DRAM RMA Buffer</p>
+    <p>OST1 OST2 OST3 OST4</p>
+    <p>LADS-Source LADS-Sink</p>
+    <p>CCI implementation  Construct endpoints (virtual device) and pre-register RMA buffers</p>
+    <p>Threads Implementation  Queue based implementation with Master, I/O and Comm threads</p>
+    <p>OS cache</p>
+    <p>OST1 OST2 OST3 OST4</p>
+    <p>Layoutaware</p>
+    <p>Congestionaware</p>
+    <p>NVRAM buffering</p>
+    <p>EP</p>
+    <p>Master io threads Comm</p>
+    <p>DRAM RMA Buffer OS cache</p>
+    <p>Layoutaware</p>
+    <p>Congestionaware</p>
+    <p>NVRAM buffering</p>
+  </div>
+  <div class="page">
+    <p>LADS: Transferring Data at Source</p>
+    <p>OST1 OST2 OST3 OST4</p>
+    <p>File A File B File C File D</p>
+    <p>Ostq_1</p>
+    <p>Ostq_2</p>
+    <p>Ostq_3</p>
+    <p>Ostq_4 RMA buffer 2</p>
+    <p>LADS-Source</p>
+  </div>
+  <div class="page">
+    <p>LADS: Congestion-Aware Algorithm</p>
+    <p>Minimizing impact of intermittent congestion on storage servers  Implemented a threshold-based reactive algorithm using</p>
+    <p>a preset value (object reading or writing time) for determining congested server  the number of skips on the congested servers</p>
+    <p>DTN</p>
+    <p>IB Network</p>
+    <p>CN CN</p>
+    <p>Reading objects</p>
+    <p>HotSpot</p>
+    <p>skip congested</p>
+    <p>DTN CN CN CN</p>
+    <p>CN CN CN</p>
+    <p>Titan</p>
+    <p>Busy HotSpot Busy</p>
+    <p>LADS LADS</p>
+  </div>
+  <div class="page">
+    <p>LADS: Source-based Buffering on NVM</p>
+    <p>Sources RMA buffer full  The RMA buffer at source can be full if the sink is experiencing wide-spread congestion.</p>
+    <p>SSDq</p>
+    <p>OST1 OST2 OST3 OST4</p>
+    <p>Ostq_1 Ostq_2</p>
+    <p>Ostq_3</p>
+    <p>Ostq_4</p>
+    <p>RMA buffer</p>
+    <p>Fusion io</p>
+    <p>SSD</p>
+    <p>LADS-Source</p>
+  </div>
+  <div class="page">
+    <p>Test-bed Configuration</p>
+    <p>IB QDR (40Gb/s) DTN Intel Xeon</p>
+    <p>DTN</p>
+    <p>Lustre file system</p>
+    <p>Lustre file system</p>
+    <p>SSD</p>
+    <p>SSD</p>
+    <p>SSD</p>
+    <p>SSD</p>
+  </div>
+  <div class="page">
+    <p>B a n d w i d t h ( M B / s )</p>
+    <p>Message Size (Bytes)</p>
+    <p>Max Seq I/O BW: 2.3GB/s</p>
+    <p>IB Bandwidth 3.2GB/s</p>
+    <p>Validation of Test-bed</p>
+    <p>Comparing IB bandwidth vs. Storage bandwidth</p>
+    <p>The storage server bandwidth is not over-provisioned with respect to network bandwidth.</p>
+    <p>Max Seq I/O BW: 2.3GB/s</p>
+  </div>
+  <div class="page">
+    <p>Workloads</p>
+    <p>File size distribution for a snapshot taken from the Spider-I file system</p>
+    <p>F i l e C o u n t</p>
+    <p>A g g r e g a t e S i z e ( T B )</p>
+    <p>Count Size (TB)</p>
+    <p>85% of the files are less than 1MB and less than 15% of the files are greater than 1MB.</p>
+    <p>The larger files occupy most of the file system space.</p>
+  </div>
+  <div class="page">
+    <p>C P U U t i l i z a t i o n ( % )</p>
+    <p>M e m U s a g e ( M B )</p>
+    <p>io threads(LADS) (#)</p>
+    <p>lads-src-cpu lads-sink-cpu lads-src-mem</p>
+    <p>lads-sink-mem</p>
+    <p>T r a n s f e r R a t e ( M B / s )</p>
+    <p>io threads(LADS)/streams(bbcp)(#)</p>
+    <p>LADS bbcp</p>
+    <p>Small Files</p>
+    <p>T r a n s f e r R a t e ( M B / s )</p>
+    <p>io threads(LADS)/streams(bbcp)(#)</p>
+    <p>LADS bbcp</p>
+    <p>C P U U t i l i z a t i o n ( % )</p>
+    <p>M e m U s a g e ( M B )</p>
+    <p>io threads(LADS) (#)</p>
+    <p>lads-src-cpu lads-sink-cpu lads-src-mem</p>
+    <p>lads-sink-mem</p>
+    <p>Comparison of LADS and bbcp</p>
+    <p>Performance</p>
+    <p>Big Files</p>
+    <p>Big Files Small Files</p>
+    <p>Resource Utilization</p>
+  </div>
+  <div class="page">
+    <p>LADS with Storage in Contention</p>
+    <p>Evaluation of storage congestion-aware algorithm in LADS</p>
+    <p>(b) Sink storage congested (a) Source storage congested</p>
+    <p>N o r m a l , R R</p>
+    <p>C , R R</p>
+    <p>C , C A ( 5 , 1 0 0 )</p>
+    <p>C , C A ( 5 , 2 0 0 )</p>
+    <p>C , C A ( 5 , 4 0 0 )</p>
+    <p>C , C A ( 5 , 8 0 0 )</p>
+    <p>C , C A ( 5 , 1 6 0 0 )</p>
+    <p>C , C A ( 5 , 3 2 0 0 )</p>
+    <p>C , C A ( 5 , 6 4 0 0 )</p>
+    <p>C , C A ( 5 , 1 2 8 0 0 )</p>
+    <p>C , C A ( 1 5 , 3 2 0 0 )</p>
+    <p>T h r o u g h p u t ( M B / s )</p>
+    <p>Normal w/ RR Congested w/ RR Congested w/ CA</p>
+    <p>N o r m a l , R R</p>
+    <p>C , R R</p>
+    <p>C , C A ( 5 , 1 0 0 )</p>
+    <p>C , C A ( 5 , 2 0 0 )</p>
+    <p>C , C A ( 5 , 4 0 0 )</p>
+    <p>C , C A ( 5 , 8 0 0 )</p>
+    <p>C , C A ( 5 , 1 6 0 0 )</p>
+    <p>C , C A ( 5 , 3 2 0 0 )</p>
+    <p>C , C A ( 5 , 6 4 0 0 )</p>
+    <p>C , C A ( 5 , 1 2 8 0 0 )</p>
+    <p>C , C A ( 1 5 , 3 2 0 0 )</p>
+    <p>T h r o u g h p u t ( M B / s )</p>
+    <p>Normal w/ RR Congested w/ RR Congested w/ CA</p>
+  </div>
+  <div class="page">
+    <p>More Experiments - Summary</p>
+    <p>Effectiveness of the use of flash buffering at source  Throughputs increases as the available memory for communication at the source</p>
+    <p>increases.  Doubling the size of DRAM is very expensive and the same throughput could be</p>
+    <p>achieved using flash memory cheaper than DRAM.</p>
+    <p>Evaluation between DTNs at ORNL  For this experiment, both LADS and bbcp uses Sockets (LADS uses a CCI setup</p>
+    <p>to use its TCP transport).  LADS shows 6.8 times higher data transfer rate than bbcp.  bbcp shows slightly higher in throughput than LADS for a single thread.  In bbcp, I/O parallelism is limited to a stripe width of a file in Lustre (which is four in</p>
+    <p>our evaluation).</p>
+    <p>Threads (#) 1 2 4 8</p>
+    <p>LADS 58.71 116.30 228.38 407.02</p>
+    <p>bbcp 59.91 58.46 57.85 59.49</p>
+    <p>Throughput comparison (MB/s)</p>
+  </div>
+  <div class="page">
+    <p>Summary</p>
+    <p>I. We identified multiple bottlenecks that exist along the end-to-end data transfer from source and sink host systems.</p>
+    <p>II. We developed LADS to demonstrate techniques that can alleviate some end-toend bottlenecks while at the same time, negatively impact the use of the PFS by other resources.</p>
+    <p>III. We investigated three I/O optimization techniques: I/O slicing, layout-aware and congestion-aware I/O scheduling, and source-side SSD buffering.</p>
+    <p>Parallel File System</p>
+    <p>Parallel File System</p>
+    <p>Streaming Neutron Experiment</p>
+    <p>Data</p>
+    <p>Simulation Data</p>
+    <p>WAN</p>
+  </div>
+  <div class="page">
+    <p>Our Vision</p>
+    <p>An optimized end-to-end virtual path from any source to any sink</p>
+    <p>Streaming Neutron Experiment</p>
+    <p>Data</p>
+    <p>CCI Router or Data Aggregator</p>
+    <p>Parallel File System</p>
+    <p>Esnet (Energy Sciences Network)</p>
+    <p>Parallel File System</p>
+    <p>Streaming Simulation</p>
+    <p>Results</p>
+    <p>CCI Router or Data Aggregator</p>
+    <p>A variety of data sources and sinks must be supported to transition from traditional data movement to streaming experiment/simulation data</p>
+    <p>Location A</p>
+    <p>Location B</p>
+  </div>
+  <div class="page">
+    <p>Questions?</p>
+    <p>Contact info</p>
+    <p>Youngjae Kim (PhD) kimy1@ornl.gov Oak Ridge National Laboratory</p>
+    <p>The research and activities described in this presentation were performed using the resources of the National Center for Computational Sciences at Oak Ridge National Laboratory, which is supported by the Office of Science of the U.S. Department of Energy under Contract No. DE-AC0500OR22725.</p>
+  </div>
+</Presentation>

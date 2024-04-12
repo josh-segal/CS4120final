@@ -1,0 +1,493 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>GPU Taint Tracking</p>
+    <p>Presented by Eddy Z. Zhang</p>
+    <p>July 12, 2017</p>
+    <p>Rutgers University</p>
+    <p>Ari B. Hayes Rutgers University</p>
+    <p>Lingda Li Brookhaven National Lab</p>
+    <p>Mohammad Hedayati University of Rochester</p>
+    <p>Jiahuan He Rutgers University</p>
+    <p>Eddy Z. Zhang Rutgers University</p>
+    <p>Kai Shen Google</p>
+  </div>
+  <div class="page">
+    <p>Vulnerability of GPUs1</p>
+  </div>
+  <div class="page">
+    <p>Sensitive Data on the GPU</p>
+    <p>Many GPU applications use sensitive data:  Machine learning, data encryption, computer vision.</p>
+    <p>Face Recognition Input</p>
+  </div>
+  <div class="page">
+    <p>Sensitive Data on the GPU</p>
+    <p>Many GPU applications use sensitive data:  Machine learning, data encryption, computer vision.</p>
+    <p>Face Recognition Input</p>
+    <p>Face Recognition Leaked Features</p>
+  </div>
+  <div class="page">
+    <p>Memory Protection</p>
+    <p>Virtual Memory  Address Space Layout Randomization  Process Isolation  Page Protection</p>
+    <p>Bounds Checking  Memory Erasure</p>
+    <p>None of these are fully available on the GPU!</p>
+  </div>
+  <div class="page">
+    <p>Memory Protection</p>
+    <p>Without address space layout randomization, an attacker can predict where GPU data is stored. [Patterson, ISU thesis 2013]</p>
+    <p>Without process isolation, an attacker can peek into another GPU process, steal encryption keys. [Pietro+, TECS 2016]</p>
+    <p>Without page protection and bounds checking, an attacker can force a GPU program to write to non-permissive memory regions. [Vasiliadis+, CCS 2014]</p>
+    <p>Without a reliable way to control or erase GPU thread-private memories, a user cannot keep their data contained. [Pietro+, TECS 2016]</p>
+  </div>
+  <div class="page">
+    <p>GPU Memory</p>
+    <p>GPU</p>
+    <p>RAM</p>
+    <p>Global Memory</p>
+    <p>Local Memory</p>
+    <p>L2 Cache</p>
+    <p>SM</p>
+    <p>Registers Shared Mem</p>
+    <p>L1 Cache</p>
+    <p>SM</p>
+    <p>Registers Shared Mem</p>
+    <p>L1 Cache</p>
+    <p>CPU Memory</p>
+  </div>
+  <div class="page">
+    <p>Global memory</p>
+    <p>GPU</p>
+    <p>RAM</p>
+    <p>Global Memory</p>
+    <p>Local Memory</p>
+    <p>L2 Cache</p>
+    <p>SM</p>
+    <p>Registers Shared Mem</p>
+    <p>L1 Cache</p>
+    <p>SM</p>
+    <p>Registers Shared Mem</p>
+    <p>L1 Cache</p>
+    <p>Easily accessible to an attacker.</p>
+  </div>
+  <div class="page">
+    <p>Local Memory</p>
+    <p>GPU</p>
+    <p>RAM</p>
+    <p>Global Memory</p>
+    <p>Local Memory</p>
+    <p>L2 Cache</p>
+    <p>SM</p>
+    <p>Registers Shared Mem</p>
+    <p>L1 Cache</p>
+    <p>SM</p>
+    <p>Registers Shared Mem</p>
+    <p>L1 Cache</p>
+    <p>Used for spilled registers; inaccessible to programmer  Accessible by attacker through global memory</p>
+  </div>
+  <div class="page">
+    <p>Shared Memory &amp; L1 Cache</p>
+    <p>GPU</p>
+    <p>RAM</p>
+    <p>Global Memory</p>
+    <p>Local Memory</p>
+    <p>L2 Cache</p>
+    <p>SM</p>
+    <p>Registers Shared Mem</p>
+    <p>L1 Cache</p>
+    <p>SM</p>
+    <p>Registers Shared Mem</p>
+    <p>L1 Cache</p>
+    <p>Shared mem is accessible to attacker after function ends  On some GPUs, L1 cache can leak into shared memory</p>
+  </div>
+  <div class="page">
+    <p>Register File</p>
+    <p>GPU</p>
+    <p>RAM</p>
+    <p>Global Memory</p>
+    <p>Local Memory</p>
+    <p>L2 Cache</p>
+    <p>SM</p>
+    <p>Registers Shared Mem</p>
+    <p>L1 Cache</p>
+    <p>SM</p>
+    <p>Registers Shared Mem</p>
+    <p>L1 Cache</p>
+    <p>Designed to be inaccessible to programmer.  Accessible to attackers after GPU function finishes.</p>
+  </div>
+  <div class="page">
+    <p>Dynamic Taint Analysis</p>
+    <p>Common technique for monitoring sensitive data  Marks (taints) sensitive data and tracks taint at runtime  Has extensive CPU work with various implementations:</p>
+    <p>Compile-time instrumentation [Lin+, ICC 2010]  Dynamic instrumentation [Kemerlis+, VEE 2012]  Emulation [Bosman+, RAID 2011]  Virtual machine [Enck+, TOCS 2014]</p>
+    <p>Not previously attempted for GPU programs</p>
+  </div>
+  <div class="page">
+    <p>Challenges of GPU Taint Tracking</p>
+    <p>Must track several memory types  Dynamic instrumentation infeasible</p>
+    <p>Lack of support from OS or driver;  Cannot intercept/modify instructions on the fly.</p>
+    <p>Emulation is unappealing  Up to 1000x slowdown [Farooqui+, GPGPU 2011]</p>
+    <p>Virtual machines are unhelpful  Cannot monitor data in GPU</p>
+  </div>
+  <div class="page">
+    <p>Our Contributions</p>
+    <p>First GPU dynamic taint tracking system.  Compile-time binary instrumentation  Dynamic tracking  GPU-specific optimizations to minimize overhead.  Filter out unnecessary tracking instructions  Improves tracking performance by 5 to 20 times</p>
+  </div>
+  <div class="page">
+    <p>Taint Tracking2</p>
+  </div>
+  <div class="page">
+    <p>Taint Tracking</p>
+    <p>Maintains taint map; one taint bit for each memory location.  Monitors instructions &amp; operands, propagating taint values.</p>
+    <p>void foo() { b = a; d = b + c; }</p>
+    <p>void foo_taint_tracking() { taint(b) = taint(a); taint(d) = taint(b) || taint(c); }</p>
+    <p>Original code Taintedness propogation</p>
+  </div>
+  <div class="page">
+    <p>Our Taint Tracking System</p>
+    <p>Binary Analysis</p>
+    <p>Two Pass Analysis</p>
+    <p>Forward Pass</p>
+    <p>Backward Pass</p>
+    <p>Tracking Filter</p>
+    <p>Binary Instrumentation</p>
+  </div>
+  <div class="page">
+    <p>Analysis3</p>
+  </div>
+  <div class="page">
+    <p>Our Taint Tracking System</p>
+    <p>Binary Analysis</p>
+    <p>Two Pass Analysis</p>
+    <p>Forward Pass</p>
+    <p>Backward Pass</p>
+    <p>Tracking Filter</p>
+    <p>Binary Instrumentation</p>
+    <p>GPU Program Basic Blocks</p>
+    <p>&amp; CFG</p>
+  </div>
+  <div class="page">
+    <p>GPU Behavior</p>
+    <p>We observe that not everything needs to be tracked.  Some GPU data is untaintable or cannot spread taint.</p>
+    <p>Thread ID  Grid Size  Constant memory  Loop Iterators  Immediate values</p>
+    <p>These operands and instructions can be identified by analyzing the basic blocks and control flow graph.</p>
+  </div>
+  <div class="page">
+    <p>Our Taint Tracking System</p>
+    <p>Binary Analysis</p>
+    <p>Two Pass Analysis</p>
+    <p>Forward Pass</p>
+    <p>Backward Pass</p>
+    <p>Tracking Filter</p>
+    <p>Binary Instrumentation</p>
+    <p>GPU Program Basic Blocks</p>
+    <p>&amp; CFG</p>
+    <p>Taintability &amp;</p>
+    <p>Reachability</p>
+  </div>
+  <div class="page">
+    <p>Two Pass Analysis</p>
+    <p>Backward pass  Identifies &amp; marks taint sinks  Propagates markings backward</p>
+    <p>Forward pass  Identify &amp; marks potential taint sources  Propagates markings forward</p>
+    <p>Two-pass analysis  Combine markings from both passes</p>
+  </div>
+  <div class="page">
+    <p>Backward Pass</p>
+    <p>Block4: R0 = R1 + R2; R1 = R1 + R3; R0 = [R1]; R2 = R3 * R2; [R1] = R2; R0 = R1 * R3; BRA block5;</p>
+    <p>reachable = {R1, R2, R3} reachable = {R1, R2, R3} reachable = {R1, R2, R3} reachable = {R1, R2, R3} reachable = {R1, R2, R3} reachable = {R1, R3} reachable = {R0, R3}</p>
+  </div>
+  <div class="page">
+    <p>Backward Pass</p>
+    <p>Block4: R0 = R1 + R2; R1 = R1 + R3; R0 = [R1]; R2 = R3 * R2; [R1] = R2; R0 = R1 * R3; BRA block5;</p>
+    <p>reachable = {R1, R2, R3} reachable = {R1, R2, R3} reachable = {R1, R2, R3} reachable = {R1, R2, R3} reachable = {R1, R2, R3} reachable = {R1, R3} reachable = {R0, R3}</p>
+  </div>
+  <div class="page">
+    <p>Backward Pass</p>
+    <p>Block4: R0 = R1 + R2; R1 = R1 + R3; R0 = [R1]; R2 = R3 * R2; [R1] = R2; R0 = R1 * R3; BRA block5;</p>
+    <p>reachable = {R1, R2, R3} reachable = {R1, R2, R3} reachable = {R1, R2, R3} reachable = {R1, R2, R3} reachable = {R1, R2, R3} reachable = {R1, R3} reachable = {R0, R3}</p>
+  </div>
+  <div class="page">
+    <p>Backward Pass</p>
+    <p>Block4: R0 = R1 + R2; R1 = R1 + R3; R0 = [R1]; R2 = R3 * R2; [R1] = R2; R0 = R1 * R3; BRA block5;</p>
+    <p>reachable = {R1, R2, R3} reachable = {R1, R2, R3} reachable = {R1, R2, R3} reachable = {R1, R2, R3} reachable = {R1, R2, R3} reachable = {R1, R3} reachable = {R0, R3}</p>
+  </div>
+  <div class="page">
+    <p>Forward Pass</p>
+    <p>Block4: R0 = R1 + R2; R1 = R1 + R3; R0 = [R1]; R2 = R3 * R2; [R1] = R2; R0 = R1 * R3; BRA block5;</p>
+    <p>taintable = {R1} taintable = {R0, R1} taintable = {R0, R1} taintable = {R0, R1} taintable = {R0, R1} taintable = {R0, R1} taintable = {R0, R1}</p>
+  </div>
+  <div class="page">
+    <p>Forward Pass</p>
+    <p>Block4: R0 = R1 + R2; R1 = R1 + R3; R0 = [R1]; R2 = R3 * R2; [R1] = R2; R0 = R1 * R3; BRA block5;</p>
+    <p>taintable = {R1} taintable = {R0, R1} taintable = {R0, R1} taintable = {R0, R1} taintable = {R0, R1} taintable = {R0, R1} taintable = {R0, R1}</p>
+  </div>
+  <div class="page">
+    <p>Forward Pass</p>
+    <p>Block4: R0 = R1 + R2; R1 = R1 + R3; R0 = [R1]; R2 = R3 * R2; [R1] = R2; R0 = R1 * R3; BRA block5;</p>
+    <p>taintable = {R1} taintable = {R0, R1} taintable = {R0, R1} taintable = {R0, R1} taintable = {R0, R1} taintable = {R0, R1} taintable = {R0, R1}</p>
+  </div>
+  <div class="page">
+    <p>Forward Pass</p>
+    <p>Block4: R0 = R1 + R2; R1 = R1 + R3; R0 = [R1]; R2 = R3 * R2; [R1] = R2; R0 = R1 * R3; BRA block5;</p>
+    <p>taintable = {R1} taintable = {R0, R1} taintable = {R0, R1} taintable = {R0, R1} taintable = {R0, R1} taintable = {R0, R1} taintable = {R0, R1}</p>
+  </div>
+  <div class="page">
+    <p>Instrumentation4</p>
+  </div>
+  <div class="page">
+    <p>Our Taint Tracking System</p>
+    <p>Binary Analysis</p>
+    <p>Two Pass Analysis</p>
+    <p>Forward Pass</p>
+    <p>Backward Pass</p>
+    <p>Tracking Filter</p>
+    <p>Binary Instrumentation</p>
+    <p>GPU Program Basic Blocks</p>
+    <p>&amp; CFG</p>
+    <p>Taintability &amp;</p>
+    <p>Reachability</p>
+    <p>New Assembly</p>
+  </div>
+  <div class="page">
+    <p>Naive Tracking Code</p>
+    <p>R0 = R1 + R2;</p>
+    <p>R1 = R1 + R3;</p>
+    <p>R0 = [R1];</p>
+    <p>R2 = R3 * R2;</p>
+    <p>[R1] = R2;</p>
+    <p>R0 = R1 * R3;</p>
+    <p>BRA block5;</p>
+    <p>Block4:</p>
+  </div>
+  <div class="page">
+    <p>Naive Tracking Code</p>
+    <p>t(R0) = t(R1) | t(R2)</p>
+    <p>t(R1) = t(R1) | t(R3)</p>
+    <p>t(R0) = t([R1])</p>
+    <p>t(R2) = t(R3) | t(R2)</p>
+    <p>t([R1]) = t(R1) | t(R2)</p>
+    <p>t(R0) = t(R1) | t(R3)</p>
+    <p>R0 = R1 + R2;</p>
+    <p>R1 = R1 + R3;</p>
+    <p>R0 = [R1];</p>
+    <p>R2 = R3 * R2;</p>
+    <p>[R1] = R2;</p>
+    <p>R0 = R1 * R3;</p>
+    <p>BRA block5;</p>
+    <p>Block4:</p>
+  </div>
+  <div class="page">
+    <p>Naive Tracking Code</p>
+    <p>t(R0) = t(R1) | t(R2)</p>
+    <p>t(R1) = t(R1) | t(R3)</p>
+    <p>t(R0) = t([R1])</p>
+    <p>t(R2) = t(R3) | t(R2)</p>
+    <p>t([R1]) = t(R1) | t(R2)</p>
+    <p>t(R0) = t(R1) | t(R3)</p>
+    <p>Block4: R0 = R1 + R2;</p>
+    <p>R1 = R1 + R3;</p>
+    <p>R0 = [R1];</p>
+    <p>R2 = R3 * R2;</p>
+    <p>[R1] = R2;</p>
+    <p>R0 = R1 * R3;</p>
+    <p>BRA block5;</p>
+  </div>
+  <div class="page">
+    <p>Naive Tracking Code</p>
+    <p>t(R0) = t(R1) | t(R2)</p>
+    <p>t(R1) = t(R1) | t(R3)</p>
+    <p>t(R0) = t([R1])</p>
+    <p>t(R2) = t(R3) | t(R2)</p>
+    <p>t([R1]) = t(R1) | t(R2)</p>
+    <p>t(R0) = t(R1) | t(R3)</p>
+    <p>Block4: R0 = R1 + R2;</p>
+    <p>R1 = R1 + R3;</p>
+    <p>R0 = [R1];</p>
+    <p>R2 = R3 * R2;</p>
+    <p>[R1] = R2;</p>
+    <p>R0 = R1 * R3;</p>
+    <p>BRA block5;</p>
+  </div>
+  <div class="page">
+    <p>Naive Tracking Code</p>
+    <p>t(R0) = t(R1) | t(R2)</p>
+    <p>t(R1) = t(R1) | t(R3)</p>
+    <p>t(R0) = t([R1])</p>
+    <p>t(R2) = t(R3) | t(R2)</p>
+    <p>t([R1]) = t(R1) | t(R2)</p>
+    <p>t(R0) = t(R1) | t(R3)</p>
+    <p>Block4: R0 = R1 + R2;</p>
+    <p>R1 = R1 + R3;</p>
+    <p>R0 = [R1];</p>
+    <p>R2 = R3 * R2;</p>
+    <p>[R1] = R2;</p>
+    <p>R0 = R1 * R3;</p>
+    <p>BRA block5;</p>
+  </div>
+  <div class="page">
+    <p>Naive Tracking Code</p>
+    <p>t(R0) = t(R1) | t(R2)</p>
+    <p>t(R1) = t(R1) | t(R3)</p>
+    <p>t(R0) = t([R1])</p>
+    <p>t(R2) = t(R3) | t(R2)</p>
+    <p>t([R1]) = t(R1) | t(R2)</p>
+    <p>t(R0) = t(R1) | t(R3)</p>
+    <p>Block4: R0 = R1 + R2;</p>
+    <p>R1 = R1 + R3;</p>
+    <p>R0 = [R1];</p>
+    <p>R2 = R3 * R2;</p>
+    <p>[R1] = R2;</p>
+    <p>R0 = R1 * R3;</p>
+    <p>BRA block5;</p>
+  </div>
+  <div class="page">
+    <p>Filtered Tracking Code</p>
+    <p>t(R0) = t(R1) | t(R2)</p>
+    <p>t(R1) = t(R1) | t(R3)</p>
+    <p>t(R0) = t([R1])</p>
+    <p>t(R2) = t(R3) | t(R2)</p>
+    <p>t([R1]) = t(R1) | t(R2)</p>
+    <p>t(R0) = t(R1) | t(R3)</p>
+    <p>R0 = R1 + R2;</p>
+    <p>R1 = R1 + R3;</p>
+    <p>R0 = [R1];</p>
+    <p>R2 = R3 * R2;</p>
+    <p>[R1] = R2;</p>
+    <p>R0 = R1 * R3;</p>
+    <p>BRA block5;</p>
+    <p>Block4:</p>
+  </div>
+  <div class="page">
+    <p>Filtered Tracking Code</p>
+    <p>t(R0) = t(R1) | t(R2)</p>
+    <p>t(R1) = t(R1) | t(R3)</p>
+    <p>t(R0) = t([R1])</p>
+    <p>t(R2) = t(R3) | t(R2)</p>
+    <p>t([R1]) = t(R1) | t(R2)</p>
+    <p>t(R0) = t(R1) | t(R3)</p>
+    <p>R0 = R1 + R2;</p>
+    <p>R1 = R1 + R3;</p>
+    <p>R0 = [R1];</p>
+    <p>R2 = R3 * R2;</p>
+    <p>[R1] = R2;</p>
+    <p>R0 = R1 * R3;</p>
+    <p>BRA block5;</p>
+    <p>Block4:</p>
+  </div>
+  <div class="page">
+    <p>Filtered Tracking Code</p>
+    <p>t(R0) = t(R1) | t(R2)</p>
+    <p>t(R1) = t(R1) | t(R3)</p>
+    <p>t(R0) = t([R1])</p>
+    <p>t(R2) = t(R3) | t(R2)</p>
+    <p>t([R1]) = t(R1) | t(R2)</p>
+    <p>t(R0) = t(R1) | t(R3)</p>
+    <p>Block4: R0 = R1 + R2;</p>
+    <p>R1 = R1 + R3;</p>
+    <p>R0 = [R1];</p>
+    <p>R2 = R3 * R2;</p>
+    <p>[R1] = R2;</p>
+    <p>R0 = R1 * R3;</p>
+    <p>BRA block5;</p>
+  </div>
+  <div class="page">
+    <p>Our Taint Tracking System</p>
+    <p>Binary Analysis</p>
+    <p>Two Pass Analysis</p>
+    <p>Forward Pass</p>
+    <p>Backward Pass</p>
+    <p>Tracking Filter</p>
+    <p>Binary Instrumentation</p>
+    <p>GPU Program Basic Blocks</p>
+    <p>&amp; CFG</p>
+    <p>Taintability &amp;</p>
+    <p>Reachability</p>
+    <p>New AssemblyGPU Program</p>
+    <p>Basic Blocks</p>
+  </div>
+  <div class="page">
+    <p>Efficient Taint Map</p>
+    <p>Taint map is typically kept completely in RAM.  Off-chip memory is very slow on the GPU.  Better to keep part of the taint map in on-chip memory.</p>
+    <p>We keep register taintedness in the register file.  Registers are 32 bits, so every 32 tracked registers</p>
+    <p>adds only one register of overhead.</p>
+  </div>
+  <div class="page">
+    <p>Evaluation5</p>
+  </div>
+  <div class="page">
+    <p>Methodology</p>
+    <p>Binary code is converted to assembly with cuobjdump.  Our compiler Orion analyzes assembly and adds taint</p>
+    <p>tracking (and erasure) code to assembly</p>
+    <p>New assembly is converted into binary based on asfermi &amp; MaxAs.</p>
+    <p>Taint map allocation can be done indirectly through CPU, using LD_PRELOAD to intercept cudaMalloc calls.</p>
+    <p>Evaluated on NVIDIA GTX 745, compute capability 5.0.</p>
+  </div>
+  <div class="page">
+    <p>Benchmarks</p>
+    <p>Benchmark Domain Source</p>
+    <p>im2col Machine Learning Caffe</p>
+    <p>ReLUForward Machine Learning Caffe</p>
+    <p>MaxPoolForward Machine Learning Caffe</p>
+    <p>FDTD3d Numerical Analysis CUDA SDK</p>
+    <p>BlackScholes Financial Analysis CUDA SDK</p>
+    <p>SSLShader Cryptography [Jang+, NSDI 2011]</p>
+    <p>needle Bioinformatics Rodinia</p>
+  </div>
+  <div class="page">
+    <p>Results - Runtime with Tracking</p>
+  </div>
+  <div class="page">
+    <p>Results - Runtime with Tracking</p>
+    <p>Geomean is 24.41X</p>
+  </div>
+  <div class="page">
+    <p>Results - Runtime with Tracking</p>
+    <p>Geomean is 5.19X</p>
+  </div>
+  <div class="page">
+    <p>Results - Runtime with Tracking</p>
+    <p>Geomean is 8.96X</p>
+  </div>
+  <div class="page">
+    <p>Results - Runtime with Tracking</p>
+    <p>Geomean is 17.84X</p>
+  </div>
+  <div class="page">
+    <p>Results - Runtime with Tracking</p>
+    <p>Geomean is 7.38X</p>
+  </div>
+  <div class="page">
+    <p>Results - Runtime with Tracking</p>
+    <p>Geomean is 2.80X</p>
+  </div>
+  <div class="page">
+    <p>Results - Code Size with Tracking</p>
+  </div>
+  <div class="page">
+    <p>Memory Erasure</p>
+    <p>After adding tracking code, we can also add erasure code.  On-chip memory can only be reliably erased via binary</p>
+    <p>instrumentation.</p>
+    <p>We have GPU threads clear their own registers and shared memory, as well as thread-private data in local memory.</p>
+    <p>The final taint map identifies global memory with sensitive data, so that it can be erased.</p>
+  </div>
+  <div class="page">
+    <p>On-Chip &amp; Thread-Private Erasure</p>
+    <p>Benchmark Memories Slowdown</p>
+    <p>im2col Reg 0.26%</p>
+    <p>ReLUForward Reg 0.33%</p>
+    <p>MaxPoolForward Reg 0.59%</p>
+    <p>FDTD3d Reg, Shared 5.10%</p>
+    <p>BlackScholes Reg 0.40%</p>
+    <p>SSLShader Reg, Local 0.41%</p>
+    <p>needle Reg, Shared 13.05%</p>
+    <p>Naive erasure is up to nine times slower!</p>
+  </div>
+  <div class="page">
+    <p>Conclusion7</p>
+  </div>
+  <div class="page">
+    <p>Conclusion</p>
+    <p>We present the first GPU dynamic taint tracking system.  Two pass filtering eliminates tracking code.  GPU-specific optimizations to minimize overhead.  Clears memory the programmer cannot.  Improves tracking performance by 5X to 20X.</p>
+  </div>
+  <div class="page">
+    <p>Questions?7</p>
+  </div>
+</Presentation>

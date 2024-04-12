@@ -1,0 +1,172 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>Automatic Wireless Protocol Reverse Engineering</p>
+    <p>Johannes Pohl and Andreas Noack</p>
+    <p>University of Applied Sciences Stralsund</p>
+    <p>August 13, 2019</p>
+  </div>
+  <div class="page">
+    <p>Internet of Things</p>
+    <p>Proprietary wireless protocols everywhere</p>
+    <p>Example: Smart Home Increase comfort of users through wireless sockets, door locks, valve sensors . . . Devices are designed under size and energy constraints Limited resources for cryptography</p>
+    <p>Risks of Smart Home Manufactures design custom proprietary wireless protocols Hackers may take over households and, e.g., break in without physical traces</p>
+    <p>How can we speed up the security investigation of proprietary wireless protocols?</p>
+    <p>August 13, 2019 Johannes Pohl and Andreas Noack Automatic Wireless Protocol Reverse Engineering Slide 2</p>
+  </div>
+  <div class="page">
+    <p>Software Defined Radios</p>
+    <p>Software Defined Radio</p>
+    <p>Why Software Defined Radios? Send and receive on nearly arbitrary frequenciesa</p>
+    <p>Flexibility and extendability with custom software ae.g. HackRF: 1 MHz - 6 GHz</p>
+    <p>(a) USRP N210 (b) HackRF</p>
+    <p>August 13, 2019 Johannes Pohl and Andreas Noack Automatic Wireless Protocol Reverse Engineering Slide 3</p>
+  </div>
+  <div class="page">
+    <p>Wireless Protocols</p>
+    <p>Universal Radio Hacker</p>
+    <p>Interpretation</p>
+    <p>Analysis</p>
+    <p>Generation</p>
+    <p>Stateless</p>
+    <p>Format</p>
+    <p>Simulation</p>
+    <p>Stateful</p>
+    <p>Format</p>
+    <p>Automate August 13, 2019 Johannes Pohl and Andreas Noack Automatic Wireless Protocol Reverse Engineering Slide 4</p>
+  </div>
+  <div class="page">
+    <p>Wireless Protocols</p>
+    <p>Structure of a Wireless Protocol</p>
+    <p>Preamble Synchronization Length SRC DST Sequence Number . . . Checksum</p>
+    <p>Purpose of Fields Preamble: Synchronize clocks with fixed preamble pattern, e.g., 101010. . . Synchronization: Indicate start of transmission with sync sequence, e.g., 0x9a7d Length: Contains the size of following data, usually in bytes SRC/DST: Source / Destination addresses of communicating devices Sequence Number: Increasing counters used for flow control and freshness Checksum: Verify integrity of received data (recognize transmission errors)</p>
+    <p>The message format determines the order and type of fields for a message. The message type describes which message format to use. A protocol can contain various message types such as DATA and ACK (acknowledgement).</p>
+    <p>August 13, 2019 Johannes Pohl and Andreas Noack Automatic Wireless Protocol Reverse Engineering Slide 5</p>
+  </div>
+  <div class="page">
+    <p>Example</p>
+    <p>Example Protocol: Communication between two Smart Home Devices</p>
+    <p>August 13, 2019 Johannes Pohl and Andreas Noack Automatic Wireless Protocol Reverse Engineering Slide 6</p>
+  </div>
+  <div class="page">
+    <p>Example</p>
+    <p>Example Protocol after hitting the Analyze Protocol Button</p>
+    <p>August 13, 2019 Johannes Pohl and Andreas Noack Automatic Wireless Protocol Reverse Engineering Slide 7</p>
+  </div>
+  <div class="page">
+    <p>Overview</p>
+    <p>Overview of Proposed Algorithm Raw data with messages and RSSI Preprocessor</p>
+    <p>Length EngineAddress EngineSEQ Nr EngineChecksum Engine</p>
+    <p>AA D9 04 13 37 01 28 AA D9 02 13 EB AA D9 04 37 13 02 7B AA AA D9 02 37 DD AA D9 04 13 37 03 26 AA D9 02 13 EB</p>
+    <p>AA D9 04 13 37 01 28 AA D9 02 13 EB AA D9 04 37 13 02 7B AA AA D9 02 37 DD AA D9 04 13 37 03 26 AA D9 02 13 EB</p>
+    <p>Result: Aggregated protocol fields</p>
+    <p>Message Type 1 (DATA)</p>
+    <p>Preamble SYNC LEN DST SRC SEQ CRC</p>
+    <p>Message Type 2 (ACK)</p>
+    <p>Preamble SYNC LEN DST CRC</p>
+    <p>Design Goals Work on limited number of messages Tolerant against transmission errors Bootstrap unknown protocols but also consider prior knowledge Work solely on captured messages, i.e., program binary is not accessible</p>
+    <p>August 13, 2019 Johannes Pohl and Andreas Noack Automatic Wireless Protocol Reverse Engineering Slide 8</p>
+  </div>
+  <div class="page">
+    <p>Preprocessor</p>
+    <p>Preprocessing: Align messages on (unknown) sync words</p>
+    <p>Preprocessor</p>
+    <p>AA D9 04 13 37 01 28 AA D9 02 13 EB AA D9 04 37 13 02 7B AA AA D9 02 37 DD AA D9 04 13 37 03 26 AA D9 02 13 EB</p>
+    <p>Purpose of Preprocessing Identify preamble: (anbm)k with a, b {0, 1}, a 6= b and n, m, k  N+, e.g., 10101010 with n = m = 1 and k = 4. Identify sync word(s) Align messages on sync word(s): Pass only data behind sync to subsequent engines</p>
+    <p>August 13, 2019 Johannes Pohl and Andreas Noack Automatic Wireless Protocol Reverse Engineering Slide 9</p>
+  </div>
+  <div class="page">
+    <p>Engines</p>
+    <p>Overview Field Type Inference</p>
+    <p>Start: 5 Length: 2 Value: EF Messages: 1,2,3</p>
+    <p>Common Range</p>
+    <p>August 13, 2019 Johannes Pohl and Andreas Noack Automatic Wireless Protocol Reverse Engineering Slide 10</p>
+  </div>
+  <div class="page">
+    <p>Engines</p>
+    <p>Included Engines</p>
+    <p>Length Engine Cluster messages by physical length Give higher score to ranges those decimal value matches physical length</p>
+    <p>Address Engine Assign a participant to every message Infer participant address candidates Find fields with address candidates</p>
+    <p>Sequence Number Engine Calculate a matrix E of decimal differences between adjacent messages Evaluate columns of E with only constants or zeros (when SeqNr is constant between some messages)</p>
+    <p>Checksum Engine Find checksums such as CRC16-CCITT by testing common CRC parameters and other checksums CRC testing algorithm uses a CRC cache for increased performance</p>
+    <p>August 13, 2019 Johannes Pohl and Andreas Noack Automatic Wireless Protocol Reverse Engineering Slide 11</p>
+  </div>
+  <div class="page">
+    <p>Engines</p>
+    <p>Message Type Creation and Assignment</p>
+    <p>Assignment of Message Types Engines return a set of labels Group these labels into message types based on their message indices Create message type for non-overlapping fields with matching message indices In conflict case: Choose range(s) that maximize the total score of message type</p>
+    <p>Example for three found fields</p>
+    <p>Range: 042 Type: Length Messages: 1,2,3</p>
+    <p>Found Field 1 Range: 1242 Type: Checksum Messages: 4,5,6</p>
+    <p>Found Field 2 Range: 4260 Type: Address Messages: 1,2,3,4</p>
+    <p>Found Field 3</p>
+    <p>Fields: Checksum Messages: 5,6 Message type 1</p>
+    <p>Fields: Length, Address Messages: 1,2,3 Message type 2</p>
+    <p>Fields: Checksum, Address Messages: 4 Message type 3</p>
+    <p>August 13, 2019 Johannes Pohl and Andreas Noack Automatic Wireless Protocol Reverse Engineering Slide 12</p>
+  </div>
+  <div class="page">
+    <p>Prior Knowledge</p>
+    <p>Considering Prior Knowledge</p>
+    <p>Rules for prior knowledge 1 Labels must not be changed. 2 Labels must not be removed</p>
+    <p>from a message type. 3 Messages must keep their</p>
+    <p>assigned message type.</p>
+    <p>Dealing with prior knowledge Skip engines of already present fields Engines ignore all ranges of a message that are already labeled If new message type needs to be created: split original one (=copy over all labels)</p>
+    <p>Run this for each message type to consider prior knowledge 1 w h i l e n e w _ f i e l d s _ f o u n d an d m a x _ i t e r a t i o n _ n o t _ e x c e e d e d : 2 fo r mt in e x i s t i n g _ m e s s a g e _ t y p e s : 3 n e w _ f i e l d s = [] 4 fo r e n g i n e in e n g i n e s : 5 if f i e l d _ o f _ e n g i n e no t in mt : 6 n e w _ f i e l d s . e x t e n d ( e n g i n e . ru n ( mt ) ) 7 a d d _ t o _ m e s s a g e _ t y p e ( mt , n e w _ f i e l d s ) # S p l i t m e s s a g e t y p e if n e c e s s a r y</p>
+    <p>August 13, 2019 Johannes Pohl and Andreas Noack Automatic Wireless Protocol Reverse Engineering Slide 13</p>
+  </div>
+  <div class="page">
+    <p>Generated Protocols</p>
+    <p>Overview of Generated Protocols</p>
+    <p>Table: Properties of tested protocols whereby  means field is not present and NP is the number of participants. # Comment NP Message Even/odd Size of field in bit (BE=Big Endian, LE=Little Endian)</p>
+    <p>Type message data Preamble Sync Length SRC DST SEQ Nr CRC 1 common protocol 2 data 8/64 byte 8 16 8 16 16 8  2 unusual field sizes 2 data 8/64 byte 72 16 8 24 24 16 (BE)  3 2 data 10/10 byte 16 16 8 16 16 8 8contains ack and CRC8</p>
+    <p>CCITT ack  16 16 8  16  8 4 2 data 8/64 byte 16 16 8 16 16  16contains ack and CRC16</p>
+    <p>CCITT ack  16 16 8  16  16 5 3 data 8/64 byte 16 16 8 16 16 8 three participants with ack</p>
+    <p>frame ack  16 16 8  16   6 short address 2 data 8/64 byte  16 8 8  8  7 4 data 8/8 byte 16 16 8 24 24  16</p>
+    <p>ack  8 16   24  16 four participants, varying preamble size, varying sync words kex 64/64 byte 24 16  24 24  16</p>
+    <p>August 13, 2019 Johannes Pohl and Andreas Noack Automatic Wireless Protocol Reverse Engineering Slide 14</p>
+  </div>
+  <div class="page">
+    <p>Generated Protocols</p>
+    <p>Test against number of messages</p>
+    <p>Number of messages</p>
+    <p>A cc ur ac y in</p>
+    <p>%</p>
+    <p>Protocol 1 Protocol 2 Protocol 3 Protocol 4 Protocol 5 Protocol 6 Protocol 7 Protocol 8</p>
+    <p>Results 100% accuracy for all protocols when more than 17 messages are available 100% accuracy for five out of eighth protocols when at least 7 messages are available Protocol 5 and 7 have more participants involved so algorithm needs more messages to infer address fields correctly</p>
+    <p>August 13, 2019 Johannes Pohl and Andreas Noack Automatic Wireless Protocol Reverse Engineering Slide 15</p>
+  </div>
+  <div class="page">
+    <p>Generated Protocols</p>
+    <p>Test against errors</p>
+    <p>Percentage of broken messages</p>
+    <p>A cc ur ac y in</p>
+    <p>%</p>
+    <p>Protocol 1 Protocol 2 Protocol 3 Protocol 4 Protocol 5 Protocol 6 Protocol 7 Protocol 8</p>
+    <p>Setup and Results Break messages by setting bits to random values beginning at a random position (30 messages total) Worst case for the algorithm because some data remains valid in broken messages Majority of protocols are labeled with more than 80% accuracy when 20% of messages are broken</p>
+    <p>August 13, 2019 Johannes Pohl and Andreas Noack Automatic Wireless Protocol Reverse Engineering Slide 16</p>
+  </div>
+  <div class="page">
+    <p>Real-world protocols</p>
+    <p>Performance measurement with real-world smart home protocols</p>
+    <p>Number of messages</p>
+    <p>T im</p>
+    <p>e in</p>
+    <p>se co nd</p>
+    <p>s</p>
+    <p>EnOcean Homematic RWE</p>
+    <p>Measurement Setup Intel(R) Core(TM) i7-6700K CPU @ 4.00GHz 16 GB RAM Message length between 8 and 61 bytes For every number of messages perform 100 performance measurements and take the mean performance</p>
+    <p>August 13, 2019 Johannes Pohl and Andreas Noack Automatic Wireless Protocol Reverse Engineering Slide 17</p>
+  </div>
+  <div class="page">
+    <p>Conclusion and Future Work</p>
+    <p>Conclusion Framework for automatic reverse engineering of proprietary wireless protocols Dedicated engines to find Preamble, Synchronization, Length, Sequence Number, Address and Checksum fields Bootstrap unknown protocols but also able to consider prior knowledge Verified with simulated and real-world protocols</p>
+    <p>Future Work Suggestion of attacks based on the found fields Detection of cryptography in message payload Ultimate goal: automated security score based on found cryptography and protocol complexity for initial security assessment right from captured messages</p>
+    <p>August 13, 2019 Johannes Pohl and Andreas Noack Automatic Wireless Protocol Reverse Engineering Slide 18</p>
+  </div>
+  <div class="page">
+    <p>https://github.com/jopohl/urh  q</p>
+    <p>Contact E-Mail: Johannes.Pohl90@gmail.com E-Mail: Andreas.Noack@hochschule-stralsund.de Slack: https://bit.ly/2LGpsra GitHub: https://github.com/jopohl</p>
+    <p>August 13, 2019 Johannes Pohl and Andreas Noack Automatic Wireless Protocol Reverse Engineering Slide 19</p>
+  </div>
+</Presentation>

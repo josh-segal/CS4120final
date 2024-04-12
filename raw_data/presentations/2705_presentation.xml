@@ -1,0 +1,303 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>Encoding, Fast and Slow: Low-Latency Video Processing Using Thousands of Tiny Threads</p>
+    <p>Sadjad Fouladi, Riad S. Wahby, Brennan Shacklett, Karthikeyan Vasuki Balasubramaniam, William Zeng, Rahul Bhalerao, Anirudh Sivaraman, George Porter, Keith Winstein</p>
+    <p>https://ex.camera</p>
+    <p>Stanford University, UC San Diego, MIT</p>
+  </div>
+  <div class="page">
+    <p>Outline</p>
+    <p>Vision &amp; Goals</p>
+    <p>mu: Supercomputing as a Service</p>
+    <p>Fine-grained Parallel Video Encoding</p>
+    <p>Evaluation</p>
+    <p>Conclusion &amp; Future Work</p>
+  </div>
+  <div class="page">
+    <p>What we currently have</p>
+    <p>People can make changes to a word-processing document</p>
+    <p>The changes are instantly visible for the others</p>
+  </div>
+  <div class="page">
+    <p>What we would like to have</p>
+    <p>People can interactively edit and transform a video</p>
+    <p>The changes are instantly visible for the others</p>
+    <p>for Video?</p>
+  </div>
+  <div class="page">
+    <p>&quot;Apply this awesome filter to my video.&quot;</p>
+  </div>
+  <div class="page">
+    <p>&quot;Look everywhere for this face in this movie.&quot;</p>
+  </div>
+  <div class="page">
+    <p>&quot;Remake Star Wars Episode I without Jar Jar.&quot;</p>
+  </div>
+  <div class="page">
+    <p>Can we achieve interactive collaborative video editing by using massive parallelism?</p>
+    <p>Currently, running such pipelines on videos takes hours and hours, even for a short video.</p>
+    <p>The Problem</p>
+    <p>The Question</p>
+  </div>
+  <div class="page">
+    <p>The challenges</p>
+    <p>Low-latency video processing would need thousands of threads, running in parallel, with instant startup.</p>
+    <p>However, the finer-grained the parallelism, the worse the compression efficiency.</p>
+  </div>
+  <div class="page">
+    <p>Enter ExCamera</p>
+    <p>We made two contributions:</p>
+    <p>Framework to run 5,000-way parallel jobs with IPC on a commercial cloud function service.</p>
+    <p>Purely functional video codec for massive fine-grained parallelism.</p>
+    <p>We call the whole system ExCamera.</p>
+  </div>
+  <div class="page">
+    <p>Outline</p>
+    <p>Vision &amp; Goals</p>
+    <p>mu: Supercomputing as a Service</p>
+    <p>Fine-grained Parallel Video Encoding</p>
+    <p>Evaluation</p>
+    <p>Conclusion &amp; Future Work</p>
+  </div>
+  <div class="page">
+    <p>Where to find thousands of threads?</p>
+    <p>IaaS services provide virtual machines (e.g. EC2, Azure, GCE):  Thousands of threads  Arbitrary Linux executables ! Minute-scale startup time (OS has to boot up, ...) ! High minimum cost</p>
+    <p>(60 mins EC2, 10 mins GCE)</p>
+  </div>
+  <div class="page">
+    <p>Cloud function services have (as yet) unrealized power</p>
+    <p>AWS Lambda, Google Cloud Functions</p>
+    <p>Intended for event handlers and Web microservices, but...</p>
+    <p>Features:  Thousands of threads  Arbitrary Linux executables  Sub-second startup  Sub-second billing</p>
+  </div>
+  <div class="page">
+    <p>mu, supercomputing as a service</p>
+    <p>We built mu, a library for designing and deploying general-purpose parallel computations on a commercial cloud function service.</p>
+    <p>The system starts up thousands of threads in seconds and manages interthread communication.</p>
+    <p>mu is open-source software: https://github.com/excamera/mu</p>
+  </div>
+  <div class="page">
+    <p>HAVE YOU SEEN THIS MAN?</p>
+  </div>
+  <div class="page">
+    <p>Demo: Massively parallel face recognition on AWS Lambda</p>
+    <p>~6 hours of video taken on the first day of NSDI.</p>
+    <p>1.4TB of uncompressed video uploaded to S3.</p>
+    <p>Adapted OpenFace to run on AWS Lambda.</p>
+    <p>OpenFace: face recognition with deep neural networks.</p>
+    <p>Running 2,000 Lambdas, looking for a face in the video.</p>
+  </div>
+  <div class="page">
+    <p>Outline</p>
+    <p>Vision &amp; Goals</p>
+    <p>mu: Supercomputing as a Service</p>
+    <p>Fine-grained Parallel Video Encoding</p>
+    <p>Evaluation</p>
+    <p>Conclusion &amp; Future Work</p>
+  </div>
+  <div class="page">
+    <p>Now we have the threads, but...</p>
+    <p>With the existing encoders, the finer-grained the parallelism, the worse the compression efficiency.</p>
+  </div>
+  <div class="page">
+    <p>Video Codec</p>
+    <p>A piece of software or hardware that compresses and decompresses digital video.</p>
+    <p>Encoder Decoder</p>
+  </div>
+  <div class="page">
+    <p>How video compression works</p>
+    <p>Exploit the temporal redundancy in adjacent images.</p>
+    <p>Store the first image on its entirety: a key frame.</p>
+    <p>For other images, only store a &quot;diff&quot; with the previous images: an interframe.</p>
+    <p>In a 4K video @15Mbps, a key frame is ~1 MB, but an interframe is ~25 KB.</p>
+  </div>
+  <div class="page">
+    <p>Existing video codecs only expose a simple interface</p>
+    <p>encode([!,!,...,!])  keyframe + interframe[2:n]</p>
+    <p>decode(keyframe + interframe[2:n])  [!,!,...,!]</p>
+    <p>compressed video</p>
+  </div>
+  <div class="page">
+    <p>encode(i[1:200])  keyframe1 + interframe[2:200]</p>
+    <p>[thread 01] encode(i[1:10])  kf1 + if[2:10] [thread 02] encode(i[11:20])  kf11 + if[12:20] [thread 03] encode(i[21:30])  kf21 + if[22:30]  [thread 20] encode(i[191:200])  kf191 + if[192:200]</p>
+    <p>Traditional parallel video encoding is limited</p>
+    <p>parallel</p>
+    <p>serial</p>
+    <p>+1 MB</p>
+    <p>+1 MB</p>
+    <p>+1 MB</p>
+  </div>
+  <div class="page">
+    <p>We need a way to start encoding mid-stream</p>
+    <p>Start encoding mid-stream needs access to intermediate computations.</p>
+    <p>Traditional video codecs do not expose this information.</p>
+    <p>We formulated this internal information and we made it explicit: the state.</p>
+  </div>
+  <div class="page">
+    <p>The decoder is an automaton</p>
+    <p>state interframe</p>
+    <p>state statestate key frame interframe interframe</p>
+  </div>
+  <div class="page">
+    <p>What we built: a video codec in explicit state-passing style</p>
+    <p>VP8 decoder with no inner state:</p>
+    <p>decode(state, frame)  (state, image)</p>
+    <p>VP8 encoder: resume from specified state</p>
+    <p>encode(state, image)  interframe</p>
+    <p>Adapt a frame to a different source state</p>
+    <p>rebase(state, image, interframe)  interframe</p>
+  </div>
+  <div class="page">
+    <p>Putting it all together: ExCamera</p>
+    <p>Divide the video into tiny chunks:</p>
+    <p>[Parallel] encode tiny independent chunks.</p>
+    <p>[Serial] rebase the chunks together and remove extra keyframes.</p>
+  </div>
+  <div class="page">
+    <p>thread 1</p>
+    <p>thread 2</p>
+    <p>thread 3</p>
+    <p>thread 4</p>
+  </div>
+  <div class="page">
+    <p>thread 1</p>
+    <p>thread 2</p>
+    <p>thread 3</p>
+    <p>thread 4</p>
+    <p>Google's VP8 encoder encode(img[1:n])  keyframe + interframe[2:n]</p>
+  </div>
+  <div class="page">
+    <p>thread 1</p>
+    <p>thread 2</p>
+    <p>thread 3</p>
+    <p>thread 4</p>
+    <p>Our explicit-state style decoder decode(state, frame)  (state, image)</p>
+  </div>
+  <div class="page">
+    <p>thread 1</p>
+    <p>thread 2</p>
+    <p>thread 3</p>
+    <p>thread 4</p>
+    <p>Our explicit-state style encoder encode(state, image)  interframe</p>
+  </div>
+  <div class="page">
+    <p>thread 1</p>
+    <p>thread 2</p>
+    <p>thread 3</p>
+    <p>thread 4</p>
+    <p>Adapt a frame to a different source state rebase(state, image, interframe)  interframe</p>
+  </div>
+  <div class="page">
+    <p>thread 1</p>
+    <p>thread 2</p>
+    <p>thread 3</p>
+    <p>thread 4</p>
+    <p>Adapt a frame to a different source state rebase(state, image, interframe)  interframe</p>
+  </div>
+  <div class="page">
+    <p>thread 1</p>
+    <p>thread 2</p>
+    <p>thread 3</p>
+    <p>thread 4</p>
+  </div>
+  <div class="page">
+    <p>Wide range of different configurations</p>
+    <p>ExCamera[n, x] number of frames in each chunk</p>
+  </div>
+  <div class="page">
+    <p>Wide range of different configurations</p>
+    <p>ExCamera[n, x] number of chunks &quot;rebased&quot; together</p>
+  </div>
+  <div class="page">
+    <p>Outline</p>
+    <p>Vision &amp; Goals</p>
+    <p>mu: Supercomputing as a Service</p>
+    <p>Fine-grained Parallel Video Encoding</p>
+    <p>Evaluation</p>
+    <p>Conclusion &amp; Future Work</p>
+  </div>
+  <div class="page">
+    <p>How well does it compress?</p>
+    <p>q u</p>
+    <p>a lit</p>
+    <p>y (S</p>
+    <p>S IM</p>
+    <p>d B</p>
+    <p>)</p>
+    <p>average bitrate (Mbit/s)</p>
+    <p>vpx (1</p>
+    <p>thr ead</p>
+    <p>)</p>
+    <p>vp x (</p>
+    <p>mu ltit</p>
+    <p>hre ad</p>
+    <p>ed )</p>
+  </div>
+  <div class="page">
+    <p>How well does it compress?</p>
+    <p>q u</p>
+    <p>a lit</p>
+    <p>y (S</p>
+    <p>S IM</p>
+    <p>d B</p>
+    <p>)</p>
+    <p>average bitrate (Mbit/s)</p>
+    <p>ExCamera[6, 1]</p>
+    <p>vpx (1</p>
+    <p>thr ead</p>
+    <p>)</p>
+    <p>vp x (</p>
+    <p>mu ltit</p>
+    <p>hre ad</p>
+    <p>ed )</p>
+  </div>
+  <div class="page">
+    <p>How well does it compress?</p>
+    <p>q u</p>
+    <p>a lit</p>
+    <p>y (S</p>
+    <p>S IM</p>
+    <p>d B</p>
+    <p>)</p>
+    <p>average bitrate (Mbit/s)</p>
+    <p>ExCamera[6, 1]</p>
+    <p>Ex Ca</p>
+    <p>me ra[</p>
+    <p>] vpx</p>
+    <p>(1 thr</p>
+    <p>ead )3%</p>
+  </div>
+  <div class="page">
+    <p>ExCamera[6, 16] 2.6 mins</p>
+    <p>vpxenc Single-Threaded 453 mins vpxenc Multi-Threaded 149 mins YouTube (H.264) 37 mins</p>
+  </div>
+  <div class="page">
+    <p>Let's go back to the demo!</p>
+  </div>
+  <div class="page">
+    <p>Outline</p>
+    <p>Vision &amp; Goals</p>
+    <p>mu: Supercomputing as a Service</p>
+    <p>Fine-grained Parallel Video Encoding</p>
+    <p>Evaluation</p>
+    <p>Conclusion &amp; Future Work</p>
+  </div>
+  <div class="page">
+    <p>The future is granular, interactive and massively parallel</p>
+    <p>Parallel/distributed make</p>
+    <p>Interactive Machine Learning</p>
+    <p>e.g. PyWren (Jonas et al.)</p>
+    <p>Data Visualization</p>
+    <p>Searching Large Datasets</p>
+    <p>Optimization</p>
+  </div>
+  <div class="page">
+    <p>Takeaways</p>
+    <p>Low-latency video processing</p>
+    <p>Two major contributions:</p>
+    <p>Framework to run 5,000-way parallel jobs with IPC on a commercial cloud function service.</p>
+    <p>Purely functional video codec for massive fine-grained parallelism.</p>
+    <p>56 faster than existing encoder, for &lt;$6.</p>
+  </div>
+</Presentation>

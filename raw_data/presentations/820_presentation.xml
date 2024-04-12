@@ -1,0 +1,185 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>Revisiting Software Zero-Copy for Web-caching Applications with Twin</p>
+    <p>Memory Allocation Xiang Song</p>
+    <p>Jicheng Shi, Haibo Chen and Binyu Zang IPADS of Shanghai Jiao Tong University</p>
+    <p>Fudan University</p>
+  </div>
+  <div class="page">
+    <p>Network I/O Limitations</p>
+    <p>Network-intensive applica?ons limited by network I/O processing  Physical limita?ons  Efficiency of network sub-systems</p>
+    <p>Data copying is one of the key limi3ng factors</p>
+  </div>
+  <div class="page">
+    <p>Data Copy Overhead</p>
+    <p>Tradi?onal network system calls (e.g., sendmsg) have non-trivial overhead  Data copying  Cache thrashing</p>
+  </div>
+  <div class="page">
+    <p>The Cost of Data Copy</p>
+    <p>Netperf benchmark using UDP_RR</p>
+    <p>Ex ec u&amp;</p>
+    <p>on T im</p>
+    <p>e (c yc le s)</p>
+    <p>Package Size (Bytes)</p>
+    <p>Data Copy Others</p>
+  </div>
+  <div class="page">
+    <p>Cache Thrashing Problem</p>
+    <p>Memcached benchmark  L2 cache miss Rate</p>
+    <p>Top 2 Func&amp;ons 256 Byte 512 Byte copy_user_generic_string 25.4% 28.7% assoc_find 12.8% 10.3%</p>
+  </div>
+  <div class="page">
+    <p>Challenge in Zero-copy: Data Mutation</p>
+    <p>Applica&amp;on</p>
+    <p>Network Stack</p>
+    <p>DMA</p>
+    <p>NIC</p>
+    <p>Network Data</p>
+    <p>Modify</p>
+  </div>
+  <div class="page">
+    <p>Limitations of Existing Solutions</p>
+    <p>Sendfile and splice  Need file back</p>
+    <p>Fbuf and I/O Lite  New API, microkernel oriented</p>
+    <p>On-demand memory mapping and COW mechanism  Protec?on granularity (e.g., page size)  Alignment requirements</p>
+  </div>
+  <div class="page">
+    <p>Insight into Network Data Mutation</p>
+    <p>typedef struct _stritem { struct _stritem *next; struct _stritem *prev;  unsigned short refcount;  struct { key nsuffix value} ; } item;</p>
+    <p>do_item_get() { it = assoc_find(key, nkey);  if (it != NULL) it-&gt;refcount++; return it;</p>
+    <p>} process_get_command() {</p>
+    <p>it = do_item_get(key, nkey); output_value_data(it);</p>
+    <p>}</p>
+    <p>Struct of memcached data Procedure of get request</p>
+  </div>
+  <div class="page">
+    <p>Observation: False Sharing in Protection</p>
+    <p>Metadata co-locates with the network data  Modify metadata != modify network data</p>
+    <p>False protec?ng the metadata when protec?ng the network data</p>
+  </div>
+  <div class="page">
+    <p>ZCopy</p>
+    <p>Idea: Let applica?ons designate which data should be zero-copied</p>
+    <p>ZCopy system  A twin memory allocator  kernel subsystem</p>
+    <p>Effec?ve for web caching applica?ons</p>
+  </div>
+  <div class="page">
+    <p>ZCopy Architecture</p>
+    <p>Applica?on Glibc alloc ZC_allocData  Data</p>
+    <p>TCP/UDP Stack</p>
+    <p>ZCopy Proxy</p>
+    <p>Hardware</p>
+    <p>Data Copy</p>
+    <p>Bypass Data Copy</p>
+  </div>
+  <div class="page">
+    <p>Challenge: Small Memory Blocks</p>
+    <p>Minimal memory protec?on  Granularity: page size (4 KByte)  Alignment: page size</p>
+    <p>Wasteful to allocate one page for small data blocks</p>
+  </div>
+  <div class="page">
+    <p>ZCopy Memory Allocator</p>
+    <p>Aggrega?ng memory blocks with similar sizes  Pageblock -- basic memory unit  Write protected a pageblock when it is full of zero-copy data</p>
+    <p>Especially friendly to reusable data  E.g., cached key/value pairs in memcached</p>
+  </div>
+  <div class="page">
+    <p>Challenge: Bypass Data Copy</p>
+    <p>Tradi?onal TCP/UDP network package</p>
+    <p>Header Data addr length Data</p>
+    <p>Normal Package</p>
+    <p>User Space</p>
+    <p>Network Data</p>
+    <p>Network Data</p>
+    <p>copy copy</p>
+    <p>kernel buffer</p>
+  </div>
+  <div class="page">
+    <p>UDP/TCP Package in ZCopy</p>
+    <p>Header addr length</p>
+    <p>ZCopy Package</p>
+    <p>Fragments</p>
+    <p>addr length</p>
+    <p>reference</p>
+    <p>reference</p>
+    <p>User Space</p>
+    <p>Network Data</p>
+    <p>Network Data</p>
+  </div>
+  <div class="page">
+    <p>Package Processing in ZCopy</p>
+    <p>Zero-copy Data</p>
+    <p>Normal Data</p>
+    <p>Finish</p>
+    <p>Next itera?on</p>
+    <p>Header Data Data Data</p>
+  </div>
+  <div class="page">
+    <p>Prototype Implementation</p>
+    <p>ZCopy is built based on Linux 2.6.38  A twin memory allocator  ZC_alloc</p>
+    <p>Changed 20 LOCs of streamflow memory allocator  ZCopy proxy</p>
+    <p>530 LOCs in UDP and TCP packages processing  Data protec?on module</p>
+    <p>200 LOCs user-level library  205 LOCs kernel module</p>
+  </div>
+  <div class="page">
+    <p>Experimental Setup</p>
+    <p>Experimental environment  2 machine with 1.87Ghz Intel Xeon E7 chips  Gigabit Network connec?on  Debian GNU/Linux 6.0, Kernel version 2.6.38</p>
+    <p>Experimental benchmark  Memcached  Varnish (in paper)</p>
+  </div>
+  <div class="page">
+    <p>Memcached Setup</p>
+    <p>Memcached caches mul?ple key/value pairs in memory  From a long runs perspec?ve, the key/value pairs are not expected to be modified or freed</p>
+    <p>10 LOCs of modifica?ons  Use the memaslap testsuite as client</p>
+    <p>One memcached server using a single CPU core</p>
+  </div>
+  <div class="page">
+    <p>Memcached UDP Performance</p>
+    <p>Th ro ug hp</p>
+    <p>ut (r eq</p>
+    <p>ue st s/ se c)</p>
+    <p>Package Size (bytes)</p>
+    <p>Throughput of Memcached with UDP ZCopy Vanilla Linux</p>
+    <p>Overhead Network Limita&amp;on</p>
+  </div>
+  <div class="page">
+    <p>Memcached UDP: Package Processing Insight</p>
+    <p>Pa ck ag e Pr oc es si ng T im</p>
+    <p>e (c yc le s)</p>
+    <p>Package Size (Bytes)</p>
+    <p>Package Processing Time</p>
+    <p>Vanilla Linux ZCopy</p>
+  </div>
+  <div class="page">
+    <p>Memcached UDP: Cache Misses</p>
+    <p>ue nc y (1 m</p>
+    <p>is s/ K cy cl es )</p>
+    <p>Package Size (Bytes)</p>
+    <p>L2 Cache Miss Rate UDP Linux UDP ZCopy</p>
+  </div>
+  <div class="page">
+    <p>Th ro ug hp</p>
+    <p>ut (r eq</p>
+    <p>ue st s/ se c)</p>
+    <p>Package Size (bytes)</p>
+    <p>Throughput of Memcahed with TCP</p>
+    <p>ZCopy Vanilla Linux</p>
+    <p>Memcached TCP Performance</p>
+    <p>Overhead Network Limita&amp;on</p>
+  </div>
+  <div class="page">
+    <p>Future Work</p>
+    <p>Study and evaluate the performance benefit of ZCopy on other network intensive applica?ons Extend ZCopy to efficiently run on mul?core machines Extend ZCopy to 10 Gigabit network</p>
+  </div>
+  <div class="page">
+    <p>Conclusion</p>
+    <p>This paper presented a new zero-copy system named ZCopy  A lightweight sovware zero-copy mechanism based on a twin memory allocator</p>
+    <p>Experiments on an Intel machine show that ZCopy outperforms vanilla Linux</p>
+  </div>
+  <div class="page">
+    <p>Institute of Parallel And Distributed Systems http://ipads.se.sjtu.edu.cn/</p>
+    <p>Thanks</p>
+    <p>ZCopy A lightweight Zero-copy</p>
+    <p>mechanism</p>
+    <p>Ques&amp;ons?</p>
+  </div>
+</Presentation>

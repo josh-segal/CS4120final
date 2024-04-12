@@ -1,0 +1,180 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>POTUS: Probing Off-The-shelf USB drivers with Symbolic fault injection</p>
+    <p>James Patrick-Evans, Lorenzo Cavallaro, and Johannes Kinder Royal Holloway, University of London</p>
+  </div>
+  <div class="page">
+    <p>USB Device Drivers are a Problem</p>
+    <p>Drivers are buggy  Drivers have 3-7 times higher number of bug reports than the core kernel</p>
+    <p>Lots of old device drivers  OSs want to support as many devices as possible</p>
+    <p>High privilege  Kernel modules run in ring 0</p>
+    <p>USB drivers present an easy attack vector for exploitation! 2</p>
+  </div>
+  <div class="page">
+    <p>POTUS</p>
+    <p>Semi-Automated testing framework for Linux USB device drivers  Fault Injection</p>
+    <p>Concurrency Fuzzing</p>
+    <p>Selective Symbolic Execution</p>
+    <p>Emulate generic USB devices</p>
+    <p>Detect memory errors and data races in the kernel</p>
+  </div>
+  <div class="page">
+    <p>What is S2E? Select module of interest for symbolic execution</p>
+    <p>Select analysis plugins for evaluation or path selection</p>
+  </div>
+  <div class="page">
+    <p>USB 101</p>
+    <p>Master-Slave protocol, controlled by a Host Controller Interface (HCI)</p>
+    <p>At the software level  communication is done via Universal</p>
+    <p>Request Blocks (URBs)</p>
+    <p>Transfer data to endpoints by scheduling URB transfers</p>
+    <p>Devices identify by providing a set of descriptors</p>
+  </div>
+  <div class="page"/>
+  <div class="page">
+    <p>System Overview</p>
+  </div>
+  <div class="page">
+    <p>usb-generic</p>
+    <p>Extended QEMU device model</p>
+    <p>USB from JSON  String Descriptors  Device Descriptors  Interface Descriptors  Class Descriptors  Endpoint Descriptors</p>
+    <p>{ bInterfaceNumber: 0, bNumEndpoints: 2, bInterfaceClass: 8, bInterfaceSubClass: 6, bInterfaceProtocol: 50, eps: [</p>
+    <p>{ bEndPointAddress: 1, bmAttributes: 1, wMaxPacketSize: 512</p>
+    <p>}, ...</p>
+    <p>] }</p>
+    <p>$ qemu-system-x86_64 -device usb-generic,cfg=config.json</p>
+    <p>Error Detection Concurrency Fuzzing</p>
+    <p>Symbolic Execution Fault Injection</p>
+  </div>
+  <div class="page">
+    <p>usb-generic</p>
+    <p>Host defined time, size and direction of URBs</p>
+    <p>Inject symbolic or concrete data into IN requests, disregard data from OUT requests</p>
+    <p>Inject delays and errors into URB requests by returning STALL, NYET and NAK</p>
+    <p>Predefined routines for standard requests used during device enumeration e.g. GET_DESCRIPTOR</p>
+    <p>Error Detection Concurrency Fuzzing</p>
+    <p>Symbolic Execution Fault Injection</p>
+  </div>
+  <div class="page">
+    <p>Exercising Drivers</p>
+    <p>Random stress test of interfaces exposed by drivers</p>
+    <p>Expose concurrency errors by running operations simultaneously</p>
+    <p>Pick an operation at random from a weighted tree which is performed</p>
+    <p>on file descriptors</p>
+    <p>Every time sys_open is called, fork the user space driver exerciser,</p>
+    <p>operate on both file descriptors</p>
+    <p>Error Detection Concurrency Fuzzing</p>
+    <p>Symbolic Execution Fault Injection</p>
+    <p>a b 10</p>
+  </div>
+  <div class="page">
+    <p>Injecting Faults</p>
+    <p>SystemTap and kprobes kernel infrastructure  Inject symbolic data and symbolic faults  Typically, errors in the kernel are of the form ERRNO  Tapset libraries for hooking core kernel modules</p>
+    <p>probe module(&quot;v4l2&quot;).function(&quot;video_register_device&quot;).return { child = s2e_fork() if (child) {</p>
+    <p>s2e_log(__FUNC_NAME__ . &quot; :: Injecting fault.\n&quot;) s2e_annotate(@FAULT_KEY, annotation + 1) video_unregister_device(@entry($vdev)) $return = s2e_get_symb_fault(32)</p>
+    <p>Error Detection Concurrency Fuzzing</p>
+    <p>Symbolic Execution Fault Injection</p>
+  </div>
+  <div class="page">
+    <p>Time</p>
+  </div>
+  <div class="page">
+    <p>Time</p>
+  </div>
+  <div class="page">
+    <p>Time</p>
+  </div>
+  <div class="page">
+    <p>Time</p>
+  </div>
+  <div class="page">
+    <p>Time</p>
+  </div>
+  <div class="page">
+    <p>Time</p>
+  </div>
+  <div class="page">
+    <p>Airspy SDR</p>
+    <p>Local DoS</p>
+    <p>Present since 2013 or Linux 3.17  4.6</p>
+    <p>drivers/media/usb/airspy/airspy.c</p>
+    <p>CVE-2016-5400</p>
+    <p>Debian/Ubuntu/Arch Linux</p>
+  </div>
+  <div class="page">
+    <p>static int airspy_probe(struct usb_interface *intf, const struct usb_device_id *id) {</p>
+    <p>s = kzalloc(sizeof(struct airspy), GFP_KERNEL); ret = v4l2_device_register(&amp;intf-&gt;dev, &amp;s-&gt;v4l2_dev);</p>
+    <p>/* Register controls */ v4l2_ctrl_handler_init(&amp;s-&gt;hdl, 5); s-&gt;lna_gain_auto = v4l2_ctrl_new_std(&amp;s-&gt;hdl, &amp;airspy_ctrl_ops,</p>
+    <p>V4L2_CID_RF_TUNER_LNA_GAIN_AUTO, 0, 1, 1, 0); ...</p>
+    <p>ret = video_register_device(&amp;s-&gt;vdev, VFL_TYPE_SDR, -1); if (ret) {</p>
+    <p>dev_err(s-&gt;dev, &quot;Failed to register as video device (%d)\n&quot;, ret);</p>
+    <p>goto err_unregister_v4l2_dev; }</p>
+    <p>... return 0;</p>
+    <p>err_free_controls:</p>
+    <p>v4l2_ctrl_handler_free(&amp;s-&gt;hdl); err_unregister_v4l2_dev:</p>
+    <p>v4l2_device_unregister(&amp;s-&gt;v4l2_dev); err_free_mem:</p>
+    <p>kfree(s); return ret;</p>
+    <p>}</p>
+    <p>Can be triggered purely from hardware!</p>
+  </div>
+  <div class="page">
+    <p>Lego USB Tower</p>
+    <p>Local DoS or Local Privilege Escalation</p>
+    <p>Present since 2002 or Linux 2.6  4.7</p>
+    <p>drivers/usb/misc/legousbtower.c</p>
+    <p>CVE-2017-XXXX</p>
+    <p>Debian/Ubuntu/Arch/Fedora/RHEL</p>
+  </div>
+  <div class="page">
+    <p>static int tower_probe (struct usb_interface *interface, const struct usb_device_id *id){ ... /* we can register the device now, as it is ready */ usb_set_intfdata (interface, dev);</p>
+    <p>retval = usb_register_dev (interface, &amp;tower_class); ...</p>
+    <p>/* get the firmware version and log it */ result = usb_control_msg (udev,</p>
+    <p>usb_rcvctrlpipe(udev, 0), LEGO_USB_TOWER_REQUEST_GET_VERSION, USB_TYPE_VENDOR | USB_DIR_IN | USB_RECIP_DEVICE, 0, 0, get_version_reply, sizeof(*get_version_reply), 1000);</p>
+    <p>if (result &lt; 0) { dev_err(idev, &quot;LEGO USB Tower get version control request failed\n&quot;); retval = result; goto error;</p>
+    <p>} ...</p>
+    <p>error: kfree(get_version_reply); tower_delete(dev); return retval;</p>
+    <p>}</p>
+  </div>
+  <div class="page">
+    <p>static inline void tower_delete (struct lego_usb_tower *dev) {</p>
+    <p>tower_abort_transfers (dev);</p>
+    <p>/* free data structures */ usb_free_urb(dev-&gt;interrupt_in_urb); usb_free_urb(dev-&gt;interrupt_out_urb); kfree (dev-&gt;read_buffer); kfree (dev-&gt;interrupt_in_buffer); kfree (dev-&gt;interrupt_out_buffer); kfree (dev);</p>
+    <p>}</p>
+    <p>static ssize_t tower_write (struct file *file, const char __user *buffer, size_t count, loff_t *ppos)</p>
+    <p>{ ... bytes_to_write = min_t(int, count, write_buffer_size); dev_dbg(&amp;dev-&gt;udev-&gt;dev, &quot;%s: count = %zd, bytes_to_write = %zd\n&quot;,</p>
+    <p>__func__, count, bytes_to_write);</p>
+    <p>if (copy_from_user (dev-&gt;interrupt_out_buffer, buffer, bytes_to_write)) { retval = -EFAULT; goto unlock_exit;</p>
+    <p>} ...</p>
+    <p>} 22</p>
+  </div>
+  <div class="page">
+    <p>Exploit  Lego USB Tower</p>
+    <p>Can we build a UaF that is a data-only attack and will bypass SMEP, SMAP and PAXs RAP?</p>
+  </div>
+  <div class="page">
+    <p>Future Work</p>
+    <p>Slow!  Interval URBs  usb_fill_int_urb(, $interval)  State explosion due to (symbexfaults)driver operations</p>
+    <p>Some paths we cant explore!  Concretization of data  real device may help</p>
+    <p>usb-generic  USB 2.0  USB On-The-Go (OTG), USB 3.0</p>
+  </div>
+  <div class="page">
+    <p>Conclusion</p>
+    <p>Abstract hardware interface  OS agnostic, CPU architecture agnostic</p>
+    <p>Semi-Automated USB Driver Test Framework  Concurrency Fuzzing  Fault Injection  Selective Symbolic Execution</p>
+    <p>Two 0-days in the Linux kernel, proof of concept for data-only LPE</p>
+  </div>
+  <div class="page"/>
+  <div class="page">
+    <p>Symbolic Execution int myfunc(int x) {</p>
+    <p>int r = 0; if(x &gt; 8){</p>
+    <p>r = x - 7; }</p>
+    <p>if(x &lt; 5){</p>
+    <p>r = x - 2; }</p>
+    <p>return r;</p>
+    <p>}</p>
+    <p>Path Conditions</p>
+    <p>Input symbol</p>
+    <p>Symbolic program state</p>
+  </div>
+</Presentation>

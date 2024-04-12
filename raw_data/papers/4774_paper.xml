@@ -1,0 +1,940 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<TEI xmlns="http://www.tei-c.org/ns/1.0" 
+xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+xsi:schemaLocation="http://www.tei-c.org/ns/1.0 /Users/atharsefid/Desktop/grobid-0.5.3/grobid-home/schemas/xsd/Grobid.xsd"
+ xmlns:xlink="http://www.w3.org/1999/xlink">
+	<teiHeader xml:lang="en">
+		<encodingDesc>
+			<appInfo>
+				<application version="0.5.3" ident="GROBID" when="2019-03-26T17:00+0000">
+					<ref target="https://github.com/kermitt2/grobid">GROBID - A machine learning software for extracting information from scholarly documents</ref>
+				</application>
+			</appInfo>
+		</encodingDesc>
+		<fileDesc>
+			<titleStmt>
+				<title level="a" type="main">Efficient Pattern Matching over Event Streams *</title>
+			</titleStmt>
+			<publicationStmt>
+				<publisher/>
+				<availability status="unknown"><licence/></availability>
+			</publicationStmt>
+			<sourceDesc>
+				<biblStruct>
+					<analytic>
+						<author>
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Jagrati</forename><surname>Agrawal</surname></persName>
+							<email>jagrati@cs.umass.edu</email>
+							<affiliation key="aff0">
+								<orgName type="department">Department of Computer Science</orgName>
+								<orgName type="institution">University of Massachusetts Amherst Amherst</orgName>
+								<address>
+									<region>MA</region>
+									<country key="US">USA</country>
+								</address>
+							</affiliation>
+						</author>
+						<author>
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Yanlei</forename><surname>Diao</surname></persName>
+							<email>yanlei@cs.umass.edu</email>
+							<affiliation key="aff0">
+								<orgName type="department">Department of Computer Science</orgName>
+								<orgName type="institution">University of Massachusetts Amherst Amherst</orgName>
+								<address>
+									<region>MA</region>
+									<country key="US">USA</country>
+								</address>
+							</affiliation>
+						</author>
+						<author>
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Daniel</forename><surname>Gyllstrom</surname></persName>
+							<affiliation key="aff0">
+								<orgName type="department">Department of Computer Science</orgName>
+								<orgName type="institution">University of Massachusetts Amherst Amherst</orgName>
+								<address>
+									<region>MA</region>
+									<country key="US">USA</country>
+								</address>
+							</affiliation>
+						</author>
+						<author>
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Neil</forename><surname>Immerman</surname></persName>
+							<email>immerman@cs.umass.edu</email>
+							<affiliation key="aff0">
+								<orgName type="department">Department of Computer Science</orgName>
+								<orgName type="institution">University of Massachusetts Amherst Amherst</orgName>
+								<address>
+									<region>MA</region>
+									<country key="US">USA</country>
+								</address>
+							</affiliation>
+						</author>
+						<title level="a" type="main">Efficient Pattern Matching over Event Streams *</title>
+					</analytic>
+					<monogr>
+						<imprint>
+							<date/>
+						</imprint>
+					</monogr>
+				</biblStruct>
+			</sourceDesc>
+		</fileDesc>
+		<profileDesc>
+			<textClass>
+				<keywords>
+					<term>H2 [Database Management]: Systems General Terms Algorithms</term>
+					<term>Design</term>
+					<term>Performance</term>
+					<term>Theory Keywords Event streams</term>
+					<term>pattern matching</term>
+					<term>query optimization</term>
+				</keywords>
+			</textClass>
+			<abstract>
+				<p>Pattern matching over event streams is increasingly being employed in many areas including financial services, RFID-based inventory management, click stream analysis, and electronic health systems. While regular expression matching is well studied, pattern matching over streams presents two new challenges: Languages for pattern matching over streams are significantly richer than languages for regular expression matching. Furthermore, efficient evaluation of these pattern queries over streams requires new algorithms and optimizations: the conventional wisdom for stream query processing (i.e., using selection-join-aggregation) is inadequate. In this paper, we present a formal evaluation model that offers precise semantics for this new class of queries and a query evaluation framework permitting optimizations in a principled way. We further analyze the runtime complexity of query evaluation using this model and develop a suite of techniques that improve runtime efficiency by exploiting sharing in storage and processing. Our experimental results provide insights into the various factors on runtime performance and demonstrate the significant performance gains of our sharing techniques.</p>
+			</abstract>
+		</profileDesc>
+	</teiHeader>
+	<text xml:lang="en">
+		<body>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="2.">BACKGROUND</head><p>In this section, we provide background on event pattern languages, which offers a technical context for the discussion in the subsequent sections.</p><p>Recently there have been a number of pattern language proposals including SQL-TS <ref type="bibr" target="#b25">[26]</ref>, Cayuga <ref type="bibr" target="#b9">[10,</ref><ref type="bibr" target="#b10">11]</ref>, SASE+ <ref type="bibr" target="#b32">[34,</ref><ref type="bibr" target="#b14">15]</ref>, and CEDR <ref type="bibr" target="#b4">[5]</ref>. <ref type="bibr" target="#b0">1</ref> Despite their syntactic variations, these languages share many features for pattern matching over event streams. Below we survey the key features of pattern matching using the SASE+ language since it is shown to be richer than most other languages <ref type="bibr" target="#b14">[15]</ref>. This language uses a simple event model: An event stream is an infinite sequence of events, and each event represents an occurrence of interest at a point in time. An event contains the name of its event type (defined in a schema) and a set of attribute values. Each event also has a special attribute capturing its occurrence time. Events are assumed to arrive in order of the occurrence time. <ref type="bibr" target="#b1">2</ref> A pattern query addresses a sequence of events that occur in order (not necessarily in contiguous positions) in the input stream and are correlated based on the values of their attributes. <ref type="figure" target="#fig_0">Figure 1</ref> shows three such queries.</p><p>Query 1 detects shoplifting activity in RFID-based retail management <ref type="bibr" target="#b32">[34]</ref>: it reports items that were picked at a shelf and then taken out of the store without being checked out. The pattern clause specifies a sequence pattern with three components: the occurrence of a shelf reading, followed by the non-occurrence of a register reading, followed by the occurrence of an exit reading. Non-occurrence of an event, denoted by '∼', is also referred to as negation.</p><p>Each component declares a variable to refer to the corresponding event. The where clause uses these variables to specify predicates on individual events as well as across multiple events (enclosed in the '{' '}' pair). The predicates in Query 1 require all events to refer to the same tag id. Such equality comparison across all events is referred to as an equivalence test (a shorthand for which is '[tag id]'). Finally, the query uses a within clause to specify a 12-hour time window over the entire pattern.</p><p>Query 2 detects contamination in a food supply chain: it captures an alert for a contaminated site and reports a unique series of infected shipments in each pattern match. Here the sequence pattern uses a Kleene plus operator to compute each series of shipments (where '+' means one or more). An array variable b[ ] is declared for the Kleene plus component, with b <ref type="bibr" target="#b0">[1]</ref> referring to the shipment from the origin of contamination, and b[i] referring to each subsequent shipment infected via collocation with the previous one. The predicates in where clearly specify these constraints on the shipments; in particular, the predicate that compares b <ref type="bibr">[i]</ref> with b[i − 1] (i &gt; 1) specifies the collocation condition between each shipment and its preceding one.</p><p>Query 3 captures a complex stock market trend: in the past hour, the volume of a stock started high, but after a period when the price increased or remained relatively stable, the volume plummeted. This pattern has two components, a Kleene plus on stock events, whose results are in a[ ], and a separate single stock event, stored in b. The predicate on a <ref type="bibr" target="#b0">[1]</ref> addresses the initial volume. The predicate on a[i] (i &gt; 1) requires the price of the current event to exceed the average of the previously selected events (those previously selected events are denoted by a[..i − 1]). This way, the predicate captures a trend of gradual (not necessarily monotonic) price increase. The last predicate compares b to a <ref type="bibr">[a.len]</ref>, where a.len refers to the last selected event in a[ ], to capture the final drop in volume.</p><p>Besides the structure and predicates, pattern queries are further defined using the event selection strategy that addresses how to select the relevant events from an input stream mixing relevant and irrelevant events. The strategy used in a query is declared as a function in the where clause which encloses all the predicates in its body, as shown in <ref type="figure" target="#fig_0">Figure 1</ref>. The diverse needs of stream applications require different strategies to be used:</p><p>Strict contiguity. In the most stringent event selection strategy, two selected events must be contiguous in the input stream. This requirement is typical in regular expression matching against strings, DNA sequences, etc.</p><p>Partition contiguity. A relaxation of the above is that two selected events do not need to be contiguous; however, if the events are conceptually partitioned based on a condition, the next relevant event must be contiguous to the previous one in the same partition. The equivalence tests, e.g., <ref type="bibr">[symbol]</ref> in Query 3, are commonly used to form partitions. Partition contiguity, however, may not be flexible enough to support Query 3 if it aims to detect the general trend of price increase despite some local fluctuating values.</p><p>Skip till next match. A further relaxation is to completely remove the contiguity requirements: all irrelevant events will be skipped until the next relevant event is read. Using this strategy, Query 1 can conveniently ignore all the readings of an item that arise between the first shelf reading and an exit or register reading. Similarly, Query 3 can skip values that do not satisfy the defined trend. This strategy is important in many real-world scenarios where some events in the input are "semantic noise" to a particular pattern and should be ignored to enable the pattern matching to continue.</p><p>Skip till any match. Finally, skip till any match relaxes the previous one by further allowing non-deterministic actions on relevant events. Query 2 illustrates this use. Suppose that the last shipment selected by the Kleene plus reaches the location X. When a relevant shipment, e.g., from X to Y, is read from the input stream, skip till any match has two actions: (1) it selects the event in one instance of execution to extend the current series, and (2) it ignores the event in another instance to preserve the current state of Kleene closure, i.e. location X, so that a later shipment, e.g., from X to Z, can be recognized as a relevant event and enable a different series to be instantiated. This strategy essentially computes transitive closure over relevant events (e.g., all infected shipments in three hours) as they arrive.</p><p>Finally, each match of a pattern query (e.g., the content of a[ ] and b variables for Query 3) is output as a composite event containing all the events in the match. Two output formats are available <ref type="bibr" target="#b14">[15,</ref><ref type="bibr" target="#b27">28]</ref>: The default format returns all matches of a pattern. In contrast, the non-overlap format outputs only one match among those that belong to the same partition (for strict contiguity, treat the input stream as a single partition) and overlap in time; that is, one match in a partition is output only if it starts after the previous match completes. Language support is also available to compute summaries for composite events and compose queries by feeding events output from one query as input to another <ref type="bibr" target="#b14">[15,</ref><ref type="bibr" target="#b27">28]</ref>. These additional features are not a focus of this paper and can be readily plugged in the query evaluation framework proposed below.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.">FORMAL SEMANTIC MODEL</head><p>After describing event pattern queries, we study their evaluation and optimization in the rest of the paper. In this section, we present a formal evaluation model that offers precise semantics for this new class of pattern queries ( §3.1). We also offer compilation algorithms that translate pattern queries to representations in this model, thereby producing query evaluation plans for runtime use ( §3.2). This model further allows us to analyze its expressibility in relation to relational stream processing, yielding formal results on both sufficiency and efficiency for pattern evaluation ( §3.3) .</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.1">An Evaluation Model: NFA b Automaton</head><p>Our query evaluation model employs a new type of automaton that comprises a nondeterministic finite automaton (NFA) and a match buffer, thus called NFA b , to represent each pattern query. Formally, an NFA b automaton, A = (Q, E, θ, q1, F ), consists of a set of states, Q, a set of directed edges, E, a set of formulas, θ, labelling those edges, a start state, q1, and a final state, F . The NFA b for Query 3 is illustrated in <ref type="figure" target="#fig_3">Figure 2</ref>. <ref type="bibr" target="#b2">3</ref> States. In <ref type="figure" target="#fig_3">Figure 2</ref>(a), the start state, a <ref type="bibr" target="#b0">[1]</ref>, is where the matching process begins. It awaits input to start the Kleene plus and to select an event into the a[1] unit of the match buffer. At the next state a <ref type="bibr">[i]</ref>, it attempts to select another event into the a[i] (i &gt; 1) unit of the buffer. The subsequent state b denotes that the matching process has fulfilled the Kleene plus (for a particular match) and is ready to process the next pattern component. The final state, F , represents the completion of the process, resulting in the creation of a pattern match.</p><p>In summary, the set of states Q is arranged as a linear sequence consisting of any number of occurrences of singleton states, s, for non-Kleene plus components, or pairs of states, Edges. Each state is associated with a number of edges, representing the actions that can be taken at the state. As <ref type="figure" target="#fig_3">Figure 2</ref>(a) shows, each state that is a singleton state or the first state, p <ref type="bibr" target="#b0">[1]</ref>, of a pair has a forward begin edge. Each second state, p[i], of a pair has a forward proceed edge, and a looping take edge. Every state (except the start and final states) has a looping ignore edge. The start state has no edges to it as we are only interested in matches that start with selected events. Each edge at a state, q, is precisely described by a triplet: (1) a formula that specifies the condition on taking it, denoted by θ q edge , (2) an operation on the input stream (i.e., consume an event or not), and (3) an operation on the match buffer (i.e., write to the buffer or not). Formulas of edges are compiled from pattern queries, which we explain in detail shortly. As shown in <ref type="figure" target="#fig_3">Figure 2</ref>(a), we use solid lines to denote begin and take edges that consume an event from the input and write it to the buffer, and dashed lines for ignore edges that consume an event but do not write it to the buffer. The proceed edge is a special -edge: it does not consume any input event but only evaluates its formula and tries proceeding. We distinguish the proceed edge from ignore edges in the style of arrow, denoting its behavior.</p><formula xml:id="formula_0">p[1], p[i],</formula><p>Non-determinism. NFA b automata may exhibit nondeterminism when at some state the formulas of two edges are not mutually exclusive. For example, if θ p[i] take and θ p[i] ignore are not mutually exclusive, then we are in a nondeterministic skip-till-any-match situation. It is important to note that such non-determinism stems from the query; the NFA b model is merely a truthful translation of it.</p><p>NFA b runs. A run of an NFA b automaton is uniquely defined by (1) the sequence of events that it has selected into the match buffer, e.g., e3, e4 and e6, (2) the naming of the corresponding units in the buffer, e.g., a[1], a <ref type="bibr" target="#b1">[2]</ref>, and b for Query 3, and (3) the current NFA b state. We can inductively define a run based on each begin, take, ignore, or proceed move that it takes. Moreover, an accepting run is a run that has reached the final state. The semantics of a pattern query is precisely defined from all its accepting runs. These concepts are quite intuitive and the details are omitted in the interest of space.</p><p>Pattern queries with negation and query composition are modeled by first creating NFA b automata for subqueries without them and then composing these automata. In particular, the semantics of negation is that of a nested query, as proposed in <ref type="bibr" target="#b32">[34]</ref>. For instance, Query 1 from <ref type="figure" target="#fig_0">Figure 1</ref> first recognizes a shelf reading and an exit reading that refer to the same tag; then for each pair of such readings it ensures that there does not exist a register reading of the same tag in between. To support negation using NFA b , we first compute matches of the NFA b automaton that includes only the positive pattern components, then search for matches of the NFA b automaton for each negative component. Any match of the latter eliminates the former from the answer set.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.2">Query Compilation using NFA b</head><p>We next present the compilation rules for automatically translating simple pattern queries (without negation or composition) into the NFA b model. Composite automata for negation or composed queries can be constructed afterwards by strictly following their semantics. The resulting representations will be used as query plans for runtime evaluation over event streams.</p><p>Basic Algorithm. We first develop a basic compilation algorithm that given a simple pattern query, constructs an NFA b automaton that is faithful to the original query. In the following, we explain the algorithm using Query 3 as a running example.</p><p>Step 1. NFA b structure: As shown in <ref type="figure" target="#fig_3">Figure 2</ref>, the pattern clause of a query uniquely determines the structure of its NFA b automaton, including all the states and the edges of each state.</p><p>The algorithm then translates the where and within clauses of a query into the formulas on the NFA b edges.</p><p>Step 2. Predicates: The algorithm starts with the where clause and uses the predicates to set formulas of begin, take, and proceed edges, as shown in <ref type="figure" target="#fig_3">Figure 2</ref> After sorting, the algorithm places each conjunct on an edge of its last identifier's instantiation state. At the state a[i] where both take and proceed edges exist, the conjunct is placed on the take edge if the last identifier is a <ref type="bibr">[i]</ref>, and on the proceed edge otherwise (e.g., the identifier is a[a.len]). For Query 3, the proceed edge is set to True due to the lack of a predicate whose last identifier is a[a.len].</p><p>Step 3. Event selection strategy: The formulas on the ignore edges depend on the event selection strategy in use. Despite a spectrum of strategies that pattern queries may use, our algorithm determines the formula of an ignore edge at a state q, θ q ignore , in a simple, systematic way:</p><p>Strict contiguity: False Partition contiguity: ¬ (partition condition) Skip till next match: ¬ (take or begin condition) Skip till any match: True As shown above, when strict contiguity is applied, θ q ignore is set to False, disallowing any event to be ignored. If partition contiguity is used, θ q ignore is set to the negation of the partition definition, thus allowing the events irrelevant to a partition to be ignored. For skip till next match, θ q ignore is set to the negation of the take or begin condition depending on the state. Revisit Query 3. As shown in <ref type="figure" target="#fig_3">Figure 2</ref>(b), θ a <ref type="bibr">[i]</ref> ignore is set to ¬θ a <ref type="bibr">[i]</ref> take at the state a <ref type="bibr">[i]</ref>, causing all events that do not satisfy the take condition to be ignored. Finally, for skip till any match, θ q ignore is simply set to True, allowing any (including relevant) event to be ignored.</p><p>Step 4. Time window: Finally, on the begin or proceed edge to the final state, the algorithm conjoins the within condition for the entire pattern. This condition is simply a predicate that compares the time difference between the first and last selected events against the specified time window.</p><p>Optimizations. In our system, the principle for compiletime optimization is to push stopping and filtering conditions as early as possible so that time and space are not wasted on non-viable automaton runs. We highlight several optimizations below:</p><p>Step 5. Pushing the time window early: The within condition, currently placed on the final edge to F , can be copied onto all take, ignore, and begin edges at earlier states. This allows old runs to be pruned as soon as they fail to satisfy the window constraint. Despite the increased number of predicates in all edge formulas, the benefit of pruning nonviable runs early outweighs the slight overhead of predicate evaluation. Step 6. Constraining proceed edges: We next optimize a proceed edge if its current condition is True and the subsequent state is not the final state, which is the case with Query 3. At the state a <ref type="bibr">[i]</ref>, this proceed edge causes nondeterminism with the take (or ignore) edge, resulting in a new run created for every event. To avoid non-viable runs, we restrict the proceed move by "peeking" at the current event and deciding if it can satisfy the begin condition of the next state b. We disallow a proceed move in the negative case. An exception is that when the take and ignore edges at a[i] both evaluate to False, we would allow an opportunistic move to the state b and let it decide what can be done next. The resulting θ a <ref type="bibr">[i]</ref> proceed is also shown in <ref type="figure" target="#fig_3">Figure 2</ref>(c).</p><p>It is important to note that while our compilation techniques are explained above using pattern queries written in the SASE+ language <ref type="bibr" target="#b14">[15]</ref>, all the basic steps (Steps 1-4) and optimizations (Steps 5-6) are equally applicable to other pattern languages <ref type="bibr" target="#b4">[5,</ref><ref type="bibr" target="#b10">11,</ref><ref type="bibr" target="#b25">26]</ref>.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.3">Expressibility of NFA b</head><p>In this section, we provide an intuitive description of the expressibility of the NFA b model, while omitting the formal proofs in the interest of space (detailed proofs are available in <ref type="bibr" target="#b0">[1]</ref>). We briefly describe the set, D(NFA b ), that consists of the stream decision problems recognizable by NFA b automata.</p><p>Proposition 3.1. D(NFA b ) includes problems that are complete for nondeterministic space log n (NSPACE[log n]) and is contained in the set of problems recognizable by readonce-left-to-right NSPACE[log n] machines <ref type="bibr" target="#b30">[32]</ref>.</p><p>The idea behind the proof of the first part of Proposition 3.1 is that a single Kleene plus in a skip-till-any-match query suffices to express directed graph reachability which is complete for NSPACE[log n]. Query 2 is an example of this. Conversely, an NFA b reads its stream once from left to right, recording a bounded number of fields, including aggregates, each of which requires O(log n) bits.  <ref type="figure">Figure 3</ref>: Example pattern matches for Query 3.</p><p>We can also prove that any boolean selection-join-aggregation query (a subset of SQL that relational stream systems mostly focus on) is in D(NFA b ). Furthermore as is well known, no first-order query even with aggregation can express graph reachability <ref type="bibr" target="#b20">[21]</ref>. Thus, Query 2 is not expressible using just selection-join-aggregation. Formally, we have Proposition 3.2. The set of boolean selection-join-aggregation queries as well as the set of queries in regular languages are strictly contained in D(NFA b ).</p><p>Finally, full SQL with recursion <ref type="bibr" target="#b3">[4]</ref> expresses all polynomialtime computable queries over streams <ref type="bibr" target="#b17">[18]</ref>, so this is a strict superset of D(NFA b ). However, this language includes many prohibitively expensive queries that are absolutely unnecessary for pattern matching over event streams.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="4.">RUNTIME COMPLEXITY</head><p>Having presented the query evaluation model and compilation techniques, we next turn to the design of a runtime engine that executes NFA b -based query plans over event streams. The new abstraction that these query plans present and the inherent complexity of their evaluation raise significant runtime challenges. In this section, we describe these challenges in §4.1 and present analytical results of the runtime complexity in §4.2. Our runtime techniques for efficient query evaluation are presented in the next section.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="4.1">Key Issues in Runtime Evaluation</head><p>The runtime complexity of evaluating pattern queries is reflected by a potentially large number of simultaneous runs, some of which may be of long duration.</p><p>Simultaneous runs. For a concrete example, consider Query 3 from <ref type="figure" target="#fig_3">Figure 2</ref>, and its execution over an event stream for a particular stock, shown in <ref type="figure">Figure 3</ref>. Two patterns matches R1 and R2 are produced after e6 arrives, and several more including R3 are created after e8. These three matches, R1, R2, and R3, overlap in the contained events, which result from three simultaneous runs over the same sequence of events.</p><p>There are two sources of simultaneous runs. One is that an event sequence initiates multiple runs from the start state and a newer run can start before an older run completes. For example, e1 and e3 in <ref type="figure">Figure 3</ref> both satisfy θ a <ref type="bibr" target="#b0">[1]</ref> begin and thus initiate two overlapping runs corresponding to R1 and R2. A more significant source is the inherent nondeterminism in NFA b , which arises when the formulas of two edges from the same state are not mutually exclusive, as described in §3.1. There are four types of nondeterminism in the NFA b model:</p><p>Take-Proceed. Consider the run initiated by e1 in <ref type="figure">Fig- ure 3</ref>. When e6 is read at the state a <ref type="bibr">[i]</ref>, this event satisfies both θ a <ref type="bibr">[i]</ref> take and θ a <ref type="bibr">[i]</ref> proceed , causing the run to split by taking two different moves and later create two distinct yet overlapping matches R1 and R3. Such take-proceed nondeterminism inherently results from the query predicates; it can occur even if strict or partition contiguity is used.</p><p>Ignore-Proceed. When the event selection strategy is relaxed to skip till next match, the ignore condition θ a <ref type="bibr">[i]</ref> ignore is also relaxed, as described in §3.2. In this scenario, the ignore-proceed nondeterminism can appear if θ a[i] ignore and θ a <ref type="bibr">[i]</ref> proceed are not exclusive, as in the case of Query 3.</p><p>Take-Ignore. When skip till any match is used, θ a[i] ignore is set to True. Then the take-ignore nondeterminism can arise at the a[i] state.</p><p>Begin-Ignore. Similarly, when skip till any match is used, the begin-ignore nondeterminism can occur at any singleton state or the first state of a pair for the Kleenu plus.</p><p>Duration of a run. The duration of a run is largely determined by the event selection strategy in use. When contiguity requirements are used, the average duration of runs is shorter since a run fails immediately when it reads the first event that violates the contiguity requirements. In the absence of contiguity requirements, however, a run can stay longer at each state by ignoring irrelevant events while waiting for the next relevant event. In particular, for those runs that do not produce matches, they can keep looping at a state by ignoring incoming events until the time window specified in the query expires.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="4.2">Complexity Analysis</head><p>For a formal analysis of the runtime complexity, we introduce the notion of partition window that contains all the events in a particular partition that a run needs to consider. Let T be the time window specified in the query and C be the maximum number of events that can have the same timestamp. Also assume that the fraction of events that belong to a particular partition is p (as a special case, strict contiguity treats the input stream as a single partition, so p = 100%). Then the size of the partition window, W , can be estimated using T Cp.</p><p>The following two propositions calculate a priori worstcase upper bounds on the number of runs that a pattern query can have. The proofs are omitted in this paper. The interested reader is referred to <ref type="bibr" target="#b0">[1]</ref> for details of the proofs. (ii) Ignore-proceed nondeterminism, which is allowed by skiptill-next-match or skip-till-any-match, also allows a run to branch in a number of ways that is at most linear in W . (iii) Take-ignore nondeterminism, allowed by skip-till-anymatch, allows a run to branch in a number of ways that is exponential in W .</p><p>Proposition 4.2. Given a run ρ that arrives at a singleton state, s, or the first state of a pair, p <ref type="bibr" target="#b0">[1]</ref>, in an NFA b automaton, the number of ways that it can branch while reading W events, r s/p <ref type="bibr" target="#b0">[1]</ref> (W ), is at most linear in W when skip-tillany-match is used, otherwise it is one.</p><p>Given an NFA b automaton with states q1, q2, ..., qm = F , the number of runs that can start from a given event e, ˜ re, grows with the number of the runs that can branch at each automaton state except the final state. That is, ˜ re = rq 1 (W1) rq 2 (W2) . . . rq m−1 (Wm−1), where W1, W2, ..., Wm−1 are the numbers of events read at the states q1, q1, ..., qm−1 respectively, and Corollary 4.3. In the absence of skip till any match, the number of runs that a query can have is at most polynomial in the partition window W , where the exponent is bounded by the number of states in the automaton. In the presence of skip till any match, the number of runs can be at most exponential in W .</p><formula xml:id="formula_1">P m−1 i=1 rq i (Wi) = W . Obvi- ously, ˜ re ≤ | max m−1 i=1 rq i (Wi)| m</formula><p>These worst case bounds indicate that a naive approach that implements runs separately may not be feasible. In particular, each run incurs a memory cost for storing a partial or complete match in the buffer. Its processing cost consists of evaluating formulas and making transitions for each input event. It is evident that when the number of runs is large, the naive approach that handles runs separately will incur excessively high overhead in both storage and processing.</p><p>Importance of sharing. The key to efficient processing is to exploit sharing in both storage and processing across multiple, long-standing runs. Our data structures and algorithms that support sharing, including a shared match buffer for all runs and merging runs in processing, are described in detail in the next section. In the following, we note two important benefits of such sharing across runs.</p><p>Sharing between viable and non-viable runs. Viable runs reach the final state and produce matches, whereas nonviable runs proceed for some time but eventually fail. Effective sharing between viable runs and non-viable runs allow storage and processing costs to be reduced from the total number of runs to the number of actual matches for a query. When most runs of a query are non-viable, the benefit of such sharing can be tremendous.</p><p>Sharing among viable runs. Sharing can further occur between runs that produce matches. If these runs process and store the same events, sharing can be applied in certain scenarios to reduce storage and processing costs to even less than what the viable runs require collectively. This is especially important when most runs are viable, rendering the number of matches close to the total number of runs.</p><p>Coping with output cost. The cost to output query matches is linear in the number of matches. If a query produces a large number of matches, the output cost is high even if we can detect these matches more efficiently using sharing. To cope with this issue, we support two output modes for applications to choose based on their uses of the matches and requirements of runtime efficiency. The verbose mode enumerates all matches and returns them separately. Hence, applications have to pay for the inherent cost of doing so. The compressed mode returns a set of matches (e.g., those ending with the same event) in a compact data structure, in particular, the data structure that we use to implement a shared match buffer for all runs. Once provided with a decompression algorithm, i.e., an algorithm to retrieve matches from the compact data structure, applications such as a visualization tool have the flexibility to decide which matches to retrieve and when to retrieve them.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="5.">RUNTIME TECHNIQUES</head><p>Based on the insights gained from the previous analysis, we design runtime techniques that are suited to the new abstraction of NFA b -based query plans. In particular, the principle that we apply to runtime optimization is to share both storage and processing across multiple runs in the NFA b -based query evaluation.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="5.1">A Shared Versioned Match Buffer</head><p>The first technique constructs a buffer with compact encoding of partial and complete matches for all runs. We first describe a buffer implementation for an individual run, and then present a technique to merge such buffers into a shared one for all the runs.</p><p>The individual buffers are depicted in <ref type="figure" target="#fig_2">Figure 4</ref>(a)-(c) for the three matches from <ref type="figure">Figure 3</ref>. Each buffer contains a series of stacks, one for each state except the final state. Each stack contains pointers to events (or events for brevity) that triggered begin or take moves from this state and thus were selected into the buffer. Further, each event has a predecessor pointer to the previously selected event in either the same stack or the previous stack. When an event is added to the buffer, its pointer is set. For any event that triggers a transition to the final state, a traversal in the buffer from that event along the predecessor pointers retrieves the complete match.</p><p>We next combine individual buffers into a single shared one to avoid the overhead of numerous stacks and replicated events in them. This process is based on merging the corresponding stacks of individual buffers, in particular, merging the same events in those stacks while preserving their predecessor pointers. Care should be taken in this process, however. If we blindly merge the events, a traversal in the shared buffer along all existing pointers can produce erroneous results. Suppose that we combine the buffers for R1 and R2 by merging e4 in the a[i] stack and e6 in the b stack. A traversal from e6 can produce a match consisting of e1, e2, e3, e4, and e6, which is a wrong result. This issue arises when the merging process fails to distinguish pointers from different buffers.</p><p>To solve the problem, we devise a technique that creates a shared versioned buffer. It assigns a version number to each run and uses it to label all pointers created in this run. An issue is that runs do not have pre-assigned version  numbers, as the non-determinism at any state can spawn new runs. In this technique, the version number is encoded as a dewey number that dynamically grows in the form of id1(.idj) * (1 ≤ j ≤ t), where t refers to the current state qt. Intuitively, it means that this run comes from the id th 1 initiation from the start state, and the id th j instance of splitting at the state qj from the run that arrived at the state, which we call an ancestor run. This technique also guarantees that the version number v of a run is compatible with v of its ancestor run, in one of the forms: (i) v contains v as a prefix, or (ii) v and v only differ in the last digit idt and idt of v is greater than that of v .</p><note type="other">(a) Structure of Computation State for Query 3 1) version number v; 2) current state q; 3) pointer to recent event in buffer pE</note><p>A shared versioned buffer that combines the three matches is shown in <ref type="figure" target="#fig_2">Figure 4(d)</ref>. All pointers from an individual buffer now are labeled with compatible version numbers. The erroneous result mentioned above no longer occurs, because the pointer from e6 to e4 with the version number 2.0.0 is not compatible with the pointer from e4 to e3 (in the a[i] stack) with the version number 1.0.</p><p>As can be seen, the versioned buffer offers compact encoding of all matches. In particular, the events and the pointers with compatible version numbers constitute a versioned view that corresponds exactly to one match. To return a match produced by a run, the retrieval algorithm takes the dewey number of the run and performs a traversal from the most recent event in the last stack along the compatible pointers. This process is as efficient as the retrieval of a match from an individual buffer.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="5.2">NFA b Execution with Multiple Runs</head><p>Each run of NFA b proceeds in two phases. In the pattern matching phase, it makes transitions towards the final state and extends the buffer as events are selected. In the match construction phase, it retrieves a match produced by this run from the buffer, as described in the previous section. Our discussion in this section focuses on algorithms for efficient pattern matching.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="5.2.1">Basic Algorithm</head><p>We first seek a solution to evaluate individual runs as efficiently as possible. Our solution is built on the notion of computation state of a run, which includes a minimum set of values necessary for future evaluation of edge formulas. Take Query 3. At the state a[i], the evaluation of the take edge requires the value avg(a[..i − 1].price). The buffer can be used to compute such values from the contained events, but it may not always be efficient. We trade off a little space for performance by creating a small data structure to maintain the computation state separately from the buffer. <ref type="figure" target="#fig_6">Figure 5</ref>(a) shows the structure of the computation state for Query 3. It has five fields: 1) the version number of a run, 2) the current automaton state that the run is in, 3) a pointer to the most recent event selected into the buffer in this run, 4) the start time of the run, and 5) a vector V containing the values necessary for future edge evaluation. In particular, the vector V is defined by a set of columns, each capturing a value to be used as an instantiated variable in some formula evaluation. Revisit the formulas in <ref type="figure" target="#fig_3">Figure 2</ref>. We extract the variables to be instantiated from the right operands of all formulas, and arrange them in V by the instantiation state, then the attribute, and finally the operation. For example, the 1 st column in the V vector in <ref type="figure" target="#fig_6">Figure 5</ref>(a) means that when we select an event for a <ref type="bibr" target="#b0">[1]</ref>, store its symbol for later evaluation of the equivalence test. The 2 nd and 3 rd columns jointly compute the running aggregate avg(a[..i−1].price): for each event selected for a[i], the 2 nd column retrieves its price and updates the running sum, while the 3 rd column maintains the running count. The 4 th column stores the volume of the last selected a[i] to evaluate the formula involving b.</p><p>For each run, a dynamic data structure is used to capture its current computation state. <ref type="figure" target="#fig_6">Figure 5</ref>(b) and 5(c) depict the computation state of two runs ρR1 and ρR2 of the NFA b for Query 3. Their states shown correspond to R1 and R2 after reading the event e4 in <ref type="figure">Figure 3</ref>.</p><p>When a new event arrives, each run performs a number of tasks. It first examines the edges from the current state by evaluating their formulas using the V vector and the start time of the run. The state can have multiple edges (e.g., take, ignore, and proceed edges at the state a <ref type="bibr">[i]</ref>), and any subset of them can be evaluated to True. If none of the edge formulas is satisfied, the run fails and terminates right away; common cases of such termination are failures to meet the query-specified time window or contiguity requirements. If more than one edge formula is satisfied, the run splits by cloning one or two child runs. Then each resulting run (either the old run or a newly cloned run) takes its corresponding move, selects the current event into the buffer if it took a take or begin move, and updates its computation state accordingly.</p><p>Finally, we improve the basic algorithm when the nonoverlap output format described in §2 is used. Recall that this format outputs only one match among those that belong to the same partition and overlap in time. Since we do not know a priori which run among the active ones for a particular partition will produce a match first, we evaluate all the runs in parallel as before. When a match is actually produced for a partition, we simply prune all other runs for the same partition from the system.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="5.2.2">Merging Equivalent Runs</head><p>To improve the basic algorithm that evaluates runs separately, we propose to identify runs that overlap in processing and merge them to avoid repeated work. The idea again stems from an observation of the computation state. If two runs, despite their distinct history, have the same computation state at present, they will select the same set of events until completion. In this case, we consider these two runs equivalent. <ref type="figure" target="#fig_7">Figure 6</ref> shows an example, where Query 3 is modified by replacing the running aggregate avg() with max(). The structure of its computation state is modified accordingly as shown in Part (b). The column in bold is the new column for the running aggregate max() on a <ref type="bibr">[i]</ref>. Parts (c) and (d) show two runs after reading the event e4 from the stream in <ref type="figure">Figure 3</ref>: they are both at the state a <ref type="bibr">[i]</ref> and have identical values in V . Their processing of all future events will be the same and thus can be merged.</p><p>The merging algorithm is sketched as follows. The first task is to detect when two runs become equivalent, which can occur at any state qt after the start state. The requirement of identical V vectors is too stringent, since some values in V were used at the previous states and are no longer needed. In other words, only the values for the evaluation at qt and its subsequent states need to be the same. To do so, we introduce an extra static field M , shown in <ref type="figure" target="#fig_7">Figure  6</ref>(b), that contains a set of bit masks over V . There is one mask for each state qt, and the mask has the bit on for each value in V that is relevant to the evaluation at this state. At runtime, at the state qt we can obtain all values relevant to future evaluation, denoted by V <ref type="bibr">[t...]</ref> , by applying the mask (Mq t ∨ Mq t+1 ∨ . . .) to V . Two runs can be merged at qt if their V [t...] vectors are identical.</p><p>Another task is the creation of a combined run, whose computation state will be extended with all the version numbers and start times of the merged runs. The version numbers of the merged runs are cached so that later in the match construction phase, we can identify the compatible predecessor pointers for these runs in the shared buffer and retrieve their matches correctly. We also need to keep the start times of the merged runs to deal with expiration of runs. Recall that a run expires when it fails to meet the query-specified time window. Since the merged runs may have different start times, they can expire at different times in execution. To allow the combined run to proceed as far as possible, we set the start time of the combined run as that of the youngest merged one, i.e., the one with the highest start time. This ensures that when the combined run expires, all its contained runs expire as well. Finally, when the combine run reaches the final state, match construction is invoked only for the contained runs that have not expired.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="5.2.3">Backtrack Algorithm</head><p>For purposes of comparison, we developed a third algorithm called the backtrack algorithm for evaluating pattern queries. This algorithm was inspired by a standard implementation for pattern matching over strings and its adaptation in <ref type="bibr" target="#b25">[26]</ref> as a basic execution model for event pattern matching. The basic idea is that we process a single run per partition at a time, which we call the singleton run for the partition. The singleton run continues until either it produces a match or fails, while the evaluation of any runs created during its processing, e.g., as a result of nondeterminism, is postponed. If the singleton run fails, then we backtrack and process another run whose evaluation was  previously postponed for the partition. If the singleton run produces a match, we may backtrack depending on the output format: we backtrack if all results are required; we do not if only non-overlapping results are needed. <ref type="bibr" target="#b4">5</ref> We adapted the implementation of our basic algorithm described in §5.2.1 to implement the backtrack algorithm. We highlight the changes through the example given in <ref type="figure" target="#fig_8">Figure  7</ref>. In this example, ρi represents run i, qj state j, and e k an event that occurs at time k. We describe how the backtrack algorithm evaluates the event stream e1, e2, e3, e4, e5, e6 for a generic query with a single Kleene plus component:</p><p>• e1 creates a new run, ρ1, at the start state, q0. ρ1 becomes the singleton run.</p><p>• e3 results in a nondeterministic move at q1. We create run ρ2 and add it together with the id of its current state (q1) and the id of the current event (e3) to a stack holding all postponed runs. ρ1 remains as the singleton run because it is proceeding to the next NFA b state.</p><p>• Process ρ1 until it fails with event e4 at state q2.</p><p>• Backtrack by popping the most recently created run, ρ2 in this example, from the stack. Resume processing ρ2 (the new singleton run) at state id q1 by reading events in the buffer starting from e3.</p><p>• ρ2 produces a match with e6.</p><p>If we view the creation of runs as a tree that expands during event processing, the backtrack algorithm processes runs in a depth first search manner. That is, we process the singleton run until it either fails or produces a result and then we backtrack to the most recent run that was created during the processing of the singleton run. Our basic algorithm, on the other hand, expands the "run tree" in a breadth first search manner; it creates and evaluates all runs at once.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="5.3">Memory Management</head><p>There are a number of data structures that grow in proportion to the size of the input event stream. Since the input event stream is infinite, consistent performance over time can only be achieved by actively maintaining these data structures. To this end, we prune data structures incrementally and reuse expired data structures whenever possible.</p><p>There are two key data structures that we actively prune using the time window during runtime. One is the shared match buffer. After each event is processed, we use the timestamp of this event and the time window to determine the largest timestamp that falls outside the window, called the pruning timestamp. We use the pruning timestamp as a key to perform a binary search in each stack of the match buffer. The binary search determines the position of the most recent event that falls outside the window. We prune the events (more precisely, container objects for those events) at and before this position from the stack. Similarly, we prune events from a global event queue in the system using the pruning timestamp.</p><p>To further optimize memory usage, we reuse frequently instantiated data structures. As objects are purged from the match buffer, we add them to a pool. When a new stack object is requested, we first try to use any available objects in the pool and only create a new object instance when the pool is empty. Recycling stack objects as such limits the number of object instantiations and quiesces garbage collection activity. Similarly, we maintain a pool for NFA b run objects, i.e., the dynamic data structures that maintain the computation state of runs. Whenever an NFA b run completes or fails, we add it to a pool to facilitate reuse.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="6.">PERFORMANCE EVALUATION</head><p>We have implemented all the query evaluation techniques described in the previous sections in a Java-based prototype system containing about 25,000 lines of source code. In this section, we present results of a detailed performance study using our prototype system. These results offer insights into the effects of various factors on performance and demonstrate the significant benefits of sharing.</p><p>To test our system, we implemented an event generator that dynamically creates time series data. We simulated stock ticker streams in the following experiments. In each stream, all events have the same type, stock, that contains three attributes, symbol, price, volume, with respective value ranges <ref type="bibr" target="#b0">[1]</ref><ref type="bibr" target="#b1">[2]</ref>, , . The price of those events has the probability p for increasing, 1−p 2 for decreasing, and 1−p 2 for staying the same. The values of p used in our experiments are shown in <ref type="table" target="#tab_2">Table 1</ref>. The symbol and volume follow the uniform distribution. <ref type="bibr" target="#b5">6</ref> We only considered two symbols; adding more symbols does not change the cost of processing each event (on which our measure was based) because an event can belong to only one symbol. Queries were generated from a template " pattern(stock+ a[ ], stock b) where ES {[symbol] ∧ a <ref type="bibr" target="#b0">[1]</ref>.price %500==0 ∧ P a[i] ∧ b.volume &lt;150} within W ", whose parameters are explained in <ref type="table" target="#tab_2">Table 1</ref>. For event selection strategy, we considered partition contiguity (s2) and skip till next match (s3) because they are natural choices for the domain of stock tickers. The iterator predicate used in Kleene closure, P a <ref type="bibr">[i]</ref> , was varied among three forms as listed in <ref type="table" target="#tab_2">Table 1</ref>. Note that take-proceed non-determinism naturally exists in all queries: for some event e, we can both take it at the state a[i] based on the predicate on price, and proceed to the next state based on the predicate on volume. The partition window size W (defined in §4.2) was used to bound the number of events in each partition that are needed in query processing.</p><p>The performance metric is throughput, i.e., the number of events processed per second. In all experiments, throughput was computed using a long stream that for each symbol, contains events of size 200 times the partition window size W . All measurements were obtained on a workstation with a Pentium 4 2.8 Ghz CPU and 1.0 GB memory running Java Hotspot VM 1.5 on Linux 2.6.9. The JVM allocation pool was set to 750MB.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="6.1">Effects of Various Factors</head><p>To understand various factors on performance, we first ran experiments using the shared match buffer ( §5.1) and the basic algorithm that handles runs separately ( §5.2.1).</p><p>In these experiments, the probability of price increase in the stock event stream is 0.7.</p><p>Expt 1: varying iterator predicate and event selection strategy (ES ∈(s2, s3), P a[i] ∈ (p1, p2, p3), W=500). In this experiment, we study the behavior of Kleene closure given a particular combination of the iterator predicate (p1, p2, or p3) and event selection strategy (s2 or s3). For stock tickers with an overall trend of price increase, p3 using the aggregate function max performs similarly to p2, and p3 using avg is similar to p3 using min. Hence, the discussion of p3 below focuses on its use of min. <ref type="figure" target="#fig_10">Figure 8</ref>(a) shows the throughput measurements. The X-axis shows the query types sorted first by the type of predicate and then by the event selection strategy. The Yaxis is on a logarithmic scale. These queries exhibit different behaviors, which we explain using the profiling results shown in the first two rows of <ref type="table" target="#tab_6">Table 2</ref>. For the predicate p1 which is set to True, s2 and s3 perform the same because they both select every event in a partition, producing matches of average length 250. Simultaneous runs exist due to multiple instances of initiation from the start state and take-proceed non-determinism, yielding an average of 2 runs per time step (we call the cycle of processing each event a time step).</p><p>For p2 that requires the price to strictly increase, s2 and s3 differ by an order of magnitude in throughput. Since p2 is selective, s2 tends to produce very short matches, e.g., of average length 4.5, and a small number of runs, e.g., 0.01 run per time step. In contrast, the ability to skip irrelevant events makes s3 produce longer matches, e.g., of average length 140. Furthermore, s3 still produces 2 runs per time step: due to the ignore-proceed nondeterminism that s3 allows (but s2 does not), a more selective predicate only changes some runs from the case of take-proceed nondeterminism to the case of ignore-proceed.</p><p>Finally, p3 requires the price of the next event to be greater than the minimum of the previously selected events. This predicate has poor selectivity and leads to many long matches as p1. As a result, the throughput was close to that of p1 and the difference between s2 and s3 is very small.</p><p>In summary, selectivity of iterator predicates has a great effect on the number of active runs and length of query matches, hence the overall throughput. When predicates are selective, relaxing s2 to s3 can incur a significant additional processing cost.</p><p>We also obtained a cost breakdown of each query into the pattern matching and pattern construction components, as shown in the last two rows of <ref type="table" target="#tab_6">Table 2</ref>. As can be seen, pattern matching is the dominant cost in these workloads, covering 60% to 100% of the total cost. Reducing the matching cost is our goal of further optimization.</p><p>Expt 2: varying partition window size (ES ∈(s2, s3), P a[i] ∈ (p1, p2, p3)). The previous discussion was based on a fixed partition window size W . We next study the effect of W by varying it from 500 to 2000. The results are shown in <ref type="figure" target="#fig_10">Figure 8(b)</ref>. We omitted the result for p1s2 in the rest of the experiments as it is the same as p1s3.</p><p>The effect of W is small when a selective predicate is used and the event selection strategy is s2, e.g., p2s2. However, the effect of W is tremendous if the predicates are not selective, e.g., p1 and p3, and the event selection strategy is relaxed to s3. In particular, the throughput of p1s3 and p3s3 decreases quadratically. Our profiling results confirm that in these cases, both the number of runs and the length of each match increase linearly, yielding the quadratic effect.</p><p>We further explore the efficiency of our algorithm by taking into account the effect of W on the query output complexity, defined as P each match (length of the match). It serves as an indicator of the amount of computation needed for a query. Any efficient algorithm should have a cost linear in it. <ref type="figure" target="#fig_10">Figure 8</ref>(c) plots the processing cost against the output complexity for each query, computed as W was varied. It shows that our algorithm indeed scales linearly. The constants of different curves vary naturally with queries. The effect of further optimization will be to reduce the constants.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="6.2">Basic versus Backtrack Algorithms</head><p>Recall from §5.2 that our basic algorithm evaluates all runs simultaneously when receiving each event. In contrast, the backtrack algorithm, popular in pattern matching over strings and adapted in <ref type="bibr" target="#b25">[26]</ref> for event pattern matching, evaluates one run at a time and backtracks to evaluate other runs when necessary. We next compare these two algorithms.</p><p>Expt3: all results. In this experiment we compare the two algorithms using the previous queries and report the results in <ref type="figure" target="#fig_10">Figure 8(d)</ref>. These results show that the throughput of our basic algorithm is 200 to 300 times higher than the backtrack algorithm across all queries except for p2s2, where the basic algorithm achieves a factor of 1.3 over the backtrack algorithm.</p><p>The performance of the backtrack algorithm is largely attributed to repeated backtracking to execute all the runs and produce all the results. The throughput results can be explained using the average number of times that an event is reprocessed. The backtrack algorithm reprocesses many events, e.g., an average 0.6 time for each event for queries using s3, resulting in their poor performance. In contrast, our basic algorithm never reprocesses any event. The only case of backtrack where this number is low is p2s2 with short duration of runs, yielding comparable performance. As can p3-s3 p3-s2 p2-s3 p2-s2 p1-s3 p1-s2  be seen, if all results are to be generated, our basic algorithm is a much better choice.</p><p>Expt4: non-overlapping results. We next compare these two algorithms when only non-overlapping results are required. The difference from the case of all results is that we may not need to examine all simultaneous runs to produce such results. However, it is unknown a prior which run among the active ones will produce a result first. In this experiment, we instrumented both algorithms to return shortest non-overlapping results.</p><p>We first reran all previous queries with non-overlap. These queries exhibit similar trends for the two algorithms, as illustrated using p3s2 and p3s3 in the 1st and 2nd groups of bars in <ref type="figure" target="#fig_10">Figure 8</ref>(e). We observed that this set of queries are ideal for the backtrack algorithm since little backtracking is needed. This is because the last predicate b.volume &lt;150 is not selective given uniform distribution of volume in events. Hence, once a run starts, it is likely to produce a match during a short period of time, eliminating the need to backtrack. Our basic algorithm runs fast for a similar reason: even though it executes multiple runs at the same time, the quick generation of a result allows it to prune other runs, hence reducing its overhead of executing multiple runs.</p><p>We next modified the query workload so that a random run is less likely to produce a result-requiring each algorithm to search through runs to generate the result. To do so, we extended the two queries using predicate p3 with another pattern component: pattern(stock+ a[ ], stock b, stock c), where c.price &gt; a <ref type="bibr" target="#b0">[1]</ref>.price∧c.price &lt; a <ref type="bibr">[a.len]</ref>.price. We denote the modified queries using p * 3 and show its results using the 3rd and 4th groups of bars in <ref type="figure" target="#fig_10">Figure 8</ref>(e). In particular, the basic algorithm yields an order of magnitude higher throughput than the backtrack algorithm for p * 3 s3. In this workload, c's predicates are selective so most runs fail at this state, causing the backtrack algorithm to repeatedly invoke backtracking and try other runs.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="6.3">NFA b with Merging of Runs</head><p>We showed in the above experiments that our basic algorithm provides comparable or better performance than the backtrack algorithm in most workloads tested. In the following experiments, we omit the backtrack algorithm and extend the basic algorithm with merging of equivalent runs.</p><p>Expt 5: merging runs of Expt 1. In this experiment, we applied the merging algorithm to the queries in Expt 1. <ref type="figure" target="#fig_10">Figure 8(f)</ref> shows the results; it also includes the numbers of the basic algorithm from <ref type="figure" target="#fig_10">Figure 8</ref>(a) for comparison. As can be seen, the merging algorithm yields significant performance gains over the basic algorithm for all the queries tested, e.g., achieving a factor of 1.5 for p1s3, 1.4 for p2s3, and 1.5 for p3s3. It ran all of the expensive queries, which either use less selective predicates such as p1 and p3 or the event selection strategy s3, at over 10,000 events per second.</p><p>Expt 6: merging runs of Expt 2. We further applied merging to all the queries in Expt 2 when the partition window size W was varied. We focused on the three queries using s3, namely, p1s3, p2s3, and p3s3, because they are more expensive than (if not the same as) their counterparts using s2. Recall that the partition window size affects query output complexity; a larger size leads to more query matches and longer matches, hence a higher sequence construction cost. Since sequence construction is common to both the basic and merging algorithms, to better understand their differences we turned off sequence construction in this experiment and measured only the cost of sequence matching. <ref type="figure" target="#fig_10">Figure 8</ref>(g) shows the benefits of merging in throughput gain, defined as new throughput/old throughput. As can be seen, merging offers remarkable overall throughput gains, ranging from a factor of 1.4 to 2.1. Results of the three queries can be further explained using two factors shown in <ref type="table" target="#tab_8">Table 3</ref>: the sharing opportunity, captured by the percentage of runs that were successfully merged in columns 2 to 4 of the table, and the overhead of maintaining the match buffer, captured by the total cost of buffer updates in columns 5 to 7.</p><p>These three queries represent interesting combinations of these two factors. The predicate p1 (= true) allows the most sharing opportunity: all of the overlapping runs for the same partition can be merged. However, p1 leads to long query matches, hence a high overhead of maintaining the match buffer as events are selected. The predicate for price strictly increasing, p2, still allows significant sharing: as soon as two runs have the same price from the last selected events, they can be merged. In addition, p2 is selective so the buffer update cost is relatively low. As a result, p2 achieves higher throughput gains for large values of W . Finally, the predicate p3 requires two runs to agree on the minimum price in order to be merged, offering a somewhat less sharing opportunity. Since it is not selective, it also has a high buffer update cost as p1. Combining both factors, p3 achieves only limited throughput gains for large values of W . Other experiments. To explore the effects of different data characteristics, we also varied the probability p for stock price increase in the event stream. We briefly summarize the results below. When a smaller value of p is used, e.g., p = 0.55, the queries using predicate p1 have the same performance because they simply select every event in each partition. In comparison, the queries using predicates p2 and p3 produce fewer matches and hence all achieve higher throughput numbers. The advantage of our basic algorithm over backtrack still holds, but with a smaller margin. On the other hand, the difference in throughput between the merging and basic algorithms is even higher. This is because fewer matches mean a smaller cost of sequence construction, and the benefit of merging is magnified in the presence of a low sequence construction cost common to both algorithms.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="7.">RELATED WORK</head><p>Much related work has been covered in previous sections. We discuss broader areas of related work below.</p><p>Event languages for active databases <ref type="bibr" target="#b13">[14,</ref><ref type="bibr" target="#b12">13,</ref><ref type="bibr" target="#b5">6,</ref><ref type="bibr" target="#b22">23,</ref><ref type="bibr" target="#b21">22,</ref><ref type="bibr" target="#b34">36]</ref> offer temporal operators including sequencing and Kleene closure, but do not support complex predicates to compare events. As we showed in this paper, such predicates are crucial in pattern definition. Those languages also lack efficient implementation over high-volume streams.</p><p>Traditional pub/sub systems <ref type="bibr" target="#b1">[2,</ref><ref type="bibr" target="#b11">12]</ref> offer predicate-based filtering of individual events. Our system significantly extends them with the ability to match complex patterns across multiple events. Cayuga <ref type="bibr" target="#b9">[10,</ref><ref type="bibr" target="#b10">11]</ref> supports patterns with Kleene closure and event selection strategies including partition contiguity and skip till next match, but does not allow output of complete matches. In comparison, our system supports more event selection strategies and output of complete matches both in the evaluation model and in runtime optimization. The Cayuga implementation focuses on multi-query optimization, which is directly applicable when our system is extended to handle multiple queries.</p><p>Sequence databases <ref type="bibr" target="#b26">[27,</ref><ref type="bibr" target="#b25">26]</ref> offer SQL extensions for sequence data processing. SEQUIN <ref type="bibr" target="#b26">[27]</ref> uses joins to specify sequence operations and thus cannot express Kleene closure. SQL-TS <ref type="bibr" target="#b25">[26]</ref> adds new constructs SQL to handle Kleene closure, but restricts pattern matching to only contiguous tuples in each relevant partition. Its optimization based on predicate containment can be integrated into our system for workloads that exhibit such containment relationships.</p><p>Many recent event systems <ref type="bibr" target="#b15">[16,</ref><ref type="bibr" target="#b24">25,</ref><ref type="bibr" target="#b29">31,</ref><ref type="bibr" target="#b32">34]</ref> offer relatively simple event languages and stream-based processing. These systems lack important constructs for pattern matching such as Kleene closure and choices of event selection strategies. In particular, our work significantly extends prior work <ref type="bibr" target="#b32">[34]</ref> with Kleene closure and event selection strategies, two features that fundamentally complicate event pattern matching, a formal rich model NFA b for evaluation and theoretical analysis, and a suite of sharing techniques. The evaluation framework of <ref type="bibr" target="#b32">[34]</ref> is further extended to handle out-of-order events <ref type="bibr" target="#b19">[20]</ref>. SASE+ <ref type="bibr" target="#b14">[15]</ref> provides a rich language for pattern matching but lacks implementation details.</p><p>There have also been theoretical studies on the underlying model of complex event processing. CEDR <ref type="bibr" target="#b4">[5]</ref> proposes a new temporal model that captures the duration of events and analyzes the consistency of event processing for outof-order streams. A related study <ref type="bibr" target="#b31">[33]</ref> designs a temporal model for such events that has a bounded representation of timestamps and offers associativity of the sequencing operator. These results can be applied to guide the extension of our system to handle events with duration.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="8.">CONCLUSIONS</head><p>In this paper, we studied the evaluation and optimization of pattern queries over event streams. We rigorously defined a query evaluation model, the NFA b automata, analyzed its expressibility, and provided compilation techniques for building query plans based on this model. We also analyzed the runtime complexity and developed sharing techniques for efficient runtime evaluation. Our system could process tens of thousands of events per second for fairly expensive queries and offers much higher throughput for cheaper queries. Our sharing techniques also produced remarkable performance benefits, ranging from 40% to 110%, over a spectrum of query workloads.</p><p>We plan to continue our research in a few directions. We will extend our system to handle out-of-order events by augmenting the NFA b model with techniques including invalidation and re-computation: The NFA b proceeds as before and, when receiving an out-of-order event, invalidates some of the existing runs affected by the event and recomputes from valid intermediate steps. In addition, our current implementation of queries with negation and composition is strictly based on the query semantics. We will explore new opportunities for optimization that are particularly suitable for these queries. Finally, we will study robust pattern matching over uncertain events that are produced from a variety of sensor networks. </p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="9.">REPEATABILITY ASSESSMENT RESULT</head></div><figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_0"><head>Figure 1 :</head><label>1</label><figDesc>Figure 1: Examples of event pattern queries.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_1"><head>¬</head><label></label><figDesc>Figure 2: The NFA b Automaton for Query 3.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_2"><head>(b). 4</head><label>4</label><figDesc>It first rewrites all the predicates into conjunctive normal form (CNF), in- cluding expanding the equivalence test [symbol] to a canon- ical form, e.g., a[i].symbol = a[1].symbol. It then sorts the conjuncts based on the notion of their last identifiers. In this work, we call each occurrence of a variable in the where clause an identifier, e.g., a[1], a[i], a[a.len], and b for Query 3. The last identifier of a conjunct is the one that is in- stantiated the latest in the NFA b automaton. Consider the conjunct "b.volume &lt; 80% * a[a.len].volume". Between the identifiers b and a[a.len], b is instantiated at a later state.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_3"><head>Figure 2 (</head><label>2</label><figDesc>c) shows θ a[i] take and θ a[i] ignore after this optimization for Query 3.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_4"><head>Proposition 4 . 1 .</head><label>41</label><figDesc>Given a run ρ that arrives at the state p[i] of a pair in an NFA b automaton, let r p[i] (W ) be the num- ber of runs that can branch from ρ at the state p[i] while reading W events. The upper bound of r p[i] (W ) depends on the type(s) of nondeterminism present: (i) Take-proceed nondeterminism, which can occur with any event selection strategy, allows a run to branch in a number of ways that is at most linear in W .</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_5"><head>(a) buffer for match R1 (b) buffer for match R2 (c) buffer for match R3 (d) shared, versioned buffer for R1,Figure 4 :</head><label>4</label><figDesc>Figure 4: Creating a shared versioned buffer for Q3.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_6"><head>Figure 5 :</head><label>5</label><figDesc>Figure 5: Computation state of runs for Q3.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_7"><head>Figure 6 :</head><label>6</label><figDesc>Figure 6: An example for merging runs.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_8"><head>Figure 7 :</head><label>7</label><figDesc>Figure 7: An example for the Backtrack algorithm.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_10"><head>Figure 8 :</head><label>8</label><figDesc>Figure 8: Experimental Results.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_11"><head></head><label></label><figDesc>Figures 8(a), 8(b), 8(d), 8(e) have been verified by the SIGMOD repeatability committee.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_2" validated="false"><head>− 1 .</head><label>1</label><figDesc></figDesc><table>Then all the runs that 
+
+can start from a sequence of events e1, ..., eW is at most 
+W | max m−1 
+i=1 rq i (Wi)| 
+m−1 . Following Propositions 4.2 and 
+
+4.2, we have the following upper bounds on the total number 
+of runs for a query: 
+
+</table></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_3" validated="false"><head>; 4) start time t; 5) value vector V =</head><label></label><figDesc></figDesc><table>(b) Run ρ R1 : after e4 
+
+1)v=1.0; 2)q=a[i]; 3)pE=e4 in stack a[i]; 
+4)t=e1.time; 
+5)V = 
+Goog 461 4 999 
+
+1 
+2 
+3 
+4 
+
+(c) Run ρ R2 : after e4 
+
+1)v=2.0; 2)q=a[i]; 3)pE=e4 in stack a[i]; 
+4)t=e3.time; 
+5)V = 
+Goog 241 2 999 
+
+1 
+2 
+3 
+4 
+
+symbol 
+set() 
+
+price 
+sum() 
+
+* 
+count() 
+
+volume 
+set() 
+
+1 
+2 
+3 
+4 
+
+a[1] 
+a[i] 
+a[i] 
+a[i] 
+identifier 
+attribute 
+operation 
+
+</table></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_5" validated="true"><head>Table 1 : Workload Parameters</head><label>1</label><figDesc></figDesc><table>Parameter 
+Values used 
+P robprice increase 
+0.7, 0.55 
+ES, event 
+(s2) partition-contiguity 
+selection strategy 
+(s3) skip-till-next-match 
+P a[i] , iterator predicate 
+(p1) True; 
+used in Kleene closure 
+(p2) a[i].price &gt; a[i − 1].price; 
+(p3) a[i].price &gt; aggr(a[..i-1].price) 
+aggr = max | min | avg 
+W , partition window size 
+500-2000 events 
+Result output format 
+all results (default), 
+non-overlapping results 
+
+</table></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_6" validated="false"><head>Table 2 :</head><label>2</label><figDesc></figDesc><table>Profiling Results for Expt1 
+
+p1s2 
+p1s3 
+p2s2 
+p2s3 
+p3s2 
+p3s3 
+match length 
+250 
+250 
+4.5 
+140 
+250 
+250 
+num. runs/time step 
+2 
+2 
+0.01 
+2 
+2 
+2 
+matching cost(%) 
+61 
+61 
+100 
+67 
+67 
+66 
+construction cost(%) 
+39 
+39 
+0 
+33 
+33 
+34 
+
+</table></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_8" validated="true"><head>Table 3 : Profiling Results for Expt6</head><label>3</label><figDesc></figDesc><table>Runs merged (%) 
+Buffer update cost (sec) 
+W 
+p1s3 
+p2s3 
+p3s3 
+p1s3 
+p2s3 
+p3s3 
+500 
+47.9 
+47.8 
+47.8 
+11.9 
+5.4 
+12.0 
+1000 
+50.9 
+48.3 
+45.8 
+175.8 
+62.3 
+205.4 
+1500 
+66.6 
+55.7 
+44.9 
+363.6 
+132.6 
+454.2 
+2000 
+75.3 
+60.4 
+50.6 
+670.3 
+221.3 
+840.4 
+
+</table></figure>
+
+			<note place="foot" n="1"> There have also been several commercial efforts and standardization initiatives [9, 28, 29]. The development of these languages is still underway. Thus, they are not further discussed in this paper. 2 The query evaluation approach that we propose is suited to an extension for out-of-order events, as we discuss more in §8.</note>
+
+			<note place="foot" n="3"> Our NFA b automata are related to the left-deep automata in [10]. The main differences are that NFA b employ an additional buffer to compute and store complete matches and can support the compilation of a wider range of queries (more see §7).</note>
+
+			<note place="foot" n="4"> For simplicity of presentation, we omit event type checks in this example. Such checks can be easily added to the edge formulas.</note>
+
+			<note place="foot" n="5"> Regular expression matching in network intrusion detection systems (NIDS) [19, 35] is also relevant to event pattern matching. However, we did not choose to compare to NIDS because regular expressions can express only a subset of event queries, as stated in §3.3, and most NIDS use deterministic finite automata (DFA) that would explode to an exponential size when handling non-determinism [35], which abound in event queries.</note>
+
+			<note place="foot" n="6"> The distributions for price and volume are based on our observations of daily stock tickers from Google Finance, which we use to characterize transactional stock tickers in our simulation.</note>
+		</body>
+		<back>
+			<div type="references">
+
+				<listBibl>
+
+<biblStruct xml:id="b0">
+	<monogr>
+		<title level="m" type="main">Efficient pattern matching over event streams</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Agrawal</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Y</forename><surname>Diao</surname></persName>
+		</author>
+		<idno>07-63</idno>
+		<imprint>
+			<date type="published" when="2007" />
+		</imprint>
+		<respStmt>
+			<orgName>University of Massachusetts Amherst</orgName>
+		</respStmt>
+	</monogr>
+<note type="report_type">Technical Report</note>
+</biblStruct>
+
+<biblStruct xml:id="b1">
+	<analytic>
+		<title level="a" type="main">Matching events in a content-based subscription system</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><forename type="middle">K</forename><surname>Aguilera</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><forename type="middle">E</forename><surname>Strom</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">PODC</title>
+		<imprint>
+			<date type="published" when="1999" />
+			<biblScope unit="page" from="53" to="61" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b2">
+	<analytic>
+		<title level="a" type="main">CQL: A language for continuous queries over streams and relations</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Arasu</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Babu</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">DBPL</title>
+		<imprint>
+			<date type="published" when="2003" />
+			<biblScope unit="page" from="1" to="19" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b3">
+	<analytic>
+		<title level="a" type="main">An amateur&apos;s introduction to recursive query processing strategies</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">F</forename><surname>Bancilhon</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Ramakrishnan</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">SIGMOD</title>
+		<imprint>
+			<date type="published" when="1986" />
+			<biblScope unit="page" from="16" to="52" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b4">
+	<analytic>
+		<title level="a" type="main">Consistent streaming through time: A vision for event stream processing</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><forename type="middle">S</forename><surname>Barga</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Goldstein</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">CIDR</title>
+		<imprint>
+			<date type="published" when="2007" />
+			<biblScope unit="page" from="363" to="374" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b5">
+	<analytic>
+		<title level="a" type="main">Composite events for active databases: Semantics, contexts and detection</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Chakravarthy</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">V</forename><surname>Krishnaprasad</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">VLDB</title>
+		<imprint>
+			<date type="published" when="1994" />
+			<biblScope unit="page" from="606" to="617" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b6">
+	<analytic>
+		<title level="a" type="main">TelegraphCQ: Continuous dataflow processing for an uncertain world</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Chandrasekaran</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">O</forename><surname>Cooper</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">CIDR</title>
+		<imprint>
+			<date type="published" when="2003" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b7">
+	<analytic>
+		<title level="a" type="main">Scalable distributed stream processing</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Cherniack</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">H</forename><surname>Balakrishnan</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">CIDR</title>
+		<imprint>
+			<date type="published" when="2003" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b8">
+	<monogr>
+		<title/>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><surname>Coral8</surname></persName>
+		</author>
+		<ptr target="http://www.coral8.com/" />
+		<imprint/>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b9">
+	<analytic>
+		<title level="a" type="main">Towards expressive publish/subscribe systems</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><forename type="middle">J</forename><surname>Demers</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Gehrke</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">EDBT</title>
+		<imprint>
+			<date type="published" when="2006" />
+			<biblScope unit="page" from="627" to="644" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b10">
+	<analytic>
+		<title level="a" type="main">Cayuga: A general purpose event monitoring system</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><forename type="middle">J</forename><surname>Demers</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Gehrke</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">CIDR</title>
+		<imprint>
+			<date type="published" when="2007" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b11">
+	<analytic>
+		<title level="a" type="main">Filtering algorithms and implementation for very fast publish/subscribe</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">F</forename><surname>Fabret</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">H.-A</forename><surname>Jacobsen</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">SIGMOD</title>
+		<imprint>
+			<date type="published" when="2001" />
+			<biblScope unit="page" from="115" to="126" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b12">
+	<analytic>
+		<title level="a" type="main">Events in an active object-oriented database system</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Gatziu</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">K</forename><forename type="middle">R</forename><surname>Dittrich</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Rules in Database Systems</title>
+		<imprint>
+			<date type="published" when="1993" />
+			<biblScope unit="page" from="23" to="39" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b13">
+	<analytic>
+		<title level="a" type="main">Composite event specification in active databases: Model &amp; implementation</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">N</forename><forename type="middle">H</forename><surname>Gehani</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">H</forename><forename type="middle">V</forename><surname>Jagadish</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">VLDB</title>
+		<imprint>
+			<date type="published" when="1992" />
+			<biblScope unit="page" from="327" to="338" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b14">
+	<analytic>
+		<title level="a" type="main">On supporting kleene closure over event streams</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Gyllstrom</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Agrawal</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">ICDE</title>
+		<imprint>
+			<date type="published" when="2008" />
+		</imprint>
+	</monogr>
+	<note>Poster</note>
+</biblStruct>
+
+<biblStruct xml:id="b15">
+	<analytic>
+		<title level="a" type="main">Order checking in a CPOE using event analyzer</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">L</forename><surname>Harada</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Y</forename><surname>Hotta</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">CIKM</title>
+		<imprint>
+			<date type="published" when="2005" />
+			<biblScope unit="page" from="549" to="555" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b16">
+	<monogr>
+		<title level="m" type="main">Introduction to Automata Theory, Languages, and Computation</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><forename type="middle">E</forename><surname>Hopcroft</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Motwani</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><forename type="middle">D</forename><surname>Ullman</surname></persName>
+		</author>
+		<imprint>
+			<date type="published" when="2006" />
+			<publisher>Addison-Wesley</publisher>
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b17">
+	<monogr>
+		<title level="m" type="main">Descriptive Complexity. Graduate Texts in Computer Science</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">N</forename><surname>Immerman</surname></persName>
+		</author>
+		<imprint>
+			<date type="published" when="1999" />
+			<publisher>Springer</publisher>
+			<pubPlace>New York</pubPlace>
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b18">
+	<analytic>
+		<title level="a" type="main">Curing regular expressions matching algorithms from insomnia, amnesia, and acalculia</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Kumar</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">B</forename><surname>Chandrasekaran</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">ANCS</title>
+		<imprint>
+			<date type="published" when="2007" />
+			<biblScope unit="page" from="155" to="164" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b19">
+	<analytic>
+		<title level="a" type="main">Event stream processing with out-of-order data arrival</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Li</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Liu</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Int&apos;l Conf. on Distributed Computing Systems Workshops</title>
+		<imprint>
+			<date type="published" when="2007" />
+			<biblScope unit="page">67</biblScope>
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b20">
+	<analytic>
+		<title level="a" type="main">Unary quantifiers, transitive closure, and relations of large degree</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">L</forename><surname>Libkin</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">L</forename><surname>Wong</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of the 15th Annual Symposium on Theoretical Aspects of Computer Science (STAC)</title>
+		<meeting>of the 15th Annual Symposium on Theoretical Aspects of Computer Science (STAC)</meeting>
+		<imprint>
+			<date type="published" when="1998" />
+			<biblScope unit="page" from="183" to="193" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b21">
+	<monogr>
+		<title level="m" type="main">The Ode active database: Trigger semantics and implementation</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><forename type="middle">F</forename><surname>Lieuwen</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">N</forename><forename type="middle">H</forename><surname>Gehani</surname></persName>
+		</author>
+		<editor>S. Y. W. Su</editor>
+		<imprint>
+			<date type="published" when="1996" />
+			<biblScope unit="page" from="412" to="420" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b22">
+	<analytic>
+		<title level="a" type="main">Composite events in chimera</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Meo</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">G</forename><surname>Psaila</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">EDBT</title>
+		<imprint>
+			<date type="published" when="1996" />
+			<biblScope unit="page" from="56" to="76" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b23">
+	<analytic>
+		<title level="a" type="main">Query processing, approximation, and resource management in a data stream management system</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Motwani</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Widom</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">CIDR</title>
+		<imprint>
+			<date type="published" when="2003" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b24">
+	<monogr>
+				<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Rizvi</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><forename type="middle">R</forename><surname>Jeffery</surname></persName>
+		</author>
+		<title level="m">SIGMOD</title>
+		<imprint>
+			<date type="published" when="2005" />
+			<biblScope unit="page" from="885" to="887" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b25">
+	<analytic>
+		<title level="a" type="main">Expressing and optimizing sequence queries in database systems</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Sadri</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Zaniolo</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">ACM Trans. Database Syst</title>
+		<imprint>
+			<biblScope unit="volume">29</biblScope>
+			<biblScope unit="issue">2</biblScope>
+			<biblScope unit="page" from="282" to="318" />
+			<date type="published" when="2004" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b26">
+	<analytic>
+		<title level="a" type="main">The design and implementation of a sequence database system</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>Seshadri</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Livny</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">VLDB</title>
+		<imprint>
+			<date type="published" when="1996" />
+			<biblScope unit="page" from="99" to="110" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b27">
+	<monogr>
+				<ptr target="http://asktom.oracle.com/tkyte/row-pattern-recogniton-11-public.pdf" />
+		<title level="m">Pattern matching in sequences of rows. SQL change proposal</title>
+		<imprint>
+			<date type="published" when="2007" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b28">
+	<monogr>
+		<title/>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><surname>Streambase</surname></persName>
+		</author>
+		<ptr target="http://www.streambase.com/" />
+		<imprint/>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b29">
+	<analytic>
+		<title level="a" type="main">Temporal management of RFID data</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">F</forename><surname>Wang</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>Liu</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">VLDB</title>
+		<imprint>
+			<date type="published" when="2005" />
+			<biblScope unit="page" from="1128" to="1139" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b30">
+	<analytic>
+		<title level="a" type="main">Branching programs and binary decision diagrams: theory and applications</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">I</forename><surname>Wegener</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Society for Industrial and Applied Mathematics</title>
+		<imprint>
+			<date type="published" when="2000" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b31">
+	<analytic>
+		<title level="a" type="main">What is &quot;next&quot; in event processing</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">W</forename><forename type="middle">M</forename><surname>White</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Riedewald</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">PODS</title>
+		<imprint>
+			<date type="published" when="2007" />
+			<biblScope unit="page" from="263" to="272" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b32">
+	<analytic>
+		<title level="a" type="main">High-performance complex event processing over streams</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">E</forename><surname>Wu</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Y</forename><surname>Diao</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Rizvi</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">SIGMOD</title>
+		<imprint>
+			<date type="published" when="2006" />
+			<biblScope unit="page" from="407" to="418" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b33">
+	<analytic>
+		<title level="a" type="main">Fast and memory-efficient regular expression matching for deep packet inspection</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">F</forename><surname>Yu</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Z</forename><surname>Chen</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">ANCS</title>
+		<imprint>
+			<date type="published" when="2006" />
+			<biblScope unit="page" from="93" to="102" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b34">
+	<analytic>
+		<title level="a" type="main">On the semantics of complex events in active database management systems</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Zimmer</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Unland</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">ICDE</title>
+		<imprint>
+			<date type="published" when="1999" />
+			<biblScope unit="page" from="392" to="399" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+				</listBibl>
+			</div>
+		</back>
+	</text>
+</TEI>

@@ -1,0 +1,231 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>HashKV: Enabling Efficient Updates in KV</p>
+    <p>Storage via Hashing</p>
+    <p>Helen H. W. Chan, Yongkun Li, Patrick P. C. Lee, Yinlong Xu</p>
+    <p>The Chinese University of Hong Kong  University of Science and Technology of China</p>
+    <p>USENIX ATC 2018</p>
+  </div>
+  <div class="page">
+    <p>Background</p>
+    <p>Update-intensive workloads are common in key-value (KV) stores</p>
+    <p>Online transaction processing (OLTP)</p>
+    <p>Enterprise servers</p>
+    <p>Yahoos workloads are shifting from reads to writes [*]</p>
+    <p>Log-structured merge (LSM) tree</p>
+    <p>Transform random writes into sequential writes</p>
+    <p>Support efficient range scans</p>
+    <p>Limitation: high read and write amplifications during compaction</p>
+  </div>
+  <div class="page">
+    <p>LSM-tree in LevelDB</p>
+    <p>High I/O amplifications!</p>
+    <p>Immutable</p>
+    <p>MemTable MemTable</p>
+    <p>flushMemory</p>
+    <p>Disk</p>
+    <p>KV pairs</p>
+    <p>(Sorted)</p>
+    <p>Metadata</p>
+    <p>SSTable L0</p>
+    <p>L1</p>
+    <p>Lk  1</p>
+    <p>Compaction</p>
+    <p>KV pairs</p>
+  </div>
+  <div class="page">
+    <p>KV Separation[*]</p>
+    <p>Store values separately to reduce LSM-tree size</p>
+    <p>LSM-tree: keys and metadata for indexing</p>
+    <p>vLog: circular log for KV pairs</p>
+    <p>KV pairs</p>
+    <p>Key, value</p>
+    <p>Key, value</p>
+    <p>Key, value</p>
+    <p>Log tail</p>
+    <p>Log head</p>
+    <p>vLog</p>
+  </div>
+  <div class="page">
+    <p>KV Separation</p>
+    <p>Does KV separation solve all problems?</p>
+    <p>High garbage collection (GC) overhead in vLog management</p>
+    <p>More severe if reserved space is limited</p>
+    <p>Update-intensive workloads aggravate GC overhead</p>
+    <p>GC needs to query the LSM-tree to check if KV pairs are valid</p>
+    <p>High write amplification of vLog</p>
+    <p>if reserved space is filled</p>
+    <p>Reserved space</p>
+    <p>not filled up yet</p>
+    <p>Filled</p>
+    <p>reserved space</p>
+  </div>
+  <div class="page">
+    <p>Our Contributions</p>
+    <p>HashKV, an efficient KV store for update-intensive workloads</p>
+    <p>Extend KV separation with hash-based data grouping for value storage</p>
+    <p>Mitigate GC overhead with smaller I/O amplifications and without LSM</p>
+    <p>tree queries</p>
+    <p>Three extensions that adapt to workload characteristics</p>
+    <p>E1: Dynamic reserved space allocation</p>
+    <p>E2: Hotness awareness</p>
+    <p>E3: Selective KV separation</p>
+    <p>Extensive prototype experiments</p>
+    <p>4.6x throughput and 53.4% less write traffic over circular log</p>
+  </div>
+  <div class="page">
+    <p>Hash-based Data Grouping</p>
+    <p>Hash values into fixed-size partitions by keys</p>
+    <p>Partition isolation: all value updates of the same key must go to the</p>
+    <p>same partition in a log-structured manner</p>
+    <p>Deterministic grouping: instantly locate the partition of a given key</p>
+    <p>Allow flexible and lightweight GC</p>
+    <p>Localize all updates of a key in the same partition</p>
+    <p>What if a partition is full?</p>
+    <p>LSM-tree</p>
+    <p>(for indexing)</p>
+    <p>KV pairs</p>
+    <p>value store</p>
+  </div>
+  <div class="page">
+    <p>E1: Dynamic Reserved Space Allocation</p>
+    <p>Layout:</p>
+    <p>Logical address space: main segments (e.g., 64 MiB)</p>
+    <p>Reserved space: log segments (e.g., 1 MiB)</p>
+    <p>Segment group: 1 main segment + multiple log segments</p>
+    <p>In-memory segment table tracks all segment groups</p>
+    <p>Checkpointed for fault tolerance</p>
+    <p>Reserved</p>
+    <p>space</p>
+    <p>Segment</p>
+    <p>group</p>
+    <p>Log</p>
+    <p>segment</p>
+    <p>Main</p>
+    <p>segment</p>
+    <p>Segment group</p>
+    <p>LSM-tree</p>
+  </div>
+  <div class="page">
+    <p>Group-Based Garbage Collection</p>
+    <p>Select a segment group for GC</p>
+    <p>e.g., the one with largest amount of writes</p>
+    <p>Likely to have many invalid KV pairs to reclaim free space</p>
+    <p>Identify all valid KV pairs in selected group</p>
+    <p>Since each group stores updates in a log-structured manner, the latest</p>
+    <p>version of each key must reside at the end of the group</p>
+    <p>No LSM-tree queries required</p>
+    <p>Write all valid KV pairs to new segments</p>
+    <p>Update LSM-tree</p>
+  </div>
+  <div class="page">
+    <p>E2: Hotness Awareness</p>
+    <p>Problem: mix of hot and cold KV pairs</p>
+    <p>Unnecessary rewrites for cold KV pairs</p>
+    <p>Tagging:</p>
+    <p>Add a tag in metadata to indicate</p>
+    <p>presence of cold values</p>
+    <p>Cold values are separately stored</p>
+    <p>Hot-cold value separation</p>
+    <p>GC rewrites small tags instead of</p>
+    <p>values</p>
+  </div>
+  <div class="page">
+    <p>E3: Selective KV Separation</p>
+    <p>KV separation for small values incurs extra costs to access both</p>
+    <p>LSM-tree and value store</p>
+    <p>Selective approach:</p>
+    <p>Large values: KV separation</p>
+    <p>Small values: stored entirely in LSM-tree</p>
+    <p>Open issue: how to distinguish between small and large values?</p>
+  </div>
+  <div class="page">
+    <p>Other Issues</p>
+    <p>Range scans:</p>
+    <p>Leverage read-ahead (via posix_fadvise) for speedup</p>
+    <p>Metadata journaling:</p>
+    <p>Crash consistency for both write and GC operations</p>
+    <p>Implementation:</p>
+    <p>Multi-threading for writes and GC</p>
+    <p>Batched writes for KV pairs in the same segment group</p>
+    <p>Built on SSDs</p>
+  </div>
+  <div class="page">
+    <p>Putting It All Together: HashKV Architecture</p>
+    <p>Memory</p>
+    <p>Persistent</p>
+    <p>Storage</p>
+    <p>Write cache</p>
+    <p>(meta, key, value)</p>
+    <p>KV separation (meta, key)</p>
+    <p>LSM-tree</p>
+    <p>MemTable</p>
+    <p>Value store</p>
+    <p>Reserved</p>
+    <p>space</p>
+    <p>Cold data log</p>
+    <p>Segment</p>
+    <p>group</p>
+    <p>Log</p>
+    <p>segment</p>
+    <p>Main</p>
+    <p>segment</p>
+    <p>Segment group</p>
+    <p>Write</p>
+    <p>journal</p>
+    <p>GC</p>
+    <p>journal</p>
+    <p>Segment table</p>
+    <p>Group 1</p>
+    <p>Group 2</p>
+    <p>(end pos, segments)</p>
+    <p>(end pos, segments)</p>
+  </div>
+  <div class="page">
+    <p>Experiments</p>
+    <p>Testbed backed with an SSD RAID array</p>
+    <p>KV stores</p>
+    <p>LevelDB, RocksDB, HyperLevelDB, PebblesDB (default parameters)</p>
+    <p>vLog (circular log) and HashKV: built on LevelDB for KV separation</p>
+    <p>Workloads</p>
+    <p>40 GiB for main segments + 12 GiB (30%) reserved space for log segments</p>
+    <p>Load: 40 GiB of 1-KiB KV pairs (Phase P0)</p>
+    <p>Update: 40 GiB of updates for three phases (Phases P1, P2, P3)</p>
+    <p>P1: reserved space gradually filled up</p>
+    <p>P2 &amp; P3: reserved space fully filled (stabilized performance)</p>
+  </div>
+  <div class="page">
+    <p>Update Performance of HashKV</p>
+    <p>Compared to LevelDB, RocksDB, and vLog:</p>
+    <p>6.3-7.9x , 1.3-1.4x, and 3.7-4.6x throughput, resp.</p>
+    <p>49.6-71.5% lower write size</p>
+    <p>Much lower KV store size than HyperLevelDB and PebblesDB 15</p>
+    <p>Throughput Write size KV store size</p>
+  </div>
+  <div class="page">
+    <p>Impact of Reserved Space</p>
+    <p>HashKVs throughput increases with reserved space size</p>
+    <p>vLog has high LSM-tree query overhead (80% of latency)</p>
+    <p>Throughput Latency breakdown (V = vLog; H = HashKV)</p>
+  </div>
+  <div class="page">
+    <p>Range Scans</p>
+    <p>HashKV maintains high range scan performance</p>
+  </div>
+  <div class="page">
+    <p>Optimization Features</p>
+    <p>Higher throughput and smaller write size with</p>
+    <p>optimization features enabled</p>
+    <p>Hotness awareness Selective KV separation</p>
+  </div>
+  <div class="page">
+    <p>Conclusions</p>
+    <p>HashKV: hash-based data grouping for efficient updates</p>
+    <p>Dynamic reserved space allocation</p>
+    <p>Hotness awareness via tagging</p>
+    <p>Selective KV separation</p>
+    <p>More evaluation results and analysis in paper and technical report</p>
+    <p>Source code: http://adslab.cse.cuhk.edu.hk/software/hashkv</p>
+  </div>
+</Presentation>

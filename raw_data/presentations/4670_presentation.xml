@@ -1,0 +1,288 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>Fast Hydraulic Erosion Simulation and Visualization on GPU</p>
+    <p>Fast Hydraulic Erosion Simulation and Visualization on GPU</p>
+    <p>Xing Mei1 Philippe Decaudin2 Bao-Gang Hu1</p>
+    <p>Pacific Graphics07</p>
+  </div>
+  <div class="page">
+    <p>Outline</p>
+    <p>Introduction  Hydraulic Erosion</p>
+    <p>Existing Methods</p>
+    <p>Hydraulic Erosion on GPU  Method Overview</p>
+    <p>Simulation Steps</p>
+    <p>Multi-pass Implementation on GPU</p>
+    <p>Results</p>
+    <p>Conclusion &amp; Future Work</p>
+  </div>
+  <div class="page">
+    <p>Introduction - Hydraulic Erosion  Process</p>
+    <p>Water flow takes away (dissolves) the soil</p>
+    <p>and relocates (deposits) it somewhere else</p>
+    <p>Effect Changes terrain appearance</p>
+    <p>Creates interesting geo-morphological structures</p>
+    <p>Gullies Eroded landscape on Maui Island</p>
+  </div>
+  <div class="page">
+    <p>Enhance realism</p>
+    <p>A useful complement to fluid simulation</p>
+    <p>Topographical changes affect the water flow</p>
+    <p>[Chiba98]</p>
+    <p>Introduction - Erosion Simulation (Why?)</p>
+    <p>[Bene06]</p>
+  </div>
+  <div class="page">
+    <p>Procedural [Kelly88, Prusinkiewicz93]  Ad hoc rules with fractal terrain generation  Fast and efficient; No water flow involved</p>
+    <p>Limited control on the erosion results</p>
+    <p>Physically Based Simulation</p>
+    <p>[Musgrave89, Chiba98, Neidhold05]  Simulation on already-existing terrains  Controllable Erosion Process, but computationally expensive</p>
+    <p>Limited for interactive applications</p>
+    <p>Introduction - Existing Methods</p>
+  </div>
+  <div class="page">
+    <p>A novel hydraulic erosion simulation method</p>
+    <p>Effective produces the important features in the erosion process Gullies, water catchments, deposited sediment</p>
+    <p>Efficient Well mapped to GPU</p>
+    <p>Interactive frame rates for large size terrains</p>
+    <p>Erosion on GPU - Motivation</p>
+  </div>
+  <div class="page">
+    <p>5 steps in one cycle of the simulation</p>
+    <p>Terrain</p>
+    <p>water</p>
+    <p>Rainfall &amp; River Source Water Movement</p>
+    <p>Erosion</p>
+    <p>Deposition</p>
+    <p>Sediment Transportation</p>
+    <p>Deposited Sediment</p>
+    <p>Catchment</p>
+    <p>Evaporation</p>
+    <p>(1) Water Increment (2) Water Movement (flow simulation)</p>
+    <p>(3) Erosion or Deposition (4) Sediment Transportation</p>
+    <p>(5) Evaporation</p>
+    <p>Erosion on GPU - Method Overview</p>
+  </div>
+  <div class="page">
+    <p>Water Height</p>
+    <p>Layers of 2D arrays</p>
+    <p>Each step should update the cell data in parallel</p>
+    <p>No scattering operations on the data array involved</p>
+    <p>cell</p>
+    <p>Erosion on GPU - Data Structure</p>
+    <p>Arrays</p>
+    <p>Terrain Height</p>
+    <p>d</p>
+    <p>b</p>
+    <p>Suspended Sediment s</p>
+    <p>Outflow flux</p>
+    <p>Velocity</p>
+    <p>),,,( BTRL fffff</p>
+    <p>),( yx VVV</p>
+    <p>cell</p>
+  </div>
+  <div class="page">
+    <p>Two kinds of sources</p>
+    <p>River sources  fixed location, radius, intensity</p>
+    <p>Raindrops  random location, radius, intensity</p>
+    <p>Erosion on GPU (1) Water Increment</p>
+    <p>tKd r Water increment</p>
+  </div>
+  <div class="page">
+    <p>Possible Models?  GPU friendly</p>
+    <p>Grid-based methods &gt; Lagrangian methods  Efficient</p>
+    <p>Shallow water model &gt; 3D Navier-Stokes Equation  Suitable for Erosion-Deposition</p>
+    <p>Velocity field is necessary</p>
+    <p>Previous models on shallow water framework  Simplified Newtonian physics model [Neidhold05]</p>
+    <p>hard to parallelize  Kass&amp;Millers implicit method [Bene07]</p>
+    <p>many iterations over the grid, not efficient for large size terrain</p>
+    <p>Our choice The Virtual Pipe model [OBrien95]</p>
+    <p>Erosion on GPU (2) Water Movement (Flow Simulation)</p>
+  </div>
+  <div class="page">
+    <p>Virtual Pipe Model  Water is exchanged between cells through virtual pipes</p>
+    <p>How much water exchanged through each pipe?</p>
+    <p>Flux  accelerated by the hydrostatic pressure difference</p>
+    <p>P0</p>
+    <p>P0</p>
+    <p>Cell</p>
+    <p>Erosion on GPU (2) Water Movement (Flow Simulation)</p>
+    <p>LF</p>
+    <p>BF</p>
+    <p>RF</p>
+    <p>TF</p>
+    <p>P1 P2</p>
+    <p>Two-Step Process 1.Update Flux 2.Update Water Height</p>
+    <p>A simple explicit method</p>
+  </div>
+  <div class="page">
+    <p>Two problems about the original model</p>
+    <p>Erosion on GPU (2) Water Movement (Flow Simulation)</p>
+    <p>Cell LF</p>
+    <p>BF</p>
+    <p>RF</p>
+    <p>TF 1. Staggered grid water height (d)  cell center flux (F)  cell border</p>
+    <p>Both are not GPU-friendly</p>
+  </div>
+  <div class="page">
+    <p>Adaptation to the original model  the outflow flux for each cell</p>
+    <p>Flux (F) and outflow flux (f)</p>
+    <p>Water height update (d)</p>
+    <p>- send away the outflow flux</p>
+    <p>- collect inflow flux from neighbours</p>
+    <p>Outflow flux</p>
+    <p>Cell(x,y)</p>
+    <p>Inflow flux</p>
+    <p>Erosion on GPU (2) Water Movement (Flow Simulation)</p>
+    <p>Lf</p>
+    <p>Bf</p>
+    <p>Rf</p>
+    <p>Tf 0,,,</p>
+    <p>),,,(</p>
+    <p>BTRL</p>
+    <p>BTRL</p>
+    <p>ffff</p>
+    <p>fffff</p>
+    <p>)(   outin fftd</p>
+    <p>),1(),( yxfyxfF RLL</p>
+    <p>LF</p>
+  </div>
+  <div class="page">
+    <p>Non-negative water update</p>
+    <p>Erosion on GPU (2) Water Movement (Flow Simulation)</p>
+    <p>Outflow flux</p>
+    <p>Cell</p>
+    <p>Inflow flux</p>
+    <p>Lf</p>
+    <p>Bf</p>
+    <p>Rf</p>
+    <p>Tf</p>
+    <p>dftK out</p>
+    <p>)(   outin fftd</p>
+    <p>a scaling factor K limiting the outflow flux</p>
+  </div>
+  <div class="page">
+    <p>3-step process  Update outflow flux  Update water height  Update (horizontal) velocity field</p>
+    <p>From Flux (f) to Velocity (V)</p>
+    <p>No-Slip Boundaries</p>
+    <p>set outflow flux to 0 for boundary cells</p>
+    <p>Limitation for time step ]1,0[,),max(</p>
+    <p>y</p>
+    <p>V</p>
+    <p>x</p>
+    <p>V t</p>
+    <p>yx</p>
+    <p>Erosion on GPU (2) Water Movement (Flow Simulation)</p>
+    <p>fdAtV xx  Cell</p>
+    <p>X</p>
+    <p>Boundary cell</p>
+  </div>
+  <div class="page">
+    <p>Sediment transport capacity</p>
+    <p>Current suspended sediment</p>
+    <p>How to compute for each cell ?</p>
+    <p>We adapt a classic model from soil science [Julien85]</p>
+    <p>C S</p>
+    <p>S</p>
+    <p>CS  CS</p>
+    <p>ErosionDeposition</p>
+    <p>C</p>
+    <p>Erosion on GPU (3) Erosion &amp; Deposition</p>
+    <p>)sin( VKC c</p>
+  </div>
+  <div class="page">
+    <p>Suspended sediment (S) is advected by the velocity field</p>
+    <p>Many GPU-friendly schemes to solve the equation  Stable semi-Lagrangian method [Stam99]</p>
+    <p>Upwind differencing scheme</p>
+    <p>More mass-conservative methods such as BFECC [Kim05, Selle07]</p>
+    <p>SV</p>
+    <p>t</p>
+    <p>S</p>
+    <p>),(),( tvytuxSyxS ttt</p>
+    <p>Erosion on GPU (4) Sediment Transportation</p>
+    <p>(advection dominated, no diffusion considered)</p>
+  </div>
+  <div class="page">
+    <p>General computation framework on GPU [Harris03, Owens07] To update a 2D array in parallel:</p>
+    <p>Multi-pass process</p>
+    <p>Initialization</p>
+    <p>),(</p>
+    <p>),,,(</p>
+    <p>,,</p>
+    <p>TVVV</p>
+    <p>Tfffff</p>
+    <p>Tsdb</p>
+    <p>yx</p>
+    <p>BTRL</p>
+    <p>(1) Water Increment</p>
+    <p>(2) Flow Simulation</p>
+    <p>(3) Erosion-Deposition</p>
+    <p>(4) Sediment transport</p>
+    <p>(5) Evaporation</p>
+    <p>Outflow</p>
+    <p>Water Height</p>
+    <p>Velocity</p>
+    <p>Simulation</p>
+    <p>Visualization</p>
+    <p>VS: Vertex Texture PS: Phong Lighting</p>
+    <p>Erosion on GPU - Multi-pass Implementation on GPU</p>
+    <p>pack data into textures</p>
+    <p>draw a screenaligned quad</p>
+    <p>update texture in pixel shader</p>
+  </div>
+  <div class="page">
+    <p>Results</p>
+    <p>Platform: Pentium IV 2.4GHz + 2Gb RAM + Nvidia 8800 GTX</p>
+    <p>water suspended sediment in the flow</p>
+    <p>deposited sediment</p>
+    <p>PG scene in the rain Video</p>
+  </div>
+  <div class="page">
+    <p>Results  Deposited sediment in a basin</p>
+    <p>The bottom of the basin is flattened by the deposited sediment</p>
+    <p>Video</p>
+  </div>
+  <div class="page">
+    <p>Results</p>
+    <p>River flow in a drained channel</p>
+    <p>Part of the original river bank get eroded</p>
+    <p>Video</p>
+  </div>
+  <div class="page">
+    <p>Results</p>
+    <p>Mountain scene eroded by rainfall</p>
+    <p>Video</p>
+  </div>
+  <div class="page">
+    <p>Results</p>
+    <p>Final example:</p>
+    <p>the combination of the rainfall and the river source</p>
+    <p>Video</p>
+  </div>
+  <div class="page">
+    <p>Results</p>
+    <p>Performance results for the final example at different grid size</p>
+    <p>Interactive frame rates for terrain up to 1024x1024!</p>
+  </div>
+  <div class="page">
+    <p>Results</p>
+    <p>ST, VT, CT at different grid size</p>
+    <p>ST : Simulation Time VT : Visualization Time CT : Cycle Time = ST + VT</p>
+  </div>
+  <div class="page">
+    <p>Conclusion &amp; Future Work  A novel simulation method for hydraulic erosion</p>
+    <p>Effective  proper model selection and adaptation for each step</p>
+    <p>Produces dynamic erosion process and realistic results  Efficient - well designed for complete GPU implementation</p>
+    <p>Interactive frame rates for large size terrain</p>
+    <p>Future work  Further improvements on models:</p>
+    <p>Fluid solver - Limitation for time step</p>
+    <p>Erosion Model - Little erosion on flat terrain</p>
+    <p>Extension to non-height-field scene</p>
+    <p>(general 3D objects, structures with caves)  More erosion process  thermal weathering, wind erosion</p>
+  </div>
+  <div class="page">
+    <p>Thanks!</p>
+    <p>More info on</p>
+    <p>http://evasion.imag.fr/Publications/2007/MDH07/</p>
+  </div>
+</Presentation>

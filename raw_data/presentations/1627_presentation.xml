@@ -1,0 +1,292 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>OpenEC: Toward Unified and Configurable Erasure Coding Management in</p>
+    <p>Distributed Storage Systems</p>
+    <p>Xiaolu Li1, Runhui Li1, Patrick P. C. Lee1, Yuchong Hu2</p>
+    <p>The Chinese University of Hong Kong1 Huazhong University of Science and Technology2</p>
+    <p>USENIX FAST 2019</p>
+  </div>
+  <div class="page">
+    <p>Introduction</p>
+    <p>Fault tolerance for distributed storage is critical  Availability: data remains accessible under failures  Durability: no data loss even under failures</p>
+    <p>Erasure coding is a promising redundancy technique  Minimum data redundancy via data encoding  Higher reliability with same storage redundancy than replication  Reportedly deployed in Google, Azure, Facebook</p>
+    <p>e.g., Azure reduces redundancy from 3x (replication) to 1.33x (erasure coding)  PBs saving</p>
+  </div>
+  <div class="page">
+    <p>Erasure Coding  Divide file data to k data blocks  Encode k data blocks to n-k parity blocks  Distribute the n erasure-coded blocks (coding group) to n nodes  Fault-tolerance: any k out of n blocks can recover file data</p>
+    <p>Nodes</p>
+    <p>(n, k) = (4, 2)</p>
+    <p>File encodedivide A B C D</p>
+    <p>A+C B+D A+D</p>
+    <p>B+C+D</p>
+    <p>A B C D</p>
+    <p>A+C B+D A+D</p>
+    <p>B+C+D</p>
+    <p>A B C D</p>
+  </div>
+  <div class="page">
+    <p>Erasure Coding</p>
+    <p>Reed-Solomon (RS) codes are widely deployed  Storage-optimal  Generality for n and k  Drawback: high repair penalty</p>
+    <p>New erasure coding solutions  Repair-optimal erasure codes</p>
+    <p>e.g., regenerating codes [TIT10]; locally repairable codes (LRCs) [ATC12, PVLDB13]; double regenerating codes (DRC) [TOS17]</p>
+    <p>Repair-efficient algorithms  e.g., Partial-parallel-repair (PPR) [Eurosys16]; Repair pipelining [ATC17]</p>
+  </div>
+  <div class="page">
+    <p>Challenge</p>
+    <p>Deploying new erasure coding solutions in distributed storage systems (DSSs) is a daunting task  Re-engineering of DSS workflows (e.g., read/write paths)  Hard to generalize for different DSSs</p>
+    <p>Our past experience:  Over 4K lines-of-code change to HDFS-RAID for adding DRC [TOS17]</p>
+    <p>Review of six DSSs with erasure coding support  HDFS-RAID, Hadoop 3.0 HDFS, QFS, Tahoe-LAFS, Ceph and Swift</p>
+  </div>
+  <div class="page">
+    <p>Limitations of Current DSSs</p>
+    <p>Hard to add advanced erasure codes  Existing DSSs only provide interfaces for basic encoding/decoding operations  Most DSSs do not support sub-packetization (e.g., regenerating codes)</p>
+    <p>Hard to configure the workflows and placement of coding operations</p>
+    <p>Network</p>
+    <p>RN1 N2 N3 N4</p>
+    <p>Network</p>
+    <p>RN1 N2 N3 N4 Repair in fetch-and-compute manner Repair pipelining [ATC17] cannot be readily realized</p>
+  </div>
+  <div class="page">
+    <p>Our Contributions</p>
+    <p>Propose ECDAG, a directed-acyclic-graph abstraction for realizing general erasure coding solutions  Decoupling erasure coding management from DSS workflows</p>
+    <p>Prototype OpenEC on HDFS-RAID, Hadoop 3 HDFS, and QFS  Minimal code changes</p>
+    <p>Extensive experiments on local and Amazon EC2 clusters 7</p>
+    <p>OpenEC: a unified and configurable framework for erasure coding management</p>
+  </div>
+  <div class="page">
+    <p>ECDAG  (n, k) code</p>
+    <p>Data blocks: b0, , bk-1  Parity blocks: bk, , bn-1  Virtual blocks: bi for i  n</p>
+    <p>An ECDAG is a directed acyclic graph that defines either an encoding or a decoding operation  Vertex vi: block bi in a coding group  Edge ei,j: block bi is an input to the linear combination of bj</p>
+    <p>Each edge is associated with a coding coefficient</p>
+  </div>
+  <div class="page">
+    <p>ECDAG</p>
+    <p>ECDAGs for a (5,4) code:</p>
+    <p>Encoding</p>
+  </div>
+  <div class="page">
+    <p>ECDAG</p>
+    <p>ECDAGs for regenerating codes [Dimakis, TIT10] with sub-packetization  w: sub-packetization level (number of sub-blocks per block)  e.g., n=4, k=2, w=2</p>
+    <p>Layout</p>
+    <p>b0 b1 b2 b3 Encoding</p>
+  </div>
+  <div class="page">
+    <p>ECDAG Primitives</p>
+    <p>Construction of an ECDAG:</p>
+    <p>Join: describes linear combination</p>
+    <p>BindX: co-locates coding operations at same level (i.e., x-direction)</p>
+    <p>BindY: co-locates coding operations across levels (i.e., y-direction)</p>
+  </div>
+  <div class="page">
+    <p>ECDAG Primitives</p>
+    <p>Encoding of (6,4) RS code</p>
+    <p>ECDAG* ecdag = new ECDAG(); ecdag-&gt;Join(4, {0,1,2,3}, {1,1,1,1}); ecdag-&gt;Join(5, {0,1,2,3}, {1,2,4,8}); int vidx = ecdag-&gt;BindX({4,5}); ecdag-&gt;BindY(vidx, 0);</p>
+  </div>
+  <div class="page">
+    <p>ECDAG Primitives</p>
+    <p>Decoding via repair pipelining [Li, ATC17]:  e.g., recovering the missing block 0 for (6, 4) RS code</p>
+    <p>ECDAG* ecdag = new ECDAG(); ecdag-&gt;Join(7, {1,2}, {1,1}); ecdag-&gt;BindY(7, 2); ecdag-&gt;Join(8, {7,3}, {1,1}); ecdag-&gt;BindY(8, 3); ecdag-&gt;Join(9, {8,4}, {1,1}); ecdag-&gt;BindY(9, 4); ecdag-&gt;Join(0, {9}, {1});</p>
+  </div>
+  <div class="page">
+    <p>Erasure Coding Interfaces</p>
+    <p>class ECBase { int n, k, w; vector&lt;int&gt; ecoefs;</p>
+    <p>public: // constructing encoding ECDAGs ECDAG* Encode();</p>
+    <p>// constructing decoding ECDAGs ECDAG* Decode(vector&lt;int&gt; from, vector&lt;int&gt; to);</p>
+    <p>// organizing blocks in groups (e.g., racks) vector&lt;vector&lt;int&gt;&gt; Place();</p>
+    <p>}</p>
+  </div>
+  <div class="page">
+    <p>OpenEC Design</p>
+    <p>Controller:  Manages EC metadata  Parses ECDAGs and</p>
+    <p>assigns tasks to agents  Controls block placement  Coordinates repair</p>
+    <p>Agent:  Performs coding operations</p>
+    <p>OECClient:  Interfaces between</p>
+    <p>applications and storage</p>
+    <p>OpenEC deployment on HDFS</p>
+  </div>
+  <div class="page">
+    <p>OpenEC Design</p>
+    <p>Basic operations:  Writes</p>
+    <p>Online encoding  Offline encoding</p>
+    <p>Normal reads</p>
+    <p>Degraded reads</p>
+    <p>Full-node recovery</p>
+    <p>Tasks:  Load</p>
+    <p>Loads an input block</p>
+    <p>Fetch  Retrieves blocks from other agents</p>
+    <p>Compute  Computes a new block</p>
+    <p>Persist  Returns a block</p>
+  </div>
+  <div class="page">
+    <p>Parsing an ECDAG</p>
+    <p>Online encoding for (6,4) RS code  On the write path  Performed by client C</p>
+    <p>Vertices Nodes Tasks v0 C Load b0 v1 C Load b1 v2 C Load b2 v3 C Load b3 v6 C Compute b4 from {b0, b1, b2, b3} with</p>
+    <p>coding coefficients {1,1,1,1}; Compute b5 from {b0, b1, b2, b3} with coding coefficients {1,2,4,8};</p>
+    <p>v4 C v5 C - C Persist b0; Persist b1; Persist b2;</p>
+    <p>Persist b3; Persist b4; Persist b5; 17</p>
+  </div>
+  <div class="page">
+    <p>Parsing an ECDAG</p>
+    <p>Offline encoding for (6,4) RS code  Blocks 0-3 are in</p>
+    <p>nodes 0-3  Performed by different</p>
+    <p>nodes</p>
+    <p>Vertices Nodes Tasks v0 N0 Load b0 v1 N1 Load b1 v2 N2 Load b2 v3 N3 Load b3 v6 N0 Fetch b1 from N1</p>
+    <p>Fetch b2 from N2 Fetch b3 from N3 Compute b4 from {b0, b1, b2, b3} with coding coefficients {1,1,1,1}; Compute b5 from {b0, b1, b2, b3} with coding coefficients {1,2,4,8};</p>
+    <p>v4 N4 Fetch b4 from N0; Persist b4 v5 N5 Fetch b5 from N0; Persist b5</p>
+  </div>
+  <div class="page">
+    <p>Automated Optimizations</p>
+    <p>Automated BindX and BindY  Examines subgraph structures and calls BindX and BindY automatically</p>
+    <p>Hierarchy awareness</p>
+    <p>Pipelining</p>
+  </div>
+  <div class="page">
+    <p>OpenEC Implementation</p>
+    <p>Middleware layer (7000+ lines-of-code)  Coding operations in units of packets  Intel ISA-L for erasure coding  Redis for communications</p>
+    <p>Integration with existing distributed storage systems  HDFS-RAID  Hadoop 3.0 HDFS  QFS (see technical report)</p>
+    <p>Each integration only makes  450 lines-of-code changes  Changes include: (1) interfacing with systems, (2) block placement</p>
+  </div>
+  <div class="page">
+    <p>Experiments</p>
+    <p>Local cluster  16 machines  Quad-core 3.4 GHz Intel CPU  16 GiB RAM  10 Gb/s network</p>
+    <p>Amazon EC2  Up to 30 instances  m5.xlarge instances  10 Gb/s network</p>
+  </div>
+  <div class="page">
+    <p>Basic Operations in Local Cluster</p>
+    <p>OpenEC preserves original HDFS performance</p>
+    <p>OpenEC achieves much faster offline encoding than HDFS-RAID with a simpler workflow</p>
+    <p>Write Normal Read</p>
+    <p>Degraded Read</p>
+    <p>T hp</p>
+    <p>t ( M</p>
+    <p>iB /s</p>
+    <p>) HDFS-3 OpenEC</p>
+    <p>Offline Encoding</p>
+    <p>Full-node Recovery</p>
+    <p>Th pt</p>
+    <p>(M iB</p>
+    <p>/s )</p>
+    <p>HDFS-RAID OpenEC</p>
+    <p>Comparisons with HDFS-3 Comparisons with HDFS-RAID</p>
+  </div>
+  <div class="page">
+    <p>Comparisons with Native Coding (without I/O)</p>
+    <p>ECDAG coding computations are slower than ISA-L  29-38% lower in encoding; 0.6-3.15% lower in decoding</p>
+    <p>Remains much faster than I/O; limited overhead overall 23</p>
+    <p>(6,4) (9,6) (12,8)(14,10)</p>
+    <p>Th pt</p>
+    <p>(M iB</p>
+    <p>/s )</p>
+    <p>Native OpenEC</p>
+    <p>(6,4) (9,6) (12,8)(14,10)</p>
+    <p>Th pt</p>
+    <p>(M iB</p>
+    <p>/s )</p>
+    <p>Native OpenEC</p>
+    <p>Encoding Decoding</p>
+  </div>
+  <div class="page">
+    <p>Support of Erasure Coding Designs</p>
+    <p>Th pt</p>
+    <p>(M iB</p>
+    <p>/s )</p>
+    <p>RS (9, 6) LRC(10, 6)</p>
+    <p>Th pt</p>
+    <p>(M iB</p>
+    <p>/s )</p>
+    <p>RS (6, 4) Butterfly (6, 4) MISER (8, 4)</p>
+    <p>Th pt</p>
+    <p>(M iB</p>
+    <p>/s )</p>
+    <p>RS (9, 6) PPR (9, 6) Pipeline (9, 6) 54</p>
+    <p>(6, 4) (9, 6)</p>
+    <p>Th pt</p>
+    <p>(M iB</p>
+    <p>/s )</p>
+    <p>RS DRC</p>
+    <p>LRC Regenerating codes</p>
+    <p>Repair algorithms</p>
+    <p>DRC</p>
+    <p>Comparisons with six state-of-the-art erasure coding designs</p>
+    <p>OpenECs performance conforms to the theoretical gains in network-bound environments</p>
+  </div>
+  <div class="page">
+    <p>Automated Optimizations</p>
+    <p>Automated ECDAG customization for a hierarchical topology</p>
+    <p>Up to 82% repair throughput gain</p>
+    <p>(8,6) (10,8) (12,10)</p>
+    <p>Th pt</p>
+    <p>(M iB</p>
+    <p>/s )</p>
+    <p>Default Pipeline</p>
+  </div>
+  <div class="page">
+    <p>Scalability in Amazon EC2</p>
+    <p>OpenEC scales well with number of instances</p>
+    <p>Write Normal Read</p>
+    <p>Degraded Read</p>
+    <p>Th pt</p>
+    <p>(M iB</p>
+    <p>/s )</p>
+    <p>N=10 N=20 N=30</p>
+    <p>O ine Encoding</p>
+    <p>Full-node Recovery</p>
+    <p>Th pt</p>
+    <p>(M iB</p>
+    <p>/s )</p>
+    <p>N=10 N=20 N=30</p>
+    <p>Online Encoding Offline Encoding</p>
+  </div>
+  <div class="page">
+    <p>Conclusions</p>
+    <p>OpenEC is a unified and configurable framework for flexible erasure coding management</p>
+    <p>Future work:  Integration with more systems (e.g., Ceph, Swift)  Combined with software-defined storage for better configurability</p>
+    <p>Source code:  http://adslab.cse.cuhk.edu.hk/software/openec</p>
+  </div>
+  <div class="page">
+    <p>Backup</p>
+  </div>
+  <div class="page">
+    <p>Question</p>
+    <p>How to construct decoding ECDAGs for different combinations of lost blocks?</p>
+    <p>The Decode() function should construct different decoding ECDAGs for two cases:  Decoding one lost block: uses any repair-efficient approach  Decoding multiple lost blocks: picks the first k available blocks</p>
+  </div>
+  <div class="page">
+    <p>Question</p>
+    <p>What happens if there is a failure during repair?</p>
+    <p>We assume that OpenEC restarts the repair process by connecting to the new set of available nodes.</p>
+  </div>
+  <div class="page">
+    <p>Question</p>
+    <p>What types of codes are supported or not supported?</p>
+    <p>Supported:  Linear codes (e.g., RS codes, regenerating codes, LRC)</p>
+    <p>Not supported:  Non-linear codes  Sector-disk codes</p>
+  </div>
+  <div class="page">
+    <p>Question</p>
+    <p>Performance of automated BindX and BindY?</p>
+    <p>(8,6) (10,8) (12,10)</p>
+    <p>Th pt</p>
+    <p>(M iB</p>
+    <p>/s )</p>
+    <p>No Optimization BindX BindX &amp; BindY (default)</p>
+  </div>
+  <div class="page">
+    <p>Question</p>
+    <p>Performance in QFS</p>
+    <p>Write Normal Read</p>
+    <p>Degraded Read</p>
+    <p>Th pt</p>
+    <p>(M iB</p>
+    <p>/s )</p>
+    <p>QFS OpenEC</p>
+    <p>Write Normal Read</p>
+    <p>Degraded Read</p>
+    <p>Th pt</p>
+    <p>(M iB</p>
+    <p>/s )</p>
+    <p>QFS OpenEC</p>
+    <p>Single Client Multiple Clients</p>
+  </div>
+</Presentation>

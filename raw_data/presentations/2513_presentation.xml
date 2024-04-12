@@ -1,0 +1,253 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>Square Pegs in a Round Pipe: Wire-Compatible Unordered Delivery</p>
+    <p>In TCP and TLS</p>
+    <p>Michael F. Nowlan2</p>
+    <p>Nabin Tiwari1 Jana Iyengar1</p>
+    <p>Syed Obaid Amin12</p>
+    <p>Bryan Ford2</p>
+    <p>Project webpage: http://dedis.cs.yale.edu/2009/tng</p>
+  </div>
+  <div class="page">
+    <p>Once upon a time, long long ago</p>
+    <p>TCP was the Internet workhorse  reliable, ordered, connection-oriented, bytestream  flow control (receiver throttle)</p>
+    <p>UDP was a transport NOOP  Ok  it demuxed. Big Deal.</p>
+    <p>Applications were largely happy  TCP generally sufficed (telnet, FTP, Email )  UDP was used for simple messaging (DNS, TFTP)</p>
+  </div>
+  <div class="page">
+    <p>Over the next several moons</p>
+    <p>TCP continued to mature  end-to-end congestion control (network throttle)  ECN (and AQM)  NEW!! MPTCP for multiple net interfaces !!</p>
+    <p>UDP remained a NOOP</p>
+    <p>Modern apps found services insufficient  realtime audio / video communication  multimedia streaming  web</p>
+  </div>
+  <div class="page">
+    <p>New transports built in response ...</p>
+    <p>SCTP (RFC 4960)  multistreaming, message boundaries, multihoming,</p>
+    <p>partial reliability, congestion control</p>
+    <p>DCCP (RFC 4340)  Unreliable, congestion-controlled</p>
+    <p>SST, POC  BXXP?</p>
+  </div>
+  <div class="page">
+    <p>but the Internet remained loyal!</p>
+    <p>TCP and/or UDP get through most middleboxes  Only TCP gets through all middleboxes  ...often only to port 80 (HTTP) or port 443 (HTTPS)!</p>
+    <p>New &amp; unknown transports rarely get through  SCTP and DCCP not supported by middleboxes  Make it almost impossible to deploy new transports</p>
+  </div>
+  <div class="page">
+    <p>How deep does this loyalty run?</p>
+    <p>Network Address Translators (NATs)</p>
+    <p>Cheap and ubiquitous, entrenched in the network  Firewalls</p>
+    <p>Rules based on TCP/UDP port numbers; often DPI  Performance Enhancing Proxies (PEPs)</p>
+    <p>Transparently improve TCP (not UDP!) performance</p>
+  </div>
+  <div class="page">
+    <p>Applications, in the meanwhile ...  Build their own abstractions atop TCP and UDP</p>
+    <p>multiple TCP connections for multistreaming, congestion control and retransmissions on UDP</p>
+    <p>Abstracting on UDP  eventually tends towards TCP over UDP  can interact poorly with UDP's service model</p>
+    <p>Abstracting on TCP  adds buffering and latency  can interact poorly with TCP's mechanisms</p>
+  </div>
+  <div class="page">
+    <p>What have we done so far?</p>
+    <p>NATs are evil. We won't care about them.  It will all change with IPv6.  Don't design around middleboxes,</p>
+    <p>that will only encourage them!  Wait, wait... we'll accept middleboxes,</p>
+    <p>but we'll specify how they ought to behave!</p>
+    <p>Why build a new transport?? It won't get deployed anyways. Overlay.</p>
+    <p>Denial</p>
+    <p>Anger</p>
+    <p>Bargaining</p>
+    <p>Depression</p>
+  </div>
+  <div class="page">
+    <p>The final stage*: Acceptance</p>
+    <p>Design assumptions for new end-to-end services:  Middleboxes are here to stay  Design should not require changes to middleboxes</p>
+    <p>Consequence:  New end-to-end services must use protocols that</p>
+    <p>appear as legacy protocols on the wire.</p>
+    <p>*Kbler-Ross model: Five stages of grief</p>
+  </div>
+  <div class="page">
+    <p>The Minion Suite</p>
+    <p>A packet packhorse for deploying new transports  Uses legacy protocols</p>
+    <p>TCP, TLS, UDP</p>
+    <p>as a substrate...  turn legacy protocols into minions offering</p>
+    <p>unordered datagram service</p>
+    <p>for building new services that apps want  multistreaming, message boundaries, unordered</p>
+    <p>delivery, app-defined congestion control  (may be extended to: stream-level receiver-side flow</p>
+    <p>control, multipath, partial reliability)</p>
+  </div>
+  <div class="page">
+    <p>Outline</p>
+    <p>Minion: a packet packhorse for new transports  Carry new transport services over Internet's rough terrain</p>
+    <p>uCOBS: unordered delivery in TCP  Making datagram service look like a TCP stream</p>
+    <p>uTLS: unordered delivery in SSL/TLS  Making datagrams indistinguishable from HTTPS</p>
+    <p>Impact on real applications</p>
+  </div>
+  <div class="page">
+    <p>What's in the Minion Suite?</p>
+    <p>Break up the functions of the legacy transport layer</p>
+    <p>Breaking Up the Transport Logjam, HotNets '08  Use legacy protocols as compatible building blocks</p>
+    <p>We'll focus here on uCOBS/uTCP (and summarize uTLS)</p>
+    <p>OS API</p>
+    <p>Minion API: unordered datagram</p>
+    <p>delivery Minion Protocol Suite</p>
+    <p>uCOBS uTLS shim</p>
+    <p>UDP</p>
+    <p>shim</p>
+    <p>DCCP</p>
+    <p>Application</p>
+    <p>higher application-level transports (optional)</p>
+    <p>TCP or uTCP</p>
+    <p>Optional Minion extensions to TCP</p>
+  </div>
+  <div class="page">
+    <p>uTCP (unordered TCP)</p>
+    <p>We introduce 2 new TCP socket options in Linux:</p>
+    <p>SO_UNORDERED_RCV</p>
+    <p>kernel delivers incoming data immd  both in-order and out-of-order data  also delivers TCP sequence number (- ISN) with data</p>
+    <p>SO_UNORDERED_SND:  Userspace library specifies priority with every write() call  Message placed in a priority queue in socket sendbuffer  Untransmitted data only! Transmitted data in linear queue</p>
+  </div>
+  <div class="page">
+    <p>Delivery in Standard TCP</p>
+    <p>CumAck = 101</p>
+    <p>TCP Stack (delivered)</p>
+    <p>read() Application</p>
+    <p>application receive buffer</p>
+  </div>
+  <div class="page">
+    <p>Delivery in Standard TCP</p>
+    <p>CumAck = 201</p>
+    <p>(delivered)</p>
+    <p>read()</p>
+    <p>Out-of-Order Queue</p>
+    <p>delivery delayed</p>
+  </div>
+  <div class="page">
+    <p>Delivery in Standard TCP</p>
+    <p>CumAck = 201</p>
+    <p>(delivered)</p>
+    <p>read()</p>
+    <p>Out-of-Order Queue</p>
+    <p>(delayed data delivered)</p>
+  </div>
+  <div class="page">
+    <p>Delivery in uTCP</p>
+    <p>CumAck = 101</p>
+    <p>TCP Stack (delivered)</p>
+    <p>read() Application</p>
+    <p>application fragment buffer</p>
+    <p>(application-level stream reassembly)</p>
+    <p>sequence number</p>
+  </div>
+  <div class="page">
+    <p>Delivery in uTCP</p>
+    <p>CumAck = 201</p>
+    <p>(delivered)</p>
+    <p>read()</p>
+    <p>Out-of-Order Queue</p>
+    <p>application fragment buffer (with hole)</p>
+    <p>out-of-order delivery</p>
+    <p>sequence number</p>
+  </div>
+  <div class="page">
+    <p>Delivery in uTCP</p>
+    <p>CumAck = 201</p>
+    <p>(delivered)</p>
+    <p>read()</p>
+    <p>Out-of-Order Queue</p>
+    <p>application fragment buffer (hole filled)</p>
+    <p>sequence number</p>
+  </div>
+  <div class="page">
+    <p>uCOBS: Simple Datagrams on uTCP</p>
+    <p>Bytestream has no inherent structure</p>
+    <p>middleboxes can re-segment TCP segments  need a message framing mechanism    to detect msgs in arbitrary stream fragments</p>
+    <p>Self-delimiting framing with COBS</p>
+    <p>zero added to both ends of an app message  COBS encoding eliminates zeros in orig data  guaranteed max bit-overhead: 0.4%</p>
+    <p>(6 bytes for 1448-byte msg)</p>
+  </div>
+  <div class="page">
+    <p>uCOBS: Simple Datagrams on uTCP</p>
+    <p>uCOBS Sender</p>
+    <p>COBS-encoded messages sent through uTCP</p>
+    <p>with app-specified priority</p>
+    <p>uCOBS Receiver</p>
+    <p>manages out-of-order data received from uTCP</p>
+    <p>extracts, decodes, delivers messages anywhere in received data bytes</p>
+  </div>
+  <div class="page">
+    <p>uTLS (Summary)</p>
+    <p>uTLS protects end-to-end signaling and data</p>
+    <p>appears as SSL/TLS on the wire, but  provides out-of-order datagram service</p>
+    <p>Makes stream indistinguishable from, e.g., HTTPS</p>
+    <p>even to middleboxes that inspect all app payloads!  only encrypted content affected</p>
+    <p>Technical Challenges:</p>
+    <p>TLS records not encoded for out-of-order decoding  Ciphersuites chain encryption state across records  MACs use implicit record counter, hard to recover</p>
+  </div>
+  <div class="page">
+    <p>Minion Implementation</p>
+    <p>uTCP in Linux 2.6.32 kernel</p>
+    <p>Added socket options to SOCK_STREAM: SO_UNORDERED_SND, SO_UNORDERED_RCV</p>
+    <p>Modified 565 (4.6%) lines of code</p>
+    <p>Userspace library for rest of uCOBS and uTLS</p>
+    <p>reassembles fragmented streams, extracts message, decodes, and delivers to app</p>
+    <p>library  can ship as part of apps  uCOBS: 732 lines of code  uTLS: in OpenSSL, 586 (1.9%) lines of code modified</p>
+  </div>
+  <div class="page">
+    <p>App messages with TCP (TLV encoding) vs. uCOBS</p>
+    <p>Time received at app (seconds)</p>
+    <p>A p</p>
+    <p>p M</p>
+    <p>e ss</p>
+    <p>a g</p>
+    <p>e S</p>
+    <p>e q</p>
+    <p>u e</p>
+    <p>n ce</p>
+    <p>N</p>
+    <p>u m</p>
+    <p>b e</p>
+    <p>r (1</p>
+    <p>yt e</p>
+    <p>m sg</p>
+    <p>s)</p>
+    <p>TCP</p>
+    <p>uCOBS</p>
+  </div>
+  <div class="page">
+    <p>App with message priorities</p>
+    <p>(every 100th message is high priority; 60ms RTT; 0.5% loss)</p>
+  </div>
+  <div class="page">
+    <p>Why build Minion?</p>
+    <p>Instant Karma:  Interactive streaming, Video Conferencing  Better Web browing (parallel HTTP requests)  Minion tunnels instead of TCP tunnels (SSL VPNs)</p>
+    <p>Medium-term Karma:  Minion's services available at design time for new apps</p>
+    <p>Reincarnative Karma (if you believe in it):  Next-gen transport abstraction  New Internet transports built and deployed on Minion</p>
+  </div>
+  <div class="page">
+    <p>Impact on Real Applications</p>
+    <p>Example: Voice-over-IP (VoIP)  Voice/videoconferencing is delay-sensitive</p>
+    <p>Long round-trip delays perceptible, frustrate users</p>
+    <p>Modern VoIP codecs tolerate individual losses  Interpolate over 1 or 2 lost packets</p>
+    <p>But are highly sensitive to burst losses  Can't interpolate when many packets lost/delayed!</p>
+  </div>
+  <div class="page">
+    <p>VoIP application: observed delay</p>
+    <p>(3Mbps bandwidth, 60ms RTT; 4 TCP flows in background)</p>
+  </div>
+  <div class="page">
+    <p>Impact on Real Applications</p>
+    <p>Example: Web  Independent objects in web pages  TCP: parallelism vs. throughput tradeoff</p>
+    <p>Multistreaming with Minion  ordered streams on top of uCOBS, 1 per object  sender breaks data into chunks, adds stream</p>
+    <p>header, sends over uCOBS  no HoL blocking at receiver across streams</p>
+  </div>
+  <div class="page">
+    <p>Web Browsing Trace-driven, over a network path with 1.5Mbps capacity and 60ms RTT</p>
+  </div>
+  <div class="page">
+    <p>In Conclusion  TCP, TLS work on the Internet</p>
+    <p>workhorses of the Internet  increasingly being used as substrates</p>
+    <p>It's the latency, stupid</p>
+    <p>Stuart Cheshire, May 1996</p>
+    <p>We can fit square pegs (packets) through a round pipe (TCP, TLS)</p>
+    <p>eliminates in-order delivery delays  most mods deployable with apps  turn workhorses into packhorses!</p>
+  </div>
+</Presentation>

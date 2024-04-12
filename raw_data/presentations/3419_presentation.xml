@@ -1,0 +1,290 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>POMP: Postmortem Program Analysis with Hardware-Enhanced</p>
+    <p>Post-Crash Artifacts Jun Xu1, Dongliang Mu12, Xinyu Xing1, Peng Liu1, Ping Chen1, Bing Mao2</p>
+  </div>
+  <div class="page">
+    <p>Grim Reality  Despite intensive in-house software testing, programs inevitably contain defects  Accidentally terminate or crash at post-deployment stage  Exploited as security loopholes</p>
+    <p>Software debugging is expensive and needs intensive manual efforts  Debugging software cost has risen to $312 billion per year globally [1]  Developers spend 50% of their programming time finding and fixing bugs [2]</p>
+    <p>[1] http://silvaetechnologies.eu/blg/216/debugging-software-cost-has-risen-to-$312-billion-per-year-globally [2] https://www.roguewave.com/company/news/2013/university-of-cambridge-reverse-debugging-study</p>
+  </div>
+  <div class="page">
+    <p>Techniques facilitating software debugging  Heavyweight technique  Program tracing  Relay debugging</p>
+    <p>Lightweight technique  Examine stack trace in debugger (e.g. [1])  Audit execution logs (e.g., [2])  Analyze crash dump (e.g., [3])</p>
+    <p>Cost Capability Heavyweight</p>
+    <p>tech. High overhead High</p>
+    <p>effectiveness Lightweight</p>
+    <p>tech. Low overhead Low</p>
+    <p>effectiveness</p>
+    <p>Trace execution</p>
+    <p>Log program states</p>
+    <p>Heavyweight tech.</p>
+    <p>Lightweight tech.</p>
+    <p>[1] Liblit et al. Building a Better Backtrace: Techniques for Postmortem Program Analysis. TR02 [2] Yuan et al. Improving Software Diagnosability via Log Enhancement. ASPLOS11 [3] Cui et al. RETracer: Triaging Crashes by Reverse Execution from Partial Memory Dumps. ICSE16</p>
+  </div>
+  <div class="page">
+    <p>Ultimate Goals  Automated  Automating software failure diagnosis without manual efforts</p>
+    <p>Accurate  Do not mistakenly pinpointing the root causes of software failure</p>
+    <p>Nonintrusive (Runtime overhead free)  Introducing no runtime overhead at post-deployment stage</p>
+  </div>
+  <div class="page">
+    <p>POMP for Postmortem Program Analysis  POMP diagnoses software crash using software crash report (core dump)  POMP introduces no overhead at a running software because a crash report is</p>
+    <p>created only when a program accidentally terminates</p>
+  </div>
+  <div class="page">
+    <p>Core dump  In general, a core dump carries information such as  Memory snapshot  Registers  Others (e.g., signals received)</p>
+    <p>A core dump provides only a partial chronology of how a program reached a crash site [3]  A core dump is barely used a source for automated software failure diagnosis</p>
+    <p>[3] Liblit et al. Building a Better Backtrace: Techniques for Postmortem Program Analysis</p>
+  </div>
+  <div class="page">
+    <p>Hardware-enhanced Core dump  POMP enhances a core dump through</p>
+    <p>Intel Processor Trace (PT)  Intel PT enables execution tracing with</p>
+    <p>nearly no overhead  A hardware-enhanced core dump</p>
+    <p>unveils not only a crashing state but more importantly captures the control flow a crashing program follows.</p>
+    <p>A1: push ebp A2: mov ebp, esp A3: sub esp, 0x14 A4: mov [ebp-0xc], test A5: lea eax, [ebp-0x10] A6: push eax A7: call child A8: push ebp A9: mov ebp, esp</p>
+    <p>Execution trace Re</p>
+    <p>gi ste</p>
+    <p>r</p>
+    <p>eax 0x02</p>
+    <p>ebx 0xff28</p>
+    <p>esp 0xff14</p>
+    <p>M em</p>
+    <p>Ad dr</p>
+    <p>es s</p>
+    <p>Memory state</p>
+  </div>
+  <div class="page">
+    <p>Roadmap</p>
+    <p>Design overview  Technical challenge  Technical details  Evaluation in real world crashes  Summary</p>
+  </div>
+  <div class="page">
+    <p>Example of Program Failure Debugging</p>
+    <p>Crash</p>
+    <p>Root Cause</p>
+  </div>
+  <div class="page">
+    <p>Data flow</p>
+    <p>Overview of Automated Program Failure Diagnosis 1) Reversely execute an instruction trace (starting from the crash site) 2) Reconstruct the data flow that a program followed prior to its crash 3) Examine how a bad value was passed to the crash site</p>
+    <p>Re ve</p>
+    <p>rse ly</p>
+    <p>ex ec</p>
+    <p>ut in</p>
+    <p>g</p>
+  </div>
+  <div class="page">
+    <p>Reverse Execution  Invertible Instructions</p>
+    <p>eax-10</p>
+    <p>eax+216 eax+1</p>
+    <p>eax-1</p>
+    <p>add eax 10</p>
+    <p>sub eax 216 dec eax</p>
+    <p>inc eax</p>
+  </div>
+  <div class="page">
+    <p>Reverse Execution  Non-invertible Instructions</p>
+    <p>mov eax 0x5</p>
+    <p>xor ecx ecx</p>
+  </div>
+  <div class="page">
+    <p>Reverse Execution with Backward Data Flow Analysis</p>
+    <p>L1. mov ebx edx</p>
+    <p>L2. mov ecx [edi]</p>
+    <p>L3. mov [ecx] esi</p>
+    <p>L4. mov ecx 0x77</p>
+    <p>L5. mov ebx [eax] Re</p>
+    <p>gi ste</p>
+    <p>rs</p>
+    <p>eax 0x80 ebx 0x95 ecx 0x77 edx 0x32 edi 0x45 esi 0x22</p>
+    <p>M em</p>
+    <p>or y A</p>
+    <p>dd re</p>
+    <p>ss 0x22 0xE8 0x45 0x22 0x77 0xB7 0x80 0x95</p>
+    <p>ebx == edx before the execution of L5</p>
+  </div>
+  <div class="page">
+    <p>Challenge  Memory Alias Issue</p>
+    <p>L1. mov ebx edx</p>
+    <p>L2. mov ecx [edi]</p>
+    <p>L3. mov [ecx] esi</p>
+    <p>L4. mov ecx 0x77</p>
+    <p>L5. mov ebx [eax] Re</p>
+    <p>gi ste</p>
+    <p>rs</p>
+    <p>eax 0x80 ebx 0x95 ecx 0x77 edx 0x32 edi 0x45 esi 0x22</p>
+    <p>M em</p>
+    <p>or y A</p>
+    <p>dd re</p>
+    <p>ss 0x22 0xE8 0x45 0x22 0x77 0xB7 0x80 0x95</p>
+    <p>ecx == [edi] before the execution of L4</p>
+  </div>
+  <div class="page">
+    <p>Challenge  Memory Alias Issue</p>
+    <p>L1. mov ebx edx</p>
+    <p>L2. mov ecx [edi]</p>
+    <p>L3. mov [ecx] esi</p>
+    <p>L4. mov ecx 0x77</p>
+    <p>L5. mov ebx [eax] Re</p>
+    <p>gi ste</p>
+    <p>rs</p>
+    <p>eax 0x80 ebx 0x95 ecx 0x77 edx 0x32 edi 0x45 esi 0x22</p>
+    <p>M em</p>
+    <p>or y A</p>
+    <p>dd re</p>
+    <p>ss 0x22 0xE8 0x45 0x22 0x77 0xB7 0x80 0x95</p>
+    <p>edi == ecx right before the execution of L4</p>
+    <p>Pointing to the same</p>
+    <p>memory region</p>
+  </div>
+  <div class="page">
+    <p>Hypothesis Testing 1) Making two hypotheses for each pair of memory 2) Constructing use-define chain and extracting constraints under each hypothesis 3) Testing each of the hypotheses by using the constraints in each set</p>
+    <p>Hypothesis  [R1] and [R2]</p>
+    <p>are alias</p>
+    <p>Hypothesis  [R1] and [R2] are NOT alias</p>
+    <p>R3=[R2] [R1]=R4</p>
+    <p>Constraint set</p>
+    <p>[R2]=R3 [R1]=R4</p>
+    <p>Constraint set</p>
+    <p>use: R2</p>
+    <p>def: R3=[R2]</p>
+    <p>def: [R1]=R4</p>
+    <p>Use-define chain</p>
+  </div>
+  <div class="page">
+    <p>def: ecx=0x77</p>
+    <p>Hypothesis Testing</p>
+    <p>L1. mov ebx edx</p>
+    <p>L2. mov ecx [edi]</p>
+    <p>L3. mov [ecx] esi</p>
+    <p>L4. mov ecx 0x77</p>
+    <p>Hypothesis  NOT alias</p>
+    <p>Hypothesis  alias</p>
+    <p>use: edx</p>
+    <p>def: ebx=edx</p>
+    <p>def: [ecx]=esi</p>
+    <p>use: esi</p>
+    <p>use: ecx</p>
+    <p>def: ecx=[edi]</p>
+    <p>use: edi</p>
+    <p>use: [edi] use: [edi]</p>
+    <p>ecxedi ecx=[edi] [ecx]=esi</p>
+  </div>
+  <div class="page">
+    <p>def: ecx=0x77</p>
+    <p>Hypothesis Testing</p>
+    <p>L1. mov ebx edx</p>
+    <p>L2. mov ecx [edi]</p>
+    <p>L3. mov [ecx] esi</p>
+    <p>L4. mov ecx 0x77</p>
+    <p>Hypothesis  NOT alias</p>
+    <p>Hypothesis  alias</p>
+    <p>use: edx</p>
+    <p>def: ebx=edx</p>
+    <p>def: [ecx]=esi</p>
+    <p>use: esi</p>
+    <p>use: ecx</p>
+    <p>def: ecx=[edi]</p>
+    <p>use: edi</p>
+    <p>use: [edi] use: [edi]</p>
+    <p>ecx=[edi] ecxedi</p>
+    <p>[ecx]=esi</p>
+    <p>ecx=[edi] ecx=edi</p>
+    <p>[ecx]=esi</p>
+  </div>
+  <div class="page">
+    <p>Hypothesis Testing</p>
+    <p>L1. mov ebx edx</p>
+    <p>L2. mov ecx [edi]</p>
+    <p>L3. mov [ecx] esi</p>
+    <p>L4. mov ecx 0x77</p>
+    <p>Hypothesis  NOT alias</p>
+    <p>Hypothesis  alias</p>
+    <p>ecx=[edi] ecxedi</p>
+    <p>[ecx]=esi</p>
+    <p>ecx=[edi] ecx=edi</p>
+    <p>[ecx]=esi</p>
+    <p>Re gi</p>
+    <p>ste rs</p>
+    <p>eax 0x80 ebx 0x95 ecx 0x77 edx 0x32 edi 0x45 esi 0x22</p>
+    <p>M em</p>
+    <p>or y A</p>
+    <p>dd re</p>
+    <p>ss 0x22 0xE8 0x45 0x22 0x77 0xB7 0x80 0x95</p>
+    <p>Goal: Restore the value of ecx prior to the execution of L4</p>
+  </div>
+  <div class="page">
+    <p>Limitations of Hypothesis Test and Strategy (1)  Limitation: Not having sufficient evidences to reject a</p>
+    <p>hypothesis because  Execution trace includes system calls  POMP does not trace execution into OS kernel  POMP may be unable to perform accurate data flow analysis</p>
+    <p>Strategy: Treat some system calls (e.g., recv / write) as a definition which intervenes all the memory access propagation because  a non-deterministic memory region can potentially overlap</p>
+    <p>with any memory regions in user space</p>
+    <p>Limitations of Hypothesis Test and Strategy (1)</p>
+    <p>use: [edi]</p>
+    <p>def: ecx=[edi]</p>
+    <p>def: recv</p>
+    <p>def: [ecx]</p>
+  </div>
+  <div class="page">
+    <p>Limitations of Hypothesis Test and Strategy (2)  Limitation: Require intensive</p>
+    <p>computation to reject/accept a hypothesis because  One hypothesis test could involve other</p>
+    <p>hypothesis tests, making hypothesis test a recursive procedure</p>
+    <p>In theory, recursive hypothesis test could potentially introduce a computation complexity of O(nm)</p>
+    <p>Strategy: Perform a recursive hypothesis test with limited number of recursion depths (m=2 in our implementation)</p>
+    <p>use: [R1]</p>
+    <p>def: [R4]</p>
+    <p>use: [R3]</p>
+    <p>def: [R2]</p>
+    <p>Alias?</p>
+    <p>Alias?</p>
+  </div>
+  <div class="page">
+    <p>Limitations of Hypothesis Test and Strategy (2)  Limitation: Require intensive</p>
+    <p>computation to reject/accept a hypothesis because  One hypothesis test could involve other</p>
+    <p>hypothesis tests, making hypothesis test a recursive procedure</p>
+    <p>In theory, recursive hypothesis test could potentially introduce a computation complexity of O(nm)</p>
+    <p>Strategy: Perform a recursive hypothesis test with limited number of recursion depths (m=2 in our implementation)</p>
+    <p>[R1] &amp; [R2]: alias</p>
+    <p>[R1] &amp; [R2]: NOT alias</p>
+    <p>[R3] &amp; [R4]: alias</p>
+    <p>[R3] &amp; [R4]: NOT alias</p>
+    <p>[R3] &amp; [R4]: alias</p>
+    <p>[R3] &amp; [R4]: NOT alias</p>
+  </div>
+  <div class="page">
+    <p>Evaluation of POMP  31 program crashes resulting</p>
+    <p>from real world vulnerabilities:  Stack, heap &amp; integer overflow  Use After Free and invalid free  Null pointer dereference</p>
+    <p>Crashing program ranges from  Sophisticated software (e.g., GBD)  Lightweight software (e.g.,</p>
+    <p>corehttp)</p>
+  </div>
+  <div class="page">
+    <p>Evaluation of POMP (cont.)</p>
+  </div>
+  <div class="page">
+    <p>Evaluation of POMP (cont.)</p>
+    <p>Observation 1:  POMP marks slightly more</p>
+    <p>instructions than the ones that truly contribute to program crash;</p>
+    <p>Observation 2:  Compared with the execution</p>
+    <p>trace (from a fault point to a crashing site), POMP significantly reduces the amount of instructions that software developer and security analysts need to manually examine.</p>
+  </div>
+  <div class="page">
+    <p>Evaluation of POMP (cont.)</p>
+    <p>Observation 3:  For 2 crashes, POMP fails to include failure</p>
+    <p>root cause into the instruction set identified by POMP.</p>
+    <p>It contains a system call (sys_read) ; system call writes a data chunk to a certain memory region; reverse execution fails to determine its location and size</p>
+    <p>Integer overflow traps the execution into a long-term iteration; POMP fails to include the root cause instruction into the execution trace restored.</p>
+  </div>
+  <div class="page">
+    <p>Evaluation of POMP (cont.)</p>
+    <p>Observation 4:  For most test cases, POMP takes seconds or</p>
+    <p>tens of minutes for program failure diagnosis; for some other test cases, it could take several hours to process.</p>
+  </div>
+  <div class="page">
+    <p>Summary  POMP can reversely execute a crashing program and restore the memory</p>
+    <p>footprints  The memory footprints restored can be used for data flow construction and</p>
+    <p>program failure diagnosis  POMP reduces the code space that software developers and security analysts</p>
+    <p>need to manually examine, which significantly facilitates program diagnosis failure  POMP can handle program crashes including those resulting from memory</p>
+    <p>corruption vulnerabilities</p>
+  </div>
+  <div class="page">
+    <p>Thank you very much! POMP source code is available at https://github.com/junxzm1990/pomp.git</p>
+  </div>
+</Presentation>

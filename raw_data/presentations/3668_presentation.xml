@@ -1,0 +1,147 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>FANS: Fuzzing Android Native System Services via Automated Interface Analysis</p>
+    <p>Baozheng Liu1,2, Chao Zhang1,2, Guang Gong3, Yishun Zeng1,2, Haifeng Ruan4, Jianwei Zhuge1,2</p>
+  </div>
+  <div class="page">
+    <p>Background</p>
+    <p>Android native system services provide many fundamental functionalities</p>
+    <p>Meanwhile, they are attractive to attackers  However, to the best of our knowledge, existing researches</p>
+    <p>paid little attention to them</p>
+  </div>
+  <div class="page">
+    <p>Related work</p>
+    <p>Gong[1] mainly finds system services vulnerabilities manually  BinderCracker[2] captures the input model through app traffic</p>
+    <p>Fuzz system services by mutating the traffic</p>
+    <p>Chizpurfle[3] focuses on the vendor-implemented Java services</p>
+    <p>[1] Guang Gong. Fuzzing android system services by binder call to escalate privilege. BlackHat USA, 2015. [2] Huan Feng and Kang G. Shin. Understanding and defending the Binder attack surface in Android. ACSAC, 2016. [3] Antonio Ken Iannillo, et al. Chizpurfle: A Gray-Box Android Fuzzer for Vendor Service Customizations. ISSRE, 2017.</p>
+  </div>
+  <div class="page">
+    <p>Application-Service Communication Model</p>
+  </div>
+  <div class="page">
+    <p>Challenges</p>
+    <p>C1. Multi-Level Interface Recognition  Collect all Interfaces  Identify multi-level interfaces</p>
+    <p>C2. Interface Model Extraction  Collect all of the possible transactions  Extract the input and output variables in the transactions</p>
+    <p>C3. Semantically-correct Input Generation  Variable name and variable type  Variable dependency  Interface dependency 5</p>
+  </div>
+  <div class="page">
+    <p>Overview</p>
+  </div>
+  <div class="page">
+    <p>Interface Collector</p>
+  </div>
+  <div class="page">
+    <p>Interface Collector</p>
+    <p>Interface feature  Services use onTransact method to dispatch transactions</p>
+    <p>Collection approach  Compile AOSP and record compilation commands</p>
+    <p>During compilation, interface-related files will be used  Scan every C++ source file in compilation commands</p>
+    <p>Seek for those files which contain the onTransact pattern</p>
+  </div>
+  <div class="page">
+    <p>Interface Model Extractor</p>
+  </div>
+  <div class="page">
+    <p>Transaction Code Identification</p>
+    <p>Services use onTransact method to dispatch transactions  This process is usually implemented as a switch statement</p>
+    <p>Identification Solution  Identify all transactions of a target interface by analyzing case nodes in</p>
+    <p>the abstract syntax tree</p>
+  </div>
+  <div class="page">
+    <p>Input and Output Variable Extraction</p>
+    <p>System services utilize special methods (e.g., readInt32, writeInt32) to deal with input and output variables</p>
+    <p>Extract I/O variables through recognizing such methods  Variable pattern</p>
+    <p>Variables might locate in sequential / conditional / loop statements  Sequential pattern, conditional pattern, loop pattern</p>
+    <p>Variable name  Variable type</p>
+    <p>For more details, please refer to the paper.</p>
+  </div>
+  <div class="page">
+    <p>Auxiliary Information Extraction</p>
+    <p>Transaction paths  Separated by the return statement</p>
+    <p>Extract type definition  Structure and union definition  Enumeration definition  Type alias</p>
+  </div>
+  <div class="page">
+    <p>Dependency Inferer</p>
+  </div>
+  <div class="page">
+    <p>Interface Dependency</p>
+    <p>Generation dependency  writeStrongBinder method</p>
+    <p>Use dependency  readStrongBinder method</p>
+    <p>/* The following code is in IMediaExtractorService.cpp. */ // generation dependency sp&lt;IDataSource&gt; source = makeIDataSource(fd, offset, length); reply-&gt;writeStrongBinder(IInterface::asBinder(source)); // use dependency status_t ret = data.readStrongBinder(&amp;b); ... sp&lt;IDataSource&gt; source = interface_cast&lt;IDataSource&gt;(b);</p>
+  </div>
+  <div class="page">
+    <p>Variable Dependency</p>
+    <p>Intra-transaction dependency, e.g., conditional dependency  It can be inferred when extracting the interface model</p>
+    <p>Inter-transaction dependency, inference principles:  One variable is input, and the other is output  These two variables are located in different transactions  Input variables type is equal to the output variables type  Either the input variable type is complex, or the input variable name and</p>
+    <p>the output variable name are similar</p>
+  </div>
+  <div class="page">
+    <p>Fuzzer Engine</p>
+  </div>
+  <div class="page">
+    <p>Fuzzer Engine</p>
+    <p>Fuzzer  Randomly generate a transaction  Generate the corresponding interface  Invoke the target transaction</p>
+    <p>Fuzzer manager  Run fuzzer  Monitor fuzzers status and restart fuzzer when finding it exited  Synchronize logs from mobile to host</p>
+  </div>
+  <div class="page">
+    <p>Implementation</p>
+    <p>Language: C++, Python  LoC: more than 10,000 lines</p>
+  </div>
+  <div class="page">
+    <p>Evaluation</p>
+    <p>Q1. How many interfaces have been found? What is the relationship between them?</p>
+    <p>Q2. What does the extracted interface model look like? Is the model complete and precise?</p>
+    <p>Q3. How effective is FANS in discovering vulnerabilities of Android native system services?</p>
+  </div>
+  <div class="page">
+    <p>Environment</p>
+    <p>Host  Ubuntu 18.04, i9-9900K CPU, 32GB memory, 2.5T SSD</p>
+    <p>Mobile Phone  1 Pixel, 4 Pixel 2 XLs, 1 Pixel 3 XL</p>
+    <p>Android version: android-9.0.0_r46  The source code can be different for different Pixel models  We answer the Q1 and Q2 through the experiment results carried out on</p>
+    <p>Pixel 2 XL</p>
+  </div>
+  <div class="page">
+    <p>Q1 - Interface Statistics</p>
+    <p>43 top-level interfaces  25 multi-level interfaces  Most interfaces are written manually</p>
+  </div>
+  <div class="page">
+    <p>Q1 - Interface Dependency</p>
+    <p>Interface generation  e.g., IMemory</p>
+    <p>Deepest interface  IMemoryHeap (five-level)</p>
+    <p>Customized interface  e.g., IEffectClient</p>
+  </div>
+  <div class="page">
+    <p>Q2 - Extracted Interface Model Statistics</p>
+    <p>Transaction  530 transactions in top-level interfaces  281 transactions in multi-level interfaces</p>
+    <p>Variable  Most variables are under constraint(s)</p>
+  </div>
+  <div class="page">
+    <p>Q2 - Completeness and Precision</p>
+    <p>Background  There is no ground truth about the interface model</p>
+    <p>Methodology  Randomly select 10 interfaces  Manually check the interface models</p>
+    <p>Result  Completeness: all of the transaction codes are recovered  Precision: almost all variable patterns, variable names, and variable</p>
+    <p>types are recovered  The imprecision is mainly due to the complexity of the source code</p>
+  </div>
+  <div class="page">
+    <p>Q3 - Vulnerability Discovery</p>
+    <p>We intermittently ran FANS for around 30 days  FANS triggered thousands of crashes</p>
+    <p>30 vulnerabilities in native programs  Google has confirmed 20 vulnerabilities</p>
+    <p>138 Java exceptions  Comparison with BinderCracker</p>
+    <p>BinderCracker found 89 vulnerabilities on Android 5.1 and Android 6.0  FANS discovered 168 vulnerabilities on android-9.0.0_r46</p>
+  </div>
+  <div class="page">
+    <p>Discussion</p>
+    <p>Improve the accuracy of the interface model  Integrate coverage into FANS  Improve the efficiency of FANS  Extend FANS to other interface-based programs in Android</p>
+    <p>e.g., native system services implemented by vendor, java system services</p>
+  </div>
+  <div class="page">
+    <p>Conclusion</p>
+    <p>A systematical investigation of interface dependency  An approach to automatically extract interface model  An approach to infer inter-transaction variable dependency  A prototype of FANS</p>
+    <p>30 vulnerabilities in native programs and 138 Java exceptions  Source: https://github.com/iromise/fans</p>
+  </div>
+  <div class="page">
+    <p>Thanks for listening! Q &amp; A</p>
+    <p>Contact: Baozheng Liu, uromise@gmail.com</p>
+  </div>
+</Presentation>

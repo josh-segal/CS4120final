@@ -1,0 +1,579 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>The Battle of the Schedulers: FreeBSD ULE vs. Linux CFS</p>
+    <p>Justinien Bouron, Baptiste Lepers, Sbastien Chevalley, Willy Zwaenepoel EPFL</p>
+    <p>Redha Gouicem, Julia Lawall, Gilles Muller, Julien Sopena Sorbonne University, Inria, LIP6</p>
+  </div>
+  <div class="page">
+    <p>What is a scheduler ?</p>
+    <p>Runs all the tasks of a system, solving the following challenges :</p>
+    <p>Assign set of tasks to (smaller) set of cores  High utilization of hardware resources (ie. CPU utilization)  Fast response time and low overhead !  React to workload changes (load balancing, )</p>
+  </div>
+  <div class="page">
+    <p>Linux CFS and FreeBSD ULE</p>
+    <p>Linux CFS is supposed to be completely fair  FreeBSD ULE is supposed to have good interactive performances</p>
+    <p>Both schedule a large number of threads on a large number of cores ...</p>
+    <p>but their design differ greatly</p>
+  </div>
+  <div class="page">
+    <p>Our goal : Compare Linux CFS and FreeBSD ULE</p>
+    <p>How do they differ in terms of design ?  What is the impact of each design on performances ?  Apple-to-apple comparison only, not declaring a winner</p>
+  </div>
+  <div class="page">
+    <p>How to compare their impact on performances ?</p>
+    <p>We want to compare the impact of both scheduler on performances  But both are from different kernels/OSes ...   naively running the applications on both OSes would be highly biased</p>
+    <p>How to single out the performance differences coming from the schedulers only ?</p>
+  </div>
+  <div class="page">
+    <p>Our approach : Transplanting</p>
+    <p>Transplant one scheduler into the other kernel alongside the original  Choose which one to use !  Everything else remains the same =&gt; No bias from other components.</p>
+  </div>
+  <div class="page">
+    <p>Which scheduler to transplant ?</p>
+    <p>CFS 18k LoC</p>
+    <p>ULE 3k LoC</p>
+    <p>Answer : ULE into Linux 7</p>
+  </div>
+  <div class="page">
+    <p>Challenges</p>
+  </div>
+  <div class="page">
+    <p>Challenge : Interface mismatch</p>
+    <p>Linux provides an API (user defined functions) to add new schedulers    FreeBSD does not  But functions inside ULE could easily be mapped to their Linux counterpart</p>
+  </div>
+  <div class="page">
+    <p>Challenge : Different low-level assumptions</p>
+    <p>Both schedulers have their very own low-level assumptions :</p>
+    <p>Locking policy : Multiple locks  Runqueue management : data structures, locks, indexes, ...  Priority range : CFS is nice range, ULE all tasks</p>
+    <p>ULEs code had to be slightly modified to comply with Linuxs assumptions</p>
+  </div>
+  <div class="page">
+    <p>Evaluation</p>
+  </div>
+  <div class="page">
+    <p>A broader performance comparison</p>
+    <p>Mix of synthetic benchmarks and realistic applications  Evaluation performed on a 32-cores NUMA machine (AMD Opteron) with 32GB</p>
+    <p>of RAM.</p>
+    <p>Dual-purpose :</p>
+    <p>Test our implementation  Give us clues on where to look for differences</p>
+  </div>
+  <div class="page">
+    <p>A broader performance comparison</p>
+    <p>Most of the time the performances are the same : 2.75% in favor of ULE in average.</p>
+    <p>Performances of ULE (% diff w.r.t CFS) 13</p>
+  </div>
+  <div class="page">
+    <p>A broader performance comparison</p>
+    <p>Big gaps when changing scheduler : The scheduler can have a big impact on performances !</p>
+    <p>Performances of ULE (% diff w.r.t CFS) 14</p>
+  </div>
+  <div class="page">
+    <p>Design differences</p>
+  </div>
+  <div class="page">
+    <p>Difference #1/4 : Dealing with interactive tasks</p>
+  </div>
+  <div class="page">
+    <p>Dealing with interactive tasks : The difference</p>
+    <p>A task can be either interactive or batch  Interactive tasks = sleep most of the time (inputs, yields, )  Batch tasks = CPU-bound tasks with very little sleep</p>
+    <p>How are CFS and ULE handling those ?</p>
+  </div>
+  <div class="page">
+    <p>CFS</p>
+  </div>
+  <div class="page">
+    <p>Dealing with interactive tasks : CFS</p>
+    <p>CFS is fair, thus no distinction between interactive and batch tasks.  Tasks ordered by runtime, pick the one on top of the runqueue</p>
+    <p>Task 0</p>
+    <p>Task 1</p>
+    <p>Task 2</p>
+    <p>Runqueue</p>
+    <p>Interactive</p>
+    <p>Batch Core</p>
+  </div>
+  <div class="page">
+    <p>Dealing with interactive tasks : CFS</p>
+    <p>Task 0</p>
+    <p>Task 1</p>
+    <p>Task 2</p>
+    <p>Runqueue</p>
+    <p>Interactive</p>
+    <p>Batch Core</p>
+    <p>CFS is fair, thus no distinction between interactive and batch tasks.  Tasks ordered by runtime, pick the one on top of the runqueue</p>
+  </div>
+  <div class="page">
+    <p>Dealing with interactive tasks : CFS</p>
+    <p>Task 1</p>
+    <p>Task 2</p>
+    <p>Runqueue</p>
+    <p>Interactive</p>
+    <p>Batch Core</p>
+    <p>Task 0</p>
+    <p>CFS is fair, thus no distinction between interactive and batch tasks.  Tasks ordered by runtime, pick the one on top of the runqueue</p>
+  </div>
+  <div class="page">
+    <p>Dealing with interactive tasks : CFS</p>
+    <p>Task 1</p>
+    <p>Task 2</p>
+    <p>Runqueue</p>
+    <p>Interactive</p>
+    <p>Batch Core</p>
+    <p>Task 0</p>
+    <p>CFS is fair, thus no distinction between interactive and batch tasks.  Tasks ordered by runtime, pick the one on top of the runqueue</p>
+  </div>
+  <div class="page">
+    <p>Dealing with interactive tasks : CFS</p>
+    <p>Task 1</p>
+    <p>Task 2</p>
+    <p>Task 0</p>
+    <p>Runqueue</p>
+    <p>Interactive</p>
+    <p>Batch Core</p>
+    <p>CFS is fair, thus no distinction between interactive and batch tasks.  Tasks ordered by runtime, pick the one on top of the runqueue</p>
+  </div>
+  <div class="page">
+    <p>Dealing with interactive tasks : CFS</p>
+    <p>Task 1</p>
+    <p>Task 2</p>
+    <p>Task 0</p>
+    <p>Runqueue</p>
+    <p>Interactive</p>
+    <p>Batch Core</p>
+    <p>CFS is fair, thus no distinction between interactive and batch tasks.  Tasks ordered by runtime, pick the one on top of the runqueue</p>
+  </div>
+  <div class="page">
+    <p>Dealing with interactive tasks : CFS</p>
+    <p>Task 2</p>
+    <p>Task 0</p>
+    <p>Runqueue</p>
+    <p>Interactive</p>
+    <p>Batch Core</p>
+    <p>Task 1</p>
+    <p>CFS is fair, thus no distinction between interactive and batch tasks.  Tasks ordered by runtime, pick the one on top of the runqueue</p>
+  </div>
+  <div class="page">
+    <p>ULE</p>
+  </div>
+  <div class="page">
+    <p>Dealing with interactive tasks : ULE</p>
+    <p>ULE keeps interactive tasks and batch tasks in separate runqueues  Tasks ordered by runtime in each  Interactive tasks have absolute priority over batch tasks</p>
+    <p>Task 1</p>
+    <p>Batch</p>
+    <p>Interactive</p>
+    <p>Batch Core</p>
+    <p>Task 0</p>
+    <p>Task 2</p>
+    <p>Interactive</p>
+  </div>
+  <div class="page">
+    <p>Dealing with interactive tasks : ULE</p>
+    <p>Task 1</p>
+    <p>Batch</p>
+    <p>Interactive</p>
+    <p>Batch Core</p>
+    <p>Task 0</p>
+    <p>Task 2</p>
+    <p>Interactive</p>
+    <p>ULE keeps interactive tasks and batch tasks in separate runqueues  Tasks ordered by runtime in each  Interactive tasks have absolute priority over batch tasks</p>
+  </div>
+  <div class="page">
+    <p>Dealing with interactive tasks : ULE</p>
+    <p>Task 1</p>
+    <p>Batch</p>
+    <p>Interactive</p>
+    <p>Batch Core</p>
+    <p>Task 2</p>
+    <p>Interactive</p>
+    <p>Task 0</p>
+    <p>ULE keeps interactive tasks and batch tasks in separate runqueues  Tasks ordered by runtime in each  Interactive tasks have absolute priority over batch tasks</p>
+  </div>
+  <div class="page">
+    <p>Dealing with interactive tasks : ULE</p>
+    <p>Task 1</p>
+    <p>Batch</p>
+    <p>Interactive</p>
+    <p>Batch Core</p>
+    <p>Task 2</p>
+    <p>Interactive</p>
+    <p>Task 0</p>
+    <p>ULE keeps interactive tasks and batch tasks in separate runqueues  Tasks ordered by runtime in each  Interactive tasks have absolute priority over batch tasks</p>
+  </div>
+  <div class="page">
+    <p>Dealing with interactive tasks : ULE</p>
+    <p>Task 1</p>
+    <p>Batch</p>
+    <p>Interactive</p>
+    <p>Batch Core</p>
+    <p>Task 2</p>
+    <p>Task 0</p>
+    <p>Interactive</p>
+    <p>ULE keeps interactive tasks and batch tasks in separate runqueues  Tasks ordered by runtime in each  Interactive tasks have absolute priority over batch tasks</p>
+  </div>
+  <div class="page">
+    <p>Dealing with interactive tasks : ULE</p>
+    <p>Task 1</p>
+    <p>Batch</p>
+    <p>Interactive</p>
+    <p>Batch Core</p>
+    <p>Task 2</p>
+    <p>Task 0</p>
+    <p>Interactive</p>
+    <p>ULE keeps interactive tasks and batch tasks in separate runqueues  Tasks ordered by runtime in each  Interactive tasks have absolute priority over batch tasks</p>
+  </div>
+  <div class="page">
+    <p>Dealing with interactive tasks : ULE</p>
+    <p>Task 1</p>
+    <p>Batch</p>
+    <p>Interactive</p>
+    <p>Batch Core</p>
+    <p>Task 0</p>
+    <p>Interactive</p>
+    <p>Task 2</p>
+    <p>ULE keeps interactive tasks and batch tasks in separate runqueues  Tasks ordered by runtime in each  Interactive tasks have absolute priority over batch tasks</p>
+  </div>
+  <div class="page">
+    <p>Dealing with interactive tasks : ULE</p>
+    <p>Task 1</p>
+    <p>Batch</p>
+    <p>Interactive</p>
+    <p>Batch Core</p>
+    <p>Task 0</p>
+    <p>Interactive</p>
+    <p>Task 2</p>
+    <p>ULE keeps interactive tasks and batch tasks in separate runqueues  Tasks ordered by runtime in each  Interactive tasks have absolute priority over batch tasks</p>
+  </div>
+  <div class="page">
+    <p>Dealing with interactive tasks : ULE</p>
+    <p>Task 1</p>
+    <p>Batch</p>
+    <p>Interactive</p>
+    <p>Batch Core</p>
+    <p>Task 0</p>
+    <p>Task 2</p>
+    <p>Interactive</p>
+    <p>ULE keeps interactive tasks and batch tasks in separate runqueues  Tasks ordered by runtime in each  Interactive tasks have absolute priority over batch tasks</p>
+  </div>
+  <div class="page">
+    <p>Dealing with interactive tasks : ULE</p>
+    <p>Task 1</p>
+    <p>Batch</p>
+    <p>Interactive</p>
+    <p>Batch Core</p>
+    <p>Interactive</p>
+    <p>ULE keeps interactive tasks and batch tasks in separate runqueues  Tasks ordered by runtime in each  Interactive tasks have absolute priority over batch tasks</p>
+  </div>
+  <div class="page">
+    <p>Dealing with interactive tasks : ULE</p>
+    <p>Batch</p>
+    <p>Interactive</p>
+    <p>Batch Core</p>
+    <p>Interactive</p>
+    <p>Task 1</p>
+    <p>ULE keeps interactive tasks and batch tasks in separate runqueues  Tasks ordered by runtime in each  Interactive tasks have absolute priority over batch tasks</p>
+  </div>
+  <div class="page">
+    <p>Dealing with interactive tasks : ULE</p>
+    <p>Batch</p>
+    <p>Interactive</p>
+    <p>Batch Core</p>
+    <p>Interactive</p>
+    <p>Task 1</p>
+    <p>ULE keeps interactive tasks and batch tasks in separate runqueues  Tasks ordered by runtime in each  Interactive tasks have absolute priority over batch tasks</p>
+  </div>
+  <div class="page">
+    <p>Dealing with interactive tasks : ULE</p>
+    <p>Task 1</p>
+    <p>Batch</p>
+    <p>Interactive</p>
+    <p>Batch Core</p>
+    <p>Interactive</p>
+    <p>ULE keeps interactive tasks and batch tasks in separate runqueues  Tasks ordered by runtime in each  Interactive tasks have absolute priority over batch tasks</p>
+  </div>
+  <div class="page">
+    <p>Dealing with interactive tasks : Rationales</p>
+    <p>CFSs rationale :</p>
+    <p>Lets be fair  No distinction between tasks</p>
+    <p>ULEs rationale :</p>
+    <p>Interactive tasks are latency-critical, give them absolute priority  This should not cause problems as they sleep most of the time</p>
+  </div>
+  <div class="page">
+    <p>Dealing with interactive tasks : Similarities</p>
+    <p>Both schedulers operate the same way when dealing with only one class of task</p>
+    <p>They both pick the task with the lowest runtime from one runqueue</p>
+    <p>Thus the only interesting case to study is when we mix both classes of tasks</p>
+  </div>
+  <div class="page">
+    <p>Dealing with interactive tasks : The experiment</p>
+    <p>Run two applications in parallel on a single core machine ...</p>
+    <p>One interactive application with 80 interactive threads  One single-threaded batch application</p>
+    <p>Goal : compare the evolution of their runtime</p>
+  </div>
+  <div class="page">
+    <p>Dealing with interactive tasks : The impact</p>
+    <p>CF S</p>
+    <p>ULE</p>
+    <p>Interactive Batch</p>
+  </div>
+  <div class="page">
+    <p>Dealing with interactive tasks : The impact</p>
+    <p>CF S</p>
+    <p>Interactive Batch</p>
+  </div>
+  <div class="page">
+    <p>Dealing with interactive tasks : The impact</p>
+    <p>Linux CFS is fair (both application get ~50% of the CPU)  No starvation</p>
+    <p>CF S</p>
+    <p>Roughly same slope for Interactive and Batch</p>
+    <p>=&gt; Fairness</p>
+    <p>Interactive Batch</p>
+  </div>
+  <div class="page">
+    <p>Dealing with interactive tasks : The impact</p>
+    <p>On FreeBSD ULE interactive tasks saturate the CPU and starve batch tasks !</p>
+    <p>ULE Batch is starving !</p>
+    <p>Interactive gets the full core</p>
+    <p>Interactive Batch</p>
+  </div>
+  <div class="page">
+    <p>Dealing with interactive tasks : The impact</p>
+    <p>On ULE interactive applications may perform better ...   But may also starve other tasks in the system.</p>
+    <p>CF S</p>
+    <p>ULE</p>
+    <p>Interactive Batch</p>
+  </div>
+  <div class="page">
+    <p>Dealing with interactive tasks : Auto-Starvation</p>
+    <p>Starvation problem in ULE can occur between threads of a single application  Can be good for performances as it avoids over-subscription of the CPU!  More details in the paper</p>
+  </div>
+  <div class="page">
+    <p>Dealing with interactive tasks : Summary</p>
+    <p>In ULE :</p>
+    <p>Interactive tasks have absolute priority  They also can starve batch tasks, even from the same application</p>
+    <p>In CFS :</p>
+    <p>All tasks are treated the same  Fairness  No starvation</p>
+  </div>
+  <div class="page">
+    <p>Difference #2/4 : Preemption</p>
+  </div>
+  <div class="page">
+    <p>Full preemption : The difference</p>
+    <p>Should a waking up tasks preempt the running task ?</p>
+    <p>Linux CFS : Full preemption is enabled, so yes, sometimes.  FreeBSD ULE : No full preemption by default. Only kernel threads can preempt</p>
+    <p>others.</p>
+    <p>What impact ?</p>
+  </div>
+  <div class="page">
+    <p>Full preemption : The experiment</p>
+    <p>Run a communication intensive workload (Apache) on a single core  The workload consist of a load injector and workers that handle requests  Compare the performances and look at low-level events with perf</p>
+  </div>
+  <div class="page">
+    <p>Full preemption : The impact ?</p>
+    <p>Apache workload performs better on ULE on single core.  On CFS the request injector is preempted by the workers at every request  Thus further requests are delayed, performances go down !</p>
+    <p>Linux CFS FreeBSD ULE</p>
+    <p>Preemption of injector by userland thread</p>
+    <p>&gt; 2M 0</p>
+    <p>Total time (seconds) 257 185</p>
+    <p>Requests / second 3891 5405</p>
+  </div>
+  <div class="page">
+    <p>Full preemption : Summary</p>
+    <p>ULE :</p>
+    <p>No full preemption by default</p>
+    <p>CFS :</p>
+    <p>Full preemption is enabled by default  Can worsen performances in some surprising ways</p>
+  </div>
+  <div class="page">
+    <p>Difference #3/4 : Load balancing</p>
+  </div>
+  <div class="page">
+    <p>Load balancer : The difference</p>
+    <p>Linux CFS FreeBSD ULE</p>
+    <p>Load = complex metric w/ heuristics Load = number of tasks</p>
+    <p>Hierarchical (NUMA) Non-hierarchical (SMP)</p>
+    <p>Every 4ms Every 0.5-1.5s (random)</p>
+    <p>Migrates multiple tasks from a loaded core at once</p>
+    <p>Migrate at most one task from a loaded core</p>
+    <p>A scheduler must balance the load on all cores</p>
+    <p>Both schedulers have their own load balancing algorithm ...   which differ in three main points</p>
+  </div>
+  <div class="page">
+    <p>Load balancer : The experiment</p>
+    <p>Use a lot of threads to put a lot of stress on the load balancer  What we want to compare : The speed and the efficiency</p>
+  </div>
+  <div class="page">
+    <p>Load balancer : The experiment</p>
+    <p>Thread 0</p>
+    <p>Thread 1</p>
+    <p>Thread 2</p>
+    <p>...</p>
+    <p>Core 0 Core 1 Core 2 Core 31</p>
+    <p>58</p>
+  </div>
+  <div class="page">
+    <p>Load balancer : The experiment</p>
+    <p>Thread 0</p>
+    <p>Thread 1</p>
+    <p>Thread 2</p>
+    <p>...</p>
+    <p>Core 0 Core 1 Core 2 Core 31</p>
+    <p>59</p>
+  </div>
+  <div class="page">
+    <p>Load balancer : The experiment</p>
+    <p>Thread 0</p>
+    <p>Thread 1</p>
+    <p>Thread 2</p>
+    <p>...</p>
+    <p>Core 0 Core 1 Core 2 Core 31</p>
+    <p>60</p>
+  </div>
+  <div class="page">
+    <p>Load balancer : The experiment</p>
+    <p>Thread 0</p>
+    <p>Thread 44</p>
+    <p>...</p>
+    <p>...</p>
+    <p>Thread 234</p>
+    <p>Thread 72</p>
+    <p>...</p>
+    <p>...</p>
+    <p>Thread 99</p>
+    <p>Thread 56</p>
+    <p>...</p>
+    <p>...</p>
+    <p>Thread 6</p>
+    <p>Thread 451</p>
+    <p>...</p>
+    <p>...</p>
+    <p>Core 0 Core 1 Core 2 Core 31</p>
+    <p>61</p>
+  </div>
+  <div class="page">
+    <p>Load balancer : The experiment</p>
+    <p>Thread 0</p>
+    <p>Thread 44</p>
+    <p>...</p>
+    <p>...</p>
+    <p>Thread 234</p>
+    <p>Thread 72</p>
+    <p>...</p>
+    <p>...</p>
+    <p>Thread 99</p>
+    <p>Thread 56</p>
+    <p>...</p>
+    <p>...</p>
+    <p>Thread 6</p>
+    <p>Thread 451</p>
+    <p>...</p>
+    <p>...</p>
+    <p>Core 0 Core 1 Core 2 Core 31</p>
+    <p>62</p>
+  </div>
+  <div class="page">
+    <p>Load balancer : The experiment</p>
+    <p>We used C-ray, a massively parallel ray-tracer with 512 threads that are all identical</p>
+    <p>As all threads are identical, so we should expect 16 threads per core at the end...</p>
+  </div>
+  <div class="page">
+    <p>Load balancer : The impact</p>
+    <p>We end up with the following graphs  Each line is a core, the color is the size of its runqueue</p>
+    <p>ULE</p>
+    <p>CFS</p>
+  </div>
+  <div class="page">
+    <p>Load balancer : The impact</p>
+    <p>We end up with the following graph  Each line is a core, the color is the size of its runqueue</p>
+    <p>ULE</p>
+    <p>CFS</p>
+  </div>
+  <div class="page">
+    <p>Load balancer : The impact, Perfect balancing</p>
+    <p>ULE achieves perfect balancing !</p>
+    <p>CFS has some troubles due to NUMA heuristics</p>
+  </div>
+  <div class="page">
+    <p>Load balancer : The impact, Speed</p>
+    <p>Four minutes to spread the load on ULE ???</p>
+    <p>ULE</p>
+    <p>CFS</p>
+  </div>
+  <div class="page">
+    <p>Load balancer : The impact, Speed (ULE)</p>
+    <p>ULE can migrate at most one task from a loaded core !</p>
+  </div>
+  <div class="page">
+    <p>Load balancer : The impact, Speed (ULE)</p>
+    <p>ULE can migrate at most one task from a loaded core !  Idle cores also steal only one task at a time</p>
+  </div>
+  <div class="page">
+    <p>Load balancer : The impact, Speed (ULE)</p>
+    <p>ULE can migrate at most one task from a loaded core !  Idle cores also steal only one task at a time  After the stealing, threads will be migrated one at a time ...</p>
+  </div>
+  <div class="page">
+    <p>Load balancer : The impact, Speed (CFS)</p>
+    <p>CFS has no limit on the number of migrations</p>
+  </div>
+  <div class="page">
+    <p>Load balancer : The impact, Speed (CFS)</p>
+    <p>CFS has no limit on the number of migrations  CFS balances the load much faster : around 400 migrations in less than 0.2s !</p>
+  </div>
+  <div class="page">
+    <p>Load balancer : The impact, Speed (CFS)</p>
+    <p>CFS has no limit on the number of migrations  CFS balances the load much faster : around 400 migrations in less than 0.2s !  But heuristics are still a problem</p>
+  </div>
+  <div class="page">
+    <p>Load balancer : Summary</p>
+    <p>ULE :</p>
+    <p>Very simple load metric  Achieves perfect balancing  But slow</p>
+    <p>CFS :</p>
+    <p>Complex load metric, lots of heuristics  Can be stuck in imbalanced state  But fast at spreading the load</p>
+  </div>
+  <div class="page">
+    <p>Difference #4/4 : Thread placement</p>
+  </div>
+  <div class="page">
+    <p>Thread placement : The difference</p>
+    <p>How to choose the core running a new/waking thread ?</p>
+    <p>CFS : Heuristic to restrict the list of suitable cores and take the less loaded one  ULE : Choose, among all cores, the one with the minimum number of tasks</p>
+  </div>
+  <div class="page">
+    <p>Thread placement : The experiment</p>
+    <p>Spawn a lot of threads on all available cores  Record size of runqueues over time</p>
+    <p>Again C-ray was a good choice for this</p>
+  </div>
+  <div class="page">
+    <p>Thread placement : The impact</p>
+    <p>ULE</p>
+    <p>CFS</p>
+    <p>ULE</p>
+    <p>CFS</p>
+  </div>
+  <div class="page">
+    <p>Thread placement : The impact : ULE</p>
+    <p>The load is always more or less uniform (nice fading on the load graph)  Auto-starvation slows down the creation of threads !</p>
+  </div>
+  <div class="page">
+    <p>Thread placement : The impact : CFS</p>
+    <p>Bad load balance at the beginning due to NUMA heuristics  Load balancer tries to fix this but still struggles as before</p>
+  </div>
+  <div class="page">
+    <p>Thread placement : Summary</p>
+    <p>ULE :</p>
+    <p>Thread placement policy consider all cores ...   and thus relieves the pressure from the load balancer  Load is always uniform</p>
+    <p>CFS :</p>
+    <p>The policy consider a subset of cores only using heuristics  Might worsen the balancing in case of large spawn rates</p>
+  </div>
+  <div class="page">
+    <p>Conclusion</p>
+  </div>
+  <div class="page">
+    <p>Conclusion</p>
+    <p>Scheduling is hard  and even harder on a multicore machines  Design and implementation choices can have a great influence on</p>
+    <p>performances  No scheduler perform better than the other on all workloads</p>
+  </div>
+  <div class="page">
+    <p>Questions ?</p>
+    <p>Code available on Github : https://github.com/JBouron/linux/tree/loadbalancing</p>
+  </div>
+</Presentation>

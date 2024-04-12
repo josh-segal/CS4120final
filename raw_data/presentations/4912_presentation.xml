@@ -1,0 +1,217 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>Chris Rossbach, Owen Hofmann, Don Porter, Hany Ramadan, Aditya Bhandari, Emmett Witchel</p>
+    <p>University of Texas at Austin</p>
+  </div>
+  <div class="page">
+    <p>Sun Rock supports HTM  Solaris 10 takes advantage of HTM support</p>
+    <p>Hardware Transactional Memory is a reality</p>
+  </div>
+  <div class="page">
+    <p>Challenge: taking advantage of multi-core  Parallel programming is difficult with locks:</p>
+    <p>Deadlock, convoys, priority inversion  Conservative, poor composability  Lock ordering complicated  Performance-complexity tradeof</p>
+    <p>Transactional Memory in the OS  Benefits user programs  Simplifies programming</p>
+    <p>Intels snazzy 80 core chip</p>
+    <p>Parallel Programming Predicament</p>
+  </div>
+  <div class="page">
+    <p>/* * Lock ordering: * -&gt;i_mmap_lock (vmtruncate) * -&gt;private_lock (__free_pte-&gt;__set_page_dirty_buffers) * -&gt;swap_lock (exclusive_swap_page, others) * -&gt;mapping-&gt;tree_lock * -&gt;i_mutex * -&gt;i_mmap_lock (truncate-&gt;unmap_mapping_range) * -&gt;mmap_sem * -&gt;i_mmap_lock * -&gt;page_table_lock or pte_lock (various, mainly in memory.c) * -&gt;mapping-&gt;tree_lock (arch-dependent flush_dcache_mmap_lock) * -&gt;mmap_sem * -&gt;lock_page (access_process_vm) * -&gt;mmap_sem * -&gt;i_mutex (msync) * -&gt;i_mutex * -&gt;i_alloc_sem (various) * -&gt;inode_lock * -&gt;sb_lock (fs/fs-writeback.c) * -&gt;mapping-&gt;tree_lock (__sync_single_inode) * -&gt;i_mmap_lock * -&gt;anon_vma.lock (vma_adjust) * -&gt;anon_vma.lock * -&gt;page_table_lock or pte_lock (anon_vma_prepare and various) * -&gt;page_table_lock or pte_lock * -&gt;swap_lock (try_to_unmap_one) * -&gt;private_lock (try_to_unmap_one) * -&gt;tree_lock (try_to_unmap_one) * -&gt;zone.lru_lock (follow_page-&gt;mark_page_accessed) * -&gt;zone.lru_lock (check_pte_range-&gt;isolate_lru_page) * -&gt;private_lock (page_remove_rmap-&gt;set_page_dirty) * -&gt;tree_lock (page_remove_rmap-&gt;set_page_dirty) * -&gt;inode_lock (page_remove_rmap-&gt;set_page_dirty) * -&gt;inode_lock (zap_pte_range-&gt;set_page_dirty) * -&gt;private_lock (zap_pte_range-&gt;__set_page_dirty_buffers) * -&gt;task-&gt;proc_lock * -&gt;dcache_lock (proc_pid_lookup) */</p>
+  </div>
+  <div class="page">
+    <p>Motivation  TM Primer  TM and Lock cooperation</p>
+    <p>OS can use TM to handle output commit  TM and Scheduling</p>
+    <p>OS can use TM to eliminate priority inversion  Related Work  Conclusion</p>
+  </div>
+  <div class="page">
+    <p>Key Ideas:  Critical sections</p>
+    <p>execute concurrently</p>
+    <p>Conflicts are detected dynamically</p>
+    <p>If conflict serializability is violated, rollback</p>
+    <p>Key Abstractions:  Primitives</p>
+    <p>xbegin, xend, xretry  xpush, xpop  xcas, xtest, xgettxid</p>
+    <p>Conflict   != {W_A} {W_B U</p>
+    <p>W_R}  Contention Manager</p>
+    <p>Need flexible policy</p>
+    <p>Hardware TM Primer</p>
+  </div>
+  <div class="page">
+    <p>cpu 0 cpu 1</p>
+    <p>PC: 0</p>
+    <p>Working Set R{} W{}</p>
+    <p>PC: 0</p>
+    <p>Working Set R{} W{}</p>
+    <p>PC: 1 PC: 0PC: 1PC: 2</p>
+    <p>Working Set R{ }</p>
+    <p>W{} A</p>
+    <p>PC: 2</p>
+    <p>Working Set R{ } W{}</p>
+    <p>A</p>
+    <p>PC: 3</p>
+    <p>Working Set R{ }</p>
+    <p>W{} A, B</p>
+    <p>PC: 3</p>
+    <p>Working Set R{ }</p>
+    <p>W{} A,B</p>
+    <p>PC: 6 PC: 4PC: 7</p>
+    <p>Working Set R{ }</p>
+    <p>W{} A,B,C</p>
+    <p>PC: 7</p>
+    <p>Working Set R{ } W{ }</p>
+    <p>A,B C</p>
+    <p>CONFLICT:</p>
+    <p>C is in the read set of cpu0, and in the write set of cpu1</p>
+    <p>Assume contention manager decides cpu1 wins:</p>
+    <p>cpu0 rolls back</p>
+    <p>cpu1 commits</p>
+    <p>PC: 0</p>
+    <p>Working Set R{} W{}</p>
+    <p>PC: 8</p>
+    <p>Working Set R{} W{}</p>
+    <p>Hardware TM basics: example</p>
+  </div>
+  <div class="page">
+    <p>xspinlocks  spin_lock() -&gt; xbegin  spin_unlock() -&gt; xend</p>
+    <p>Basis of our first transactionalization of Linux  9 subsystems (profile-guided selection)  30% of dynamic lock calls  6 developers * ~1 year</p>
+    <p>Issues:  I/O (output commit)  idiosyncratic locking (e.g. runqueue)</p>
+    <p>Conventional Wisdom Transactionalization</p>
+  </div>
+  <div class="page">
+    <p>Legacy code  I/O</p>
+    <p>Nested critical section may do I/O  Beware low memory (page faults!)</p>
+    <p>Critical sections may defy transactionalization</p>
+    <p>Programmer flexibility  Tx performs well when actual contention is rare  Locks perform better when contention is high.</p>
+    <p>Locks and Transactions must Cooperate!</p>
+  </div>
+  <div class="page">
+    <p>Cooperative Transactional Spinlock  Critical sections use locks OR transactions</p>
+    <p>Most critical sections attempt transactions  Rollback and lock if a crit sec attempts I/O  Locks optimize crit sec that always does I/O</p>
+    <p>Contention manager involved in lock acquisition</p>
+    <p>Informing Transactions  xbegin must return a reason for retry</p>
+    <p>One developer * 1 month to convert</p>
+    <p>Cxspinlocks</p>
+  </div>
+  <div class="page">
+    <p>Cxspinlock API cx_optimistic: Use transactions, restart on I/O attempt</p>
+    <p>cx_exclusive Acquire a lock, using contention manager</p>
+    <p>cx_end Release a critical section</p>
+    <p>void cx_optimistic(lock){</p>
+    <p>status = xbegin;</p>
+    <p>if(status==NEED_EXCL){</p>
+    <p>xend;</p>
+    <p>if(gettxid)</p>
+    <p>xrestart(NEED_EXCL);</p>
+    <p>else</p>
+    <p>cx_exclusive(lock);</p>
+    <p>return;</p>
+    <p>}</p>
+    <p>while(!xtest(lock,1));</p>
+    <p>}</p>
+    <p>void cx_exclusive(lock){</p>
+    <p>while(1) {</p>
+    <p>while(*lock != 1);</p>
+    <p>if(xcas(lock, 1, 0))</p>
+    <p>break;</p>
+    <p>}</p>
+    <p>}</p>
+    <p>void cx_end(lock){</p>
+    <p>if(xgettxid) {</p>
+    <p>xend;</p>
+    <p>} else {</p>
+    <p>*lock = 1;</p>
+    <p>}</p>
+    <p>}</p>
+    <p>NEED_EXCL == need exclusive. Returned from xbegin when hardware detects I/O in a transaction.</p>
+  </div>
+  <div class="page">
+    <p>void cx_optimistic(lock){ status = xbegin; if(status==NEED_EXCL){ xend; if(gettxid) xrestart(NEED_EXCL); else cx_exclusive(lock); return; } while(!xtest(lock,1)); }</p>
+    <p>cpu 0 cpu 1</p>
+    <p>void cx_exclusive(lock){ if(xgettxid) xrestart(NEED_EXCL); while(1) { while(*lock != 1); if(xcas(lock, 1, 0)) break; } }</p>
+    <p>txid: 0</p>
+    <p>Working Set R{} W{}</p>
+    <p>txid: 0</p>
+    <p>Working Set R{} W{}</p>
+    <p>lock 1 (unlocked) 1 (unlocked)</p>
+    <p>txid: 1</p>
+    <p>cpu0 has entered the critsec and the contention manager decides which thread wins.</p>
+    <p>Assuming CM decides for cpu1, cpu0 rolls back.</p>
+    <p>Conversely, if CM decides that cpu0 wins, xcas fails, and cpu1 will spin until lock leaves cpu0s working set.</p>
+    <p>Working Set R{ }</p>
+    <p>W{} lock</p>
+    <p>Working Set R{} W{}</p>
+    <p>cxspinlock action zone</p>
+  </div>
+  <div class="page">
+    <p>cx_optimistic(lock); do_useful_work(); if(arcane_condition) perform_io(); cx_end();</p>
+    <p>void cx_optimistic(lock){ status = xbegin; if(status==NEED_EXCL){ xend; if(gettxid) xrestart(NEED_EXCL); else cx_exclusive(lock); return; } while(!xtest(lock,1)); }</p>
+    <p>lock 1 (unlocked)</p>
+    <p>arcane_condition 0</p>
+    <p>The critsec did not perform I/O, and the work is committed without ever taking the lock!</p>
+    <p>Suppose the critsec does need to perform I/O</p>
+    <p>The hardware detects IO and rolls back, returning NEED_EXCL from xbegin</p>
+    <p>void cx_exclusive(lock){ while(1) { while(*lock != 1); if(xcas(lock, 1, 0)) break; } }</p>
+    <p>The cx_exclusive call results in the critsec being entered with a lock to protect I/O</p>
+  </div>
+  <div class="page">
+    <p>Implemented HW(MetaTM) as x86 extensions</p>
+    <p>Simulation environment  Simics 3.0.27 machine simulator  16k 4-way tx L1 cache; 4MB 4-way L2; 1GB RAM  1 cycle/inst, 16 cyc/L1 miss, 200 cyc/L2 miss  16 &amp; 32 processors</p>
+    <p>Benchmarks  pmake, bonnie++, MAB, configure, find</p>
+  </div>
+  <div class="page">
+    <p>TxLinux with xspinlocks  16 cpus -&gt; 2% slowdown over Linux</p>
+    <p>Pathological backof in bonnie++  16 cpus-&gt;1.9% speed up excluding bonnie++</p>
+    <p>32 cpus -&gt; 2% speedup over Linux</p>
+    <p>TxLinux with cxspinlocks  16 cpus -&gt; 2.5% speedup over Linux  32 cpus -&gt; 1% speedup over Linux</p>
+    <p>TxLinux Performance</p>
+  </div>
+  <div class="page">
+    <p>Reducing Synchronization Overhead</p>
+    <p>16 cpus</p>
+    <p>1-12% sync</p>
+    <p>xs 34% lower</p>
+    <p>cx 40% lower</p>
+  </div>
+  <div class="page">
+    <p>Motivation  TM Primer  TM and Lock cooperation</p>
+    <p>OS can use TM to handle output commit  TM and Scheduling</p>
+    <p>OS can use TM to eliminate priority inversion  Related Work  Conclusion</p>
+  </div>
+  <div class="page">
+    <p>Transaction Restarts can waste a lot of work  Contention Management and OS scheduler</p>
+    <p>can work at cross purposes  HW policies avoid livelock  But HW policies ignore OS goals  e.g. timestamp</p>
+    <p>OS requires better contention management</p>
+    <p>Transactions and Scheduling</p>
+  </div>
+  <div class="page">
+    <p>Memory</p>
+    <p>CPU A</p>
+    <p>pid=x</p>
+    <p>POL: normal PRIO: low txid: ws:</p>
+    <p>CPU B</p>
+    <p>pid=y</p>
+    <p>POL: real-time PRIO: high txid: ws:</p>
+    <p>CONFLICT !</p>
+    <p>Low priority, nonreal-time process wins conflict!</p>
+  </div>
+  <div class="page"/>
+  <div class="page">
+    <p>OS communicates priority to TM HW  os-prio contention management policy</p>
+    <p>decides in favor of higher priority process  default to other policies when necessary</p>
+    <p>Eliminates 100% of priority inversion  Better than priority-inversion avoidance for</p>
+    <p>locks  Negligible performance cost (&lt;1%)</p>
+  </div>
+  <div class="page">
+    <p>Hardware Transactional Memory  TCC [Hammond 04], LogTM[-SE] [Moore 06], VTM [Rajwar 05],</p>
+    <p>UTM [Ananian 05] HASTM, PTM, HyTM, RTM</p>
+    <p>Dynamic selection of synchronization  Speculative Lock Elision, TLR [Rajwar 01,02]  Reconciling Locks and Transactions [Welc 06]</p>
+    <p>I/O in Transactions  Suspend [Moravan 06, Zilles 06]  Guarantee Completion [Blundell 07]</p>
+    <p>Scheduling  HW support for inversion free spinlocks [Akgul 03]  Linux RT patch, Solaris 10</p>
+  </div>
+  <div class="page">
+    <p>Lock and Transactions need to cooperate  negligible performance cost  cxspinlock API simplifies conversion to tx</p>
+    <p>The cxspinlock API enables I/O in tx  Transactions can reduce sync overhead</p>
+    <p>but beware new pathologies  Priority inversion can be eliminated with</p>
+    <p>TM  Release: www.metatm.net</p>
+    <p>(Special thanks to Sun Microsystems for the student scholarship!)</p>
+  </div>
+</Presentation>

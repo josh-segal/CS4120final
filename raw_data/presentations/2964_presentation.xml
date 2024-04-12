@@ -1,0 +1,391 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>Phase Reconciliation for Contended In-Memory</p>
+    <p>Transactions Neha Narula, Cody Cutler, Eddie Kohler, Robert Morris</p>
+    <p>MIT CSAIL and Harvard</p>
+  </div>
+  <div class="page">
+    <p>IncrTxn(k Key) { INCR(k, 1)</p>
+    <p>} LikePageTxn(page Key, user Key) { INCR(page, 1) liked_pages := GET(user) PUT(user, liked_pages + page)</p>
+    <p>} FriendTxn(u1 Key, u2 Key) { PUT(friend:u1:u2, 1) PUT(friend:u2:u1, 1)</p>
+    <p>}</p>
+  </div>
+  <div class="page">
+    <p>IncrTxn(k Key) { INCR(k, 1)</p>
+    <p>} LikePageTxn(page Key, user Key) { INCR(page, 1) liked_pages := GET(user) PUT(user, liked_pages + page)</p>
+    <p>} FriendTxn(u1 Key, u2 Key) { PUT(friend:u1:u2, 1) PUT(friend:u2:u1, 1)</p>
+    <p>}</p>
+  </div>
+  <div class="page">
+    <p>Applications experience write contention on popular data</p>
+    <p>Problem</p>
+  </div>
+  <div class="page"/>
+  <div class="page">
+    <p>Concurrency Control Enforces Serial Execution</p>
+    <p>core 0</p>
+    <p>core 1</p>
+    <p>core 2</p>
+    <p>INCR(x,1)</p>
+    <p>INCR(x,1)</p>
+    <p>INCR(x,1)</p>
+    <p>time</p>
+    <p>Transactions on the same records execute one at a time</p>
+  </div>
+  <div class="page">
+    <p>Throughput on a Contentious Transactional Workload</p>
+    <p>T h</p>
+    <p>ro u</p>
+    <p>g h</p>
+    <p>p u</p>
+    <p>t (t</p>
+    <p>x n</p>
+    <p>s /s</p>
+    <p>e c )</p>
+    <p>cores</p>
+    <p>OCC</p>
+  </div>
+  <div class="page">
+    <p>Throughput on a Contentious Transactional Workload</p>
+    <p>T h</p>
+    <p>ro u</p>
+    <p>g h</p>
+    <p>p u</p>
+    <p>t (t</p>
+    <p>x n</p>
+    <p>s /s</p>
+    <p>e c )</p>
+    <p>cores</p>
+    <p>Doppel OCC</p>
+  </div>
+  <div class="page">
+    <p>INCR on the Same Records Can Execute in Parallel</p>
+    <p>core 0</p>
+    <p>core 1</p>
+    <p>core 2</p>
+    <p>INCR(x0,1)</p>
+    <p>INCR(x1,1)</p>
+    <p>INCR(x2,1)</p>
+    <p>time</p>
+    <p>Transactions on the same record can proceed in parallel on per-core slices and be reconciled later</p>
+    <p>This is correct because INCR commutes</p>
+    <p>per-core slices of record x</p>
+    <p>x is split across</p>
+    <p>cores</p>
+  </div>
+  <div class="page">
+    <p>Databases Must Support General Purpose Transactions</p>
+    <p>IncrTxn(k Key) { INCR(k, 1)</p>
+    <p>}</p>
+    <p>PutMaxTxn(k1 Key, k2 Key) { v1 := GET(k1) v2 := GET(k2) if v1 &gt; v2: PUT(k1, v2) else: PUT(k2, v1) return v1,v2</p>
+    <p>} 10</p>
+    <p>IncrPutTxn(k1 Key, k2 Key, v Value) { INCR(k1, 1) PUT(k2, v)</p>
+    <p>}</p>
+    <p>Must happen atomically</p>
+    <p>Must happen atomically</p>
+    <p>Returns a value</p>
+  </div>
+  <div class="page">
+    <p>Challenge Fast, general-purpose serializable transaction execution with per-core slices for contended records</p>
+  </div>
+  <div class="page">
+    <p>Phase Reconciliation  Database automatically</p>
+    <p>detects contention to split a record among cores</p>
+    <p>Database cycles through phases: split, reconciliation, and joined</p>
+    <p>reconciliation</p>
+    <p>Joined Phase</p>
+    <p>Split Phase</p>
+    <p>Doppel, an in-memory transactional database</p>
+  </div>
+  <div class="page">
+    <p>Contributions Phase reconciliation  Splittable operations  Efficient detection and response to contention</p>
+    <p>on individual records  Reordering of split transactions and reads to</p>
+    <p>reduce conflict  Fast reconciliation of split values</p>
+  </div>
+  <div class="page">
+    <p>Outline 1. Phase reconciliation 2. Operations 3. Detecting contention 4. Performance evaluation</p>
+  </div>
+  <div class="page">
+    <p>Split Phase</p>
+    <p>core 0</p>
+    <p>core 1</p>
+    <p>core 2</p>
+    <p>INCR(x,1)</p>
+    <p>INCR(x,1) PUT(y,2)</p>
+    <p>INCR(x,1) PUT(z,1)</p>
+    <p>core 3 INCR(x,1) PUT(y,2)</p>
+    <p>core 0</p>
+    <p>core 1</p>
+    <p>core 2</p>
+    <p>INCR(x0,1)</p>
+    <p>INCR(x1,1) PUT(y,2)</p>
+    <p>INCR(x2,1) PUT(z,1)</p>
+    <p>core 3 INCR(x3,1) PUT(y,2)</p>
+    <p>The split phase transforms operations on contended records (x) into operations on per-core slices (x0, x1, x2, x3)</p>
+    <p>split phase</p>
+  </div>
+  <div class="page">
+    <p>Transactions can operate on split and non-split records  Rest of the records use OCC (y, z)  OCC ensures serializability for the non-split parts of the</p>
+    <p>transaction 16</p>
+    <p>core 0</p>
+    <p>core 1</p>
+    <p>core 2</p>
+    <p>INCR(x0,1)</p>
+    <p>INCR(x1,1) PUT(y,2)</p>
+    <p>INCR(x2,1) PUT(z,1)</p>
+    <p>core 3 INCR(x3,1) PUT(y,2)</p>
+    <p>split phase</p>
+  </div>
+  <div class="page">
+    <p>Split records have assigned operations for a given split phase  Cannot correctly process a read of x in the current state  Stash transaction to execute after reconciliation</p>
+    <p>core 0</p>
+    <p>core 1</p>
+    <p>core 2</p>
+    <p>INCR(x0,1)</p>
+    <p>INCR(x1,1) PUT(y,2)</p>
+    <p>INCR(x2,1) PUT(z,1)</p>
+    <p>core 3 INCR(x3,1) PUT(y,2)</p>
+    <p>split phase</p>
+    <p>INCR(x1,1)</p>
+    <p>INCR(x2,1)</p>
+    <p>INCR(x1,1)</p>
+    <p>GET(x)</p>
+  </div>
+  <div class="page">
+    <p>core 0</p>
+    <p>core 1</p>
+    <p>core 2</p>
+    <p>INCR(x0,1)</p>
+    <p>INCR(x1,1) PUT(y,2)</p>
+    <p>INCR(x2,1) PUT(z,1)</p>
+    <p>core 3 INCR(x3,1) PUT(y,2)</p>
+    <p>split phase</p>
+    <p>All threads hear they should reconcile their per-core state  Stop processing per-core writes</p>
+    <p>GET(x)</p>
+    <p>INCR(x1,1)</p>
+    <p>INCR(x2,1)</p>
+    <p>INCR(x1,1)</p>
+  </div>
+  <div class="page">
+    <p>Reconcile state to global store  Wait until all threads have finished reconciliation  Resume stashed read transactions in joined phase</p>
+    <p>core 0</p>
+    <p>core 1</p>
+    <p>core 2</p>
+    <p>core 3</p>
+    <p>reconciliation phase joined phase</p>
+    <p>x = x + x0</p>
+    <p>x = x + x1</p>
+    <p>x = x + x2</p>
+    <p>x = x + x3</p>
+    <p>GET(x)</p>
+  </div>
+  <div class="page">
+    <p>core 0</p>
+    <p>core 1</p>
+    <p>core 2</p>
+    <p>core 3</p>
+    <p>x = x + x0</p>
+    <p>x = x + x1</p>
+    <p>x = x + x2</p>
+    <p>x = x + x3</p>
+    <p>reconciliation phase</p>
+    <p>GET(x)</p>
+    <p>joined phase</p>
+    <p>Reconcile state to global store  Wait until all threads have finished reconciliation  Resume stashed read transactions in joined phase</p>
+  </div>
+  <div class="page">
+    <p>core 0</p>
+    <p>core 1</p>
+    <p>core 2</p>
+    <p>core 3</p>
+    <p>GET(x)</p>
+    <p>Process new transactions in joined phase using OCC  No split data</p>
+    <p>joined phase</p>
+    <p>INCR(x)</p>
+    <p>INCR(x, 1)</p>
+    <p>GET(x) GET(x)</p>
+  </div>
+  <div class="page">
+    <p>Batching Amortizes the Cost of Reconciliation</p>
+    <p>core 0</p>
+    <p>core 1</p>
+    <p>core 2</p>
+    <p>INCR(x0,1)</p>
+    <p>INCR(x1,1) INCR(y,2)</p>
+    <p>INCR(x2,1) INCR(z,1)</p>
+    <p>core 3 INCR(x3,1) INCR(y,2)</p>
+    <p>GET(x)</p>
+    <p>Wait to accumulate stashed transactions, batch for joined phase  Amortize the cost of reconciliation over many transactions  Reads would have conflicted; now they do not</p>
+    <p>INCR(x1,1)</p>
+    <p>INCR(x2,1) INCR(z,1) GET(x)</p>
+    <p>GET(x)</p>
+    <p>GET(x)</p>
+    <p>GET(x)</p>
+    <p>GET(x)</p>
+    <p>split phase joined phase</p>
+  </div>
+  <div class="page">
+    <p>Phase Reconciliation Summary  Many contentious writes happen in parallel</p>
+    <p>in split phases  Reads and any other incompatible</p>
+    <p>operations happen correctly in joined phases</p>
+  </div>
+  <div class="page">
+    <p>Outline 1. Phase reconciliation 2. Operations 3. Detecting contention 4. Performance evaluation</p>
+  </div>
+  <div class="page">
+    <p>Ordered PUT and insert to an ordered list</p>
+    <p>Operation Model Developers write transactions as stored procedures which are composed of operations on keys and values:</p>
+    <p>value GET(k) void PUT(k,v) void INCR(k,n) void MAX(k,n) void MULT(k,n) void OPUT(k,v,o) void TOPK_INSERT(k,v,o)</p>
+    <p>Traditional key/value operations</p>
+    <p>Operations on numeric values which modify the</p>
+    <p>existing value</p>
+    <p>Not splittable</p>
+    <p>Splittable</p>
+  </div>
+  <div class="page">
+    <p>MAX Can Be Efficiently Reconciled</p>
+    <p>core 0</p>
+    <p>core 1</p>
+    <p>core 2</p>
+    <p>MAX(x0,55)</p>
+    <p>MAX(x1,10)</p>
+    <p>MAX(x2,21) 21</p>
+    <p>Each core keeps one piece of state xi  O(#cores) time to reconcile x  Result is compatible with any order</p>
+    <p>MAX(x0,2)</p>
+    <p>MAX(x1,27)</p>
+    <p>x = 55</p>
+  </div>
+  <div class="page">
+    <p>What Operations Does Doppel Split?</p>
+    <p>Properties of operations that Doppel can split:  Commutative  Can be efficiently reconciled  Single key  Have no return value</p>
+    <p>However:  Only one operation per record per split phase</p>
+  </div>
+  <div class="page">
+    <p>Outline 1. Phase reconciliation 2. Operations 3. Detecting contention 4. Performance evaluation</p>
+  </div>
+  <div class="page">
+    <p>Which Records Does Doppel Split?</p>
+    <p>Database starts out with no split data  Count conflicts on records  Make key split if #conflicts &gt; conflictThreshold</p>
+    <p>Count stashes on records in the split phase  Move key back to non-split if #stashes too high</p>
+  </div>
+  <div class="page">
+    <p>Outline 1. Phase reconciliation 2. Operations 3. Detecting contention 4. Performance evaluation</p>
+  </div>
+  <div class="page">
+    <p>Experimental Setup and Implementation</p>
+    <p>All experiments run on an 80 core Intel server running 64 bit Linux 3.12 with 256GB of RAM</p>
+    <p>Doppel implemented as a multithreaded Go server; one worker thread per core</p>
+    <p>Transactions are procedures written in Go  All data fits in memory; dont measure RPC  All graphs measure throughput in transactions/</p>
+    <p>sec</p>
+  </div>
+  <div class="page">
+    <p>Performance Evaluation  How much does Doppel improve</p>
+    <p>throughput on contentious write-only workloads?</p>
+    <p>What kinds of read/write workloads benefit?  Does Doppel improve throughput for a</p>
+    <p>realistic application: RUBiS?</p>
+  </div>
+  <div class="page">
+    <p>Doppel Executes Conflicting Workloads in Parallel</p>
+    <p>Th ro</p>
+    <p>ug hp</p>
+    <p>ut (m</p>
+    <p>illi on</p>
+    <p>s tx</p>
+    <p>ns /s</p>
+    <p>ec )</p>
+    <p>Doppel OCC 2PL</p>
+  </div>
+  <div class="page">
+    <p>Doppel Outperforms OCC Even With Low Contention</p>
+    <p>T h ro</p>
+    <p>u g h p u t (t</p>
+    <p>x n s /s</p>
+    <p>e c )</p>
+    <p>% of transactions with hot key</p>
+    <p>Doppel OCC</p>
+  </div>
+  <div class="page">
+    <p>Contentious Workloads Scale Well</p>
+    <p>T h</p>
+    <p>ro u</p>
+    <p>g h</p>
+    <p>p u</p>
+    <p>t (t</p>
+    <p>x n</p>
+    <p>s /s</p>
+    <p>e c )</p>
+    <p>number of cores</p>
+    <p>Doppel OCC</p>
+    <p>Communication of phase changing</p>
+  </div>
+  <div class="page">
+    <p>LIKE Benchmark  Users liking pages on a social network  2 tables: users, pages  Two transactions:  Increment pages like count, insert user like of page  Read a pages like count, read users last like</p>
+    <p>1M users, 1M pages, Zipfian distribution of page popularity</p>
+    <p>Doppel splits the page-like-counts for popular pages But those counts are also read more often</p>
+  </div>
+  <div class="page">
+    <p>Benefits Even When There Are Reads and Writes to the Same</p>
+    <p>Popular Keys</p>
+    <p>Doppel OCC</p>
+    <p>Th ro</p>
+    <p>ug hp</p>
+    <p>ut (m</p>
+    <p>illi on</p>
+    <p>s tx</p>
+    <p>ns /s</p>
+    <p>ec )</p>
+  </div>
+  <div class="page">
+    <p>Doppel Outperforms OCC For A Wide Range of Read/Write Mixes</p>
+    <p>T h ro</p>
+    <p>u g h p u t (t</p>
+    <p>x n s /s</p>
+    <p>e c )</p>
+    <p>% of transactions that read</p>
+    <p>Doppel OCC</p>
+    <p>Doppel does not split any data and performs</p>
+    <p>the same as OCC!More stashed read transactions</p>
+  </div>
+  <div class="page">
+    <p>RUBiS  Auction application modeled after eBay  Users bid on auctions, comment, list new items, search</p>
+    <p>1M users and 33K auctions  7 tables, 17 transactions  85% read only transactions (RUBiS bidding mix)</p>
+    <p>Two workloads:  Uniform distribution of bids  Skewed distribution of bids; a few auctions are very</p>
+    <p>popular</p>
+  </div>
+  <div class="page">
+    <p>StoreBid Transaction StoreBidTxn(bidder, amount, item) {</p>
+    <p>INCR(NumBidsKey(item),1)</p>
+    <p>MAX(MaxBidKey(item), amount)</p>
+    <p>OPUT(MaxBidderKey(item), bidder, amount)</p>
+    <p>PUT(NewBidKey(), Bid{bidder, amount, item})</p>
+    <p>}</p>
+    <p>All commutative operations on potentially conflicting auction metadata</p>
+    <p>Inserting new bids is not likely to conflict</p>
+  </div>
+  <div class="page">
+    <p>Uniform Skewed</p>
+    <p>Doppel OCC</p>
+    <p>Doppel Improves Throughput on an Application Benchmark</p>
+    <p>Th ro</p>
+    <p>ug hp</p>
+    <p>ut (m</p>
+    <p>illi on</p>
+    <p>s tx</p>
+    <p>ns /s</p>
+    <p>ec )</p>
+    <p>improvement</p>
+  </div>
+  <div class="page">
+    <p>Related Work  Commutativity in distributed systems and concurrency</p>
+    <p>control  [Weihl 88]  CRDTs [Shapiro 11]  RedBlue consistency [Li 12]  Walter [Lloyd 12]</p>
+    <p>Optimistic concurrency control  [Kung 81]  Silo [Tu 13]</p>
+    <p>Split counters in multicore OSes</p>
+  </div>
+  <div class="page">
+    <p>Conclusion Doppel:  Achieves parallel performance when many transactions</p>
+    <p>conflict by combining per-core data and concurrency control</p>
+    <p>Performs comparably to OCC on uniform or read-heavy workloads while improving performance significantly on skewed workloads.</p>
+    <p>http://pdos.csail.mit.edu/doppel</p>
+  </div>
+</Presentation>

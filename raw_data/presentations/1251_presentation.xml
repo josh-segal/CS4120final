@@ -1,0 +1,268 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>POSH: A Data-Aware Shell Deepti Raghavan, Sadjad Fouladi, Philip Levis, Matei Zaharia</p>
+    <p>Stanford University USENIX ATC 2020</p>
+  </div>
+  <div class="page">
+    <p>Shell Data Processing</p>
+  </div>
+  <div class="page">
+    <p>Running Shell Commands over Remote Data</p>
+    <p>Remote filesystems enable us to preserve our local environment</p>
+    <p>Slowdown for using NFS, for a client and server in the same GCP</p>
+    <p>region, operating on a .5 Gb folder:</p>
+    <p>Tar extract: 35x slower</p>
+    <p>Git clone: 6x slower</p>
+    <p>Copy recursive: 100x slower</p>
+  </div>
+  <div class="page">
+    <p>Bash Commands over NFS</p>
+    <p>tar -xzf folder.tar.gz</p>
+    <p>Remote NFS serverClient</p>
+    <p>folder.tar.gz</p>
+    <p>unzipped files</p>
+    <p>(1) Read blocks of file over network</p>
+    <p>(2) Write back uncompressed files over network</p>
+    <p>(0) Locally run tar</p>
+  </div>
+  <div class="page">
+    <p>Near Data Computing  Prior systems (Spark, Map Reduce, Active Disks, stored</p>
+    <p>procedures) push computation closer to the data</p>
+    <p>Users must conform to a specific API</p>
+    <p>Overhead to accelerate simple shell pipelines that use remote</p>
+    <p>filesystems</p>
+    <p>cat A B C D | grep foo | tee local.txt</p>
+  </div>
+  <div class="page">
+    <p>Can we bring data locality to the shell?</p>
+    <p>Posh, the Process Offload Shell: Automatically offloads portions of unmodified shell pipelines to proxy servers closer to the data</p>
+    <p>Client</p>
+    <p>Storage Servers</p>
+    <p>Proxy Servers</p>
+    <p>Offload request</p>
+    <p>Stdout, Stderr</p>
+  </div>
+  <div class="page"/>
+  <div class="page">
+    <p>Challenge &amp; Contributions  Key Challenge:</p>
+    <p>How does Posh know how to split computation between local execution and proxy servers?</p>
+    <p>Contributions: 1. An annotation language that summarizes the command-line semantics of</p>
+    <p>each command and file dependencies</p>
+  </div>
+  <div class="page">
+    <p>Agenda</p>
+    <p>Introduction</p>
+    <p>Annotations</p>
+    <p>System Design</p>
+    <p>Scheduling Algorithm</p>
+    <p>Evaluation</p>
+  </div>
+  <div class="page">
+    <p>What would an annotation language show?</p>
+    <p>Given an arbitrary command line, what information does Posh need to decide what to offload?</p>
+    <p>cat A B C D | grep foo | tee output.txt</p>
+  </div>
+  <div class="page">
+    <p>Determining File Dependencies of a Command</p>
+    <p>Consider these command lines:</p>
+  </div>
+  <div class="page">
+    <p>tar -czf file.tar.gz input_folder tar: FLAGS: - short:c - short:z</p>
+    <p>OPTPARAMS: - short:f, long:file, type:output_file, size:1</p>
+    <p>PARAMS: - type:input_file, size:list</p>
+    <p>Annotation Interface</p>
+    <p>list of flags List of parameters preceded by flags</p>
+    <p>List of parameters not preceded by flags</p>
+  </div>
+  <div class="page">
+    <p>tar -czf file.tar.gz input_folder tar: FLAGS: - short:c - short:z</p>
+    <p>OPTPARAMS: - short:f, long:file, type:output_file, size:1</p>
+    <p>PARAMS: - type:input_file, size:list</p>
+    <p>Annotation Interface</p>
+  </div>
+  <div class="page">
+    <p>tar -xzf file.tar.gz tar [needs_current_dir]: FLAGS: - short:x - short:z</p>
+    <p>OPTPARAMS: - short:f, long:file, type:input_file, size:1</p>
+    <p>Annotation Interface</p>
+    <p>extra information about the entire command</p>
+    <p>different type assignment</p>
+    <p>tar -czf file.tar.gz input_folder tar: FLAGS: - short:c - short:z</p>
+    <p>OPTPARAMS: - short:f, long:file, type:output_file, size:1</p>
+    <p>PARAMS: - type:input_file, size:list</p>
+  </div>
+  <div class="page">
+    <p>Shell Annotations</p>
+    <p>Argument specific information:</p>
+    <p>type assignment: input_file,output_file  Whether command can be parallelized across this argument</p>
+    <p>Overall command semantics:</p>
+    <p>Parallelization semantics</p>
+    <p>Filtering semantics</p>
+    <p>Implicitly needs current directory</p>
+  </div>
+  <div class="page">
+    <p>Agenda</p>
+    <p>Introduction</p>
+    <p>Annotations</p>
+    <p>System Design</p>
+    <p>Scheduling Algorithm</p>
+    <p>Evaluation</p>
+  </div>
+  <div class="page">
+    <p>A</p>
+    <p>STDERRSTDOUT</p>
+    <p>Execution Engine</p>
+    <p>grep a</p>
+    <p>cat x</p>
+    <p>Parser</p>
+    <p>STDERRSTDOUT</p>
+    <p>DAG Representation</p>
+    <p>grep a</p>
+    <p>cat x</p>
+    <p>Scheduler</p>
+    <p>/mnt0  A /mnt1  B</p>
+    <p>C</p>
+    <p>awk</p>
+    <p>grep sed</p>
+    <p>cut</p>
+    <p>cat ...</p>
+    <p>Annotations</p>
+    <p>Configuration</p>
+    <p>/mnt0 cat x | grep a POSH</p>
+    <p>System Overview</p>
+  </div>
+  <div class="page">
+    <p>Scheduling</p>
+    <p>cat 01.log 02.log 03.log 04.log 05.log 06.log 07.log 08.log</p>
+    <p>grep 128.151.150.12</p>
+    <p>STDERR</p>
+    <p>tee output.txt</p>
+    <p>STDOUToutput.txt</p>
+    <p>$ cat mount0/*.log mount1/*.log | grep 128.151.150.12 | tee output.txt</p>
+    <p>STDERR</p>
+    <p>Client</p>
+    <p>Server 0 Server 1</p>
+    <p>cat 01.log 02.log 03.log 04.log</p>
+    <p>grep 128.151.150.12</p>
+    <p>cat 05.log 06.log 07.log 08.log</p>
+    <p>grep 128.151.150.12</p>
+    <p>STDERR</p>
+    <p>tee output.txt</p>
+    <p>STDOUToutput.txt</p>
+    <p>$ cat mount0/*.log mount1/*.log | grep 128.151.150.12 | tee output.txt</p>
+    <p>STDERR</p>
+    <p>(1) Automatic Parallelization</p>
+    <p>(2) Greedy Location Assignment</p>
+  </div>
+  <div class="page">
+    <p>Automatic Parallelization</p>
+    <p>cat A B C D | grep foo cat:</p>
+    <p>PARAMS: - type:input_file,size:list,splittable</p>
+    <p>grep [splittable_across_input, filters_input]: PARAMS:</p>
+    <p>- type:string,size:1 - type:input_file,size:list</p>
+  </div>
+  <div class="page">
+    <p>Automatic Parallelization</p>
+    <p>cat 01.log 02.log 03.log 04.log</p>
+    <p>grep 128.151.150.12</p>
+    <p>cat 05.log 06.log 07.log 08.log</p>
+    <p>grep 128.151.150.12</p>
+    <p>cat 01.log 02.log 03.log 04.log 05.log 06.log 07.log 08.log</p>
+    <p>grep 128.151.150.12</p>
+    <p>$ cat mount0/*.log mount1/*.log | grep 128.151.150.12 | tee output.txt</p>
+    <p>(mount0/) (mount1/)</p>
+  </div>
+  <div class="page">
+    <p>Overview of Greedy Location Assignment</p>
+    <p>Read and write nodes</p>
+    <p>Nodes whose file dependencies all live on the same mount</p>
+    <p>Nodes who access files from different mounts (assign to client)</p>
+    <p>Uses heuristics to assign each unassigned node along a path</p>
+  </div>
+  <div class="page">
+    <p>Greedy Location Assignment</p>
+    <p>cat A.txt B.txt C.txt grep foo</p>
+    <p>Write to stdoutX</p>
+    <p>wc</p>
+    <p>(doesnt filter)</p>
+    <p>ZY</p>
+    <p>(filters)</p>
+    <p>Constrained to Proxy Server A</p>
+    <p>Constrained to client</p>
+    <p>(filters) minimum cut edge</p>
+    <p>grep [splittable_across_input, filters_input]:</p>
+    <p>X &gt;= Y &gt;= Z</p>
+  </div>
+  <div class="page">
+    <p>Greedy Location Assignment</p>
+    <p>cat A.txt B.txt C.txt grep foo</p>
+    <p>Write to stdout</p>
+    <p>wc</p>
+    <p>(doesnt filter) (filters)</p>
+    <p>Constrained to client</p>
+    <p>(filters) minimum cut edge</p>
+    <p>grep [splittable_across_input, filters_input]:</p>
+    <p>X ZY</p>
+    <p>X &gt;= Y &gt;= Z</p>
+    <p>Constrained to Proxy Server A</p>
+  </div>
+  <div class="page">
+    <p>Implementation &amp; Evaluation  Implementation:</p>
+    <p>Server component runs at proxy server that has access to NFS data</p>
+    <p>Client component runs at clients shell, annotations stored locally</p>
+    <p>Evaluation:</p>
+    <p>Used Posh to accelerate five unmodified shell applications</p>
+    <p>Two remote NFS scenarios; proxy server runs on NFS server directly</p>
+    <p>Client Server Throughput RTT Stanford GCP Oregon 600 Mbps 20 ms GCP Oregon GCP Oregon 5-10 Gbps .5 ms</p>
+  </div>
+  <div class="page">
+    <p>Image Thumbnails with</p>
+    <p>mogrify -format gif -path thumbs -thumbnail 100x100 images/*.jpg</p>
+    <p>cloud university</p>
+    <p>Client Network</p>
+    <p>Ti m</p>
+    <p>e (</p>
+    <p>s)</p>
+    <p>nfssync nfsasync local posh</p>
+    <p>Parallelization Factor</p>
+    <p>Ti m</p>
+    <p>e (s</p>
+    <p>)</p>
+    <p>local = best possible performance</p>
+    <p>Input: 15 Gb -&gt; Output: 12 Mb</p>
+  </div>
+  <div class="page">
+    <p>Distributed MapReduce Workload</p>
+    <p>Pipeline that runs cat and grep across files stored in 5 different remote machines  80 Gb -&gt; .8 kb  Posh:</p>
+    <p>(1) offloads the command  (2) automatically splits the command  (3) aggregates the output in the</p>
+    <p>correct order 206</p>
+    <p>cloud university</p>
+    <p>Client Network</p>
+    <p>Ti m</p>
+    <p>e (</p>
+    <p>s)</p>
+    <p>nfssync nfsasync posh</p>
+    <p>cat mount0/*.csv mount1/*.csv  | grep foo</p>
+  </div>
+  <div class="page">
+    <p>Git Commit Workflow</p>
+    <p>Runs add, commit, status successively across 20 chromium commits</p>
+    <p>Two machines in same datacenter</p>
+    <p>git add results in ~34000 to 340000 open stat calls over the network</p>
+    <p>status</p>
+    <p>commit</p>
+    <p>add</p>
+    <p>Commit Number</p>
+    <p>Ti m</p>
+    <p>e (</p>
+    <p>s)</p>
+    <p>posh nfssync nfsasync local</p>
+  </div>
+  <div class="page">
+    <p>Conclusion: shells should consider locality</p>
+    <p>Posh introduces data locality into the shell via annotations  Enables 1.6-15x speedups in</p>
+    <p>unmodified workloads that access remote filesystems</p>
+    <p>Contact: deeptir@cs.stanford.edu https://deeptir.me github.com/deeptir18</p>
+    <p>Setup and try out Posh at: https://github.com/deeptir18/posh</p>
+  </div>
+</Presentation>

@@ -1,0 +1,184 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>BTrDB: Optimizing Storage System Design for Timeseries Processing</p>
+    <p>Michael P Andersen, David E. Culler University of California, Berkeley</p>
+  </div>
+  <div class="page">
+    <p>Fast scalar stream telemetry</p>
+  </div>
+  <div class="page">
+    <p>Overview  Challenges with how this data is used and processed  Solving this with the abstraction and operations that BTrDB provides  BTrDB data structures  Performance evaluation of a BTrDB Go implementation  Idempotent distillation operations leveraging fast changeset calculation</p>
+  </div>
+  <div class="page">
+    <p>Fast scalar stream telemetry</p>
+    <p>A stream is a list of (timestamp&lt;int64&gt; , value&lt;float64&gt;) tuples</p>
+  </div>
+  <div class="page">
+    <p>Challenges with this fast scalar telemetry Data characteristics:</p>
+    <p>High density: e.g. uPMUs are 120 Hz per stream, 1.4 kHz per device  Varying lag and out of order delivery: e.g. delivered over intermittent LTE  High precision timestamps: nanoseconds</p>
+    <p>Analysis characteristics:</p>
+    <p>Aggregated queries more common than full-resolution queries</p>
+  </div>
+  <div class="page"/>
+  <div class="page">
+    <p>Challenges with this fast scalar telemetry Data characteristics:</p>
+    <p>High density: e.g. uPMUs are 120 Hz per stream, 1.4 kHz per device  Varying lag and out of order delivery: e.g. delivered over intermittent LTE  High precision timestamps: nanoseconds</p>
+    <p>Analysis characteristics:</p>
+    <p>Aggregated queries more common than full-resolution queries  Aggregation windows are much larger than the sample interval</p>
+  </div>
+  <div class="page">
+    <p>One pixel column ^ is 4.2 million data points Aggregation window is 6 orders of magnitude bigger than sample interval</p>
+  </div>
+  <div class="page">
+    <p>Challenges with this fast scalar telemetry Data characteristics:</p>
+    <p>High density: e.g. uPMUs are 120 Hz per stream, 1.4 kHz per device  Varying lag and out of order delivery: e.g. delivered over intermittent LTE  High precision timestamps: nanoseconds</p>
+    <p>Analysis characteristics:</p>
+    <p>Aggregated queries more common than full-resolution queries  Aggregation windows are much larger than the sample interval  Data transformed in a DAG, creating multiple dependent streams</p>
+  </div>
+  <div class="page">
+    <p>DISTIL</p>
+  </div>
+  <div class="page">
+    <p>Why can we not solve this with existing DBs  Density:</p>
+    <p>1.4 Million values/s/node raw data  &gt;10 Million values/s /nodederived streams</p>
+    <p>Existing throughput is too low (&lt;&lt; 1 Million values/s/node)</p>
+    <p>Aggregation capability mismatch:  Either done Just In Time (query time aggregation) - too expensive for 100s of GB  Or done at insert time - doesnt handle out of order / changed data  Dont guarantee consistency of aggregate</p>
+    <p>Hard to support analysis DAG:  Require per-consumer state  Dont provide snapshot features - needed for idempotent analysis  Dont guarantee consistency of result streams</p>
+  </div>
+  <div class="page">
+    <p>Why do these shortcomings exist?  Often, because they do too much:</p>
+    <p>Designed for data that is complex, multidimensional  Support queries based on multiple indexes, or on values</p>
+    <p>Find me log messages where the type is error  Find the sum of session times where the advert is from vendor X</p>
+  </div>
+  <div class="page">
+    <p>Simple Abstraction for Timeseries Database  QueryRange(uuid, start_time, end_time)</p>
+    <p>-&gt; &lt;[&lt;time, value&gt;]&gt;  InsertValues(uuid, [&lt;time, value&gt;])</p>
+    <p>-&gt;  DeleteRange(uuid, start_time, end_time)</p>
+    <p>-&gt;</p>
+  </div>
+  <div class="page">
+    <p>Would this work?  Analyse recently changed data - HARD</p>
+    <p>Not always at the end of the stream</p>
+    <p>Perform computation idempotently - HARD  Snapshot the stream</p>
+    <p>Compute dependent streams: B = f(A) - HARD  Run a function over everything in A that has changed since last computation</p>
+    <p>Locate interesting events in large quantities of data - HARD  In the synchrophasors project, an event is ~100ms, and a years worth of data from a</p>
+    <p>single device is 670 GB  Interesting is hard to define, but it often means:</p>
+    <p>above or below a threshold  more than X from the mean  having a different density than the rest (holes, timebase overlapping etc)</p>
+  </div>
+  <div class="page">
+    <p>Improved Abstraction for Timeseries Database  QueryRange(uuid, start_time, end_time, version)</p>
+    <p>-&gt; (version, List of (time, value) )  InsertValues(uuid, [&lt;time, value&gt;])</p>
+    <p>-&gt; version  DeleteRange(uuid, start_time, end_time)</p>
+    <p>-&gt; version</p>
+    <p>StatisticalWindow(uuid, start_time, end_time, version, windowsize) -&gt; (version, List of (time, min, mean, max, count) )</p>
+    <p>ComputeDiff(uuid, fromversion, toversion, version, resolution) -&gt; List of (starttime, endttime)</p>
+  </div>
+  <div class="page">
+    <p>Would this work?  Analyse recently changed data - ComputeDiff</p>
+    <p>Not always at the end of the stream</p>
+    <p>Perform computation idempotently - Version  Snapshot the stream</p>
+    <p>Compute dependent streams: B = f(A) - ComputeDiff + Version  Run a function over everything in A that has changed since last computation</p>
+    <p>Locate interesting events in large quantities of data - StatisticalWindow  In the synchrophasors project, an event is ~100ms, and a years worth of data from a</p>
+    <p>single device is 670 GB  Interesting is hard to define, but it often means:</p>
+    <p>above or below a threshold - Mean/Min/Max  more than X from the mean  having a different density than the rest (holes, timebase overlapping etc) - Count</p>
+  </div>
+  <div class="page">
+    <p>A Go implementation of BTrDB</p>
+  </div>
+  <div class="page">
+    <p>A Go implementation of BTrDB</p>
+  </div>
+  <div class="page">
+    <p>BTrDB Tree - a datastructure for this abstraction Copy on write K-ary Tree Partitioning static time (1933 to 2079)</p>
+    <p>Leaf nodes - Time, value pairs + length</p>
+    <p>Internal nodes - Pointers to children - Version annotations for children - Aggregates for children - Min, Mean, Max, Count - Any associative operator</p>
+  </div>
+  <div class="page">
+    <p>BTrDB Tree - a datastructure for this abstraction Copy on write K-ary Tree Partitioning static time (1933 to 2079)</p>
+    <p>Leaf nodes - Time, value pairs + length</p>
+    <p>Internal nodes - Pointers to children - Version annotations for children - Aggregates for children - Min, Mean, Max, Count - Any associative operator</p>
+  </div>
+  <div class="page">
+    <p>More on the tree There are good reasons for doing aggregates at commit time, in the tree:</p>
+    <p>Data already in memory, nodes already need COW: no additional IO  If version is visible, root was written therefore aggregates are consistent  They dont use much space: 0.3% of a K=64 tree</p>
+    <p>How to reduce RTTs in traversing tree?</p>
+    <p>Edges use native addresses, directly resolvable by underlying storage</p>
+  </div>
+  <div class="page">
+    <p>A Go implementation of BTrDB</p>
+  </div>
+  <div class="page">
+    <p>More on the tree Why do aggregates in the tree?</p>
+    <p>Data already in memory: no additional IO  If version is visible, root was written therefore aggregates are consistent  They dont use much space: 0.3% of a K=64 tree</p>
+    <p>How to reduce RTTs in traversing tree?</p>
+    <p>Edges use native addresses, directly resolvable by underlying storage  Only the root of the tree requires translation</p>
+    <p>uuid -&gt; native address of the root</p>
+  </div>
+  <div class="page">
+    <p>A Go implementation of BTrDB</p>
+  </div>
+  <div class="page">
+    <p>Evaluation Raw throughput with chronological random inserts and queries on EC2</p>
+  </div>
+  <div class="page"/>
+  <div class="page">
+    <p>A Go implementation of BTrDB</p>
+  </div>
+  <div class="page"/>
+  <div class="page">
+    <p>A Go implementation of BTrDB</p>
+  </div>
+  <div class="page">
+    <p>Out of order performance characteristics</p>
+  </div>
+  <div class="page">
+    <p>Evaluation Statistical queries on a</p>
+    <p>production server</p>
+  </div>
+  <div class="page">
+    <p>Statistic queries : visualisation</p>
+  </div>
+  <div class="page">
+    <p>Statistic queries : visualisation</p>
+    <p>About 4 billion datapoints</p>
+  </div>
+  <div class="page">
+    <p>Statistic queries : visualisation</p>
+  </div>
+  <div class="page">
+    <p>Statistic queries : visualisation</p>
+  </div>
+  <div class="page">
+    <p>Statistic queries : visualisation</p>
+  </div>
+  <div class="page">
+    <p>Statistic queries : visualisation</p>
+  </div>
+  <div class="page">
+    <p>Statistic queries : visualisation</p>
+  </div>
+  <div class="page">
+    <p>Statistic queries : visualisation</p>
+  </div>
+  <div class="page"/>
+  <div class="page"/>
+  <div class="page"/>
+  <div class="page"/>
+  <div class="page"/>
+  <div class="page">
+    <p>DISTIL - Eventually consistent derivative streams  B = f(A)</p>
+    <p>Find differences in A since last update of B - CalculateDiff()  Compute f(A) and update B  If operation succeeds, update Bs metadata with new version of A</p>
+    <p>Sometimes keep A up to date all the time  Sometimes materialize A just in time when needed</p>
+    <p>A Versioned stream</p>
+    <p>Immutable algorithm</p>
+    <p>B Versioned stream</p>
+    <p>algorithm, uuid(A), ver(A)e.g Sliding window quartiles</p>
+  </div>
+  <div class="page">
+    <p>Summary By leveraging qualities about the data</p>
+    <p>Handle raw inserts/requests substantially faster than existing solutions (&gt;16x faster than the new Cassandra C++ rewrite)</p>
+    <p>Can analyse years of data in milliseconds, for a significant set of queries  Aggregates are guaranteed to be consistent  Can build elegant eventual consistency systems using multiversioning</p>
+    <p>Although simpler, relevant to a massive set of streams. Almost all physical quantity measurement quantities are scalar or vector-of-scalar streams.</p>
+  </div>
+</Presentation>

@@ -1,0 +1,269 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>Cavs: An Efficient Runtime System for Dynamic Neural Networks</p>
+    <p>Hao Zhang*</p>
+    <p>Shizhen Xu*, Graham Neubig, Wei Dai, Jin Kyu Kim, Zhijie Deng Qirong Ho, Guangwen Yang, Eric P. Xing</p>
+    <p>Carnegie Mellon University and Petuum Inc. * indicates equal contributions</p>
+  </div>
+  <div class="page">
+    <p>Outline</p>
+    <p>Deep learning and dataflow graphs  Dynamic neural network and programming models  Cavs: a new programming interface for dynamic NNs</p>
+    <p>Hao Zhang 1</p>
+  </div>
+  <div class="page">
+    <p>A layer in a neural network is composed of a few finer computational operations, which can be represented as a forward pass through a dataflow graph</p>
+    <p>Training the layer parameters involves deriving the gradients of its parameters -- a backward pass where the gradients flow through a backward dataflow graph representation of the layer</p>
+    <p>Given forward dataflow graph, the backward graph can be automatically derived by auto-differentiation</p>
+    <p>A Computational Layer in DL</p>
+    <p>Hao Zhang 2</p>
+    <p>forward</p>
+    <p>! &quot;</p>
+    <p>backward</p>
+    <p>#! #&quot;</p>
+  </div>
+  <div class="page">
+    <p>A Neural Network as a Dataflow Graph</p>
+    <p>Hao Zhang 3</p>
+    <p>Define a neural network ~= assemble a dataflow graph  Define operations and layers: fully-connected? Convolution?  Define data I/O: what data to read? Where?  Define a loss functions: L2 loss? Softmax?  Define an optimization solver: SGD, Momentum, Adam, etc.  Connect operations, data I/O, loss functions and optimizer as a full</p>
+    <p>dataflow graph, which is the representation of the neural network Auto-differentiation Libraries (e.g. Caffe, TensorFlow) then take over</p>
+    <p>Automatically derive the backward graphs  Perform training (forward-backward passes) and apply updates</p>
+  </div>
+  <div class="page">
+    <p>A Neural Network as a Dataflow Graph</p>
+    <p>Hao Zhang 4</p>
+    <p>Photo from TensorFlow websi</p>
+    <p>forward</p>
+    <p>backward</p>
+  </div>
+  <div class="page">
+    <p>A Programming Model: Static Declaration</p>
+    <p>Users declare a dataflow graph  Frameworks analyze and optimize the graph</p>
+    <p>Automatically derive the backward graph based on autodiff  Incorporate some graph-level optimization if desired</p>
+    <p>Perform training/inference iteratively</p>
+    <p>Hao Zhang 5</p>
+    <p>Incorporate graph-level optimization over ! (optionally)</p>
+  </div>
+  <div class="page">
+    <p>Static Declaration: Advantages</p>
+    <p>Static Declaration is the dominant choice for DL  Good for static workflows: define once, run for arbitrary batches/data  All samples compute over one graph, therefore the computation can</p>
+    <p>be by-nature batched  by leveraging GPU and other advanced matrix-computing libs (CUDA, etc.)</p>
+    <p>Easy to optimize: a lot of off-the-shelf optimization techniques for dataflow graph</p>
+    <p>Hao Zhang 6</p>
+    <p>Incorporate graph-level optimization over ! (optionally)</p>
+    <p>Batched computation here</p>
+  </div>
+  <div class="page">
+    <p>Introduction to Dynamic Neural Networks</p>
+    <p>Deep Learning has been applied on more structured data  The neural network computes following a data-dependent</p>
+    <p>structure, in order to encode the structure information  Hence, The NN architecture used to handle structured data would</p>
+    <p>change with the input sample  E.g. Recurrent Neural Networks and their variants</p>
+    <p>Sequence RNN in machine translation, video understanding  Tree RNN in sentence parsing and sentiment analysis  GraphRNN in social network/image segmentation</p>
+    <p>Hao Zhang 7</p>
+  </div>
+  <div class="page">
+    <p>Dynamic Neural Network: An Example</p>
+    <p>An example of a dynamic NN  (a) a constituency parsing tree  (b) the corresponding Tree-LSTM network.  We use the following abbreviations in (a): S for sentence, N for noun,</p>
+    <p>VP for verb phrase, NP for noun phrase, D for determiner, and V for verb.</p>
+    <p>Hao Zhang 8</p>
+  </div>
+  <div class="page">
+    <p>Static Declaration for Dynamic Dataflow Graphs</p>
+    <p>Can we handle dynamic dataflow graphs using static declaration?</p>
+    <p>Static unroll: preprocessing all inputs to have the same length  Bucketing: put inputs into different buckets, one bucket one NN  At the core of the above tricks is to pad the inputs with zeros so they</p>
+    <p>have the same shape/length  They are very commonly adopted, but are they good?</p>
+    <p>Unable to express structures beyond sequences  Usually result in unnecessary (extra) computation, which wastes</p>
+    <p>computational resources  Complexity in implementation</p>
+    <p>Hao Zhang 9</p>
+  </div>
+  <div class="page">
+    <p>An Extended Model: Dynamic Declaration</p>
+    <p>Key idea: declare and construct a dataflow graph for each input sample</p>
+    <p>Move the graph declaration and construction (and optimization) from outside of the loop to inside the loop</p>
+    <p>Perform single instance training because it is hard to batch</p>
+    <p>DL Frameworks based on dynamic declaration have gained substantial popularity in the most recent 2 years</p>
+    <p>Hao Zhang 10</p>
+  </div>
+  <div class="page">
+    <p>Dynamic Declaration: Pros and Cons</p>
+    <p>Dynamic declaration has one major advantage  Flexibility: it can express arbitrarily dynamically networks structures by</p>
+    <p>declaring as many as dataflow graphs as the number of training data  Dynamic declaration scarifies efficiency for flexibility</p>
+    <p>Hao Zhang 11</p>
+  </div>
+  <div class="page">
+    <p>Graph construction overhead grows linearly with # of samples</p>
+    <p>Problem #1: Graph Construction Cost</p>
+    <p>Hao Zhang 12</p>
+  </div>
+  <div class="page">
+    <p>Problem #1: Graph Construction Cost</p>
+    <p>Hao Zhang 13</p>
+    <p>Curve (left axis): absolute time; bar (right): percentage time  Graph construction takes 80% of overall time in TensorFlow Fold</p>
+  </div>
+  <div class="page">
+    <p>Problem #2: Batching will be Difficult</p>
+    <p>Hao Zhang 14</p>
+    <p>In static declaration: batching is natural</p>
+    <p>In dynamic declaration: batching is difficult</p>
+    <p>No batching available any more  Manual batching the execution of differently structured graphs</p>
+    <p>is very difficult  Users have to write code to do batching by themselves  In fact, until 2017, most papers based on tree-LSTM (a typical</p>
+    <p>dynamic NN) model is trained with batchsize=1</p>
+  </div>
+  <div class="page">
+    <p>Problem #3: Unavailable to Graph Optimizations</p>
+    <p>Hao Zhang 15</p>
+    <p>Graph optimization happens here: inside the loops!</p>
+    <p>In static declaration, we optimize the graph only once,  Graph optimization overhead is constant  The optimization is beneficial for all input data points</p>
+    <p>In dynamic declaration, if we want to incorporate these optimization, we need to optimize for each declared graph</p>
+    <p>Linear graph optimization overhead  As a result: the optimization might cost more than it can gain</p>
+    <p>Graph optimization happens here: outside of the loop</p>
+  </div>
+  <div class="page">
+    <p>Introducing Cavs: Design Goals</p>
+    <p>Simple Interface, rich expressiveness  Keep the flexibility of dataflow graph and dynamic declaration</p>
+    <p>At the same time, address the three aforementioned problems:  Minimize graph construction overhead  Allow for efficient computation and batching  (Re-)open the opportunities for graph optimization techniques</p>
+    <p>Hao Zhang 16</p>
+  </div>
+  <div class="page">
+    <p>Cavs: Motivation</p>
+    <p>Observation: Most dynamic NNs have recurrent/recursive structures</p>
+    <p>The dynamics come from the sample-dependent structure instead of the neural network model itself</p>
+    <p>Hao Zhang 17</p>
+  </div>
+  <div class="page">
+    <p>Cavs: A New Representation</p>
+    <p>Cavs introduces a novel representation for dynamic NNs, and decompose a dynamic NN as two modules</p>
+    <p>A vertex function F, which is static;  An input graph G, which is data-dependent and dynamic;</p>
+    <p>Hence, Cavs separates out static ML model from the datadependent dynamics which come from input samples</p>
+    <p>Hao Zhang 18</p>
+    <p>Dynamics come from here Static computation pattern</p>
+    <p>specified here</p>
+  </div>
+  <div class="page">
+    <p>Cavs: A Vertex-centric Representation</p>
+    <p>Programming: think like a vertex  User implements a vertex function F, specifying how a node will</p>
+    <p>interact with its neighboring nodes  The system read input graph G through I/O  The system will compile the local vertex function and figure out the</p>
+    <p>overall computing pattern of the NN over the whole graph</p>
+    <p>Hao Zhang 19</p>
+    <p>Input graphs: obtained through I/O</p>
+    <p>Computational dataflow graph: statically declared by programmer</p>
+  </div>
+  <div class="page">
+    <p>Cavs: Four APIs</p>
+    <p>Gather &amp; Scatter for internal data path  Pull &amp; Push for external data path</p>
+    <p>Hao Zhang 20</p>
+  </div>
+  <div class="page">
+    <p>Cavs: Four APIs</p>
+    <p>An example: expressing Tree-LSTM using the four APIs</p>
+    <p>Hao Zhang 21</p>
+  </div>
+  <div class="page">
+    <p>Expressing Backpropagation</p>
+    <p>The forward and backward passes in Cavs  Forward: schedule the execution of the vertex function F through a batch of input graphs following the dependencies therein (e.g. from leaves to roots in trees)</p>
+    <p>Backward: schedule the execution of !&quot; through the same batch of input graphs, in a reverse order (e.g. from roots to trees)</p>
+    <p>Hao Zhang 22</p>
+  </div>
+  <div class="page">
+    <p>Cavs Bypasses Graph Construction Overhead</p>
+    <p>Hao Zhang 23</p>
+    <p>Declare only once  constant graph construction cost</p>
+    <p>Read through I/O, no graph construction involved any more.</p>
+    <p>No repeated graph construction overhead!  The graph construction overhead is constant  we only need to</p>
+    <p>construct F, which is usually a small-scale dataflow graph  Bypass the repeated dataflow graph construction  Instead, read the input graph G, which could be achieved by an I/O</p>
+    <p>function</p>
+  </div>
+  <div class="page">
+    <p>Empirical Results: Graph Construction Cost</p>
+    <p>Hao Zhang 24</p>
+    <p>Cavs has constant graph construction overhead  Curve (left axis): absolute time; bar (right): percentage time  In terms of graph construction overhead, Cavs outperforms</p>
+    <p>TensorFlow-Fold and DyNet by a large margin</p>
+  </div>
+  <div class="page">
+    <p>Cavs Enables Batched Computation</p>
+    <p>Recall the Dynamic Declaration problem #2  Batched computation on dynamic graphs are difficult</p>
+    <p>Difficult to find batching opportunities  Only same operations with exactly the same size of inputs/outputs can be</p>
+    <p>batched  Need either manual batching or heavy graph analysis (NP-hard)</p>
+    <p>Strict requirements on memory layouts  For the batched computation to be efficient, their input/output need to coalesce</p>
+    <p>on memory  How to efficiently re-arrange memory layout to guarantee continuity?</p>
+    <p>Hao Zhang 25</p>
+  </div>
+  <div class="page">
+    <p>Cavs Enables Batched Computation</p>
+    <p>Batched computation is natural and automatic in Cavs  Cavs transforms the backpropagation as evaluating F at a batch of</p>
+    <p>input graphs  Then, batched computation can be realized by a simple policy</p>
+    <p>Figure out a set of vertices that we are ready to evaluate F on  Batch the evaluation of F on this set of vertices  Pass the output of F to their parent vertices</p>
+    <p>See the figure below  Vertices with same colors are batched evaluated.</p>
+    <p>Hao Zhang 26Tree 1 Tree 2</p>
+  </div>
+  <div class="page">
+    <p>Dynamic Batching: Memory Management Challenge</p>
+    <p>Batched computational kernels on CPU/CPUs requires the inputs to a batched computation kernel locate continuously on memory</p>
+    <p>e.g. gemm kernels  In Dynamic Declaration, this is usually not the case due to the</p>
+    <p>dynamic-varying input structures.  To achieve memory continuity, one has to frequently re-arrange</p>
+    <p>memory layouts (memcpy) of the inputs to each batched operation.  Cavs proposes a new data structure, DynamicTensor, to</p>
+    <p>ensure memory continuity, at the same time minimize memory movement overhead</p>
+    <p>Hao Zhang 27</p>
+  </div>
+  <div class="page">
+    <p>Cavs: Advanced Memory Management  Dynamic Tensor</p>
+    <p>With dynamic tensors, Cavs designs a memory management mechanism to guarantee the coalesce of input contents of batched operations on memory</p>
+    <p>Hao Zhang 28</p>
+  </div>
+  <div class="page">
+    <p>Cavs: Improvement on Memory Management</p>
+    <p>Hao Zhang</p>
+    <p>The improvement is significant (2x - 3x) at larger batch size, c comparing to DyNet (a state-of-the-art framework for dynamic NNs).</p>
+  </div>
+  <div class="page">
+    <p>Cavs is Open to Graph Optimization</p>
+    <p>Incorporating graph-level optimization in Cavs is the same as it in static declaration</p>
+    <p>Optimize the static vertex function F  F will be evaluated at each vertex of the input structure  Optimize once, benefit elsewhere</p>
+    <p>Hao Zhang 30</p>
+    <p>Graph optimization happens here: outside of the loops</p>
+  </div>
+  <div class="page">
+    <p>Cavs Exposes Opportunities for Graph Optimization</p>
+    <p>Cavs proposes/adopts three graph-level optimization strategies</p>
+    <p>Lazy batching  Streaming  Automatic kernel fusion</p>
+    <p>Hao Zhang 31</p>
+  </div>
+  <div class="page">
+    <p>How Important is Graph Optimization?</p>
+    <p>Hao Zhang 32</p>
+    <p>In static frameworks with static declaration, graph optimization usually yield 2  4x speedups depending on the graph size.</p>
+    <p>E.g. TensorFlow XLA, MxNet TVM, etc.  In Cavs, we observe another 1.5x speedup with graph</p>
+    <p>optimizations</p>
+  </div>
+  <div class="page">
+    <p>Overall Performance</p>
+    <p>Hao Zhang 33</p>
+    <p>Overall, Cavs is 1  2 orders of magnitude faster than state-ofthe-art systems such as DyNet and TensorFlow-Fold on different dynamic NNs.</p>
+  </div>
+  <div class="page">
+    <p>Cavs: Improvement on Computation</p>
+    <p>Hao Zhang 34</p>
+    <p>When only comparing computation, Cavs shows maximally 5.4x/9.7x and 7.2x/2.4x speedups over Fold/DyNet on Tree-FC and Tree-LSTM, respectively.</p>
+    <p>Setting: Tree-FC network, time/epoch (s) with varying number of tree leaves and batchsize</p>
+  </div>
+  <div class="page">
+    <p>Overview: Frameworks for Dynamic NNs</p>
+    <p>Hao Zhang 35</p>
+  </div>
+  <div class="page">
+    <p>Take-home Messages</p>
+    <p>Hao Zhang 36</p>
+    <p>Deep learning has moved from static architectures (CNNs) more and more to dynamic structures</p>
+    <p>Static declaration and dynamic declaration are two mostly adopted programming models, but they both have drawbacks</p>
+    <p>Graph construction overhead  Difficulty in dynamic batching (most important!)  Unavailable to graph optimizations</p>
+    <p>Cavs proposes a representation of dynamic NNs that addresses these challenges</p>
+    <p>Dynamic neural networks is an interesting field that demands more system research, e.g. new programming models, parallelization strategies, and software frameworks</p>
+  </div>
+  <div class="page">
+    <p>More and Thanks!</p>
+    <p>Hao Zhang 37</p>
+    <p>More technical details and results in paper.  Code will be released soon, check out at</p>
+    <p>https://github.com/petuum-inc</p>
+    <p>Thanks! Q&amp;A</p>
+  </div>
+</Presentation>

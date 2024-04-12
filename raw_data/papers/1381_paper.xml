@@ -1,0 +1,609 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<TEI xmlns="http://www.tei-c.org/ns/1.0" 
+xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+xsi:schemaLocation="http://www.tei-c.org/ns/1.0 /Users/atharsefid/Desktop/grobid-0.5.3/grobid-home/schemas/xsd/Grobid.xsd"
+ xmlns:xlink="http://www.w3.org/1999/xlink">
+	<teiHeader xml:lang="en">
+		<encodingDesc>
+			<appInfo>
+				<application version="0.5.3" ident="GROBID" when="2019-03-26T16:38+0000">
+					<ref target="https://github.com/kermitt2/grobid">GROBID - A machine learning software for extracting information from scholarly documents</ref>
+				</application>
+			</appInfo>
+		</encodingDesc>
+		<fileDesc>
+			<titleStmt>
+				<title level="a" type="main">Genotype Error Detection using Hidden Markov Models of Haplotype Diversity</title>
+			</titleStmt>
+			<publicationStmt>
+				<publisher/>
+				<availability status="unknown"><licence/></availability>
+			</publicationStmt>
+			<sourceDesc>
+				<biblStruct>
+					<analytic>
+						<author>
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><roleName>Ion M˘</roleName><forename type="first">Justin</forename><surname>Kennedy</surname></persName>
+							<affiliation key="aff0">
+								<orgName type="department">CSE Department</orgName>
+								<orgName type="institution">University of Connecticut</orgName>
+								<address>
+									<postCode>06269</postCode>
+									<settlement>Storrs</settlement>
+									<region>CT</region>
+								</address>
+							</affiliation>
+						</author>
+						<author role="corresp">
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Bogdan</forename><forename type="middle">Pa¸saniuc</forename><surname>Pa¸saniuc</surname></persName>
+							<email>bogdan@engr.uconn.edu</email>
+							<affiliation key="aff0">
+								<orgName type="department">CSE Department</orgName>
+								<orgName type="institution">University of Connecticut</orgName>
+								<address>
+									<postCode>06269</postCode>
+									<settlement>Storrs</settlement>
+									<region>CT</region>
+								</address>
+							</affiliation>
+						</author>
+						<title level="a" type="main">Genotype Error Detection using Hidden Markov Models of Haplotype Diversity</title>
+					</analytic>
+					<monogr>
+						<imprint>
+							<date/>
+						</imprint>
+					</monogr>
+				</biblStruct>
+			</sourceDesc>
+		</fileDesc>
+		<profileDesc>
+			<abstract>
+				<p>The presence of genotyping errors can invalidate statistical tests for linkage and disease association, particularly for methods based on haplotype analysis. Becker et al. have recently proposed a simple likelihood ratio approach for detecting errors in trio genotype data. Under this approach, a SNP genotype is flagged as a potential error if the likelihood associated with the original trio genotype data increases by a multiplicative factor exceeding a user selected threshold when the SNP genotype under test is deleted. In this paper we give improved error detection methods using the likelihood ratio test approach in conjunction with likelihood functions that can be efficiently computed based on a Hidden Markov Model of haplotype diversity in the population under study. Experimental results on both simulated and real datasets show that proposed methods achieve significantly improved detection accuracy compared to previous methods with highly scalable running time.</p>
+			</abstract>
+		</profileDesc>
+	</teiHeader>
+	<text xml:lang="en">
+		<body>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="1">Introduction</head><p>Despite recent advances in typing technologies and calling algorithms, significant error levels remain present in SNP genotype data (see <ref type="bibr" target="#b0">[1]</ref> for a recent survey). A recent study of dbSNP genotype data <ref type="bibr" target="#b1">[2]</ref> found that as much as 1.1% of about 20 million SNP genotypes typed multiple times have inconsistent calls, and are thus incorrect in at least one dataset. When genotype data is available for related individuals, some errors become detectable as Mendelian inconsistencies (MIs). However, a large proportion of errors (as much as 70% in mother-father-child trio genotype data <ref type="bibr" target="#b3">[3,</ref><ref type="bibr" target="#b4">4]</ref>) remains undetected by Mendelian consistency analysis.</p><p>Since even low error levels can lead to substantial losses in the statistical power of linkage and association studies <ref type="bibr" target="#b5">[5]</ref><ref type="bibr" target="#b6">[6]</ref><ref type="bibr" target="#b7">[7]</ref>, error detection remains a critical task in genetic data analysis. This task becomes particularly important in the context of association studies based on haplotypes instead of single locus markers, where error rates as low as 0.1% may invalidate some statistical tests for disease association <ref type="bibr" target="#b8">[8]</ref>.</p><p>An indirect approach to handling genotyping errors is to explicitly model them in downstream statistical analyses, see, e.g., <ref type="bibr" target="#b9">[9,</ref><ref type="bibr" target="#b10">10]</ref>. While powerful, this approach often leads to complex statistical models and impractical runtimes for large datasets such as those generated by current large-scale association studies. A more practical approach is to perform genotype error detection as a separate analysis step following genotype calling. SNP genotypes flagged as putative errors can then be excluded from downstream analyses or can be retyped when high quality genotype data is required. Error detection is currently implemented in all widely-used software packages for pedigree genotype data analysis such as SimWalk2 <ref type="bibr" target="#b11">[11]</ref> and Merlin <ref type="bibr" target="#b12">[12]</ref>, which detect Mendelian consistent errors by independently analyzing each pedigree and identifying loci of excessive recombination. Unfortunately, these methods are not appropriate for error detection in genotype data from unrelated individuals or small pedigrees such as motherfather-child trios, which require using population level linkage information.</p><p>In this paper we propose novel methods for genotype error detection extending the likelihood ratio error detection approach recently proposed by Becker et al. <ref type="bibr" target="#b13">[13]</ref>. While we focus on detecting errors in trio genotype data, our proposed methods can be applied with minor modifications to genotype data coming from unrelated individuals and small pedigrees other than trios Unlike Becker et al., who adopt a window-based approach and rely on creating a short list of frequent haplotypes within each window, we use a hidden Markov model (HMM) to represent frequencies of all haplotypes over the set of typed loci. Similar HMMs have been successfully used in recent works <ref type="bibr" target="#b14">[14]</ref><ref type="bibr" target="#b15">[15]</ref><ref type="bibr" target="#b16">[16]</ref><ref type="bibr" target="#b17">[17]</ref> for genotype phasing and disease association. Two limitations of previous uses of HMMs in this context have been the relatively slow (typically EM-based) training on genotype data, and the inability to exploit available pedigree information. We overcome these limitations by training our HMM on haplotypes inferred using the pedigree-aware ENT phasing algorithm of <ref type="bibr" target="#b18">[18]</ref>, based on entropy minimization.</p><p>Becker et al. <ref type="bibr" target="#b13">[13]</ref> use the maximum phasing probability of a trio genotype as the likelihood function whose high sensitivity to single SNP genotype deletions signals potential errors. The former is heuristically approximated by a computationally expensive search over quadruples of frequent haplotypes inferred for each window. When all haplotype frequencies are implicitly represented using an HMM, we show that computing the maximum trio phasing probability is in fact hard to approximate in polynomial time. Despite this result, we are able to significantly improve both detection accuracy and speed compared to <ref type="bibr" target="#b13">[13]</ref> by using alternate likelihood functions such as Viterbi probability and the total trio genotype probability. We show that these alternate likelihood functions can be efficiently computed for small pedigrees such as trios, with a worst-case runtime increasing linearly in the number of SNP loci and the number of trios. Further improvements in detection accuracy are obtained by combining likelihood ratios computed for different subsets of trio members. Empirical experiments show that this technique is very effective in reducing false positives within correctly typed SNP genotypes for which the same locus is mistyped in related individuals.</p><p>The rest of the paper is organized as follows. We introduce basic notations in Section 2 and describe the structure of the HMM used to represent haplotype frequencies in Section 3. Then, in Section 4 we present the likelihood ratio framework for error detection, and in Section 5 we describe three likelihood functions that can be efficiently computed using the HMM. Finally, we give experimental results assessing the error detection accuracy of our methods on both simulated and real datasets in Section 6, and conclude with ongoing research directions in Section 7.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="2">Preliminaries</head><p>We start by introducing the basic definitions and notations used throughout the paper. We denote the major and minor alleles at a SNP locus by 0 and 1. A SNP genotype represents the pair of alleles present in an individual at a SNP locus. Possible SNP genotype values are 0/1/2/?, where 0 and 1 denote homozygous genotypes for the major and minor alleles, 2 denotes the heterozygous genotype, and ? denotes missing data. SNP genotype g is said to be explained by an ordered pair of alleles (σ, σ 񮽙 ) ∈ {0, 1} 2 if g =?, or σ = σ 񮽙 = g when g ∈ {0, 1}, or σ 񮽙 = σ 񮽙 when g = 2.</p><p>We denote by n the number of SNP loci typed in the population under study. A multi-locus genotype (or simply genotype) is a 0/1/2/? vector G of length n, while a haplotype is a 0/1 vector H of length n. An ordered pair (H, H 񮽙 ) of haplotypes explains multi-locus genotype G iff, for every i = 1, . . . , n, the pair (H(i), H 񮽙 (i)) explains G(i). A trio genotype T = (G m , G f , G c ) consists of multilocus genotypes for the mother, father, and child of a nuclear family. An ordered 4-tuple (H 1 , H 2 , H 3 , H 4 ) of haplotypes is said to explain a trio</p><formula xml:id="formula_0">T = (G m , G f , G c ) iff (H 1 , H 2 ) explains G m , (H 3 , H 4 ) explains G f , and (H 1 , H 3 ) explains G c .</formula></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3">Hidden Markov Model</head><p>The HMM used to represent haplotype frequencies has a similar structure to HMMs recently used in <ref type="bibr" target="#b14">[14]</ref><ref type="bibr" target="#b15">[15]</ref><ref type="bibr" target="#b16">[16]</ref><ref type="bibr" target="#b17">[17]</ref> (see <ref type="figure" target="#fig_0">Figure 1</ref>). This structure is fully determined by the number of SNP loci n and a user-specified number of founders K (typically a small constant, we used K = 7 in our experiments). Formally, the HMM is specified by a triple M = (Q, γ, ε), where Q is the set of states, γ is the transition probability function, and ε is the emission probability function. The set of states Q consists of disjoint sets Q 0 = {q 0 }, Q 1 , Q 2 , . . . , Q n , with |Q 1 | = |Q 2 | = · · · = |Q n | = K, where q 0 denotes the start state and Q j , 1 ≤ j ≤ n, denotes the set of states corresponding to SNP locus j. The transition probability between two states a and b, γ(a, b), is non-zero only when a and b are in consecutive sets. The initial state q 0 is a silent state, while every other state q emits allele σ ∈ {0, 1} with probability ε(q, σ). The probability with which M emits a haplotype H along a path π starting from q 0 and ending at a state in Q n is given by:</p><formula xml:id="formula_1">P (H, π|M ) = γ(q 0 , π(1))ε(π(1), H(1)) 񮽙 n i=2 γ(π(i − 1), π(i))ε(π(i), H(i)) (1)</formula><p>In <ref type="bibr" target="#b14">[14,</ref><ref type="bibr" target="#b15">15]</ref>, similar HMMs were trained from genotype data using variants of the EM algorithm. Since EM-based training is generally slow and cannot be easily modified to take advantage of phase information that can be inferred from available family relationships, we adopted the following two-step approach for training the HMM. First, we use a highly scalable algorithm based on entropy minimization <ref type="bibr" target="#b18">[18]</ref> to infer haplotypes for all individuals in the sample. The phasing algorithm can handle genotypes related by arbitrary pedigrees, and has been shown to yield high phasing accuracy as measured by the so called switching error. In the second step we use the classical Baum-Welch algorithm to train the HMM based on the inferred haplotypes.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="4">Likelihood ratio approach to error detection</head><p>Our detection methods are based on the likelihood ratio approach of Becker et al. <ref type="bibr" target="#b13">[13]</ref>. We call likelihood function any function L assigning non-negative realvalues to trio genotypes, with the further constraint that L is non-decreasing under data deletion. Let T = (G m , G f , G c ) denote a trio genotype, x ∈ {m, f, c} denote one of the individuals in the trio (mother, father, or child), and i denote one of the n SNP loci. The trio genotype T (x,i) is obtained from T by marking SNP genotype G x (i) as missing. The likelihood ratio of SNP genotype G x (i) is defined as</p><formula xml:id="formula_2">L(T (x,i) ) L(T ) .</formula><p>Notice that, by L's monotony under data deletion, the likelihood ratio is always greater or equal to 1. A SNP genotype G x (i) will be flagged as a potential error whenever the corresponding likelihood ratio exceeds a user specified detection threshold t.</p><p>The likelihood function used by Becker et al. <ref type="bibr" target="#b13">[13]</ref> is the maximum trio phasing probability,</p><formula xml:id="formula_3">L(T ) = max (H1,H2,H3,H4) P (H 1 )P (H 2 )P (H 3 )P (H 4 )<label>(2)</label></formula><p>where the above maximum is computed over all 4-tuples (H 1 , H 2 , H 3 , H 4 ) of haplotypes that explain T . The use of maximum trio phasing probability as likelihood function is intuitively appealing, since one does not expect a large increase in this probability when a single SNP genotype is deleted. The computational complexity of computing the maximum trio phasing probability L(T ) depends on the encoding used to represent haplotype frequencies. When all N = 2 n haplotype frequencies are given explicitly, computing L(T ) can be trivially done in O(N 4 ) time. Unfortunately this representation can only be used for a small number n of SNP loci. To maintain practical running time, Becker et al. <ref type="bibr" target="#b13">[13]</ref> adopted a heuristic approach that relies on creating a short list of haplotypes with frequency exceeding a certain threshold (computed using the FAMHAP software package <ref type="bibr" target="#b19">[19]</ref>) followed by a pruned search over 4-tuples of haplotypes from the list. Due to the high computation cost of the search algorithm, the list of haplotypes must be kept very short (between 50 and 100 for the experiments reported in <ref type="bibr" target="#b13">[13]</ref>), which makes the approach applicable only for short windows of consecutive SNP loci. This limits the amount of linkage information that could be used in error detection, explaining at least in part the high number of false positives observed in <ref type="bibr" target="#b13">[13]</ref> within correctly typed SNP genotypes located in the neighborhood SNP genotypes that are mistyped in the same individual.</p><p>The HMM described in previous section provides a compact implicit representation of all haplotype frequencies that can be used for large numbers of SNP loci. The problem of computing L(T ) based on the HMM is formalized as follows:</p><p>HMM-based maximum trio phasing probability: Given an HMM model M of haplotype diversity with n SNP loci and K founders and a trio genotype</p><formula xml:id="formula_4">T = (G m , G f , G c ), compute L(T |M ) = max (H1,H2,H3,H4) P (H 1 |M )P (H 2 |M )P (H 3 |M )P (H 4 |M )<label>(3)</label></formula><p>where the maximum is computed over all 4-tuples (H 1 , H 2 , H 3 , H 4 ) of haplotypes that explain T .</p><p>Computing P (H|M ) for a given haplotype H can be easily done in O(nK) time by using a standard forward algorithm, and thus the probability of any given 4-tuple (H 1 , H 2 , H 3 , H 4 ) that explains T can also be computed within the same time bound. Unfortunately, as stated in the following theorem whose proof we omit due to space constraints, approximating the HMM-based maximum trio phasing probability is hard under some standard computational complexity assumption. 1 Theorem 1. For every ε &gt; 0, L(T |M ) cannot be approximated within a factor of O(n 1 4 −ε ) for any ε &gt; 0, unless ZPP=NP.</p><p>In next section we propose alternative likelihood functions that are efficiently computable based on an HMM model of haplotype diversity, even for very large numbers of SNP loci.</p><p>In this section we consider three alternatives to the likelihood function used in <ref type="bibr" target="#b13">[13]</ref>, and describe efficient algorithms for computing them given an HMM model of haplotype diversity.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="5.1">Viterbi probability</head><p>The probability with which the HMM M emits four haplotypes (H 1 , H 2 , H 3 , H 4 ) along a set of 4 paths (π 1 , π 2 , π 3 , π 4 ) is obtained by a straightforward extension of (1). The first proposed likelihood function is the Viterbi probability, defined, for a given trio genotype T , as the maximum probability of emitting haplotypes that explain T along four HMM paths. Viterbi probability can be computed using a "4-path" extension of the classical Viterbi algorithm as follows.</p><p>For every 4-tuple q = (q 1 , q 2 , q 3 , q 4 ) ∈ Q 4 j , let V f (j; q) denote the maximum probability of emitting alleles that explain the first j SNP genotypes of trio T along a set of 4 paths ending at states (q 1 , q 2 , q 3 , q 4 ) (we will refer to these values as the forward Viterbi values). Also, let Γ (q 񮽙 , q) = γ(q 񮽙 1 , q 1 )γ(q 񮽙 2 , q 2 )γ(q 񮽙 3 , q 3 )γ(q 񮽙 4 , q 4 ) be the probability of transition in M from the 4-tuple q 񮽙 ∈ Q 4 j−1 to the 4-tuple q ∈ Q 4 j . Then, V f (0; (q 0 , q 0 , q 0 , q 0 )) = 1 and</p><formula xml:id="formula_5">V f (j; q) = E(j; q) max q 񮽙 ∈Q 4 j−1 {V f (j − 1; q 񮽙 )Γ (q 񮽙 , q)}<label>(4)</label></formula><p>Here, E(j; q) = max (σ1,σ2,σ3,σ4) 񮽙 4 i=1 ε(q i , σ i ), where the maximum is computed over all 4-tuples (σ 1 , σ 2 , σ 3 , σ 4 ) that explain T 's SNP genotypes at locus j. For a given trio genotype T , the Viterbi probability of T is given by V (T ) = max q∈Q 4 n {V f (n; q)}. The time needed to compute forward Viterbi values with the above recurrences is O(nK 8 ), where n denotes the number of SNP loci and K denotes the number of founders. Indeed, for each one of the O(K 4 ) 4-tuples q ∈ Q 4 j , computing the maximum in (4) takes O(K 4 ) time. A O(K 3 ) speed-up is achieved by computing, in order:</p><formula xml:id="formula_6">P re 1 (j; q 1 , q 񮽙 2 , q 񮽙 3 , q 񮽙 4 ) = max q 񮽙 1 ∈Qj {V f (j; (q 񮽙 1 , q 񮽙 2 , q 񮽙 3 , q 񮽙 4 ))γ(q 񮽙 1 , q 1 )} P re 2 (j; q 1 , q 2 , q 񮽙 3 , q 񮽙 4 ) = max q 񮽙 2 ∈Qj {P re 1 (j; (q 1 , q 񮽙 2 , q 񮽙 3 , q 񮽙 4 ))γ(q 񮽙 2 , q 2 )} P re 3 (j; q 1 , q 2 , q 3 , q 񮽙 4 ) = max q 񮽙 3 ∈Qj {P re 2 (j; (q 1 , q 2 , q 񮽙 3 , q 񮽙 4 ))γ(q 񮽙 3 , q 3 )} V f (j + 1; q) = E(j + 1; q) max q 񮽙 4 ∈Qj {P re 3 (j; (q 1 , q 2 , q 3 , q 񮽙 4 ))γ(q 񮽙 4 , q 4 )}</formula><p>for each SNP locus j = 1, . . . , n and all 4-tuples (</p><formula xml:id="formula_7">q 1 , q 񮽙 2 , q 񮽙 3 , q 񮽙 4 ) ∈ Q j+1 × Q 3 j , (q 1 , q 2 , q 񮽙 3 , q 񮽙 4 ) ∈ Q 2 j+1 ×Q 2 j , (q 1 , q 2 , q 3 , q 񮽙 4 ) ∈ Q 3 j+1 ×Q j , respectively q = (q 1 , q 2 , q 3 , q 4 ) ∈ Q 4</formula><p>j+1 . A similar speed-up idea was used in the context of single genotype phasing by Rastas et al. <ref type="bibr" target="#b15">[15]</ref>.</p><p>To apply the likelihood ratio test, we also need to compute Viterbi probabilities for trios with one of the SNP genotypes deleted. A na¨ıvena¨ıve approach is to compute each of these probabilities from scratch using the above O(nK 5 ) algorithm. However, this would result in a runtime that grows quadratically with the number of SNPs. A more efficient algorithm is obtained by also computing backward Viterbi values V b (j; q), defined as the maximum probability of emitting alleles that explain genotypes at SNP loci j + 1, . . . , n of trio T along a set of 4 paths starting at the states of q ∈ Q 4 j . Once forward and backward Viterbi values are available, the Viterbi probability of a modified trio can be computed in O(K 5 ) time by using again the above speed-up idea, for an overall runtime of O(nK 5 ) per trio.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="5.2">Probability of Viterbi haplotypes</head><p>The Viterbi algorithm described in previous section yields, together with the 4 Viterbi paths, a 4-tuple of haplotypes which we refer to as the Viterbi haplotypes. Viterbi haplotypes for the original trio can be computed by a standard traceback algorithm. Similarly, Viterbi haplotypes corresponding to modified trios can be computed without increasing the asymptotic runtime via a bi-directional traceback. The second likelihood function that we considered is the probability of Viterbi haplotypes, which is obtained by multiplying individual probabilities of Viterbi haplotypes. The probability of each Viterbi haplotype can be computed using a standard forward algorithm in O(nK) time. Unfortunately, Viterbi paths for modified trios can be completely different from each other, and the probability of each of them must be computed from scratch by using the forward algorithm. This results in an overall runtime of O(nK 5 + n 2 K) per trio.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="5.3">Total trio genotype probability</head><p>The third considered likelihood function is the total trio genotype probability, i.e., the total probability P (T ) with which M emits any four haplotypes that explain T along any 4-tuple of paths. Using again the forward algorithm, P (T ) can be computed as 񮽙 q∈Q 4 n p(n; q), where p(0; (q 0 , q 0 , q 0 , q 0 )) = 1 and</p><formula xml:id="formula_8">p(j; q) = 񮽙 q 񮽙 ∈Q 4 j p(j − 1; q 񮽙 )Γ (q 񮽙 , q) 񮽙 (σ1,σ2,σ3,σ4) 4 񮽙 i=1 ε(q i , σ i )<label>(5)</label></formula><p>The second sum in last equation is computed over all 4-tuples (σ 1 , σ 2 , σ 3 , σ 4 ) that explain T 's SNP genotypes at locus j. Using the speed-up techniques from Section 5.1, we obtain an overall runtime of O(nK 5 ) per trio.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="6">Experimental results</head></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="6.1">Experimental setup</head><p>HMM-based genotype error detection algorithms using the three likelihood functions described in Section 5 were implemented in C++. Since the detection accuracy of the three likelihood functions is very similar, we report here accuracy results only for the total trio genotype probability.</p><p>We tested the performance of our methods on both synthetic datasets and a real dataset obtained from Becker et al. <ref type="bibr" target="#b13">[13]</ref>. Synthetic datasets were generated following the methodology of <ref type="bibr" target="#b13">[13]</ref>. We started from the real dataset in <ref type="bibr" target="#b13">[13]</ref>, which consists of 551 trios genotyped at 35 SNP loci spanning a region of 91,391 base pairs from chromosome 16. The FAMHAP software <ref type="bibr" target="#b19">[19]</ref> was used to estimate the frequencies of the haplotypes present in the population. The 705 haplotypes that had positive FAMHAP estimated frequencies were used to derive synthetic datasets with 551 trios as follows. For each trio, four haplotypes were randomly picked by random sampling from the estimated haplotype frequency distribution. Two of these haplotypes were paired to form the mother genotype, and the other two were paired to form the father genotype. We created child genotypes by randomly picking from each parent a transmitted haplotype (assuming that no recombination is taking place). To make the datasets more realistic, missing data was inserted into the resulting genotypes by replicating the missing data patterns observed in the real dataset.</p><p>Errors were inserted to the genotype data using the random allele model <ref type="bibr" target="#b20">[20]</ref>. Under this model, we selected each (trio, SNP locus) pair with a probability of δ (δ was set to 1% in all our experiments). For each selected pair, we picked uniformly at random one of the non-missing alleles and flipped its value. Similar detection accuracy was obtained in experiments in which we simulated recombination rates of up to 0.01 between adjacent SNPs, and in experiments where errors were inserted using the random genotype, heterozygous-to-homozygous, and homozygous-to-heterozygous error models described in <ref type="bibr" target="#b20">[20]</ref>.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="6.2">Results on synthetic datasets</head><p>Following the standard practice, we first removed the trivially detected MI errors by marking child SNP genotypes involved in MIs as missing (similar results were obtained by marking all three SNP genotypes as missing). <ref type="figure">Figure 2</ref> shows the distributions of log-likelihood ratios (computed using the total trio genotype probability as likelihood function) for error and nonerror SNP genotypes in both parents and children. These results are based on averages over 10 synthetic instances of 551 trios typed at 35 SNP loci, with errors inserted using the random allele model with δ = 1%.</p><p>It is known that there is an asymmetry in the amount of information gained from trio genotype data about children and parent haplotypes: while each of the two child haplotypes are constrained to be compatible with two genotypes, only one of the parent haplotypes has the same degree of constraint. This asymmetry was shown to make errors in children more likely to result in MIs <ref type="bibr" target="#b3">[3,</ref><ref type="bibr" target="#b4">4]</ref>. As shown by the histograms in <ref type="figure">Figure 2</ref>, the asymmetry also results in a much sharper separation between errors and non-errors in children than in parents. Surprisingly, the histogram of log-likelihood ratios for non-error SNP genotypes in children has a significant peak between 3 and 4. Upon inspection, we found that these SNP genotypes are at loci for which parents have inserted errors. A similar bias towards higher false positive rates in correctly typed SNP genotypes for which the same locus is mistyped in related individuals has been noted for  <ref type="figure">Fig. 2</ref>. Histograms of log-likelihood ratios for parents (left) and children (right) SNP genotypes, computed based on trios (top) or by using the minimum of uno, duo, and trio log-likelihood ratios.</p><p>other pedigree-based error detection algorithms <ref type="bibr" target="#b21">[21]</ref>. To reduce this bias, we propose a simple technique of combining multiple likelihood ratios computed for different subsets of trio members. Under this combined approach, henceforth referred to as TotalProb-Combined, for each SNP genotype we compute likelihood ratios using the total probability of (a) the trio genotype, (b) the duo genotypes formed by parent-child pairs, and (c) the individual's genotype by itself. Likelihood ratios (b) and (c) can be computed without increasing the asymptotic running time via simple modifications of the algorithm in Section 5.3. A SNP genotype is then flagged as a potential error only if all above likelihood ratios exceed the detection threshold.</p><p>To assess the accuracy of our error detection methods we use receiver operating characteristic (ROC) curves, i.e., plots of achievable sensitivity vs. false positive rates, where -the sensitivity is defined as the ratio between the number of Mendelian consistent errors flagged by the algorithm and the total number of Mendelian consistent errors inserted; and -the false positive rate is defined as the ratio between the number of non-errors flagged by the algorithm and the total number of non-errors. <ref type="figure" target="#fig_1">Figure 3</ref> shows the ROC curves for TotalProb-Combined and for flagging algorithms that use single log-likelihood ratios computed from the total proba- bility of uno/duo/trio genotypes. We also included ROC curves for two versions of the algorithm of <ref type="bibr" target="#b13">[13]</ref>, which test one SNP genotype at a time (FAMHAP-1) or simultaneously test the mother/father/child SNP genotypes at a locus (FAMHAP-3). The results show that simultaneous testing yields low detection accuracy, particularly in parents, and it is therefore not advisable. The combined algorithm yields the best accuracy of all compared methods. The improvement over the trio-based version is most significant in parents, where, surprisingly, uno and duo log-likelihood ratios appear to be more informative than the trio log-likelihood ratio.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="6.3">Results on real data from [13]</head><p>For simplicity, in previous section we used the same detection threshold in both children and parents. However, histograms in <ref type="figure">Figure 2</ref> suggest that better tradeoffs between sensitivity and false positive rate can be achieved by using differential detection thresholds. For the results on the real dataset from Becker et al.</p><p>[13] <ref type="table">(Table 1)</ref> we independently picked parent and children thresholds by finding the minimum detection threshold that achieves false positive rates of 0.1-1% under log-likelihood ratio distributions of simulated data. Unfortunately, for this dataset we do not know all existing genotyping errors. Becker et al. resequenced all trio members at a number of 41 SNP loci flagged by their FAMHAP-3 method with a detection threshold of 10 4 . Of the 41 × 3 resequenced SNP genotypes, 26 (12 in children and 14 in parents) were identified as being true errors, 90 were confirmed as originally correct. The error status of remaining 7 resequenced SNP genotypes is ambiguous due to missing calls in either the original or resequencing data. The "True Positive" columns in <ref type="table">Table  1</ref> give the number of TotalProb-Combined flags among the 26 known errors, the "False Positive" columns give the number of flags among the 90 known nonerrors, and the "Unknown Signals" columns give the number flags among the 57,739 SNP genotypes for which the error status is not known (since resequencing was not performed or due to missing calls). With a predicted false positive rate Total Signals True Positives False Positives Unknown Signals FP rate 1% 0.5% 0.1% 1% 0.5% 0.1% 1% 0.5% 0.1% 1% 0.5% 0.1% Parents 218 127 <ref type="bibr">69</ref>  of 0.1%, TotalProb-Combined detects 11 out of the 12 known errors in children, and 8 out of the 14 known errors in parents, with only 2 false positives (both in children). TotalProb-Combined also flags 72 SNP genotypes with unknown error status, 61 of which are in parents. We conjecture that most of these are true typing errors missed by FAMHAP-3, which, as suggested by the simulation results in <ref type="figure" target="#fig_1">Figure 3</ref>, has very poor sensitivity to errors in parent genotypes. We also note that the number of Mendelian consistent errors in parents is expected to be more than twice higher than the number of Mendelian consistent errors in children, due on one hand to the fact that there are twice more parents than children and on the other hand to the higher probability that errors in parents remain undetected as Mendelian inconsistencies <ref type="bibr" target="#b3">[3,</ref><ref type="bibr" target="#b4">4]</ref>.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="7">Conclusions</head><p>In this paper we have proposed high-accuracy methods for detection of errors in trio genotype data based on Hidden Markov Models of haplotype diversity. The runtime of our methods scales linearly with the number of trios and SNP loci, making them appropriate for handling the datasets generated by current large-scale association studies. In ongoing work we are exploring the use of locus dependent detection thresholds, methods for assigning p-values to error predictions, and iterative methods which use maximum likelhood to correct MIs and SNP genotypes flagged with a high detection threshold, then recompute loglikelihoods to flag additional genotypes. Finally, we are exploring integration of population-level haplotype frequency information with typing confidence scores for further improvements in error detection accuracy, particularly in the case of unrelated genotype data.</p></div><figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_0"><head>Fig. 1 .</head><label>1</label><figDesc>Fig. 1. The structure of the Hidden Markov Model for n=5 SNP loci and K=4 founders.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_1"><head>Fig. 3 .</head><label>3</label><figDesc>Fig. 3. Comparison with FAMHAP accuracy for parents (left) and children (right).</figDesc></figure>
+
+			<note place="foot" n="1"> A proof similar to that of Theorem 1 shows that, when haplotype frequencies are represented using an HMM, computing the maximum phasing probability for a single multi-locus genotype is hard to approximate within a factor of O(n 1 2 −ε ) for any ε &gt; 0, unless ZPP=NP, thus solving a problem left open in [15].</note>
+		</body>
+		<back>
+
+			<div type="acknowledgement">
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>Acknowledgments</head><p>We would like to thank the authors of <ref type="bibr" target="#b13">[13]</ref> for kindly providing us the real dataset used in their paper. This work was supported in part by NSF CAREER award IIS-0546457 and NSF award DBI-0543365.</p></div>
+			</div>
+
+			<div type="references">
+
+				<listBibl>
+
+<biblStruct xml:id="b0">
+	<analytic>
+		<title level="a" type="main">Genotyping errors: causes, consequences and solutions</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">F</forename><surname>Pompanon</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Bonin</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">E</forename><surname>Bellemain</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>Taberlet</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Nat. Rev. Genet</title>
+		<imprint>
+			<biblScope unit="volume">6</biblScope>
+			<biblScope unit="page" from="847" to="859" />
+			<date type="published" when="2005" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b1">
+	<monogr>
+		<title level="m" type="main">Inference and analysis of haplotypes from combined genotyping studies deposited in dbSNP</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">N</forename><surname>Zaitlen</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">H</forename><surname>Kang</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Feolo</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><forename type="middle">T</forename><surname>Sherry</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">E</forename><surname>Halperin</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">E</forename><surname>Eskin</surname></persName>
+		</author>
+		<imprint/>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b2">
+	<analytic>
+		<title/>
+	</analytic>
+	<monogr>
+		<title level="j">Genome Research</title>
+		<imprint>
+			<biblScope unit="volume">15</biblScope>
+			<biblScope unit="page" from="1595" to="1600" />
+			<date type="published" when="2005" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b3">
+	<analytic>
+		<title level="a" type="main">Probability of detection of genotyping errors and mutations as inheritance inconsistencies in nuclear-family data</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Douglas</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Skol</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Boehnke</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">AJHG</title>
+		<imprint>
+			<biblScope unit="volume">70</biblScope>
+			<biblScope unit="page" from="487" to="495" />
+			<date type="published" when="2002" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b4">
+	<analytic>
+		<title level="a" type="main">True pedigree errors more frequent than apparent errors for single nucleotide poloymorphisms</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Gordon</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Heath</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Ott</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Hum. Hered</title>
+		<imprint>
+			<biblScope unit="volume">49</biblScope>
+			<biblScope unit="page" from="65" to="70" />
+			<date type="published" when="1999" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b5">
+	<analytic>
+		<title level="a" type="main">The effects of SNP genotyping errors on the power of the Cochran-Armitage linear trend test for case/control association studies</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">K</forename><surname>Ahn</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Haynes</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">W</forename><surname>Kim</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Fleur</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Gordon</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Finch</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Ann. Hum. Genet</title>
+		<imprint>
+			<biblScope unit="volume">71</biblScope>
+			<biblScope unit="page" from="249" to="261" />
+			<date type="published" when="2007" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b6">
+	<analytic>
+		<title level="a" type="main">The impact of genotyping error on familybased analysis of quantitative traits</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">G</forename><surname>Abecasis</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Cherny</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">L</forename><surname>Cardon</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Eur. J. Hum. Genet</title>
+		<imprint>
+			<biblScope unit="volume">9</biblScope>
+			<biblScope unit="page" from="130" to="134" />
+			<date type="published" when="2001" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b7">
+	<analytic>
+		<title level="a" type="main">The effect of genotype and pedigree error on linkage analysis: Analysis of three asthma genome scans</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Cherny</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">G</forename><surname>Abecasis</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">W</forename><surname>Cookson</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>Sham</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">L</forename><surname>Cardon</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Genet. Epidemiol</title>
+		<imprint>
+			<biblScope unit="volume">21</biblScope>
+			<biblScope unit="page" from="117" to="122" />
+			<date type="published" when="2001" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b8">
+	<analytic>
+		<title level="a" type="main">Impact of genotyping errors on type I error rate of the haplotype-sharing transmission/disequilibrium test (HS-TDT)</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Knapp</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">T</forename><surname>Becker</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Am. J. Hum. Genet</title>
+		<imprint>
+			<biblScope unit="volume">74</biblScope>
+			<biblScope unit="page" from="589" to="591" />
+			<date type="published" when="2004" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b9">
+	<analytic>
+		<title level="a" type="main">Analysis of case-only studies accounting for genotyping error</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">K</forename><surname>Cheng</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Ann. Hum. Genet</title>
+		<imprint>
+			<biblScope unit="volume">71</biblScope>
+			<biblScope unit="page" from="238" to="248" />
+			<date type="published" when="2007" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b10">
+	<analytic>
+		<title level="a" type="main">Accounting for genotyping errors in tagging SNP selection</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">W</forename><surname>Liu</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">T</forename><surname>Yang</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">W</forename><surname>Zhao</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">G</forename><surname>Chase</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Am. J. Hum. Genet</title>
+		<imprint>
+			<biblScope unit="volume">71</biblScope>
+			<biblScope unit="issue">4</biblScope>
+			<biblScope unit="page" from="467" to="479" />
+			<date type="published" when="2007" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b11">
+	<analytic>
+		<title level="a" type="main">Detection and integration of genotyping errors in statistical genetics</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">E</forename><surname>Sobel</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Papp</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">K</forename><surname>Lange</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Am. J. Hum. Genet</title>
+		<imprint>
+			<biblScope unit="volume">70</biblScope>
+			<biblScope unit="page" from="496" to="508" />
+			<date type="published" when="2002" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b12">
+	<analytic>
+		<title level="a" type="main">Merlin-rapid analysis of dense genetic maps using sparse gene flow trees</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">G</forename><surname>Abecasis</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Cherny</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">W</forename><surname>Cookson</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">L</forename><surname>Cardon</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Nat Genet</title>
+		<imprint>
+			<biblScope unit="volume">30</biblScope>
+			<biblScope unit="page" from="97" to="101" />
+			<date type="published" when="2002" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b13">
+	<analytic>
+		<title level="a" type="main">Identification of probable genotyping errors by consideration of haplotypes</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">T</forename><surname>Becker</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Valentonyte</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>Croucher</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">K</forename><surname>Strauch</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Schreiber</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Hampe</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Knapp</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">European Journal of Human Genetics</title>
+		<imprint>
+			<biblScope unit="volume">14</biblScope>
+			<biblScope unit="page" from="450" to="458" />
+			<date type="published" when="2006" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b14">
+	<analytic>
+		<title level="a" type="main">A block-free hidden Markov model for genotypes and its application to disease association</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">G</forename><surname>Kimmel</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Shamir</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Journal of Computational Biology</title>
+		<imprint>
+			<biblScope unit="volume">12</biblScope>
+			<biblScope unit="page" from="1243" to="1260" />
+			<date type="published" when="2005" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b15">
+	<analytic>
+		<title level="a" type="main">Phasing genotypes using a hidden Markov model</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>Rastas</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Koivisto</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">H</forename><surname>Mannila</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">E</forename><surname>Ukkonen</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Bioinformatics Algorithms: Techniques and Applications</title>
+		<imprint>
+			<publisher>Wiley</publisher>
+			<date type="published" when="2005" />
+		</imprint>
+	</monogr>
+	<note>Proc. WABI</note>
+</biblStruct>
+
+<biblStruct xml:id="b16">
+	<analytic>
+		<title level="a" type="main">A fast and flexible statistical model for large-scale population genotype data: applications to inferring missing genotypes and haplotypic phase</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>Scheet</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Stephens</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">American Journal of Human Genetics</title>
+		<imprint>
+			<date type="published" when="2006" />
+		</imprint>
+	</monogr>
+	<note>to appear</note>
+</biblStruct>
+
+<biblStruct xml:id="b17">
+	<analytic>
+		<title level="a" type="main">Algorithms for association study design using a generalized model of haplotype conservation</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Schwartz</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. CSB</title>
+		<meeting>CSB</meeting>
+		<imprint>
+			<date type="published" when="2004" />
+			<biblScope unit="page" from="90" to="97" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b18">
+	<analytic>
+		<title level="a" type="main">Highly scalable genotype phasing by entropy minimization</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Gusev</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">B</forename><surname>Pa¸saniucpa¸saniuc</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">I</forename></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">IEEE Transactions on Computational Biology and Bioinformatics</title>
+		<imprint/>
+	</monogr>
+	<note>to appear</note>
+</biblStruct>
+
+<biblStruct xml:id="b19">
+	<analytic>
+		<title level="a" type="main">Maximum-likelihood estimation of haplotype frequencies in nuclear families</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">T</forename><surname>Becker</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Knapp</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Genet. Epidemiol</title>
+		<imprint>
+			<biblScope unit="volume">27</biblScope>
+			<biblScope unit="page" from="21" to="32" />
+			<date type="published" when="2004" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b20">
+	<analytic>
+		<title level="a" type="main">A multipoint method for detecting genotyping errors and mutations in sibling-pair linkage data</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Douglas</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Boehnke</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">K</forename><surname>Lange</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">AJHG</title>
+		<imprint>
+			<biblScope unit="volume">66</biblScope>
+			<biblScope unit="page" from="1287" to="1297" />
+			<date type="published" when="2000" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b21">
+	<analytic>
+		<title level="a" type="main">Comparative study of multipoint methods for genotype error detection</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">N</forename><surname>Mukhopadhyaya</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Buxbauma</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Weeks</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Hum. Hered</title>
+		<imprint>
+			<biblScope unit="volume">58</biblScope>
+			<biblScope unit="page" from="175" to="189" />
+			<date type="published" when="2004" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+				</listBibl>
+			</div>
+		</back>
+	</text>
+</TEI>

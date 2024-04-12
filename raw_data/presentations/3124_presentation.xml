@@ -1,0 +1,501 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>On the Security of RC4 in TLS</p>
+    <p>Nadhem AlFardan, Dan Bernstein, Kenny Paterson, Bertram Poettering, Jacob Schuldt</p>
+    <p>Royal Holloway, University of London University of Illinois at Chicago</p>
+    <p>http://www.isg.rhul.ac.uk/tls/</p>
+  </div>
+  <div class="page">
+    <p>Agenda</p>
+    <p>Brief overview of TLS and use of RC4  Analysis of RC4  Two attacks against RC4 in TLS</p>
+    <p>Single-byte attack  Double-byte attack</p>
+    <p>Conclusions</p>
+  </div>
+  <div class="page">
+    <p>TLS = Transport Layer Security  Security goal: provide confidential and authenticated channel between</p>
+    <p>client and server</p>
+    <p>Applications of TLS are ubiqutous</p>
+    <p>Secure websites (https://), secure e-mail (IMAP/TLS, POP/TLS, SMPT/TLS), mobile application, etc.</p>
+    <p>TLS</p>
+    <p>TLSClient Server</p>
+    <p>Application data</p>
+  </div>
+  <div class="page">
+    <p>Brief History of TLS</p>
+    <p>Started life as Secure Socket Layer (SSL) protocol  Developed at Netscape ~1994  SSL v3 (1996) still widely supported</p>
+    <p>TLS = IETF standardization of SSL  TLS v1.0 in RFC 2246 (1999)</p>
+    <p>Based on SSL v3 but not compatible  TLS v1.1 in RFC 4346 (2006)  TLS v1.2 in RFC 5246 (2008)</p>
+  </div>
+  <div class="page">
+    <p>Simplified View of TLS</p>
+    <p>Client Server Handshake Protocol</p>
+    <p>Record Protocol</p>
+    <p>Used by client and server to 1. Negotiate ciphersuite 2. Authenticate 3. Establish keys used in the Record Protocol</p>
+    <p>Provides confidentiality and authenticity of application layer data using keys from Handshake Protocol</p>
+  </div>
+  <div class="page">
+    <p>Padding</p>
+    <p>TLS Record Protocol: MAC-Encode-Encrypt</p>
+    <p>SQN || HDR Payload</p>
+    <p>Payload MAC tag</p>
+    <p>Encrypt</p>
+    <p>HDR Ciphertext</p>
+    <p>MAC</p>
+    <p>Encrypt</p>
+    <p>HMAC-MD5, HMAC-SHA1, HMAC-SHA256</p>
+    <p>CBC-AES128, CBC-AES256, CBC-3DES, RC4-128</p>
+    <p>MAC</p>
+  </div>
+  <div class="page">
+    <p>TLS Record Protocol: RC4-128</p>
+    <p>Payload MAC tag</p>
+    <p>RC4 Keystream</p>
+    <p>HDR Ciphertext</p>
+    <p>SQN || HDR Payload</p>
+    <p>MAC</p>
+  </div>
+  <div class="page">
+    <p>TLS Record Protocol: RC4-128</p>
+    <p>Payload MAC tag</p>
+    <p>RC4 Keystream</p>
+    <p>HDR Ciphertext</p>
+    <p>SQN || HDR Payload</p>
+    <p>MAC</p>
+    <p>RC4 Key scheduling RC4 Keystream generation begin</p>
+    <p>for i = 0 to 255 do S[i] i</p>
+    <p>end</p>
+    <p>j 0 for i = 0 to 255 do</p>
+    <p>j j + S[i] + K[i mod keylen] mod 256 swap(S[i], S[j])</p>
+    <p>end</p>
+    <p>i, j 0 end</p>
+    <p>begin i i + 1 mod 256 j j + S[i] mod 256 swap(S[i], S[j]) Z S[ S[i] + S[j] mod 256 ] return Z</p>
+    <p>end</p>
+    <p>RC4 State Byte permutation and indices i and jS</p>
+  </div>
+  <div class="page">
+    <p>TLS Record Protocol: Authenticated Encryption</p>
+    <p>TLS 1.2 additionally supports authenticated encryption  AES-GCM in RFC 5288  AES-CCM in RFC 6655</p>
+    <p>However, TLS 1.2 is not widely supported</p>
+    <p>SSL Pulse: Webserver TLS support Browser TLS support (out-of-the-box)</p>
+    <p>TLS v1.1 TLS v1.1</p>
+    <p>TLS v1.0 TLS v1.0 TLS v1.0</p>
+  </div>
+  <div class="page">
+    <p>Recent attacks on CBC-based ciphersuites in TLS:  BEAST attack, Lucky 13</p>
+    <p>In face of these, switching to RC4 has been a recommended mitigation approach (e.g. Qualys, F5)</p>
+    <p>Use of RC4 in the wild:</p>
+    <p>Problem: RC4 is known to have statistical weaknesses</p>
+    <p>Use of RC4 in TLS</p>
+    <p>ICSI Certificate Notary</p>
+    <p>Recent survey of 16 billion TLS connections: Approx. 50% protected via RC4 ciphersuites</p>
+  </div>
+  <div class="page">
+    <p>Single-byte Biases in the RC4 Keystream</p>
+    <p>[Mantin-Shamir 2001]:</p>
+    <p>[Mironov 2002]:  Described distribution of (bias away from 0, sine-like distribution)</p>
+    <p>[Maitra-Paul-Sen Gupta 2011]: for</p>
+    <p>[Sen Gupta-Maitra-Paul-Sakar 2011]:</p>
+    <p>Z1</p>
+    <p>Zi = value of i-th keystream byte</p>
+    <p>l = keylength</p>
+    <p>Pr[Z2 = 0]  1128</p>
+    <p>Pr[Zr = 0] = 1</p>
+    <p>Pr[Zl = 256  l]  1256 + 1</p>
+  </div>
+  <div class="page">
+    <p>Our approach  Based on the output from 244 random independent 128 bit RC4 keys,</p>
+    <p>estimate the keystream byte distribution of the first 256 bytes</p>
+    <p>Revealed many new biases in the RC4 keystream  (Some of these were independently discovered by [Isobe et al. 2013])</p>
+    <p>Complete Keystream Byte Distributions</p>
+    <p>Z1</p>
+    <p>...</p>
+    <p>Z2 Z3 ... 0.003878</p>
+    <p>Pr ob</p>
+    <p>ab ili</p>
+    <p>ty</p>
+    <p>Byte value [0...255]</p>
+    <p>Ciphertext distribution at position 1</p>
+    <p>Pr ob</p>
+    <p>ab ili</p>
+    <p>ty</p>
+    <p>Byte value [0...255]</p>
+    <p>Ciphertext distribution at position 2</p>
+    <p>Pr ob</p>
+    <p>ab ili</p>
+    <p>ty</p>
+    <p>Byte value [0...255]</p>
+    <p>Ciphertext distribution at position 3</p>
+    <p>...</p>
+  </div>
+  <div class="page">
+    <p>Pr ob</p>
+    <p>ab ili</p>
+    <p>ty</p>
+    <p>Byte value [0...255]</p>
+    <p>Ciphertext distribution at position 1</p>
+    <p>Keystream Distribution at Position 1</p>
+    <p>P ro</p>
+    <p>ba bi</p>
+    <p>lit y</p>
+    <p>Byte value</p>
+  </div>
+  <div class="page">
+    <p>Pr ob</p>
+    <p>ab ili</p>
+    <p>ty</p>
+    <p>Byte value [0...255]</p>
+    <p>Ciphertext distribution at position 2</p>
+    <p>Keystream Distribution at Position 2</p>
+    <p>P ro</p>
+    <p>ba bi</p>
+    <p>lit y</p>
+    <p>Byte value</p>
+  </div>
+  <div class="page">
+    <p>Pr ob</p>
+    <p>ab ili</p>
+    <p>ty</p>
+    <p>Byte value [0...255]</p>
+    <p>Ciphertext distribution at position 3</p>
+    <p>Keystream Distribution at Position 3</p>
+    <p>P ro</p>
+    <p>ba bi</p>
+    <p>lit y</p>
+    <p>Byte value</p>
+  </div>
+  <div class="page">
+    <p>Pr ob</p>
+    <p>ab ili</p>
+    <p>ty</p>
+    <p>Byte value [0...255]</p>
+    <p>Ciphertext distribution at position 4</p>
+    <p>Keystream Distribution at Position 4</p>
+    <p>P ro</p>
+    <p>ba bi</p>
+    <p>lit y</p>
+    <p>Byte value</p>
+  </div>
+  <div class="page">
+    <p>Pr ob</p>
+    <p>ab ili</p>
+    <p>ty</p>
+    <p>Byte value [0...255]</p>
+    <p>Ciphertext distribution at position 5</p>
+    <p>Keystream Distribution at Position 5</p>
+    <p>P ro</p>
+    <p>ba bi</p>
+    <p>lit y</p>
+    <p>Byte value</p>
+  </div>
+  <div class="page">
+    <p>Pr ob</p>
+    <p>ab ili</p>
+    <p>ty</p>
+    <p>Byte value [0...255]</p>
+    <p>Ciphertext distribution at position 6</p>
+    <p>Keystream Distribution at Position 6</p>
+    <p>P ro</p>
+    <p>ba bi</p>
+    <p>lit y</p>
+    <p>Byte value</p>
+  </div>
+  <div class="page">
+    <p>Pr ob</p>
+    <p>ab ili</p>
+    <p>ty</p>
+    <p>Byte value [0...255]</p>
+    <p>Ciphertext distribution at position 7</p>
+    <p>Keystream Distribution at Position 7</p>
+    <p>P ro</p>
+    <p>ba bi</p>
+    <p>lit y</p>
+    <p>Byte value</p>
+  </div>
+  <div class="page">
+    <p>Pr ob</p>
+    <p>ab ili</p>
+    <p>ty</p>
+    <p>Byte value [0...255]</p>
+    <p>Ciphertext distribution at position 8</p>
+    <p>Keystream Distribution at Position 8</p>
+    <p>P ro</p>
+    <p>ba bi</p>
+    <p>lit y</p>
+    <p>Byte value</p>
+  </div>
+  <div class="page">
+    <p>Pr ob</p>
+    <p>ab ili</p>
+    <p>ty</p>
+    <p>Byte value [0...255]</p>
+    <p>Ciphertext distribution at position 9</p>
+    <p>Keystream Distribution at Position 9</p>
+    <p>P ro</p>
+    <p>ba bi</p>
+    <p>lit y</p>
+    <p>Byte value</p>
+  </div>
+  <div class="page">
+    <p>Pr ob</p>
+    <p>ab ili</p>
+    <p>ty</p>
+    <p>Byte value [0...255]</p>
+    <p>Ciphertext distribution at position 10</p>
+    <p>Keystream Distribution at Position 10</p>
+    <p>P ro</p>
+    <p>ba bi</p>
+    <p>lit y</p>
+    <p>Byte value</p>
+  </div>
+  <div class="page">
+    <p>Pr ob</p>
+    <p>ab ili</p>
+    <p>ty</p>
+    <p>Byte value [0...255]</p>
+    <p>Ciphertext distribution at position 11</p>
+    <p>Keystream Distribution at Position 11</p>
+    <p>P ro</p>
+    <p>ba bi</p>
+    <p>lit y</p>
+    <p>Byte value</p>
+  </div>
+  <div class="page">
+    <p>Pr ob</p>
+    <p>ab ili</p>
+    <p>ty</p>
+    <p>Byte value [0...255]</p>
+    <p>Ciphertext distribution at position 12</p>
+    <p>Keystream Distribution at Position 12</p>
+    <p>P ro</p>
+    <p>ba bi</p>
+    <p>lit y</p>
+    <p>Byte value</p>
+  </div>
+  <div class="page">
+    <p>Pr ob</p>
+    <p>ab ili</p>
+    <p>ty</p>
+    <p>Byte value [0...255]</p>
+    <p>Ciphertext distribution at position 13</p>
+    <p>Keystream Distribution at Position 13</p>
+    <p>P ro</p>
+    <p>ba bi</p>
+    <p>lit y</p>
+    <p>Byte value</p>
+  </div>
+  <div class="page">
+    <p>Pr ob</p>
+    <p>ab ili</p>
+    <p>ty</p>
+    <p>Byte value [0...255]</p>
+    <p>Ciphertext distribution at position 14</p>
+    <p>Keystream Distribution at Position 14</p>
+    <p>P ro</p>
+    <p>ba bi</p>
+    <p>lit y</p>
+    <p>Byte value</p>
+  </div>
+  <div class="page">
+    <p>Pr ob</p>
+    <p>ab ili</p>
+    <p>ty</p>
+    <p>Byte value [0...255]</p>
+    <p>Ciphertext distribution at position 15</p>
+    <p>Keystream Distribution at Position 15</p>
+    <p>P ro</p>
+    <p>ba bi</p>
+    <p>lit y</p>
+    <p>Byte value</p>
+  </div>
+  <div class="page">
+    <p>Pr ob</p>
+    <p>ab ili</p>
+    <p>ty</p>
+    <p>Byte value [0...255]</p>
+    <p>Ciphertext distribution at position 16</p>
+    <p>Keystream Distribution at Position 16</p>
+    <p>P ro</p>
+    <p>ba bi</p>
+    <p>lit y</p>
+    <p>Byte value</p>
+  </div>
+  <div class="page">
+    <p>Based on the keystream byte distribution, we can construct a plaintext recovery attack  Exploits all single-byte biases in the initial part of the RC4 keystream</p>
+    <p>Attack requires the same plaintext to be encrypted under many different keys  Applicable when using TLS?</p>
+    <p>Plaintext Recovery</p>
+  </div>
+  <div class="page">
+    <p>Javascript  Uses XMLHttpRequest objects to generate POST requests  Request to secure site possible due to Cross-Origin Resource Sharing  Number of requests generated by script must be balanced to avoid</p>
+    <p>browser overload</p>
+    <p>Targeting Secure HTTP Cookies</p>
+    <p>TLS</p>
+    <p>Client https://secure.comMalicious server</p>
+    <p>Secure cookie</p>
+    <p>HTTP request (cookie attached)</p>
+    <p>TLS</p>
+  </div>
+  <div class="page">
+    <p>Plaintext Recovery</p>
+    <p>C1</p>
+    <p>C2</p>
+    <p>C3</p>
+    <p>Cn</p>
+    <p>...</p>
+    <p>r Pr</p>
+    <p>Pr</p>
+    <p>Pr</p>
+    <p>Pr</p>
+    <p>...</p>
+    <p>Induced distribution on Zr</p>
+    <p>combine with</p>
+    <p>Pr ob</p>
+    <p>ab ili</p>
+    <p>ty</p>
+    <p>Byte value [0...255]</p>
+    <p>Ciphertext distribution at position 16</p>
+    <p>Likelihood of Pr being correct plaintext byte</p>
+    <p>Recovery algorithm: Compute most likely plaintext byte</p>
+    <p>Encryptions of plaintext under different keys</p>
+    <p>Plaintext candidate byte Pr</p>
+  </div>
+  <div class="page">
+    <p>Success Probability 220 Sessions</p>
+    <p>Re co ve ry (r at e(</p>
+    <p>Byte(posi/on(</p>
+  </div>
+  <div class="page">
+    <p>Success Probability 221 Sessions</p>
+    <p>Re co ve ry (r at e(</p>
+    <p>Byte(posi/on(</p>
+  </div>
+  <div class="page">
+    <p>Success Probability 222 Sessions</p>
+    <p>Re co ve ry (r at e(</p>
+    <p>Byte(posi/on(</p>
+  </div>
+  <div class="page">
+    <p>Success Probability 223 Sessions</p>
+    <p>Re co ve ry (r at e(</p>
+    <p>Byte(posi/on(</p>
+  </div>
+  <div class="page">
+    <p>Success Probability 224 Sessions</p>
+    <p>Re co ve ry (r at e(</p>
+    <p>Byte(posi/on(</p>
+  </div>
+  <div class="page">
+    <p>Success Probability 225 Sessions</p>
+    <p>Re co ve ry (r at e(</p>
+    <p>Byte(posi/on(</p>
+  </div>
+  <div class="page">
+    <p>Success Probability 226 Sessions</p>
+    <p>Re co ve ry (r at e(</p>
+    <p>Byte(posi/on(</p>
+  </div>
+  <div class="page">
+    <p>Success Probability 227 Sessions</p>
+    <p>Re co ve ry (r at e(</p>
+    <p>Byte(posi/on(</p>
+  </div>
+  <div class="page">
+    <p>Success Probability 228 Sessions</p>
+    <p>Re co ve ry (r at e(</p>
+    <p>Byte(posi/on(</p>
+  </div>
+  <div class="page">
+    <p>Success Probability 229 Sessions</p>
+    <p>Re co ve ry (r at e(</p>
+    <p>Byte(posi/on(</p>
+  </div>
+  <div class="page">
+    <p>Success Probability 230 Sessions</p>
+    <p>Re co ve ry (r at e(</p>
+    <p>Byte(posi/on(</p>
+  </div>
+  <div class="page">
+    <p>Success Probability 231 Sessions</p>
+    <p>Re co ve ry (r at e(</p>
+    <p>Byte(posi/on(</p>
+  </div>
+  <div class="page">
+    <p>Success Probability 232 Sessions</p>
+    <p>Re co ve ry (r at e(</p>
+    <p>Byte(posi/on(</p>
+  </div>
+  <div class="page">
+    <p>Limitations and Extensions of Attack</p>
+    <p>Limitations of attack  Requires 228 ~ 232 TLS connections for reliable recovery  Attacker has to force TLS session renegotiation / resumption  Only first 220 bytes of application data can be targeted</p>
+    <p>Initial 36 bytes used by last message of Handshake protocol</p>
+    <p>Extensions:  Adapt to take into account a restricted message character space (e.g.</p>
+    <p>base64 encoded plaintexts)  Combine with language model for plaintext  Consider double-byte biases in the RC4 keystream...</p>
+  </div>
+  <div class="page">
+    <p>A Second Attack</p>
+    <p>Fluhrer-McGrew identified biases for consecutive keystream bytes  Persistent throughout keystream</p>
+    <p>Based on these, we construct an attack which  Can target any plaintext byte</p>
+    <p>positions  Does not require session</p>
+    <p>renegotiation / resumption</p>
+    <p>i : keystream byte position mod 256 Byte pair Condition on i Probability (0, 0) i = 1 216(1 + 29) (0, 0) i 6= 1, 255 216(1 + 28) (0, 1) i 6= 0, 1 216(1 + 28)</p>
+    <p>(i + 1, 255) i 6= 254 216(1 + 28) (255, i + 1) i 6= 1, 254 216(1 + 28) (255, i + 2) i 6= 0, 253, 254, 255 216(1 + 28) (255, 0) i = 254 216(1 + 28) (255, 1) i = 255 216(1 + 28) (255, 2) i = 0, 1 216(1 + 28) (129, 129) i = 2 216(1 + 28) (255, 255) i 6= 254 216(1  28) (0, i + 1) i 6= 0, 255 216(1  28)</p>
+  </div>
+  <div class="page">
+    <p>Align plaintext with repeating Fluhrer-McGrew biases</p>
+    <p>Consider overlapping biases to obtain more accurate likelihood estimate of entire plaintext candidate</p>
+    <p>Plaintext copies P P P</p>
+    <p>A Second Attack</p>
+    <p>RC4 Keystream</p>
+    <p>TLS Ciphertexts C1 C2 C3</p>
+    <p>P3 P4 P2 P3</p>
+    <p>P1 P2</p>
+    <p>P1 P2 P3 P4 P5 P6</p>
+    <p>...</p>
+    <p>Likelihood estimate ofP = P1P2P3P4P5P6</p>
+    <p>Likelihood estimate of P = P1P2P3P4P5P6</p>
+    <p>Recovery algorithm: Optimal Viterbi-style algorithm to determine P with highest likelihood</p>
+  </div>
+  <div class="page">
+    <p>Success Probability</p>
+    <p>Re co ve ry (r at e(</p>
+    <p>Plaintext(copies(2mes(2^30(</p>
+    <p>Recovery of 16 byte cookie</p>
+    <p>Recovery of individual bytes</p>
+  </div>
+  <div class="page">
+    <p>Limitations and Extensions of Attack</p>
+    <p>Limitations  Requires 233 ~ 234 copies of plaintext to be transmitted for reliable</p>
+    <p>recovery of 16 bytes of plaintext</p>
+    <p>Techniques to reduce attack complexity:  Adapt to take into account a restricted message character space (e.g.</p>
+    <p>base64 encoded plaintexts)  Combine with language model for plaintext</p>
+  </div>
+  <div class="page">
+    <p>Countermeasures</p>
+    <p>Possible countermeasures against our attacks  Discard initial keystream bytes  Fragment initial records at the application layer  Add random length padding to records  Limit lifetime of cookies or number of times cookies can be sent  Stop using RC4 in TLS</p>
+    <p>Vendor response  Opera has been implementing a combination of countermeasures  Google seems focused on implementing TLS 1.2 and AES-GCM in Chrome  RC4 is disabled by default for TLS in Windows Preview 8.1</p>
+  </div>
+  <div class="page">
+    <p>Conclusions</p>
+    <p>Plaintext recovery attacks against RC4 in TLS are feasible although not truly practical  228 ~ 232 sessions for reliable recovery of initial bytes  233 ~ 234 encryptions for reliable recovery of 16 bytes anywhere in plaintext</p>
+    <p>Illustrates that RC4 in TLS provides a security level far below the strength suggested by the used key size (128 bits)</p>
+    <p>Furthermore, attacks only becomes better with time...</p>
+    <p>Our recommendation: phase out the use of RC4 in TLS as soon as possible</p>
+  </div>
+  <div class="page">
+    <p>More Information / Future Work</p>
+    <p>For the full paper, graphs of RC4 keystream distribution, and raw data, see</p>
+    <p>Interested in more discussion on the use of RC4 in TLS? CRYPTO invited talk:  Why the web still runs on RC4, Adam Langley, Google.</p>
+    <p>Future work -- many other security protocols make use of RC4:  WPA, Bit-Torrent, Microsoft Point-to-Point Encryption, SSH, Kerberos,</p>
+    <p>Remote Desktop Protocol, etc.  Similar analysis and attacks might be applicable...</p>
+    <p>http://www.isg.rhul.ac.uk/tls/</p>
+  </div>
+  <div class="page">
+    <p>Questions?</p>
+  </div>
+  <div class="page">
+    <p>WPA and RC4: Distribution of Z1</p>
+    <p>Pr ob</p>
+    <p>ab ili ty *</p>
+    <p>Byte*value*</p>
+  </div>
+</Presentation>

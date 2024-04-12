@@ -1,0 +1,192 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>Reliable, Consistent, and Efficient Data Sync for Mobile Apps</p>
+    <p>Younghwan Go*, Nitin Agrawal, Akshat Aranya, and Cristian Ungureanu</p>
+    <p>NEC Labs. America KAIST*</p>
+  </div>
+  <div class="page">
+    <p>Increase in Data-centric Mobile Apps</p>
+    <p>Massive growth in mobile data traffic [Cisco VNI Mobile 2014]  24.3 Exabytes per month by 2019  190 Exabytes of mobile traffic generated globally by 2018</p>
+    <p>= 42 trillion images, 4 trillion video clips</p>
+  </div>
+  <div class="page">
+    <p>Difficulty in Building Data-centric Apps</p>
+    <p>Reliability: transparent failure handling</p>
+    <p>Consistency: concurrent updates, sync atomicity</p>
+    <p>Efficiency: minimize traffic/battery usage</p>
+    <p>Structured data</p>
+    <p>Unstructured data Row ID Col Obj</p>
+    <p>name file</p>
+    <p>Look! My data is corrupted!</p>
+  </div>
+  <div class="page">
+    <p>Mobile App Study on Reliability</p>
+    <p>Study mobile app recovery under failures  Network disruption, local app crash, device power loss  Analyze recovery when failed during write/update</p>
+    <p>Test 15 apps that use tables and objects  Independent or existing sync services (e.g., Dropbox, Parse, Kinvey)</p>
+    <p>Test process</p>
+    <p>Client 1 (WRITE/UPDATE)</p>
+    <p>Client 1 (RECOVER)</p>
+    <p>Client 2 (READ)</p>
+  </div>
+  <div class="page">
+    <p>Current Mobile Apps are not Reliable!</p>
+    <p>Disruption recovery  Loss of data if app/notification closed during disruption  No notification of sync failure  Manual re-sync creates multiple copies of same note</p>
+    <p>Crash recovery  Partial object created locally without sync  Corrupted object synced and spread to second client</p>
+    <p>Additional observations  No app correctly recovered from crash at object update  Many apps simply disable object update capability altogether</p>
+    <p>More details of the study can be found in our paper</p>
+  </div>
+  <div class="page">
+    <p>Goals of Sync as a Service</p>
+    <p>Reliability  User can always sync to the latest data  Users update is guaranteed to be synced to server</p>
+    <p>Consistency  Data can always return to a consistent state even after failures  Inter-dependent structured/unstructured data are synced atomically</p>
+    <p>Efficiency  Minimum mobile data traffic is generated for sync/recovery  Devices overall network radio usage is reduced to save battery</p>
+  </div>
+  <div class="page">
+    <p>Outline</p>
+    <p>Introduction  Mobile app study on reliability  Simba Client Design  Evaluation  Conclusion</p>
+  </div>
+  <div class="page">
+    <p>Simba: Data-sync Service for Mobile Apps</p>
+    <p>High-level programming abstraction  CRUD-like interface for easy development  Unify tabular and object data</p>
+    <p>Transparent handling of data syncs and failures  Failure detection &amp; recovery at network disruption and crash  Guarantee atomic sync of tabular and object data</p>
+    <p>Resource frugality with delay-tolerance and coalescing  Delay sync messages to be clustered  Reduce number of network messages &amp; radio usage</p>
+  </div>
+  <div class="page">
+    <p>Writing a Photo App with Simba</p>
+    <p>Create a photo album</p>
+    <p>Register read/write sync</p>
+    <p>Add a new photo</p>
+    <p>Retrieve stored photo</p>
+    <p>registerReadSync(album,600,0,3G); // period=10min, pref=3G registerWriteSync(album,300,0,WIFI);// period=5min, pref=WiFi</p>
+    <p>createTable(album, name VARCHAR, photo OBJECT, FULL_SYNC);</p>
+    <p>objs = writeData(album, {name=Snoopy}, {photo}); objs[0].write(photoBuffer); // write object data</p>
+    <p>cursor = readData(album, {photo}, name=?, {Snoopy}); mis = cursor.getInputStream().get(0); // inputstream for object mis.read(buffer); // read object data into buffer</p>
+  </div>
+  <div class="page">
+    <p>Writing a Photo App with Simba</p>
+    <p>Conflict resolution beginCR(album); rows = getConflictedRows(album); for (row; rows; next row) {</p>
+    <p>// choice = MINE, THEIRS, OTHERS resolveConflict(album, row, MINE);</p>
+    <p>} endCR(album);</p>
+  </div>
+  <div class="page">
+    <p>Overall Architecture</p>
+    <p>Reliable data sync between sClient  sCloud  Simba Cloud (sCloud)</p>
+    <p>Manage data across multiple apps, tables, and clients</p>
+    <p>Respond to sClients sync request  Push notifications to sClient</p>
+    <p>Version-based Sync Protocol  Row-level consistency  Unique id per row,   One version per row,</p>
+    <p>Simba Cloud paper to be presented at EuroSys 2015! Simba: Tunable End-to-End Data Consistency for Mobile Apps</p>
+  </div>
+  <div class="page">
+    <p>sClient: Simba Content Service</p>
+    <p>Simba Client API (sClientLib)  Interface to access table</p>
+    <p>and object data for apps  Upcall alerts for events</p>
+    <p>(new data, conflict) to apps</p>
+    <p>SimbaSync  Manage fault-tolerance,</p>
+    <p>data consistency, row-level atomicity</p>
+    <p>N/W Manager  Send/receive sync messages, receive notifications</p>
+    <p>Simba Client Data Store</p>
+    <p>Simba Cloud</p>
+  </div>
+  <div class="page">
+    <p>Simba Client Data Store</p>
+    <p>We dont want half-formed data to appear on our phone!  Simba Table (sTable)</p>
+    <p>Unified table store for tabular and object data</p>
+    <p>Logical sTable</p>
+    <p>Physical sTable SQLite</p>
+    <p>LevelDB</p>
+    <p>Subdivide object into chunks</p>
+    <p>Map by object_id</p>
+  </div>
+  <div class="page">
+    <p>Simba Local States</p>
+    <p>Include additional local states to determine:  Health of data (latest vs. updated)  Sync readiness (object closed after update)  Failure state (sync in progress after network disruption)  Recovery actions (retry, reset, recover corrupted objects, etc.)</p>
+    <p>Simba local states</p>
+    <p>Dirty Chunk Table (DCT): updated chunk ids per object</p>
+    <p>Row ID Version      Name Photo   0/1 0/1 0/1/../n 0/1 0/1 Snoopy object_id</p>
+    <p>Update in tab | obj data</p>
+    <p>End of obj update</p>
+    <p>Sync in progress</p>
+    <p>Row in conflict</p>
+  </div>
+  <div class="page">
+    <p>Handling Network Failures</p>
+    <p>Move to a consistent state after network disruption  Detect &amp; recover in the middle of sync</p>
+    <p>Consult state upon network disruption  Recovery policy dependent on server response (, , , )</p>
+    <p>No op, normal operation, retry, reset &amp; retry, roll forward</p>
+    <p>Upstream sync example</p>
+    <p>Downstream sync example</p>
+    <p>State at network disruption Implication Recovery Policy Action</p>
+    <p>[SP=1] before sync response Missed response Reset &amp; retry SP=0,TD=1, OD=1 if DCT</p>
+    <p>State at network disruption Implication</p>
+    <p>[=1] after sync response Partial response</p>
+    <p>TD OD  Recovery Action</p>
+    <p>* * * Delete entry, resend</p>
+    <p>downstream sync request</p>
+  </div>
+  <div class="page">
+    <p>Handling App/Device Failures</p>
+    <p>Roll back/forward to a consistent state after crash  Recovery policy dependent on local states</p>
+    <p>, , , , ,</p>
+    <p>Recover from a crash during sync</p>
+    <p>Recover from a crash at update</p>
+    <p>TD OD OO SP CF Recovery Action</p>
+    <p>TD OD OO SP CF Recovery Action</p>
+    <p>* 1 &gt;0 0 0 Torn row! Retrieve consistent row version from sCloud</p>
+    <p>(TD = 0, OD = 0, OO = 0)</p>
+  </div>
+  <div class="page">
+    <p>Evaluation</p>
+    <p>Evaluation goals  Does Simba provide transparency to apps?  Does Simba perform well for sync and local I/O?</p>
+    <p>Evaluation setup  sClient</p>
+    <p>Galaxy Nexus (Android 4.2)  Nexus 7 (Android 4.2)</p>
+    <p>sCloud  2 Intel Xeon servers: 16-core (2.2GHz), 64GB DRAM, 8 7200RPM 2TB disk  4 VMs on each sCloud: 4 core, 8GB DRAM, one disk</p>
+    <p>WiFi: 802.11n (WPA)  Cellular: 4G LTE (KT, LGU+, AT&amp;T)</p>
+  </div>
+  <div class="page">
+    <p>App Development with Simba</p>
+    <p>Simple and easy app development with Simba</p>
+    <p>Building a photo app with existing sync service (Dropbox)  No inter-operation of table and object  No support for row-level atomicity (only column-level!)  No detection &amp; recovery of torn rows</p>
+    <p>App Description Total LoC Simba LoC</p>
+    <p>Simba-Notes Rich note-taking with embedded images and media 4,178 367</p>
+    <p>HbeatMonitor Monitor and record a persons heart rate, cadence</p>
+    <p>and altitude using Zephyr heartbeat sensor 2,472 384</p>
+    <p>CarSensor Record car engines RPM, speed, engine load,</p>
+    <p>and etc using Soliport OBD2 sensor 3,063 384</p>
+    <p>Simba-Photo Photo-sync app with write/update/read/delete</p>
+    <p>operations on tabular and object data 527 170</p>
+  </div>
+  <div class="page">
+    <p>Sync Performance</p>
+    <p>End-to-end sync latency for 1B col &amp; 1B col + 1KB obj  Test method</p>
+    <p>Client 1 updates for sync  client 2 receives update  Clients (Korea), sCloud (Princeton), Dropbox server (California)</p>
+    <p>Results  Network latency: small component of total sync latency  Simba performs well compared to Dropbox in all cases</p>
+  </div>
+  <div class="page">
+    <p>Local I/O Performance</p>
+    <p>Time to write/read/delete one row with 1MB object</p>
+    <p>~10% slower than Dropbox for write/read  IPC overhead between Simba-app and sClient</p>
+    <p>Better than Dropbox for delete  Lazy deletion: marked for delete  delete after sync completion</p>
+  </div>
+  <div class="page">
+    <p>Conclusions</p>
+    <p>Building data-centric mobile app should be transparent  Mobile app developers should focus on implementing app core logic  Require service that handles complex network and data management</p>
+    <p>Simba: reliable, consistent, and efficient data-sync service  Unified sTable and API for managing tabular and object data  Transparent handling of data syncs and failures  Resource frugality with delay-tolerant coalescing of sync messages</p>
+    <p>Practical for real-world usage  Easy app development/porting with CRUD-like API  Sync performance comparable to existing services  Minimum local I/O overhead</p>
+  </div>
+  <div class="page">
+    <p>Thank you!</p>
+    <p>Simba source: https://github.com/SimbaService/Simba Project homepage: http://www.nec-labs.com/~nitin/Simba</p>
+  </div>
+  <div class="page">
+    <p>Related Works</p>
+    <p>Data sync services  Parse, Kinvey, Bayou, Mobius [MobiSys12]: support table sync  LBFS [SOSP01]: support file sync  Do not provide sync service for both tables and objects</p>
+    <p>Failure tolerance  ViewBox [FAST14]: guarantee consistency of local data at crash  Works for files in desktop FS</p>
+    <p>Storage unification  TableFS [ATC13]: separate storage pools for metadata and files  KVFS [FAST13]: store file and metadata in a single key-value store  Consider integration without network sync or a unified API</p>
+  </div>
+  <div class="page">
+    <p>Balancing Sync Efficiency &amp; Transparency</p>
+    <p>In-memory vs. persistent DCT  Sync only updated chunks for each object during sync  In-memory DCT lost after crash: send entire object  inefficient!  Persist DCT to prevent re-syncing entire, potentially large objects</p>
+    <p>In-place vs. out-of-place update  Recover a torn (corrupted) row with data from the consistent state  Out-of-place: local state + I/O overhead for common-case operation  In-place: retrieve consistent version of row from sCloud</p>
+  </div>
+</Presentation>

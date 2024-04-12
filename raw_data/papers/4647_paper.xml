@@ -1,0 +1,824 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<TEI xmlns="http://www.tei-c.org/ns/1.0" 
+xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+xsi:schemaLocation="http://www.tei-c.org/ns/1.0 /Users/atharsefid/Desktop/grobid-0.5.3/grobid-home/schemas/xsd/Grobid.xsd"
+ xmlns:xlink="http://www.w3.org/1999/xlink">
+	<teiHeader xml:lang="en">
+		<encodingDesc>
+			<appInfo>
+				<application version="0.5.3" ident="GROBID" when="2019-03-26T16:56+0000">
+					<ref target="https://github.com/kermitt2/grobid">GROBID - A machine learning software for extracting information from scholarly documents</ref>
+				</application>
+			</appInfo>
+		</encodingDesc>
+		<fileDesc>
+			<titleStmt>
+				<title level="a" type="main">A High Throughput String Matching Architecture for Intrusion Detection and Prevention</title>
+			</titleStmt>
+			<publicationStmt>
+				<publisher/>
+				<availability status="unknown"><licence/></availability>
+			</publicationStmt>
+			<sourceDesc>
+				<biblStruct>
+					<analytic>
+						<author>
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Lin</forename><surname>Tan</surname></persName>
+							<email>lintan2@cs.uiuc.edu</email>
+							<affiliation key="aff0">
+								<orgName type="department">Department of Computer Science</orgName>
+								<orgName type="institution">University of California</orgName>
+								<address>
+									<settlement>Santa Barbara</settlement>
+								</address>
+							</affiliation>
+						</author>
+						<author>
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Timothy</forename><surname>Sherwood</surname></persName>
+							<email>sherwood@cs.ucsb.edu</email>
+							<affiliation key="aff0">
+								<orgName type="department">Department of Computer Science</orgName>
+								<orgName type="institution">University of California</orgName>
+								<address>
+									<settlement>Santa Barbara</settlement>
+								</address>
+							</affiliation>
+						</author>
+						<title level="a" type="main">A High Throughput String Matching Architecture for Intrusion Detection and Prevention</title>
+					</analytic>
+					<monogr>
+						<imprint>
+							<date/>
+						</imprint>
+					</monogr>
+				</biblStruct>
+			</sourceDesc>
+		</fileDesc>
+		<profileDesc>
+			<abstract>
+				<p>Network Intrusion Detection and Prevention Systems have emerged as one of the most effective ways of providing security to those connected to the network, and at the heart of almost every modern intrusion detection system is a string matching algorithm. String matching is one of the most critical elements because it allows for the system to make decisions based not just on the headers, but the actual content flowing through the network. Unfortunately, checking every byte of every packet to see if it matches one of a set of ten thousand strings becomes a computationally intensive task as network speeds grow into the tens, and eventually hundreds, of gigabits/second. To keep up with these speeds a specialized device is required , one that can maintain tight bounds on worst case performance, that can be updated with new rules without interrupting operation, and one that is efficient enough that it could be included on chip with existing network chips or even into wireless devices. We have developed an approach that relies on a special purpose architecture that executes novel string matching algorithms specially optimized for implementation in our design. We show how the problem can be solved by converting the large database of strings into many tiny state machines, each of which searches for a portion of the rules and a portion of the bits of each rule. Through the careful co-design and optimization of our our architecture with a new string matching algorithm we show that it is possible to build a system that is 10 times more efficient than the currently best known approaches.</p>
+			</abstract>
+		</profileDesc>
+	</teiHeader>
+	<text xml:lang="en">
+		<body>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="1">Introduction</head><p>Computer systems now operate in an environment of near ubiquitous connectivity, whether tethered to a Ethernet cable or connected via wireless technology. While the availability of always on communication has created countless new opportunities for web based businesses, information sharing, and coordination, it has also created new opportunities for those that seek to illegally disrupt, subvert, or attack these activities. With each passing day there is more critical data * Lin Tan has since moved to UIUC accessible over the network, and any publicly accessible system on the Internet is subjected to more than one break in attempt per day. Because we are all increasingly at risk there is widespread interest in combating these attacks at every level, from end hosts and network taps to edge and core routers.</p><p>Given the importance of protecting information and services, there is a great deal of work from the security community aimed at detecting and thwarting attacks in the network <ref type="bibr" target="#b20">[21,</ref><ref type="bibr" target="#b30">31,</ref><ref type="bibr" target="#b6">7]</ref>. Intrusion Detection Systems (IDS) and Intrusion Prevention Systems (IPS) have emerged as some of the most promising ways of providing protection on the network, and the market for such systems is expected to grow to $918.9 million USD by the end of 2007 <ref type="bibr" target="#b19">[20]</ref>. Network based intrusion detection systems can be categorized as either misuse based or anomaly based. Both systems require sensors that perform real time monitoring of network packets, either by comparing network traffic against a signature database or by finding out-of-the-ordinary behavior, and triggering intrusion alarms. A higher level interface provides the management software used to configure, log, and display alarms generated by the lower level processing. These two parts, working in concert, alert administrators of suspicious activities, keep logs to aid in forensics, and assist in the detection of new worms and denial of service attacks. But it is at the lowest level, where data is actually inspected, that the computational challenge lays.</p><p>To define suspicious activities, most modern network intrusion detection/prevention systems rely on a set of rules which are applied to matching packets. At minimum a rule consists of a type of packet to search, a string of content to match, a location where that string is to be searched for, and an associated action to take if all the conditions of the rule are met. An example rule might match packets that look like a known buffer overflow exploit in a web server; the corresponding action might be to log the packet information and alert the administrator. Rules can come in many forms, but frequently the heart of the rule consists of strings to be matched anywhere in the payload of a packet. The problem is that for the detection to be accurate, we need to be able to search every byte of every packet for a potential match from a large set of strings. For example, the rule set from Snort has on the order of 1000 strings with an average length of around 12 bytes. Searching every packet for all of these strings requires significant processing resources, both in terms of the amount of time to process a packet, and the amount of memory needed. In addition to raw processing speed, a string matching engine must have bounded performance in the worst case so that a performance based attack cannot be mounted against it <ref type="bibr" target="#b11">[12]</ref>. Due to the fact that rule sets are constantly growing and changing as new threats emerge, a successful design must have the ability to be updated quickly and automatically all the while maintaining continuous operation.</p><p>In order to address these concerns, we take an approach that relies on a simple yet powerful special purpose architecture working in conjunction with novel string matching algorithms specially optimized for that architecture. The key to achieving both high performance and high efficiency is to build many tiny state machines, each of which searches for a portion of the rules and a portion of the bits of each rule. Our new algorithms are specifically tailored towards implementation in an architecture built up as an array of small memory tiles, and we have developed both the software and the architecture in concert with one another. The result of our efforts is a device that maintains tight worst case bounds on performance, can be updated with new rules without interrupting operation, has configurations generated in seconds instead of hours, and is ten times more efficient that the existing best known solutions.</p><p>Specifically, this paper makes the following research contributions:</p><p>• We describe a novel configurable String Matching Architecture that can store the entire Snort rule set in only 0.4 MB and can operate at upwards of 10 Gbit/sec per instance.</p><p>• We present a novel String Matching Algorithm that operates through the conjunction of many small state machines working in unison that reduces the number of required outedges from 256 to as low as 2.</p><p>• Our machine is configured by a Rule Compiler that partitions and bit-splits a finite state machine (FSM) representation of the strings into a set of small implementable state transition tables. The compiler takes only on the order of seconds to complete.</p><p>• We compare our design to the state of the art in string matching algorithms and hardware based designs. The key metric is the efficiency (performance/area) and we beat the best existing techniques by a factor of 10 or more.</p><p>• We propose a replacement update model that allows noninterrupting rule update which can complete in the order of seconds while FPGA based methods generally require days or months to recompile rules. The rest of the paper is laid out as follows. In Section 2 we begin with a description of the string matching architecture which implements the many state machines and the way in which the algorithm runs. The actual method of generating the state machines from a given rule set, the tradeoffs and heuristics used to do so, and the details of our Rule Compiler implementation are all described in Section 3. Section 4 presents an analysis of design in terms of performance and efficiency and compares our work to past efforts in the area. In Section 5 a discussion of the related work is presented, and finally we conclude with Section 6.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="2">Architecture</head><p>Intrusion Detection/Prevention Systems (IDS or IPS) play an increasingly important role in network protection. At the core of most Network IDSs is a computationally challenging problem because it requires deep packet inspection. Every byte of every packet must be examined which means gigabytes of data must be searched each and every second of operation. In this section we begin by briefly describing the requirements that have driven our design, the main ideas behind our string matching technique, and the details of our architecture.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="2.1">IDS/IPS Requirements</head><p>In designing our system we have identified the following requirements for Intrusion Detection/Prevention Systems (IDS/IPS).</p><p>Worst Case Performance: In order to check incoming packets in real time, without degrading the total throughput, Intrusion Detection/Prevention Systems need string matching algorithms that can keep up with this speed. More specifically, a robust Intrusion Detection Systems should require that its string matching algorithm have stringent worst case performance, otherwise the worst case may be exploited by an adversary to either slow down the network or to force the systems to not inspect some packets, which may include an attack. Neither of these two choices is desirable.</p><p>Non-Interrupting Rule Update: Currently the Snort rule set is updated roughly monthly but researchers are currently working on systems that will provide a real-time response to new attacks and worms <ref type="bibr" target="#b25">[26]</ref>. In addition to performance requirements, we also want an architecture that can be updated quickly and that can provide continuous service even during an update.</p><p>High Throughput per Area: The advantages of small area are twofold. A design that is small enough to be fit completely on chip consumes less resources and can operate much faster than one that relies on off chip memory. Furthermore, many designs use replication to boost performance, and in these cases efficiency becomes performance because of the sheer number of copies you can fit onto a single die.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="2.2">String Matching Engine</head><p>At a high level, our algorithm works by breaking the set of strings down into a set of small state machines. Each state machine is in charge of recognizing a subset of the strings from the rule set. The details of the algorithm are presented in Section 3, but we begin with a description of our architecture.</p><p>Our the full device. Each device holds the entire set of strings that are to be searched, and each cycle the device reads in a character from an incoming packet, and computes the set of matches. Matches can be reported either after every byte, or can be accumulated and reported on a per-packet basis. Devices can be replicated, with one packet sent to each device in a load balanced manner, to multiply the throughput, but for our purposes in this paper we concentrate on a single device.</p><p>Inside each device is a set of rule modules. The left side of <ref type="figure">Figure 1</ref> shows how the rule modules interact with one another. Each rule module acts as a large state machine, which reads in bytes and outputs string match results. The rule modules are all structurally equivalent, being configured only through the loading of their tables, and each module holds a subset of the rule database. As packet flows through the system, each byte of the packet is broadcast to all of the rule modules, and each module checks the stream for an occurrence of a rule in its rule set. Because throughput, not latency, is the primary concern of our design the broadcast has limited overhead because it can be deeply pipelined if necessary.</p><p>The full set of rules is partitioned between the rule modules. The way this partitioning is done has an impact on the total number of states required in the machine, and will hence have an impact on the total amount of space required for an efficient implementation. Finding an efficient partitioning is discussed in Section 3. When a match is found in one or more of the rule modules, that match is reported to the interface of the device so that the intrusion detection system can take the appropriate actions. It is what happens inside each rule module that gives our approach both high efficiency and throughput.</p><p>If we look into what goes into each rule module, we find that each is made up of a set of tiles. The right hand side of <ref type="figure">Figure 1</ref> shows the structure of each and every tile in our design. Tiles, when working together, are responsible for the actual implementation of a state machine that really recognizes a string in the input. If we just generated a state machine in a naive manner, each state may transition to one of potentially 256 possible next states at any time. If we were to actually keep a pointer for each of these 256 possibilities, each node would be on the order a kilobyte. A string of length l requires l states 1 , and then if you multiply that by the total number of rules you quickly find yourself with far more data than is feasible to store on-chip. So the trade-off is either store the state off-chip and loose your bounds on worst case performance, or find a way to compress the data is some way. Past techniques have relied on run length encoding and/or bit-mapping which have been adapted from similar techniques used to speed IPlookup <ref type="bibr" target="#b29">[30]</ref>. Our approach is different in that we split the state machines apart into a set of new state machines each of which matches only some of the bits of the input stream. In essence each new state machine acts as a filter, which is only passed when a given input stream could be a match. Only when all of the filters agree is a match declared. While we briefly describe the way the algorithm runs for the purpose of describing our architecture here, a full description can be found in Section 3.</p><p>Each tile is essentially a table with some number of entries (256 entries are shown in <ref type="figure">Figure 1</ref>), and each row in the table is a state. Each state has two parts. It has some number of next <ref type="figure">Figure 2</ref>: Non-interrupting Update is supported through the addition of an extra rule module which covers for a module taken off-line so it can be updated.</p><formula xml:id="formula_0">x u M 1 : 2 x u M 1 : 2 x u M 1 : 2 񮽙 1 o t n i s e n i h c a m e t a t s w e n y p o C e l u d o m t n e m e c a l p e r 0 0 0 3 s e n i h c a m e t a t s w e n y p o C k e l u d o M e l u R o t n i t n e m e c a l p e R e l u d o M e l u R 1 e l u d o M e l u R 0 e l u d o M e l u R e l u d o M k 1 o t t e S 2 4 0 o t t e S</formula><p>state pointers, which encode the state transitions (4 possible next states are shown and each is indexed by a different 2 bits from the byte stream), and it has a partial match vector. The partial match vector is a bit-vector that indicates the potential for a match for every rule that the module is responsible for. If there are up to g rules mapped to a rule module, then each state of each tile will have a partial match vector of length g bits ( <ref type="figure">Figure 1</ref> shows a module with g = 16). By taking the AND of each of the partial match vectors we can find a full match vector, which indicates that all of the partial match vectors are in agreement and that a true match for a particular rule has been found.</p><p>Before accepting any input characters and at the beginning of each packet, all tiles are reset to start from state 0. On each cycle, the input byte is divided into groups of bits (in the example the 8-bits are divided into 4 groups of 2). Each tile then gets its own group of bits. Each tile uses its own internal state to index a line in the memory tile, and the partial match vector is read out along with the set of possible state transitions. The input bits are used to select the next state for updating, and the partial match vector is sent to an AND unit where it is combined with the others. Finally all full match vectors for all modules are concatenated to indicate which of the strings was matched.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="2.3">Support for Non-Interrupting Update</head><p>A major weaknesses of past techniques which relied on FPGA reconfiguration to encode the strings to be matched is that when the rule database is to be updated, the device needs to go offline. The Snort database, and other proprietary signature databases, have been changing at an aggregate rate of more than one rule every day <ref type="bibr" target="#b29">[30]</ref>.</p><p>It is simply unacceptable to the end user to have their network traffic either uninspected or undelivered for minutes or even hours while the rule database is recompiled and transfered to the device. This problem is only going to grow in importance in the coming years as more attacks are unleashed. Automated systems will be put in place that detect new worms and denial of service attacks to generate useful signatures in real time. Our architecture can easily support this functionality through the addition of a temporary tile used for updates. <ref type="figure">Figure 2</ref> shows the addition of an new rule module which acts as a temporary state machine. The rule set is already partitioned into several smaller parts that each fit onto a rule module. To replace the contents of one rule module, the rules are first updated and copied to the temporary rule module. At the start of the next packet, the control bit for the module about to be overwritten is set to override with the results from the replacement rule module. The main rule module can then be written (with the same contents as the replacement module) with no stop in service. When the main rule module is completely updated, the control bit is switched back and the replacement module is wiped clean and overwritten with the state machine for the next module in line. Writing to an entire rule module will take on the order of 1.6 microseconds, and to finish an entire update would take less than 108 microseconds. While for our architecture the procedure for updating rules is very straightforward, this is by design and most other techniques we have examined require at least some amount of downtime to perform an update.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3">Algorithm Mapping</head><p>In Section 2 we presented the architectural issues in implementing a high speed string matching engine, and in this section we describe the software system, also referred to as the rule compiler, which makes it work.</p><p>Readers may already be familiar with efficient algorithms for string matching such as Boyer-Moore <ref type="bibr" target="#b7">[8]</ref>, which are designed to find a single string in a long input. Our problem is slightly different, as we are searching for one of a set of strings from the input stream. While simply performing multiple passes of a standard one-string matching algorithm will be functionally correct, it does not scale to handle the thousands of strings that are required by modern intrusion detection systems. Instead, the set of strings that we are looking for can be folded together into a single large state-machine. This method, the Aho-Corasick algorithm <ref type="bibr" target="#b1">[2]</ref>, is what is used in the fgrep utility as well as in some of the latest versions of the Snort [21] network intrusion detection system.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.1">The Aho-Corasick Algorithm</head><p>The essence of the Aho-Corasick algorithm involves a preprocessing step which builds up a state machine that encodes all of the strings to be searched. The state machine is generated in two stages. The first stage builds up a tree of all the strings that need to be identified in the input stream. The root of the tree represents the state where no strings have been even partially matched. The tree has a branching factor equal to the number of symbols in the language. For the Snort rules, this is a factor of 256 because snort can specify any valid byte as part of a string 2 . All the strings are enumerated from this root node, and any strings that share a common prefix will share a set of parents in the tree. The left hand side of <ref type="figure">Figure 3</ref> shows an example Aho-Corasick state machine constructed for keywords "he", "she" "his", and "hers". To match a string, you start at the root node and traverse edges according to the input characters observed. The second half of the preprocessing is inserting failure edges. When a string match is not found it is possible for the suffix of one string to match the prefix of another. To handle this case failure edges are inserted which shortcut from a partial match of one string to a partial match of another. In <ref type="figure">Figure 3</ref> we show the full state machine with failure edges (however failure edges that point back to the root node are not shown for clarity).</p><p>Let us suppose that the input stream is "hxhe", which would match the string "he". Traversal starts at state 0, and then proceeds to state 1 (after reading "h"), 0 (after reading "x"), back to 1 (after reading "h"), and finally ending at state 2. State 2 is an accepting state and matches the string "he". In the Aho-Corasick algorithm there is a one-to-one correspondence between accepting states and strings, where each accepting state indicates the match to an unique string.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.2">Implementation Issues</head><p>The Aho-Corasick algorithm has many positive properties, and perhaps the most important is that after the strings have been preprocessed the algorithm always runs in time linear to the length of the input stream, regardless of the number of strings. It is impossible for a crafty adversary to construct an input stream that will cause an IDS to lag behind the network resulting in either reduced traffic speed or uninspected data. The problems with the algorithm lie in realizing a practical implementation, and the problems are two-fold. Both problems stem from the large number of possible out edges that are directed out of each and every node. Implementing those out edges requires a great deal of next pointers, 256 for each and every node to be exact. In our simple example, we only have 4 possible characters so it is easier, but in reality encoding these potential state transitions requires a good deal of space. If we were just to encode the state transitions as 32-bit pointers the size of the rule database would balloon to 12.5 megabytes, far larger than what could economically fit on a chip. This brings us to the second problem which is the serial nature of the state machine. The determination of which state we are to go to is strictly dependent on that state that we are currently in. The determination of the next state from the current state forms a critical loop, and because that next state could be one of 256 different memory locations throughout a large data structure it is very difficult to make this fast. While in <ref type="bibr" target="#b29">[30]</ref> Tuck et al. show how these structures could be compressed, they still take on the order of megabytes and the compression greatly complicates the computation that needs to be performed.</p><p>To examine the behavior of string matching on real data, we generated the Aho-Corasick state machine for a set of strings used for actual intrusion detection and packet filtering. For this we used the default string set supplied with Snort, which includes, as part of its rule base, a set of over 1000 suspicious strings resulting in an Aho-Corasick state machine with around 10,000 nodes.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.3">Splitting Apart the State Machines</head><p>While Aho-Corasick state machines can be searched in constant time per character, a real implementation requires large amounts of storage and requires a dependent memory reference for each character searched. Storing each state as an array of 256 next pointers is wasteful. Furthermore there is a high variation in the number of next pointers that any given state needs. Nodes near the root of the tree need more than 200 next pointers, while nodes near the leafs need only 1 or 2. We need a way of breaking this problem into a set of smaller problems each of which has more regular behavior.</p><p>To solve this problem, we split the state machines apart into a new set of 8 state machines. (8 is not optimal which we will show in Section 4.) Each state machine is then responsible for only one of the eight bits of an input character.</p><p>Three advantages of this technique are: • The split machines have exactly two possible next states (not a large and variable number as in the original design). This is far easier to compact into a small amount of memory.</p><p>• The 8 state machines are loosely coupled, and they can be run independently of one another (assuming we can merge the results back together).</p><p>• Each state machine is essentially a binary tree with back edges. This means we can speed the tree up by traversing multiple edges at a time (as in a multi-bit trie <ref type="bibr" target="#b24">[25]</ref>).</p><p>From the state machine D constructed in Aho-Corasick Algorithm, each bit of the 8-bit ASCII code is extracted to construct its own Binary State Machine, a state machine whose alphabet contains only 0 and 1. Let B 0 , B 1 , ..., B 7 be these state machines (1 per bit). For each bit position i we take the following steps to build the binary state machine B i . Starting from the start state of D, we look at all of the possible next states. We partition the next states of D into two sets, those that come from a transition with bit i set to 1, and those which transition with bit i set to 0. These sets become two new states in B i . This process is repeated until we fill out all of the next states in the binary state machine in a process analogous to subset construction (although our binary state machines can never have more states that D). Each state in B i maps to one or more states in D.</p><p>After the construction, the mapping to non-output states of D are not needed any more and so can be eliminated from the resulting state machines. On the other hand, the mapping to output states of D still needs to be stored for all states. Because each output state in D corresponds to a string in the rule set, these lists of output states for a state a in binary state machine indicate strings matched when these states are visited. A resulting state in B i is an accepting state if it maps back to any of the accepting states of D. A small bit-vector is kept for each state in binary state machines, indicating which of the strings might be matched at that point. Only if all of the bit-vectors agree on the match of at least one string has a match actually occurred.   <ref type="figure">Figure 3</ref> shows two of the binary state machines generated from the state machine on the left. The state machine in the middle is state machine B 3 which is only responsible for bit 3 of the input and the state machine on the right is state machine B 4 . As you can see, state 2 in the original state machine maps to state 3 and 6 in B 3 and state 4, 6, and 8 in B 4 . Now let us see how a binary state machine is constructed from an Aho-Corasick state machine by constructing B 3 in this concrete example. Starting from State 0 in D, which we call D-State 0, we construct a State 0 for B 3 , which is called B 3 -State 0, with a state set {0}. Numbers in a state set are DState numbers. We examine all states kept in the state set of B 3 -State 0, which is D-State 0 in this example, and see what D-States can be reached from them reading in input value "0" and "1" in bit 3 respectively. For example, D-State 0 and DState 1 are reachable from D-State 0 reading in input value "0". A new state, B 3 -State 1, with state set {0,1} is then created. Similarly, B 3 -State 2 with state set {0,3} is created as the next state for B 3 -State 0 for input value "1". Then B 3 -State 3 with state set {0,1,2} is created as the next state for B 3 -State 1 for input value "0". The next state for B 3 -State 1 for input value "1" is an existing state B 3 -State 2, then there is no need to create a new state. B 3 is constructed by following this process until next states of all states are constructed. After the construction, non-output states kept in state sets, such as 0, 1 and 3, are eliminated, resulting in B 3 shown in the middle of <ref type="figure">Figure 3</ref>. </p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>Char 0 1 2 3 4 5 6 7 h 0 1 1 0 1 0 0 0 x 0 1 1 1 1 0 0 0 h 0 1 1 0 1 0 0 0 e 0 1 1 0 0 1 0 1</head></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.4">Finding a Match</head><p>Let us examine the search processes in both the original Aho-Corasick state machine and in the corresponding binary state machines for the example input stream "hxhe" used before. Reading in "hxhe", D will be traversed in the order of State 0, State 1, State 0, State 1 and State 2. The last state traversed, namely State 2, indicates the match of string "he". Because each state machine takes only one bit at a time, we will need the binary encoding of this input shown in <ref type="table" target="#tab_2">Table 1</ref>. Binary state machine B 3 will see only the 3rd bit of the input sequence, which will be 0100. Looking to binary state machine B 3 , the state traversal for this input will be State 0, State 1, State 2, State 4 and State 6. State 6 maps to states {2, 5} in D. Similarly, the binary state machine B 4 will see the input 1110, and will be traversed in the order of State 0, State 2, State 5, State 5 and State 8, whose state set is {2, 7}. The actual output state is the intersection of state sets of all 8 binary state machines. In this example, the intersection is State 2, which is the same as the result of Aho-Corasick. In the architecture described in Section 2 this intersection step is completed by taking the logical AND of bit vectors in the on chip interconnect.</p><p>The intersection of state sets can be empty, which means there is no actual output but there is partial output for some binary state machines. Let us take input "xehs" for example. The ASCII encoding of bit 3 and bit 4 of "xehs" is 1001 and 1010 respectively. For state machine B 3 , the state machine in the middle of <ref type="figure">Figure 3</ref>, the traversal of states is State 0, State 2, State 4, State 6 and State 5, whose state set is {7}. For state machine B 4 , the rightmost state machine in <ref type="figure">Figure 3</ref>, the resulting state set is {2, 5} of State 6. The intersection of these two sets are empty, hence no string is matched.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.5">Partitioning the Rules</head><p>If we put all of the more than 1,000 strings into a big state machine and construct the corresponding bit-split state machines, a partial match vector of more than 1,000 bits, most of which are zeros, will be needed for each entry in tiles described in Section 2. This is a big waste of storage. Our solution to this problem is to divide the strings into small groups so that each group contains only a few strings, e.g. 16 strings, so that each partial match vector is only 16 bits. In this way each tile will be much smaller and thus faster to be accessed.</p><p>Many different grouping techniques can be used for this purpose and can result in various storage in bits. In order to find the best dividing methods, we want to consider the following constraints. The number of bits of partial match vector determine the maximum number of strings each tile can handle. In addition, each tile can only store a fixed number of states, i.e. 256 states. We want to make full use of the storage of both partial match vectors and state entries, which means we want to pack as many strings in without going over 16 strings or 256 states. Otherwise, we will have to divide this group into two to let the number of states fit, resulting in wasted partial match vectors. By analyzing the distribution of strings in Snort rule set, we find that generally 16 strings require approximately 256 states. And a more detailed discussion about selecting the size of each tile can be found in Section 4.</p><p>A good solution is therefore to sort all strings lexicographically and then divide them sequentially into groups so that all the common prefixes can share states in state machines and thus use less states in total. While this is not the optimal solution, it beats the two alternatives, dividing by length and dividing randomly. The dividing by length method would consume 21.9% more states and 13.6% more groups than the method we use, and the random grouping technique would use 12.1% more states and 4.5% more groups.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.6">Filling the Tables</head><p>Until now, we have shown how to break a rule set into a set of groups, the way to construct Aho-Corasick state machines for each group, and the algorithm to split these Aho-Corasick state machines into new sets of state machines. The final step to mapping a rule set onto our architecture is then filling the tables in all modules. As described in Section 2.2 , each entry in a table is for one state. The next state pointers and the partial match vector for state x is stored in entry ure 4 shows an example of 4 state machines split from the Aho-Corasick state machine in <ref type="figure">Figure 3</ref> mapped onto our architecture. Here instead of splitting into 8 state machines, we split the Aho-Corasick state machine into 4 state machines, which is optimal in terms of storage which we will show in Section 4. Each of these 4 state machines is responsible for 2 bits of an input byte. Still taking "hxhe" as an example input stream, the transitions of all of the 4 state machines starting from state 0 are shown by arrows. At each cycle, a partial match vector is produced by each tile, and the logic AND of these partial match vectors are outputted. According to different requirements of Intrusion Detection/Prevention Systems, our architecture can output only after an entire packet is scanned instead of at each cycle.</p><formula xml:id="formula_1">x. Fig- n Fanout Storage in bits T n,g 2 16 n񮽙 S g 񮽙 * 2 p * (g + g + 32p) 4 4 n񮽙 S g 񮽙 * 2 p * (g + 3g + 16p) 8 2 n񮽙 S g 񮽙 * 2 p * (g + 7g + 16p)</formula></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="4">Analysis of Design</head><p>Now that we have presented our string matching architecture and the algorithm used to construct its configuration from a set of strings, we now present an analysis of several important design options and compare against prior work.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="4.1">Theoretical Optimal Partitioning</head><p>As we mentioned in the prior section, we can divide the Aho-Corasick state machine into 8 binary state machines, each of which processes only 1 bit at a time. While 8 binary state machines is the easiest to understand, we could also split the Aho-Corasick algorithms into 4 state machines, each of which processes 2 bits at a time, or 2 state machines that process 4 bits at a time. A different way to divide up the original state machine is to partition the strings into groups of different sizes, such as 8, 16, 32, 64 and 128 strings per group. We would like to know which combination of the two parameters, module size n (the number of state machines per rule module) and group size g (the number of strings per group), is the best in terms of total storage in bits among all possible combinations.</p><p>Given a rule set of S strings, each of which has L characters per string on average (length), the total number of bits our architecture requires is approximately, T n,g = n񮽙 S g 񮽙2 񮽙log2(gL)񮽙 (񮽙log 2 (gL)񮽙2</p><p>8 n + g) From this formula, we can see that the smaller the group size g is the smaller T n,g is.</p><p>The effect of n on T n,g is not that direct from the formula above. We can see this effect more clearly if we plug numerical n into T n,g . The concrete results after variable n is plugged in are shown in <ref type="table" target="#tab_3">Table 2</ref> where fanout is the number of next state pointers for each state.  <ref type="table" target="#tab_2">V  M  P  1  1  0  1  1  0  0  0   2  e  l  i  T  0  e  l  i  T  3  e  l  i  T  1  e  l</ref>  We can see from <ref type="table" target="#tab_3">Table 2</ref> that T 4,g is minimum when the constraint g &lt; 8p is satisfied, which is always true in practice when g is not very big, say less or equal to 64.</p><note type="other">i T 0 1 0 1 0 1 1 0 0 0 0 1 1 0 h 0 e l c y C 0 0 1 1 1 0 x 1 e l c y C 0 0 0 1 1 0 h 2 e l c y C 1 0 0 1 1 0 e 3 e l c y C h</note></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="4.2">Practical Optimal Partitioning</head><p>We have obtained the theoretical optimal parameters for our architecture in the previous section. We are now going to confirm some of these results, point out some of the problems with them and obtain the optimal parameters in practice.</p><p>There are three problems with the theoretical analysis above. First, the approximation of the number of rule modules used in T n,g , 񮽙 S g 񮽙, is for the ideal case and in reality more rule modules may be needed. Second, p = 񮽙log 2 (gL)񮽙 is used as the approximation of the number of bits to encode each state. If the longest string is longer than gL, requiring more than gL states, more bits than p will be needed to do the encoding. The length of the longest string in the Snort rule set we use is between 64 and 128, which means at least 7 bits are needed. In short, p values that is not large enough to accommodate the longest string have to be eliminated. Finally, the total storage consists of the total number of bits and some circuit overhead, e.g. decoder and multiplexer. The more groups the strings are divided into, the more overhead the entire system will have.</p><p>We tune the two parameters on the real Snort rule set and these practical results are shown in <ref type="figure" target="#fig_3">Figure 5</ref>. The X-axis is the group sizes g on a logarithmic scale, and the Y-axis is memory in megabytes. The four lines in the figure correspond to data for four different levels of state-machine fanout. We can see from the graph that the line for a fanout of 256 is high above the other lines which indicates that the traditional way to implement state machines (with 256 next state pointers) uses far more storage than our bit-split state machines. Even if the group size is as small as 8, 3.74MB are needed, which is more than 7 times of the storage of the other fanouts. The fact that all lines increase monotonically confirms that the smaller the group size the smaller the total memory needed. We can see that the two best points are for fanout 4 with group size 8 and group size 16. These configurations use only 0.4MB to store the entire Snort rule set. We chose a group size of 16 which allows for longer strings, with the concern that string length is growing and that larger tiles sizes cause less overhead.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="4.3">Detailed Throughput and Area Comparison</head><p>As we mentioned in Section 2, IDS/IPS have three main requirements on string matching algorithms, which are worst case throughput, non-interrupting update and area efficiency. So here we compare these three requirements on our design and a number of other designs. In Section 2, we have described our architectural support for incremental and non-interrupting update, therefore we concentrate on the other two requirements, the worst case throughput and area efficiency, as well as performance per area (Throughput*Characters/Area) in the rest of this section.</p><p>From <ref type="table" target="#tab_6">Table 3</ref>, we can see that our design can achieve worst case throughput of over 10 Gbit/sec even if only 1 byte is read in each cycle, while the best of all FPGA-based meth- ods we examined can only achieve a throughput of just over 3 Gbit/sec with this read-in rate. Even the smallest throughput configuration of our design handles over 8 Gbit/sec, with a great increase in area efficiency and performance per area. In addition to throughput, we compare area efficiency (in char/mm 2 ) among different designs. We explore tradeoffs in SRAM memory bank sizes using a modified version of CACTI 3.2 <ref type="bibr" target="#b22">[23]</ref>. Area results of FPGA-based methods are calculated from the number of LUTs and area needed by each LUT and are normalized to the same technology (0.13 µm). Our design achieves an area efficiency of 320.972 characters/mm 2 , which is more than 4 times of that of the best FPGA-based designs examined. The performance per area of our design is near 12 times of that of the best examined FPGA-based methods. <ref type="figure">Figure 6</ref> shows the efficiency comparison of our bit-split FSM design and FPGA-based designs. The X-axis is the area efficiency, the number of characters per square millimeter the design can support. The Y-axis is the throughput in Gbit/sec. All points on the same dashed line in the figure have the same performance per area value. Dashed lines on the upper right part of the figure have higher performance per area value. So the points on the upper right part denote more efficient designs. We can clearly see that even the least efficient configuration of our bit-split FSM design beats the best FPGA-based designs examined and most of the bit-split FSM design are far better than these FPGA-based designs.</p><p>Our method is also better than the best software method we examined. Tuck et al. <ref type="bibr" target="#b29">[30]</ref> optimized the Aho-Corasick algorithm by looking at bitmap compression and path compression to reduce the amount of memory needed to 2.8MB and 1.1MB respectively, which are still at least about 3 times of that of our design, which is only requires 0.4MB.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="5">Related Work</head><p>Recently there has been a flurry of work related to string matching in many different areas of computer engineering.   This work can be broadly broken down by the target of its intended implementation, either in software, or in an FPGA. While we could not hope to provide a comprehensive set, we attempt to contrast our work with several key representatives from each area.</p><p>Software-based: Most software based techniques concentrate on the reducing the common case performance. BoyerMoore <ref type="bibr" target="#b7">[8]</ref> is a prime example of such technique, as it lets its user search for strings in sub-linear time if the suffix of the string to be searched for appears rarely in the input stream. While Boyer-Moore only searches for one string at a time, <ref type="bibr">Fisk and Varghese [14]</ref> present a multiple-pattern search algorithm that combines the one-pass approach of Aho-Corasick with the skipping feature of Boyer-Moore as optimized for the average case by Horspool. The work by Tuck, et al. <ref type="bibr" target="#b29">[30]</ref> takes a different approach to optimizing Aho-Corasick by instead looking at bitmap compression and path compression to reduce the amount of memory needed.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>FPGA-based:</head><p>The area that has seen the most amount of string matching research is in the reconfigurable computing community <ref type="bibr" target="#b10">[11,</ref><ref type="bibr" target="#b16">17,</ref><ref type="bibr" target="#b23">24,</ref><ref type="bibr" target="#b14">15,</ref><ref type="bibr" target="#b4">5,</ref><ref type="bibr" target="#b5">6,</ref><ref type="bibr" target="#b9">10,</ref><ref type="bibr" target="#b12">13,</ref><ref type="bibr" target="#b3">4,</ref><ref type="bibr" target="#b8">9,</ref><ref type="bibr" target="#b2">3]</ref>. Proponents of the work in this area argue intrusion detection is a perfect application of reconfigurable computing because it is computationally intensive, throughput oriented, and the rule sets change overtime but only relatively slowly. Because FPGAs are inherently reconfigurable, the majority of prior work in this area focuses on efficient ways to map the a given rule set down to a specialized circuit that implements the search. The configuration (the circuit implemented on the FPGA) is custom designed to take advantage of the nature of a given  specific rule set, and any change to the rule set will require the generation of a new circuit (usually in a hardware description language) which is then compiled down through the use of CAD tools. The work of Sourdis and Pnevmatikatos <ref type="bibr" target="#b23">[24]</ref> describes an approach that is specifically tuned to the hardware resource available to devices available from Xilinx to provide near optimal resource utilization and performance. Because they demonstrate that there mapping is highly efficient, and they compare against prior work in the domain of reconfigurable computing, we compare directly against their approach. Even though every shift-register and logic unit is being used in a highly efficient manner, the density and regularity of SRAM are used to a significant advantage in our approach resulting in silicon level efficiencies of 10 times or more. It should be also noted that most FPGA based approaches are usually truly tied to an FPGA based implementation because they lie on the underlying reconfigurability to adjust to new rule sets. In our approach this is provided simply by updating the SRAM and can be done in a manner that does not require a temporary loss of service. While in this paper we have explored an application specific approach, it is certainly feasible that the techniques we have developed and presented would allow for the efficient mapping of string matching to other tile based architectures. For example Cho and Mangione-Smith presented a technique for implementing state machines on block-RAMs in FPGAs <ref type="bibr" target="#b8">[9]</ref> and concurrent to our work Aldwairi et. al. <ref type="bibr" target="#b2">[3]</ref> proposed mapping state machines to on-chip SRAM. Another example where the optimizations we present would still be valuable is where the application is mapped down to more general purpose programmable memory tiles <ref type="bibr" target="#b17">[18,</ref><ref type="bibr" target="#b28">29,</ref><ref type="bibr" target="#b26">27]</ref>.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="6">Conclusions</head><p>While in this paper we examine the use of our technique strictly for intrusion detection with Snort, our methodology is general purpose enough to be useful across a variety of other application domains. String matching plays a crucial part in the execution of many spam detection algorithms (to match strings which are most likely spam) <ref type="bibr" target="#b0">[1]</ref>. Even outside of security we see opportunities for high-speed string matching. For example, in peephole optimization, we want to replace a sequence of instructions with another functionally equivalent but more efficient sequence to achieve higher overall performance of programs <ref type="bibr" target="#b27">[28,</ref><ref type="bibr" target="#b18">19]</ref>. A sequence of instructions to be replaced can be of different lengths and can appear at any location of programs. A faster string matching algorithm could boost optimization speed and enable the creation of simplified run-time optimizers for embedded systems. There may also be opportunities to apply our technique to well studied areas of IP lookups <ref type="bibr" target="#b21">[22]</ref>, and packet classification <ref type="bibr" target="#b15">[16]</ref>.</p><p>In addition to improve string matching performance, our bit-split FSM scheme can be detached from string matching to be applied to general search problems on general state machines. Any such state machine problem where there is a high fanout from each of the nodes may be improved dramatically.</p><p>One great way to improve throughput is to read in more than one byte at a time. This scheme is infeasible, however, for original Aho-Corasick Algorithm due to the high fanout from nodes in the state machines. On the other hand, our bit-split FSMs only have two next states for each node and thus can be easily expanded to read in more than one byte at a time to multiply throughput with reasonable increase in storage size.</p><p>As security becomes an increasingly important concern, computer systems will almost certainly need to change to help address this problem. While Network Intrusion Detection and Prevention Systems are certainly not a silver bullet to the complex and dynamic security problems faced by today's system designers, they do provide a powerful tool. Because network IDSs require no update or modification to any of the systems they help to protect, they have grown rapidly in recent years both in adoption and power. In this paper we present an architecture and algorithm that is small enough to be included on existing network chips as a separate accelerator, that is fast and efficient enough to keep up with aggressive network speeds, and that supports always on capability with tight worst case bounds on performance. To provide this functionality we rely on the combination of a simple yet scalable special purpose architecture working in tandem with a new specialized rule compiler which can extract bit-level parallelism from the state of the art string matching algorithms. In the end, we have shown how the problem of high-speed string matching can be addressed by converting the large database of strings into many tiny state machines, each of which searches for a portion of the rules and a portion of the bits of each rule.</p></div><figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_2"><head>Figure 4 :</head><label>4</label><figDesc>Figure 4: The state transitions of input stream "hxhe" on the rule module for strings "he", "she", "his" and "hers". Only the first 4 bits of 16-bit Partial Match Vectors (PMV) are shown in this diagram because the rest of 12 bits are all zeros for only 4 strings are mapped onto the Rule Module. Here instead of splitting into 8 state machines, we split the Aho-Corasick state machine into 4 state machines, each of which is responsible for 2 bits of an input byte. The Full Match Vector output on Cycle 3+P, 1000, shows that by this cycle string "he" is matched.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_3"><head>Figure 5 :</head><label>5</label><figDesc>Figure 5: Practical Memory Comparison for Different Fanout and Group Sizes. X-axis is the number of strings per rule module, also referred to as group sizes, on a logarithmic scale. The four lines correspond to data for four different fanout.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_5"><head>Figure</head><label></label><figDesc>Figure 6: Efficiency (Throughput*Char/Area) Comparison of</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_1" validated="false"><head>3 and B 4 among the eight state machines, B 0 , B 1 ... , and B 7 , split from D. State machine B 3 is only responsible for Bit 3 of any input character, while state machine B 4 is only responsible for Bit 4 of any input character.</head><label></label><figDesc>Figure 3: Extracting bit-level parallelism from the Aho-Corasick algorithm by splitting the state machine into 8 parallel state machines. The leftmost state machine is the Aho-Corasick state machine (D) constructed for strings "he", "she", "his" and "hers". Next state pointers pointing back to State 0 is not shown in the graph because it is unrealistic and also unclear to show all of the 256 next state pointers for each state in this limited space. The other two state machines are two binary state machines B</figDesc><table></table></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_2" validated="false"><head>Table 1 : Binary Encoding of input stream "hxhe"</head><label>1</label><figDesc></figDesc><table></table></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_3" validated="false"><head>Table 2 : Optimal Module Sizes. 񮽙log2(gL)񮽙 is denoted by p for clarity.</head><label>2</label><figDesc></figDesc><table></table></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_6" validated="false"><head>Table 3 :</head><label>3</label><figDesc></figDesc><table>Detailed Comparison of Our Bit Split FSM Design and existing FPGA-based Designs. Throughput, density, and efficiency are 
+
+shown for a variety of different design options. g = group size. 1B/cc = read in one byte per cycle time. 
+
+</table></figure>
+
+			<note place="foot" n="1"> Some states can be shared by different strings, the total number of states is however on the same order of magnitude. Published in Proceedings of ISCA 2005</note>
+
+			<note place="foot" n="2"> this feature can be used to identify a particular 4 byte IP address for example</note>
+
+			<note place="foot">Published in Proceedings of ISCA 2005</note>
+		</body>
+		<back>
+
+			<div type="acknowledgement">
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>Acknowledgments</head><p>The authors would like to thank Andrew Petersen, Fred Chong, and the anonymous reviewers for providing useful comments on this paper. This work was funded in part by NSF Career Grant CCF-0448654.</p></div>
+			</div>
+
+			<div type="references">
+
+				<listBibl>
+
+<biblStruct xml:id="b0">
+	<monogr>
+		<title level="m" type="main">White paper: Recurrent pattern detection (RPD TM ) technology</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Commtouch</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><surname>񮽙</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><surname>Ltd</surname></persName>
+		</author>
+		<ptr target="http:www.commtouch.com/documents/CommtouchRPDWhitePaper.pdf" />
+		<imprint/>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b1">
+	<analytic>
+		<title level="a" type="main">Efficient string matching: An aid to bibliographic search</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><forename type="middle">V</forename><surname>Aho</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><forename type="middle">J</forename><surname>Corasick</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Communications of the ACM</title>
+		<imprint>
+			<biblScope unit="volume">18</biblScope>
+			<biblScope unit="issue">6</biblScope>
+			<biblScope unit="page" from="333" to="340" />
+			<date type="published" when="1975" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b2">
+	<analytic>
+		<title level="a" type="main">Configurable string matching hardware for speedup up intrusion detection</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Aldwairi</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">T</forename><surname>Conte</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>Franzon</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Workshop on Architectural Support for Security and Anti-virus (WASSA) Held in Cooperation with ASPLOS XI</title>
+		<imprint>
+			<date type="published" when="2004-10" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b3">
+	<analytic>
+		<title level="a" type="main">Implementation results of bloom filters for string matching</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Attig</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Dharmapurikar</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Lockwood</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the FieldProgrammable Custom Computing Machines, 12th Annual IEEE Symposium on (FCCM&apos;04)</title>
+		<meeting>the FieldProgrammable Custom Computing Machines, 12th Annual IEEE Symposium on (FCCM&apos;04)</meeting>
+		<imprint>
+			<publisher>IEEE Computer Society</publisher>
+			<date type="published" when="2004" />
+			<biblScope unit="page" from="322" to="323" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b4">
+	<analytic>
+		<title level="a" type="main">A methodology for synthesis of efficient intrusion detection systems on FPGAs</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Z</forename><forename type="middle">K</forename><surname>Baker</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">V</forename><forename type="middle">K</forename><surname>Prasanna</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the Field-Programmable Custom Computing Machines, 12th Annual IEEE Symposium on (FCCM&apos;04)</title>
+		<meeting>the Field-Programmable Custom Computing Machines, 12th Annual IEEE Symposium on (FCCM&apos;04)</meeting>
+		<imprint>
+			<publisher>IEEE Computer Society</publisher>
+			<date type="published" when="2004" />
+			<biblScope unit="page" from="135" to="144" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b5">
+	<analytic>
+		<title level="a" type="main">Time and area efficient pattern matching on FPGAs</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Z</forename><forename type="middle">K</forename><surname>Baker</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">V</forename><forename type="middle">K</forename><surname>Prasanna</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceeding of the 2004 ACM/SIGDA 12th International Symposium on Field Programmable Gate Arrays</title>
+		<meeting>eeding of the 2004 ACM/SIGDA 12th International Symposium on Field Programmable Gate Arrays</meeting>
+		<imprint>
+			<publisher>ACM Press</publisher>
+			<date type="published" when="2004" />
+			<biblScope unit="page" from="223" to="232" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b6">
+	<analytic>
+		<title level="a" type="main">Transparent run-time defense against stack smashing attacks</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Baratloo</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">N</forename><surname>Singh</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">T</forename><surname>Tsai</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the USENIX Security Symposium</title>
+		<meeting>the USENIX Security Symposium</meeting>
+		<imprint>
+			<date type="published" when="2000-06" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b7">
+	<analytic>
+		<title level="a" type="main">A fast string searching algorithm</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><forename type="middle">S</forename><surname>Boyer</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><forename type="middle">S</forename><surname>Moore</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Communications of the ACM</title>
+		<imprint>
+			<biblScope unit="volume">20</biblScope>
+			<biblScope unit="issue">10</biblScope>
+			<biblScope unit="page" from="761" to="772" />
+			<date type="published" when="1977" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b8">
+	<analytic>
+		<title level="a" type="main">Deep packet filter with dedicated logic and read only memories</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Y</forename><surname>Cho</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">W</forename><surname>Mangione-Smith</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">IEEE Symposium on Field-Programmable Custom Computing Machines</title>
+		<imprint>
+			<date type="published" when="2004-04" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b9">
+	<analytic>
+		<title level="a" type="main">Specialized hardware for deep network packet filtering</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Y</forename><forename type="middle">H</forename><surname>Cho</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Navab</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">W</forename><forename type="middle">H</forename><surname>Mangione-Smith</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">12th International Converence on Field-Programmable Logic and Applications</title>
+		<imprint>
+			<date type="published" when="2002" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b10">
+	<analytic>
+		<title level="a" type="main">Efficient reconfigurable logic circuits for matching complex network intrusion detection patterns</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><forename type="middle">R</forename><surname>Clark</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><forename type="middle">E</forename><surname>Schimmel</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">13th International Conference on Field Programmable Logic and Applications</title>
+		<imprint>
+			<date type="published" when="2003-09" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b11">
+	<analytic>
+		<title level="a" type="main">Denial of service via algorithmic complexity attacks</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><forename type="middle">A</forename><surname>Crosby</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><forename type="middle">S</forename><surname>Wallach</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of USENIX Annual Technical Conference</title>
+		<meeting>USENIX Annual Technical Conference</meeting>
+		<imprint>
+			<date type="published" when="2003-06" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b12">
+	<monogr>
+		<title level="m" type="main">Deep packet inspection using parallel bloom filters. Micro</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Dharmapurikar</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Attig</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Lockwood</surname></persName>
+		</author>
+		<imprint>
+			<date type="published" when="2004-02" />
+			<publisher>IEEE</publisher>
+			<biblScope unit="volume">24</biblScope>
+			<biblScope unit="page" from="52" to="61" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b13">
+	<monogr>
+		<title level="m" type="main">Applying fast string matching to intrusion detection</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Fisk</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">G</forename><surname>Varghese</surname></persName>
+		</author>
+		<idno>In preparation, successor to UCSD TR CS2001-0670</idno>
+		<imprint>
+			<pubPlace>San Diego</pubPlace>
+		</imprint>
+		<respStmt>
+			<orgName>University of California</orgName>
+		</respStmt>
+	</monogr>
+<note type="report_type">Technical Report</note>
+</biblStruct>
+
+<biblStruct xml:id="b14">
+	<analytic>
+		<title level="a" type="main">Granidt: Towards gigabit rate network intrusion detection technology</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Gokhale</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Dubois</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Dubois</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Boorman</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Poole</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">V</forename><surname>Hogsett</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the Reconfigurable Computing Is Going Mainstream, 12th International Conference on Field-Programmable Logic and Applications</title>
+		<meeting>the Reconfigurable Computing Is Going Mainstream, 12th International Conference on Field-Programmable Logic and Applications</meeting>
+		<imprint>
+			<publisher>Springer-Verlag</publisher>
+			<date type="published" when="2002" />
+			<biblScope unit="page" from="404" to="413" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b15">
+	<analytic>
+		<title level="a" type="main">Algorithms for packet classification</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>Gupta</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">N</forename><surname>Mckeown</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">IEEE Network Magazine</title>
+		<imprint>
+			<date type="published" when="2001-03" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b16">
+	<analytic>
+		<title level="a" type="main">Assisting network intrusion detection with reconfigurable hardware</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">B</forename><forename type="middle">L</forename><surname>Hutchings</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Franklin</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Carver</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the 10 th Annual IEEE Symposium on Field-Programmable Custom Computing Machines (FCCM&apos;02)</title>
+		<meeting>the 10 th Annual IEEE Symposium on Field-Programmable Custom Computing Machines (FCCM&apos;02)</meeting>
+		<imprint>
+			<publisher>IEEE Computer Society</publisher>
+			<date type="published" when="2002" />
+			<biblScope unit="page">111</biblScope>
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b17">
+	<analytic>
+		<title level="a" type="main">Smart memories: A modular reconfigurable architecture</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">K</forename><surname>Mai</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">T</forename><surname>Paaske</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">N</forename><surname>Jayasena</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Ho</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">W</forename><surname>Dally</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Horowitz</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Annual International Symposium on Computer Architecture</title>
+		<imprint>
+			<date type="published" when="2000-06" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b18">
+	<analytic>
+		<title level="a" type="main">Fast peephole optimization techniques</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">B</forename><forename type="middle">J</forename><surname>Mckenzie</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Softw. Pract. Exper</title>
+		<imprint>
+			<biblScope unit="volume">19</biblScope>
+			<biblScope unit="issue">12</biblScope>
+			<biblScope unit="page" from="1151" to="1162" />
+			<date type="published" when="1989" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b19">
+	<monogr>
+		<title level="m" type="main">Intrusion detection/prevention product revenue up 9% in 1Q04</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">I</forename><forename type="middle">M</forename><surname>Research</surname></persName>
+		</author>
+		<imprint>
+			<date type="published" when="2004-06" />
+		</imprint>
+	</monogr>
+<note type="report_type">Technical report</note>
+</biblStruct>
+
+<biblStruct xml:id="b20">
+	<analytic>
+		<title level="a" type="main">Snort -lightweight intrusion detection for networks</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Roesch</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of LISA&apos;99: 13th Systems Administration Conference</title>
+		<meeting>LISA&apos;99: 13th Systems Administration Conference</meeting>
+		<imprint>
+			<date type="published" when="1999-11" />
+			<biblScope unit="page" from="229" to="238" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b21">
+	<analytic>
+		<title level="a" type="main">Survey and taxonomy of IP address lookup algorithms</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Sanchez</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">E</forename><surname>Biersack</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">W</forename><surname>Dabbous</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">IEEE Network Magazine</title>
+		<imprint>
+			<biblScope unit="volume">15</biblScope>
+			<biblScope unit="issue">2</biblScope>
+			<biblScope unit="page" from="8" to="23" />
+			<date type="published" when="2001" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b22">
+	<analytic>
+		<title level="a" type="main">CACTI 3.0: An integrated cache timing, power, and area model</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>Shivakumar</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">N</forename><surname>Jouppi</surname></persName>
+		</author>
+		<idno>WRL-2001-2</idno>
+	</analytic>
+	<monogr>
+		<title level="j">HP Labs Technical Reports</title>
+		<imprint>
+			<date type="published" when="2001-12" />
+		</imprint>
+	</monogr>
+<note type="report_type">Technical Report</note>
+</biblStruct>
+
+<biblStruct xml:id="b23">
+	<analytic>
+		<title level="a" type="main">Pre-decoded CAMs for efficient and high-speed NIDS pattern matching</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">I</forename><surname>Sourdis</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Pnevmatikatos</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the FieldProgrammable Custom Computing Machines, 12th Annual IEEE Symposium on (FCCM&apos;04)</title>
+		<meeting>the FieldProgrammable Custom Computing Machines, 12th Annual IEEE Symposium on (FCCM&apos;04)</meeting>
+		<imprint>
+			<publisher>IEEE Computer Society</publisher>
+			<date type="published" when="2004" />
+			<biblScope unit="page" from="258" to="267" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b24">
+	<analytic>
+		<title level="a" type="main">Fast address lookups using controlled prefix expansion</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">V</forename><surname>Srinivasan</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">G</forename><surname>Varghese</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">ACM Transactions on Computer Systems</title>
+		<imprint>
+			<biblScope unit="volume">7</biblScope>
+			<biblScope unit="issue">1</biblScope>
+			<biblScope unit="page" from="1" to="40" />
+			<date type="published" when="1999-02" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b25">
+	<analytic>
+		<title level="a" type="main">Automated worm fingerprinting</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">G</forename><forename type="middle">V</forename><surname>Sumeet</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Cristian</forename><surname>Singh</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Estan</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><surname>Savage</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the ACM/USENIX Symposium on Operating System Design and Implementation (OSDI)</title>
+		<meeting>the ACM/USENIX Symposium on Operating System Design and Implementation (OSDI)</meeting>
+		<imprint>
+			<date type="published" when="2004-12" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b26">
+	<monogr>
+				<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Swanson</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">K</forename><surname>Michelson</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Schwerin</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Oskin</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><surname>Wavescalar</surname></persName>
+		</author>
+		<title level="m">36th International Symposium on Microarchitecture</title>
+		<imprint>
+			<date type="published" when="2003-12" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b27">
+	<analytic>
+		<title level="a" type="main">Using peephole optimization on intermediate code</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><forename type="middle">S</forename><surname>Tanenbaum</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">H</forename><surname>Van Staveren</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><forename type="middle">W</forename><surname>Stevenson</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">ACM Trans. Program. Lang. Syst</title>
+		<imprint>
+			<biblScope unit="volume">4</biblScope>
+			<biblScope unit="issue">1</biblScope>
+			<biblScope unit="page" from="21" to="36" />
+			<date type="published" when="1982" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b28">
+	<analytic>
+		<title level="a" type="main">Evaluation of the Raw microprocessor: An exposed-wire-delay architecture for ILP and streams</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><forename type="middle">B</forename><surname>Taylora</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">W</forename><surname>Lee</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Miller</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Wentzlaff</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">I</forename><surname>Bratt</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">B</forename><surname>Greenwald</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><surname>Henry</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>Hoffmann</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Johnson</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Kim</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Psota</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">N</forename><surname>Saraf</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">V</forename><surname>Shnidman</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Strumpen</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Frank</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Amarasinghe</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><surname>Agarwal</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Annual International Symposium on Computer Architecture</title>
+		<imprint>
+			<date type="published" when="2004-06" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b29">
+	<analytic>
+		<title level="a" type="main">Deterministic memory-efficient string matching algorithms for intrusion detection</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">N</forename><surname>Tuck</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">T</forename><surname>Sherwood</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">B</forename><surname>Calder</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">G</forename><surname>Varghese</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">the 23rd Conference of the IEEE Communications Society (Infocomm)</title>
+		<imprint>
+			<date type="published" when="2004-03" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b30">
+	<analytic>
+		<title level="a" type="main">Architecture support for defending against buffer overflow attacks</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Xu</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Z</forename><surname>Kalbarczyk</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Patel</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><forename type="middle">K</forename><surname>Iyer</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Workshop on Evaluating and Architecting Systems for Dependability</title>
+		<imprint>
+			<date type="published" when="2002-06" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+				</listBibl>
+			</div>
+		</back>
+	</text>
+</TEI>

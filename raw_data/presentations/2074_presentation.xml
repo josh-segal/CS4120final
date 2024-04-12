@@ -1,0 +1,132 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>parakeet A Just-in-Time Parallel Accelerator for</p>
+    <p>Numerical Python</p>
+    <p>Alex Rubinsteyn Eric Hielscher Nathaniel Weinman Dennis Shasha New York University</p>
+  </div>
+  <div class="page">
+    <p>Naive Python Code (is slow)</p>
+    <p>Takes ~10 minutes on a billion integers</p>
+    <p>def count(big_array, target): c = 0 for x in big_array: if x == target: c += 1 return c</p>
+    <p>Count the number of times a value occurs within an array:</p>
+  </div>
+  <div class="page">
+    <p>NumPy exists for a reason</p>
+    <p>However:  Creates large temporary array  Only uses single core</p>
+    <p>Can we do better without leaving Python?</p>
+    <p>def count(big_array, target): return np.sum(big_array == target)</p>
+    <p>Runs in 6.62 seconds, an 88X improvement!</p>
+  </div>
+  <div class="page">
+    <p>Parakeet to the Rescue (Sequential version)</p>
+    <p>@PAR decorator marks boundary between Parakeet and Python</p>
+    <p>Dynamically compiled to (sequential) LLVM Runs in 1.4 seconds!</p>
+    <p>from parakeet import PAR @PAR def count(big_array, target): c = 0 for x in big_array: if x == target: c += 1 return c</p>
+  </div>
+  <div class="page">
+    <p>Lets Get Parallel</p>
+    <p>Runs in 0.2 seconds across 8 cores!</p>
+    <p>~3000X faster than naive Python ~33X faster than NumPy</p>
+    <p>...but where did the parallelism come from?</p>
+    <p>@PAR def count(big_array, t): return parakeet.sum(big_array == t)</p>
+  </div>
+  <div class="page">
+    <p>meet the adverbs</p>
+    <p>Adverbs are higher order array operators  map : transform each element or subarray  reduce : sum, min, etc...  scan : reduction which keeps intermediate</p>
+    <p>values (e.g. prefix sum)</p>
+    <p>allpairs : transform all pairs of elements or subarrays (e.g. matrix multiply)</p>
+    <p>Adverbs abstract enough for many implementations: sequential, multicore, GPU kernel, loop within kernel</p>
+  </div>
+  <div class="page">
+    <p>Adverbs in disguise</p>
+    <p>parakeet.sum(big_array == t)</p>
+    <p>Array broadcasting will get rewritten as: map(eq, big_array, t)</p>
+    <p>Library function, defined in Python as:</p>
+    <p>def sum(x): return reduce(add, x)</p>
+    <p>No parallelism without adverbs ...but dont always have to be explicit</p>
+  </div>
+  <div class="page">
+    <p>Python Subset</p>
+    <p>Most Python wont run in Parakeet:  Need source (nothing pre-compiled)  No non-uniform data structures: lists,</p>
+    <p>sets, dictionaries, etc...  No support for user-defined objects,</p>
+    <p>exceptions, generators, etc...  Restrictions recursively apply to</p>
+    <p>every called function Friday, June 8, 12</p>
+  </div>
+  <div class="page">
+    <p>Is anything left?</p>
+    <p>scalars + control flow + arrays + adverbs</p>
+    <p>numbers, booleans, tuples, None  math &amp; logic operators, NumPy ufuncs  loops, if statements  array literals &amp; functions like arange  array attributes (e.g. shape, T)  Parakeets adverbs (e.g. map, reduce, ...)</p>
+    <p>If its not supported, leave it in Python Friday, June 8, 12</p>
+  </div>
+  <div class="page">
+    <p>How does it work? @PAR def f(x): return x + 1</p>
+    <p>f(673.6)</p>
+    <p>f(np.arange(5))</p>
+    <p>f(x : int) { return x +float 1.0 }</p>
+    <p>f(x : array1&lt;int&gt;) { return map(+int, x, 1) }</p>
+    <p>Decide where should each adverb run, synthesize native code</p>
+    <p>add tasks to work queue (multi-core), transfer data &amp; launch kernel (GPU)</p>
+    <p>Decorator parses function source, translates to untyped</p>
+    <p>intermediate language</p>
+  </div>
+  <div class="page">
+    <p>Details: Typed IL</p>
+    <p>Every value annotated with type  Rewrite polymorphism into coercions (e.g.</p>
+    <p>addition becomes +int32, +float64, ...)  Array broadcasting &amp; indexing  maps  Optimized aggressively (adverb fusion)</p>
+    <p>ScalarType = i8 | ... | i64 | f32 | f64</p>
+    <p>Type = scalar | tuple | array {ScalarType, rank}</p>
+  </div>
+  <div class="page">
+    <p>Parallelizing Adverbs is (conceptually) easy</p>
+    <p>map(f, concat(x,y)) = concat(map(f, x), map(f, y))</p>
+    <p>reduce(f, concat(x,y)) = f(reduce(f, x), reduce(f, y))</p>
+    <p>In practice, the split/recombine logic is more complicated and the implementations are messy.</p>
+  </div>
+  <div class="page">
+    <p>Adverb Parallelization</p>
+    <p>GPU</p>
+    <p>Kernel templates for each adverb (splice in userdefined function)</p>
+    <p>Adverb-specific launching logic</p>
+    <p>CPU</p>
+    <p>Threaded work queue  Adverbs implemented</p>
+    <p>as loops (same as single-core)</p>
+    <p>Adverb-specific logic for combining output of each worker</p>
+  </div>
+  <div class="page">
+    <p>Scheduling</p>
+    <p>Choose locations which minimize (very naive) cost:  Scalar operations all have same constant cost  Loops will execute only once  Sequential adverbs: cost(nested fn) * number of elements  Parallel adverbs: divide by number of processors</p>
+    <p>Special considerations for GPU:  memory transfer cost  tree-structured scans and reductions</p>
+    <p>Different locations where an adverb can run: Multicore backend: interpreter, multicore, sequential GPU backend: interpreter, kernel, thread</p>
+  </div>
+  <div class="page">
+    <p>Runtime Odds &amp; Ends</p>
+    <p>Lots of plumbing!  Shape inference  Keep track of multiple function</p>
+    <p>specializations  Code caches for CPU &amp; GPU</p>
+    <p>implementations of adverb instances  What data is already on the GPU?  What data is no longer used?</p>
+  </div>
+  <div class="page">
+    <p>Its Not Magic</p>
+    <p>parakeet.allpairs(parakeet.dot, X, Y.T)</p>
+    <p>Matrix multiplication, Parakeet style:</p>
+    <p>With 1000x1000 inputs:  Parakeet: 310 ms (8 CPU cores)  NumPy: 90 ms (single core BLAS)</p>
+    <p>Were ignoring data layout and cache locality</p>
+  </div>
+  <div class="page">
+    <p>Whats Next?</p>
+    <p>Dynamically choose better data layout, transposed copy to local buffer (huge performance gains on both CPU and GPU)</p>
+    <p>Fix our busted GPU backend (moving to LLVM for saner PTX generation)</p>
+    <p>Heterogeneity! (if we have multiple backends, why cant they split the work?)</p>
+    <p>A less naive cost model (need to know how much work to give each backend)</p>
+  </div>
+  <div class="page">
+    <p>Summary</p>
+    <p>Restricting the programmer liberates the compiler</p>
+    <p>Higher order array operators (adverbs) admit diverse (parallel) implementations</p>
+    <p>Many adverbs hiding in array-oriented code  Python can be as fast as C, for a sufficiently</p>
+    <p>small definition of Python</p>
+  </div>
+  <div class="page">
+    <p>Thanks For Listening!</p>
+  </div>
+</Presentation>

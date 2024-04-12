@@ -1,0 +1,252 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>vSMT-IO: Improving I/O Performance and Efficiency on SMT Processors in Virtualized Clouds</p>
+    <p>Weiwei Jia, Jianchen Shan, Tsz On Li, Xiaowei Shang, Heming Cui, Xiaoning Ding</p>
+    <p>New Jersey Institute of Technology, Hofstra University, Hong Kong University</p>
+  </div>
+  <div class="page">
+    <p>SMT is widely enabled in clouds</p>
+    <p>Most types of virtual machines (VMs) in public clouds run on processors with SMT (Simultaneous Multi-Threading) enabled.  A hardware thread may be dedicatedly used by a virtual CPU (vCPU).  It may also be time-shared by multiple vCPUs.</p>
+    <p>Figure from internet</p>
+    <p>SMT Disabled</p>
+    <p>SMT Enabled</p>
+    <p>Enabling SMT can improve system throughput.  Multiple hardware threads (HTs) share the hardware</p>
+    <p>resources on each core.  Hardware resource utilization is increased.</p>
+  </div>
+  <div class="page">
+    <p>To achieve high throughput, CPU scheduler must be optimized to maximize CPU utilization and minimize overhead.</p>
+    <p>Extensively studied: symbiotic scheduling focuses on maximizing utilization for computation intensive workloads (SOS[ASPLOS00], cycle accounting[ASPLOS09, HPCA'16], ...).  Co-schedule on the same core the threads with high symbiosis levels.</p>
+    <p>Symbiosis level: how well threads can fully utilize hardware resources with minimal conflicts.</p>
+    <p>Under-studied: Scheduling I/O workloads with low overhead on SMT processors.  I/O workloads incur high scheduling overhead due to frequent I/O operations.  The overhead reduces throughput when there are computation workloads on the same</p>
+    <p>SMT core.</p>
+    <p>CPU scheduler is crucial for SMT processors</p>
+  </div>
+  <div class="page">
+    <p>Outline</p>
+    <p>Problem: efficiently schedule I/O workloads on SMT CPUs in virtualized clouds  vSMT-IO</p>
+    <p>Basic Idea: make I/O workloads &quot;dormant&quot; on hardware threads  Key issues and solutions</p>
+    <p>Evaluation  KVM-based prototype implementation is tested with real world</p>
+    <p>applications  Increases the throughput of both I/O workload (up to 88.3%)</p>
+    <p>and computation workload (up to 123.1%)</p>
+  </div>
+  <div class="page">
+    <p>I/O workloads are mixed with computation workloads in clouds</p>
+    <p>I/O applications and computation applications are usually consolidated on the same server to improve system utilization.</p>
+    <p>Even in the same application (e.g., a database server), some threads are computation intensive, and some other threads are I/O intensive.</p>
+    <p>The scheduling of I/O workloads affects both I/O and computation workloads.  High I/O throughput is not the only requirement.  High I/O efficiency (low overhead) is equally important to avoid degrading throughput</p>
+    <p>of computation workloads.</p>
+  </div>
+  <div class="page">
+    <p>To improve I/O performance, CPU scheduler increases the responsiveness of I/O workloads to I/O events.  Common pattern in I/O workloads: waiting for I/O events, responding and processing</p>
+    <p>them, and generating new I/O requests.  Respond to I/O events quickly to keep I/O device busy.</p>
+    <p>Existing techniques in CPU scheduler for increasing I/O responsiveness  Polling (Jisoo Yang et. al. [FAST2012]): I/O workloads enter busy loops while waiting for</p>
+    <p>I/O events.  Priority boosting (xBalloon [SoCC2017]): Prioritize I/O workloads to preempt running</p>
+    <p>workloads.  Incur busy-looping and context switches and reduce resources available to other</p>
+    <p>hardware threads.</p>
+    <p>Existing I/O-Improving techniques are inefficient on SMT processors</p>
+  </div>
+  <div class="page">
+    <p>Polling and priority boosting incur higher overhead in virtualized clouds</p>
+    <p>Polling on one hardware thread slows down the computation on the other hardware thread by about 30%.  Execute repeatedly instructions controlling busy-loops.  Incur costly VM_EXITs because polling is implemented at the host level.</p>
+    <p>Switching vCPUs incurred by priority boosting on one hardware thread may slow down the computation on the other hardware thread by about 70%.  Save and restore contexts  Execute of scheduling algorithm  Flush L1 data cache for security reasons  Handle rescheduling inter-processor interrupts (IPIs)</p>
+  </div>
+  <div class="page">
+    <p>Outline</p>
+    <p>Problem: efficiently schedule I/O workload on SMT CPUs in virtualized clouds vSMT-IO</p>
+    <p>Basic Idea: make I/O workloads &quot;dormant&quot; on hardware threads  Key issues and solutions</p>
+    <p>Evaluation  KVM-based prototype implementation is tested with real world</p>
+    <p>applications  Increases the throughput of both I/O workload (up to 88.3%)</p>
+    <p>and computation workload (up to 123.1%)</p>
+  </div>
+  <div class="page">
+    <p>Basic idea: make I/O workloads &quot;dormant&quot; on hardware threads</p>
+    <p>Motivated by the hardware design in SMT processors for efficient blocking synchronization (D.M. Tullsen et. al. [HPCA1999]).</p>
+    <p>Key technique: Context Retention, an efficient blocking mechanism for vCPUs.  A vCPU can block on a hardware thread and release all its resources while waiting for</p>
+    <p>an I/O event (no busy-looping).  High efficiency: other hardware threads can get extra resources.</p>
+    <p>The vCPU can be quickly unblocked without context switches upon the I/O event.  High I/O performance: I/O workload can quickly resume execution.</p>
+    <p>High efficiency: no context switches involved.</p>
+    <p>Implemented with MONITOR/MWAIT support on Intel CPUs.</p>
+  </div>
+  <div class="page">
+    <p>Issue #1: uncontrolled context retention can diminish the benefits from SMT</p>
+    <p>Context retention reduces the number of active hardware threads on a core.  On x86 CPUs, only one hardware thread remains active, when the other retains context.</p>
+    <p>Delay the execution of computation workloads or other I/O workloads on the core.</p>
+    <p>Uncontrolled context retention may be long time periods.</p>
+    <p>Some I/O operations have very long latencies (e.g., HDD seeks, queuing/scheduling delays).</p>
+    <p>Solution: enforce an adjustable timeout on context retentions.</p>
+    <p>Timeout interrupts context retentions before they become overlong.</p>
+    <p>Timeout value being too low or too high reduces both I/O performance and computation performance.</p>
+    <p>Value too low: context retention is ineffective (low I/O performance); high overhead from context switches (low computation performance).</p>
+    <p>The timeout value is adjusted dynamically (algorithm shown on next page).</p>
+  </div>
+  <div class="page">
+    <p>Start from a relatively low value</p>
+    <p>Gradually adjust timeout value</p>
+    <p>.</p>
+    <p>.</p>
+    <p>.</p>
+    <p>Gradually adjust timeout value</p>
+    <p>If new value can improve both I/O and computation</p>
+    <p>performance</p>
+  </div>
+  <div class="page">
+    <p>Issue #2: existing symbiotic scheduling techniques cannot handle mixed workloads</p>
+    <p>To maximize throughput, scheduler must co-schedule workloads with complementary resource demand.</p>
+    <p>The resource demand of I/O workloads change dramatically due to context retention and burstiness of I/O operations.</p>
+    <p>Existing symbiotic scheduling techniques target steady computation workloads and precisely characterize resource demand.</p>
+    <p>Solution: target dynamic and mixed workloads and coarsely characterize resource demand based on the time spent in context retention.</p>
+    <p>Rank and then categorize vCPUs based on the amount of time they spend on context retention.  Category #1: Low retention --- vCPUs with less context retention time are resource-hungry.  Category #2: High retention --- vCPUs with more context retention time consume little resource.</p>
+    <p>vCPUs from different categories have complementary resource demand and are co-scheduled on different hardware threads.</p>
+    <p>A conventional symbiotic scheduling technique is used only when all the ``runnable vCPUs are in low retention category.</p>
+  </div>
+  <div class="page">
+    <p>Other issues</p>
+    <p>Issue #3: context retention may reduce the throughput of I/O workloads since it reduces the timeslice available for their computation.</p>
+    <p>Solution:  Timeouts (explained earlier) help reduce the timeslice consumed by long context</p>
+    <p>retentions.</p>
+    <p>Compensate I/O workloads by increasing their weights/priorities.</p>
+    <p>Issue #4: the effectiveness of vSTM-IO reduces when the workloads become homogeneous on each core.</p>
+    <p>Solution:  Migrate workloads across different cores to increase the workload heterogeneity on</p>
+    <p>each core.  Workloads on different cores may still be heterogeneous.</p>
+    <p>E.g., computation workloads on one core, and I/O workloads on another core.</p>
+  </div>
+  <div class="page">
+    <p>Core 0</p>
+    <p>Retention-Aware</p>
+    <p>Symbiotic Scheduling</p>
+    <p>Workload</p>
+    <p>Monitor</p>
+    <p>Long Term</p>
+    <p>Context Retention</p>
+    <p>schedule</p>
+    <p>monitor</p>
+    <p>workload</p>
+    <p>info.</p>
+    <p>perf. info.timeout</p>
+    <p>Workload</p>
+    <p>Adjuster workload info.</p>
+    <p>Core 1</p>
+    <p>. . . migrate</p>
+    <p>. . .</p>
+    <p>. . .</p>
+    <p>. . .</p>
+    <p>. . .</p>
+    <p>workload info.</p>
+    <p>system component</p>
+    <p>CPU-bound vCPU</p>
+    <p>I/O-bound vCPU</p>
+    <p>data</p>
+    <p>control &amp; management</p>
+    <p>vSMT-IO Implementation Co-schedule vCPUs based on their</p>
+    <p>time spent in context retention (Implemented in Linux CFS)</p>
+    <p>Implement context retention and adjust timeout</p>
+    <p>Maintain workload heterogeneity on each core (Implemented in</p>
+    <p>Linux CFS and Linux idle threads)</p>
+  </div>
+  <div class="page">
+    <p>Outline</p>
+    <p>Problem: efficiently schedule I/O workload on SMT CPUs in virtualized clouds  vSMT-IO</p>
+    <p>Basic Idea: make I/O workloads &quot;dormant&quot; on hardware threads  Key issues and solutions</p>
+    <p>Evaluation  KVM-based prototype implementation is tested with real world</p>
+    <p>applications  Increase the throughput of both I/O workload (up to 88.3%)</p>
+    <p>and computation workload (up to 123.1%)</p>
+  </div>
+  <div class="page">
+    <p>Experimental Setup</p>
+    <p>Dell PowerEdge R430 with 24 cores (48 HTs), a 1TB HDD, and 64GB DRAM.</p>
+    <p>Both VMs and VMM (Linux QEMU/KVM) use Ubuntu Linux 18.04 with kernel version updated to 5.3.1.</p>
+    <p>Each VM has 24 vCPUs and 16GB DRAM.</p>
+    <p>Compared with three competing solutions  Priority boosting (implemented in KVM with HALT-Polling disabled)  Polling (implemented by booting guest OS with parameter ``idle=poll configured)  Polling with a dynamically adjusted timeout (implemented by enhancing KVM HALT-Polling)</p>
+    <p>Test under two settings  Each vCPU has a dedicated hardware thread.  Each hardware thread is time-shared by multiple vCPUs.</p>
+  </div>
+  <div class="page">
+    <p>Evaluation applications and workloads Application Workload</p>
+    <p>Redis Serve requests (randomly chosen keys, 50% SET, 50% GET)</p>
+    <p>HDFS Read 10GB data sequentially with HDFS TestDFSIO</p>
+    <p>Hadoop TeraSort with Hadoop</p>
+    <p>HBase Read and update records sequentially with YCSB</p>
+    <p>MySQL OLTP workload generated by SysBench for MySQL</p>
+    <p>Nginx Serve web requests generated by ApacheBench</p>
+    <p>ClamAV Virus scan a large file set with clamscan</p>
+    <p>RocksDB Serve requests (randomly chosen keys, 50% SET, 50% GET)</p>
+    <p>PgSQL TPC-B like workload generated by PgBench</p>
+    <p>Spark PageRank and Kmeans algorithms in Spark</p>
+    <p>DBT1 TPC-W like workload</p>
+    <p>XGBoost Four AI algorithms included in XGBoost system</p>
+    <p>Matmul Multiply two 8000x8000 matrices of integers</p>
+    <p>Sockperf TCP ping-pong test with Sockperf 17</p>
+  </div>
+  <div class="page">
+    <p>Evaluation objectives</p>
+    <p>To show vSMT-IO can improve I/O performance with high efficiency and benefit both I/O workloads and computation workloads.</p>
+    <p>To verify the effectiveness of the major techniques used in vSMT-IO.</p>
+    <p>To understand the performance advantages of vSMT-IO across diverse workload mixtures and different scenarios.</p>
+    <p>To evaluate the overhead of vSMT-IO</p>
+  </div>
+  <div class="page">
+    <p>Throughputs of eight benchmark pairs (one vCPU on each hardware thread)</p>
+  </div>
+  <div class="page">
+    <p>Throughputs of eight benchmark pairs (one vCPU on each hardware thread)</p>
+  </div>
+  <div class="page">
+    <p>relative to polling with timeout.</p>
+    <p>Throughputs of eight benchmark pairs (one vCPU on each hardware thread)</p>
+  </div>
+  <div class="page">
+    <p>respectively, relative to Polling, priority boosting and polling with timeout.</p>
+    <p>Throughputs of eight benchmark pairs (one vCPU on each hardware thread)</p>
+  </div>
+  <div class="page">
+    <p>Throughputs of eight benchmark pairs (two vCPUs time-share a hardware thread)</p>
+    <p>* Throughputs are relative to priority boosting (shown with horizontal line at 100%).</p>
+  </div>
+  <div class="page">
+    <p>Analyzing performance Improvement with DBT1 and MultipleClassify</p>
+    <p>* Throughputs are relative to priority boosting (shown with horizontal line at 100%).</p>
+  </div>
+  <div class="page">
+    <p>Analyzing performance Improvement with DBT1 and MultipleClassify</p>
+    <p>Number of vCPU switches per second</p>
+    <p>Priority boosting</p>
+    <p>Polling with timeout</p>
+    <p>vSMT-IO</p>
+  </div>
+  <div class="page">
+    <p>Number of vCPU switches per second</p>
+    <p>Priority boosting</p>
+    <p>Polling with timeout</p>
+    <p>vSMT-IO</p>
+    <p>Time (%) spent on hyper-threads for I/O bound vCPUs</p>
+    <p>Context Retention I/O Workload Computation workload</p>
+    <p>Analyzing performance Improvement with DBT1 and MultipleClassify</p>
+  </div>
+  <div class="page">
+    <p>Response times of seven benchmarks (two vCPUs time-share a hardware thread)</p>
+    <p>relative to polling with timeout.</p>
+    <p>* Response times are relative to priority boosting (shown with horizontal line at 100%).</p>
+  </div>
+  <div class="page">
+    <p>vSMT-IO reduces response time by reducing scheduling delay of vCPUs</p>
+    <p>DBT1 Priority boosting</p>
+    <p>Polling w/ timeout</p>
+    <p>vSMT-IO</p>
+    <p>Time spent (ms) by vCPUs in ready state</p>
+    <p>Time spent (ms) by vCPUs in waiting state</p>
+    <p>* Response times are relative to priority boosting (shown with horizontal line at 100%).</p>
+  </div>
+  <div class="page">
+    <p>Conclusions</p>
+    <p>How to improve I/O performance and efficiency on SMT processors is under-studied.  Existing techniques used by CPU schedulers are inefficient.</p>
+    <p>Such inefficiency makes it hard to achieve high CPU and I/O throughputs.</p>
+    <p>vSMT-IO is an efficient solution for scheduling I/O workloads on x86 virtualized clouds.</p>
+    <p>Context retention uses a hardware thread to hold the context of an I/O workload waiting for I/O events.</p>
+    <p>Two key issues: 1) uncontrolled context retention can diminish the benefits from SMT; 2) existing symbiotic scheduling techniques cannot handle mixed workloads.</p>
+    <p>Evaluation shows vSMT-IO can substantially increase both CPU throughput and I/O throughput.</p>
+  </div>
+  <div class="page">
+    <p>Thank you!</p>
+    <p>Questions?</p>
+  </div>
+</Presentation>

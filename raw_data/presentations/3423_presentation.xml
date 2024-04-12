@@ -1,0 +1,228 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>Dead Store Elimination (Still) Considered Harmful</p>
+    <p>Zhaomo Yang1, Brian Johannesmeyer1, Anders Trier Olesen2, Sorin Lerner1 and Kirill Levchenko1</p>
+  </div>
+  <div class="page">
+    <p>Motivation - Concerns over memory disclosure vulnerabilities in C and C++ programs</p>
+    <p>have led developers to explicitly scrub sensitive data from memory.</p>
+    <p>- However, Dead Store Elimination (DSE) removes stores that have no effect on the program result.</p>
+    <p>- Security-conscious developers have been aware of this phenomenon and have devised ways to circumvent it.</p>
+  </div>
+  <div class="page">
+    <p>Outline Goal. Understanding the current state of the dead store elimination problem and developers attempts to circumvent it.</p>
+    <p>Existing Techniques. A survey of existing techniques used to scrub memory found in open source security projects.</p>
+    <p>Case Studies. An analysis of eleven projects to understand the use of memory scrubbing in real world programs.</p>
+    <p>Our solutions. A single best-of-breed scrubbing function and a scrubbing-safe dead store elimination optimization pass.</p>
+  </div>
+  <div class="page">
+    <p>Existing Techniques For each technique, I will first describe how it is intended to work, its availability on different platforms, and its effectiveness.</p>
+    <p>We rate the effectiveness of a technique on a three-level scale:</p>
+    <p>Effective. Guaranteed to work (barring flaws in implementation).  Effective in practice. Works with all compilation options and on all the</p>
+    <p>compilers we tested (GCC, Clang, and MSVC), but is not guaranteed in principle.</p>
+    <p>Flawed. Fails in at least one configuration.</p>
+  </div>
+  <div class="page">
+    <p>Existing Techniques: Platform-Supplied Functions Platform-supplied scrubbing functions that guarantee the desired behavior:</p>
+    <p>- SecureZeroMemory (on Windows) - explicit_bzero (on OpenBSD and NetBSD and in glibc)</p>
+    <p>Used in: Kerbeross zap, Libsodiums sodium_memzero, Tors memwipe, Libsodiums sodium_memzero, Tors memwipe, OpenSSHs explicit_bzero.</p>
+    <p>Availability: only on certain platforms or in certain versions of a specific library</p>
+    <p>Effectiveness: effective</p>
+  </div>
+  <div class="page">
+    <p>Existing Techniques: Platform-Supplied Functions The latest C standard (ISO/IEC 9899-2011) introduced memset_s, declared as</p>
+    <p>memset_s is considered as a secure version of memset because</p>
+    <p>- It does some runtime checking of its parameters, and - Calls to it can never be optimized out.</p>
+  </div>
+  <div class="page">
+    <p>Existing Techniques: Platform-Supplied Functions Possible reasons for the absence of implementation of memset_s:</p>
+    <p>- memset_s is part of the optional Annex K - In addition, C11 treats all the functions in the Annex K as a unit. That is, if a C</p>
+    <p>library wants to implement memset_s in a standard-conforming fashion, it has to implement all of the functions defined in this annex.</p>
+    <p>- Library developers also argued that some functions are poorly designed [1].</p>
+    <p>[1] https://sourceware.org/ml/libc-alpha/2014-12/msg00506.html</p>
+  </div>
+  <div class="page">
+    <p>Existing Techniques: Using -fno-builtin-memset In a thread that requests a glibc implementation of memset_s, a glibc developer suggested the requester to use the -fno-builtin-memset option instead [1].</p>
+    <p>[1] https://sourceware.org/bugzilla/show_bug.cgi?id=17879</p>
+  </div>
+  <div class="page">
+    <p>Existing Techniques: Using -fno-builtin-memset How developers expect it to work:</p>
+    <p>- To improve performance, compilers replaces calls to memset with its built-in equivalent.</p>
+    <p>- Compilers only knows the semantics of the built-in memset, not the memset from the C standard library.</p>
+    <p>Why this technique is not guaranteed to work (in theory):</p>
+    <p>- Disabling the built-in memset does not prevent the compiler from knowing the semantics of the C library memset, which is specified by the C standard.</p>
+  </div>
+  <div class="page">
+    <p>Existing Techniques: Using -fno-builtin-memset Why this technique is not guaranteed to work (in practice):</p>
+    <p>Staring from glibc &gt;= 2.3.4, when the optimization level &gt; O0 and the macro _FORTIFY_SOURCE &gt; 0, the fortified version of memset is enabled, regardless of whether -fno-builtin-memset is used or not.</p>
+  </div>
+  <div class="page">
+    <p>Existing Techniques: Using -fno-builtin-memset</p>
+    <p>parameter checking</p>
+  </div>
+  <div class="page">
+    <p>Existing Techniques: Using -fno-builtin-memset</p>
+  </div>
+  <div class="page">
+    <p>Existing Techniques: Using -fno-builtin-memset In summary:</p>
+    <p>This technique is flawed not only in theory but also in practice.</p>
+    <p>Availability: Widely available  Effectiveness: flawed</p>
+  </div>
+  <div class="page">
+    <p>Existing Techniques</p>
+    <p>Hiding Semantics. If the compiler doesnt recognize that an operation is clearing memory, it will not remove it.</p>
+  </div>
+  <div class="page">
+    <p>Hiding Semantics: Separate Compilation The simplest way to hide the semantics from the compiler is to implement the scrubbing operation in a separate compilation unit.</p>
+    <p>zap.c</p>
+    <p>aes.c</p>
+    <p>des.c</p>
+    <p>cbc.c</p>
+    <p>zap.c from Kerberos</p>
+  </div>
+  <div class="page">
+    <p>Hiding Semantics: Separate Compilation How developers expect it to work:</p>
+    <p>Defining the scrubbing function in a separate compilation unit will prevent the compiler from inlining and understanding it in the calling function.</p>
+    <p>When it is not guaranteed to work:</p>
+    <p>When Link-Time Optimization (LTO) is enabled, this technique will not work.</p>
+  </div>
+  <div class="page">
+    <p>Link-Time Optimization (LTO) Link-Time Optimization (LTO) can merge all compilation units into one and then perform regular optimizations (including DSE) on the single compilation unit.</p>
+    <p>With LTO enabled, such a scrubbing function can be inlined in a calling function, and the call to memset will be subject to DSE.</p>
+  </div>
+  <div class="page">
+    <p>Hiding Semantics: Separate Compilation How developers expect it to work:</p>
+    <p>Defining the scrubbing function in a separate compilation unit will prevent the compiler from inlining and understanding it in the calling function.</p>
+    <p>Why it is not guaranteed to work:</p>
+    <p>When Link-Time Optimization (LTO) is enabled, this technique will not work.</p>
+    <p>Used in: Kerberos zap  Availability: Universal  Effectiveness: flawed</p>
+  </div>
+  <div class="page">
+    <p>Existing Techniques: Volatile Function Pointer OPENSSL_cleanse (since OpenSSL 1.0.2) is one of the implementations based on this idea.</p>
+  </div>
+  <div class="page">
+    <p>Existing Techniques: Volatile Function Pointer How developers expect it to work:</p>
+    <p>- The call to memset via a volatile function pointer is a volatile access, which the compiler cannot optimize out.</p>
+    <p>Why it is not guaranteed to work:</p>
+    <p>- This behavior is not guaranteed by the C standard.</p>
+  </div>
+  <div class="page">
+    <p>Existing Techniques: Volatile Function Pointer The C11 standard defines an object of volatile-qualified type as follows:</p>
+    <p>An object that has volatile-qualified type may be modified in ways unknown to the implementation or have other unknown side effects. Therefore any expression referring to such an object shall be evaluated strictly according to the rules of the abstract machine, as described in 5.1.2.3. Furthermore, at every sequence point the value last stored in the object shall agree with that prescribed by the abstract machine, except as modified by the unknown factors mentioned previously. What constitutes an access to an object that has volatile-qualified type is implementation-defined.</p>
+    <p>In summary,</p>
+    <p>- A compliant compiler cannot optimize out any volatile access. - A compliant compiler is free to decide what constitutes a volatile access.</p>
+  </div>
+  <div class="page">
+    <p>Existing Techniques: Volatile Function Pointer</p>
+    <p>Line 5 consists of two steps:</p>
+    <p>- Reading the volatile pointer memset_func - Calling the function pointed by memset_func</p>
+  </div>
+  <div class="page">
+    <p>Existing Techniques: Volatile Function Pointer In theory, such a compiler may inline each call to OPENSSL_cleanse as:</p>
+    <p>Used in: OpenSSL 1.0.2s OPENSSL_cleanse (also used in Tor and Bitcoin); OpenSSHs explicit_bzero, quarkslabs memset_s</p>
+    <p>Availability: Universal  Effectiveness: effective in practice</p>
+  </div>
+  <div class="page">
+    <p>Existing Techniques</p>
+    <p>Forcing Memory Writes. Attempts to force the compiler to include the scrubbing operation without hiding its nature.</p>
+  </div>
+  <div class="page">
+    <p>Existing Techniques: Pointer To Volatile Char A popular way to force the compiler to perform a store is using a pointer to volatile char.</p>
+  </div>
+  <div class="page">
+    <p>Existing Techniques: Pointer To Volatile Char How developers expect it to work:</p>
+    <p>- Memory writes via pointer to volatile char p are volatile access, which the compiler cannot optimize out.</p>
+    <p>Why it is not guaranteed to work:</p>
+    <p>- This behavior is not guaranteed by the C standard.</p>
+    <p>Is accessing a non-volatile object via a pointer to volatile char a volatile access?</p>
+  </div>
+  <div class="page">
+    <p>Existing Techniques: Pointer To Volatile Char</p>
+    <p>Used in: sodium_memzero from Libsodium, insecure_memzero from Tarsnap, wipememory from Libgcrypt, SecureWipeBuffer from Crypto++, burn from Cryptography Coding Standard, ForceZero from wolfSSL, sudo_memset_s from sudo, and CERTs C99-compliant solution.</p>
+    <p>Availability: Universal  Effectiveness: effective in practice</p>
+  </div>
+  <div class="page">
+    <p>Existing Technique: Using memory barrier GCC supports a memory barrier expressed using an inline assembly statement.</p>
+    <p>According to GCCs documentation, the clobber argument &quot;memory&quot; tells the compiler that the inline assembly statement may read or write memory that is not specified in the input or output arguments.</p>
+    <p>clobber argument</p>
+  </div>
+  <div class="page">
+    <p>Forcing Memory Writes: Using memory barrier memzero_explicit from Linux uses memory barrier to force writes</p>
+    <p>Used in: zap from Kerberos, memzero_explicit from Linux.  Availability: GCC and Clang.  Effectiveness: effective</p>
+  </div>
+  <div class="page">
+    <p>How difficult to create a reliable scrubbing function</p>
+    <p>GCCs documentation indicates that the following inline assembly should work as a memory barrier. In practice, it does work with GCC.</p>
+    <p>Since Clang also supports barriers with the same syntax, and in general it mimics GCCs behaviors, one would expect that the barrier above would also work with Clang.</p>
+  </div>
+  <div class="page">
+    <p>How difficult to create a reliable scrubbing function However, it does not work with Clang.</p>
+    <p>A more reliable and portable memory barrier is shown below (which is also used used in memzero_explicit):</p>
+    <p>Reliable</p>
+    <p>Unreliable with CLang</p>
+  </div>
+  <div class="page">
+    <p>Outline Goal. Understanding the current state of the dead store elimination problem and developers attempts to circumvent it.</p>
+    <p>Existing Techniques. A survey of existing techniques used to scrub memory found in open source security projects.</p>
+    <p>Case Studies. An analysis of eleven security projects to determine whether a memory scrubbing function is available, effective, and used consistently.</p>
+    <p>Our solutions. A single best-of-breed scrubbing function that combines the most reliable techniques found in use today, and a scrubbing-safe dead store elimination optimization pass.</p>
+  </div>
+  <div class="page">
+    <p>Case Studies To understand the use of memory scrubbing in practice, we examined the eleven open source libraries and applications: NSS, OpenVPN, Kerberos, Libsodium, Tarsnap, Libgcrypt, Crypto++, Tor, Bitcoin, OpenSSH and OpenSSL.</p>
+    <p>For each project, we set out to determine whether a memory scrubbing function is available, effective and used consistently.</p>
+  </div>
+  <div class="page">
+    <p>Case Studies: Methodology Our methodology consists of two parts:</p>
+    <p>we manually analyzed each project to determine whether a memory scrubbing function is available and whether it is effective.</p>
+    <p>we instrumented the Clang 3.9 compiler to report instances of dead store elimination where a write is eliminated because the memory location is not used afterwards. For each project, we used this compiler to determine whether the memory scrubbing function was effective and used consistently.</p>
+  </div>
+  <div class="page">
+    <p>Case Studies: Results</p>
+  </div>
+  <div class="page">
+    <p>Case Studies: Results</p>
+  </div>
+  <div class="page">
+    <p>Case Studies: Results</p>
+  </div>
+  <div class="page">
+    <p>zap from Kerbros</p>
+  </div>
+  <div class="page">
+    <p>Case Studies: Results</p>
+  </div>
+  <div class="page">
+    <p>invert_key from Libgcrypt</p>
+  </div>
+  <div class="page">
+    <p>Case Studies: Discussion Our case studies lead us to two observations.</p>
+    <p>There is no single accepted scrubbing function. Each project mixes its own cocktail using existing scrubbing techniques, some of which are flawed or unreliable</p>
+    <p>Even when a project has a reliable scrubbing function, the developers may not use it consistently.</p>
+  </div>
+  <div class="page">
+    <p>Our Solutions  Library-based solution. secure_memzero  Compiler-based solution. Scrubbing-aware DSE</p>
+  </div>
+  <div class="page">
+    <p>Our Solutions: Library-based solution Library-based solution. secure_memzero</p>
+    <p>- This function combines the effective scrubbing techniques we found in a simple implementation.</p>
+    <p>- Developers can specify an order of preference in which an implementation will be chosen by defining macros.</p>
+    <p>- We have released our implementation into the public domain, and we plan to keep our implementation updated to ensure it remains effective as compilers evolve.</p>
+    <p>https://compsec.sysnet.ucsd.edu/secure_memzero.h</p>
+  </div>
+  <div class="page">
+    <p>Our Solutions: Compiler-based solution Compiler-based solution. Scrubbing-aware DSE</p>
+    <p>This DSE pass considers a memory write satisfying the following conditions as a scrubbing operation:</p>
+    <p>The stored value is a constant,  The number of bytes stored is a constant, and  The store is subject to elimination because the variable is about to be out of</p>
+    <p>scope without being read</p>
+  </div>
+  <div class="page">
+    <p>Conclusion  We surveyed the existing solutions to circumvent the dead store elimination</p>
+    <p>problem.  Our case studies show that real world programs still have unscrubbed</p>
+    <p>sensitive data, due to incorrect implementation of scrubbing function as well as from developers simply forgetting to use the secure scrubbing function.</p>
+    <p>To solve the problem, we developed a scrubbing-aware DSE pass that preserves all scrubbing operations and secure_memzero, a best-of-breed scrubbing function.</p>
+  </div>
+  <div class="page">
+    <p>Questions</p>
+  </div>
+</Presentation>

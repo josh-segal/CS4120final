@@ -1,0 +1,341 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>Sixiang Ma, Yang Wang The Ohio State University</p>
+    <p>Accurate Timeout Detection Despite Arbitrary Processing Delays</p>
+  </div>
+  <div class="page">
+    <p>Timeout is Widely Used in Failure Detection</p>
+    <p>Sender Receiver Heartbeat</p>
+  </div>
+  <div class="page">
+    <p>When timeout happens, it is hard to tell between:</p>
+    <p>sender crash failure  heartbeat delay</p>
+    <p>Sender Receiver</p>
+    <p>Sender Receiver Heartbeat</p>
+    <p>Accuracy: when receiver reports timeout, sender mush have failed.</p>
+    <p>[Chandra, Journal of ACM 96]</p>
+    <p>Timeout Detection Can be Inaccurate</p>
+  </div>
+  <div class="page">
+    <p>Approach 1: Paxos-based consensus</p>
+    <p>ensure correctness despite inaccurate timeout detection  high cost and complexity  examples: ZooKeeper, Chubby, Spanner, etc.</p>
+    <p>How to Ensure System Correctness</p>
+  </div>
+  <div class="page">
+    <p>Approach 2: Set long timeout intervals</p>
+    <p>system correctness relies on timeout accuracy  estimate the maximum delay of the communication channel  examples: HDFS, Ceph, Yarn, etc  Our work aims to improve this approach</p>
+    <p>How to Ensure System Correctness</p>
+  </div>
+  <div class="page">
+    <p>Correctness: require long timeout to tolerate maximum delays  Availability: prefer short timeout for fast failure detection</p>
+    <p>Availability</p>
+    <p>Correctness</p>
+    <p>The Dilemma: Availability v.s. Correctness</p>
+  </div>
+  <div class="page">
+    <p>Correctness: require long timeout to tolerate maximum delays  Availability: prefer short timeout for fast failure detection</p>
+    <p>Availability</p>
+    <p>Correctness</p>
+    <p>The Dilemma: Availability v.s. Correctness</p>
+    <p>Can we shorten timeout intervals without sacrificing correctness?</p>
+  </div>
+  <div class="page">
+    <p>Motivations</p>
+  </div>
+  <div class="page">
+    <p>Motivations</p>
+  </div>
+  <div class="page">
+    <p>Disk I/O: 10 seconds  Packet processing: 2 seconds  JVM garbage collection: 26 seconds  Application specific delays: several minutes</p>
+    <p>- HDFS: directories deletion before heartbeat sending - ZooKeeper: session close/expire flooding</p>
+    <p>Heartbeat Delay in Our Experiment</p>
+  </div>
+  <div class="page">
+    <p>HDFS-611: Heartbeats times from Datanodes increase when there are plenty of blocks to delete</p>
+    <p>HDFS-9910: Datanode heartbeats get blocked by disk in checkBlock()</p>
+    <p>ZOOKEEPER-1049: Session expire/close flooding renders heartbeats to delay significantly</p>
+    <p>CEPH-19335: MDS heartbeat timeout during rejoin, when working with large amount of caps/inodes</p>
+    <p>HBASE-13090: Progress heartbeats for long running scanners</p>
+    <p>It can be necessary to set very long timeouts for clients that issue scans over large regions</p>
+    <p>HBASE-3273: Set the ZK default timeout to 3 minutes</p>
+    <p>HDFS-9901: Move disk IO out of the heartbeat thread</p>
+    <p>In extreme cases, the heartbeat thread hang more than 10 minutes so the namenode marked the datanode as dead</p>
+    <p>Heartbeat Delay Reported in Communities</p>
+    <p>Stack suggested that we increase the ZK timeout and proposed that we set it to 3 minutes. This should cover most of the big GC pauses.</p>
+  </div>
+  <div class="page">
+    <p>Compared to default timeout, delays in OS and App are significant</p>
+    <p>HDFS: 30 seconds  Ceph: 20 seconds  ZooKeeper: 5 seconds</p>
+    <p>Delays in OS and Application Are Significant</p>
+  </div>
+  <div class="page">
+    <p>Motivations</p>
+  </div>
+  <div class="page">
+    <p>OS NIC Network</p>
+    <p>OS App</p>
+    <p>Sender Receiver</p>
+    <p>Estimated Maximum Delay for Whole Channel</p>
+    <p>Blackbox: only provides information when receiving a packet</p>
+    <p>Existing Timeout Views Channel as a Blackbox</p>
+  </div>
+  <div class="page">
+    <p>Whitebox: can provide information such as packet pending/drop</p>
+    <p>OS NIC Network</p>
+    <p>OS App</p>
+    <p>Sender Receiver</p>
+    <p>Estimated Maximum Delay for Whole Channel</p>
+    <p>Whitebox Nature of OS and Application</p>
+  </div>
+  <div class="page">
+    <p>Whitebox: can provide information such as packet pending/drop</p>
+    <p>Can we utilize whitebox nature to design better solution? OS NIC</p>
+    <p>Network</p>
+    <p>OS App</p>
+    <p>Sender Receiver</p>
+    <p>Estimated Maximum Delay</p>
+    <p>Whitebox Nature of OS and Application</p>
+  </div>
+  <div class="page">
+    <p>Overview of SafeTimer</p>
+    <p>Goal: if the receiver reports timeout, the sender must have failed  Assumptions of SafeTimer - Delays in whitebox can be arbitrarily long - SafeTimer relies on existing protocol for blackbox</p>
+    <p>Solutions - Receiver: check pending/dropped heartbeats when timeout occurs - Sender: blocks sender when heartbeat sending is slow</p>
+  </div>
+  <div class="page">
+    <p>Overview of SafeTimer</p>
+    <p>Goal: if the receiver reports timeout, the sender must have failed  Assumptions of SafeTimer - Delays in whitebox can be arbitrarily long - SafeTimer relies on existing protocol for blackbox</p>
+    <p>Solutions - Receiver: check pending/dropped heartbeats when timeout occurs - Sender: blocks sender when heartbeat sending is slow</p>
+  </div>
+  <div class="page">
+    <p>Backlogs</p>
+    <p>User Thread</p>
+    <p>Socket Buffers CPU0</p>
+    <p>CPU3</p>
+    <p>Kernel User space</p>
+    <p>TCP/IPReadInterrupt</p>
+    <p>Ring BufferRX Queue</p>
+    <p>NIC</p>
+    <p>Hareware Hard IRQ Soft IRQ</p>
+    <p>Background: Concurrent Packet Processing</p>
+  </div>
+  <div class="page">
+    <p>Backlogs</p>
+    <p>User Thread</p>
+    <p>Socket Buffers CPU0</p>
+    <p>CPU3</p>
+    <p>Kernel User space</p>
+    <p>TCP/IPReadInterrupt</p>
+    <p>Ring BufferRX Queue</p>
+    <p>NIC</p>
+    <p>Hareware Hard IRQ Soft IRQ</p>
+    <p>Background: Concurrent Packet Processing</p>
+  </div>
+  <div class="page">
+    <p>Backlogs</p>
+    <p>User Thread</p>
+    <p>Socket Buffers CPU0</p>
+    <p>CPU3</p>
+    <p>Kernel User space</p>
+    <p>TCP/IPReadInterrupt</p>
+    <p>Ring BufferRX Queue</p>
+    <p>NIC</p>
+    <p>Hareware Hard IRQ Soft IRQ</p>
+    <p>Receive Side Scaling (RSS)</p>
+    <p>Background: Concurrent Packet Processing</p>
+  </div>
+  <div class="page">
+    <p>Backlogs</p>
+    <p>User Thread</p>
+    <p>Socket Buffers CPU0</p>
+    <p>CPU3</p>
+    <p>Kernel User space</p>
+    <p>TCP/IPReadInterrupt</p>
+    <p>Ring BufferRX Queue</p>
+    <p>NIC</p>
+    <p>Hareware Hard IRQ Soft IRQ</p>
+    <p>Receive Packet Steering (RPS)</p>
+    <p>Background: Concurrent Packet Processing</p>
+  </div>
+  <div class="page">
+    <p>Backlogs</p>
+    <p>User Thread</p>
+    <p>Socket Buffers CPU0</p>
+    <p>CPU3</p>
+    <p>Kernel User space</p>
+    <p>TCP/IPReadInterrupt</p>
+    <p>Ring BufferRX Queue</p>
+    <p>NIC</p>
+    <p>Hareware Hard IRQ Soft IRQ</p>
+    <p>Receive Packet Steering (RPS)</p>
+    <p>Background: Concurrent Packet Processing</p>
+  </div>
+  <div class="page">
+    <p>Backlogs</p>
+    <p>User Thread</p>
+    <p>Socket Buffers CPU0</p>
+    <p>CPU3</p>
+    <p>Kernel User space</p>
+    <p>TCP/IPReadInterrupt</p>
+    <p>Ring BufferRX Queue</p>
+    <p>NIC</p>
+    <p>Hareware Hard IRQ Soft IRQ</p>
+    <p>Challenge: How to Check Pending Heartbeats?</p>
+    <p>Multiple concurrent pipelines  Packet Reordering</p>
+  </div>
+  <div class="page">
+    <p>Backlogs</p>
+    <p>User Thread</p>
+    <p>Socket Buffers CPU0</p>
+    <p>CPU3</p>
+    <p>Kernel User space</p>
+    <p>TCP/IPReadInterrupt</p>
+    <p>Ring BufferRX Queue</p>
+    <p>NIC</p>
+    <p>Hareware Hard IRQ Soft IRQ</p>
+    <p>Pause all threads and check all buffers?</p>
+    <p>Challenge: How to Check Pending Heartbeats?</p>
+  </div>
+  <div class="page">
+    <p>Receiver sends barrier packets to itself when timeout  Force heartbeats and barriers to be executed in FIFO order</p>
+    <p>When barriers are processed =&gt;</p>
+    <p>Heartbeats arrived before timeout must have been processed</p>
+    <p>SafeTimers Solution: Barrier Mechanism</p>
+  </div>
+  <div class="page">
+    <p>Backlogs</p>
+    <p>User Thread</p>
+    <p>Socket Buffers CPU0</p>
+    <p>CPU3</p>
+    <p>Kernel User space</p>
+    <p>TCP/IPReadInterrupt</p>
+    <p>Ring BufferRX Queue</p>
+    <p>NIC</p>
+    <p>Hareware Hard IRQ Soft IRQ</p>
+    <p>Redirect heartbeats &amp; barriers</p>
+    <p>STQueue</p>
+    <p>Avoid later-stage reordering</p>
+    <p>Preserve Per-Ring FIFO Order</p>
+  </div>
+  <div class="page">
+    <p>Backlogs</p>
+    <p>User Thread</p>
+    <p>Socket Buffers CPU0</p>
+    <p>CPU3</p>
+    <p>Kernel User space</p>
+    <p>TCP/IPReadInterrupt</p>
+    <p>Ring BufferRX Queue</p>
+    <p>NIC</p>
+    <p>Hareware Hard IRQ Soft IRQ</p>
+    <p>Send barriers to each RX queue STQueue</p>
+    <p>Send Barriers to Flush Heartbeats</p>
+  </div>
+  <div class="page">
+    <p>Backlogs</p>
+    <p>User Thread</p>
+    <p>Socket Buffers CPU0</p>
+    <p>CPU3</p>
+    <p>Kernel User space</p>
+    <p>TCP/IPReadInterrupt</p>
+    <p>Ring BufferRX Queue</p>
+    <p>NIC</p>
+    <p>Hareware Hard IRQ Soft IRQ</p>
+    <p>Send barriers to each RX queue STQueue</p>
+    <p>Send Barriers to Flush Heartbeats</p>
+  </div>
+  <div class="page">
+    <p>Backlogs</p>
+    <p>User Thread</p>
+    <p>Socket Buffers CPU0</p>
+    <p>CPU3</p>
+    <p>Kernel User space</p>
+    <p>TCP/IPReadInterrupt</p>
+    <p>Ring BufferRX Queue</p>
+    <p>NIC</p>
+    <p>Hareware Hard IRQ Soft IRQ</p>
+    <p>STQueue</p>
+    <p>When Barriers Processed, Heartbeat Processed</p>
+    <p>Per-ring FIFO order preserved</p>
+  </div>
+  <div class="page">
+    <p>Overview of SafeTimer</p>
+    <p>Goal: if the receiver reports timeout, the sender must have failed  Assumptions of SafeTimer - Delays in whitebox can be arbitrarily long - SafeTimer relies on existing protocol for blackbox</p>
+    <p>Solutions - Receiver: check pending/dropped heartbeats when timeout occurs - Sender: blocks sender when heartbeat sending is slow</p>
+  </div>
+  <div class="page">
+    <p>Problems in Existing Killing Mechanism</p>
+    <p>Killing a slow sender is not a new idea, but  Killing operation itself can be delayed  Sender alive for arbitrarily long after receiver reports failure</p>
+    <p>=&gt; Accuracy will be violated</p>
+  </div>
+  <div class="page">
+    <p>- A slow sender may continue processing - As long as other nodes do not observe the effects, the slow</p>
+    <p>sender is indistinguishable from a failed sender [Edmund, OSDI06]</p>
+    <p>Utilizing the Idea of Output Commit</p>
+  </div>
+  <div class="page">
+    <p>Maintain a timestamp tvalid before which sending is valid  Extend tvalid when sender sends heartbeats successfully</p>
+    <p>- The definition of success depends on the blackbox protocol  SafeTimer blocks sending if current time &gt; tvalid</p>
+    <p>Block Sender When It Is Slow</p>
+  </div>
+  <div class="page">
+    <p>Receiver doesnt report failure if heartbeats arrived before timeout  Sender is blocked when sender is slow</p>
+    <p>OS NIC Network</p>
+    <p>OS App</p>
+    <p>Sender Receiver</p>
+    <p>Estimated Maximum Delay</p>
+    <p>No Need to Include Maximal Delay For Whitebox</p>
+  </div>
+  <div class="page">
+    <p>Re-direct heartbeats and barriers to STQueue  Send barriers to a specific RX Queue  Force barriers to go through NIC  Fetch real-time drop count  Detect heartbeat sending completion  Block slow sender</p>
+    <p>Implementation Overview</p>
+  </div>
+  <div class="page">
+    <p>Can SafeTimer achieve accuracy despite long delays in whitebox?</p>
+    <p>What is the overhead of SafeTimer?</p>
+    <p>Evaluation Overview</p>
+  </div>
+  <div class="page">
+    <p>Methodology: - inject delay/drop at different layers - compare with vanilla timeout implementation</p>
+    <p>Result: - SafeTimer can correctly prevent false timeout report - vanilla implementation violates accuracy</p>
+    <p>Evaluation: Accuracy</p>
+  </div>
+  <div class="page">
+    <p>Accuracy: Heartbeats Delayed/Dropped on Receiver</p>
+    <p>Sender is still alive!</p>
+  </div>
+  <div class="page">
+    <p>Accuracy: Heartbeats Delayed/Dropped on Sender</p>
+    <p>Receiver has reported timeout!</p>
+  </div>
+  <div class="page">
+    <p>Ping-Pong micro benchmark - small overhead (up to 2.7%) for small packets - negligible overhead for large packets</p>
+    <p>Benchmarks for HDFS and Ceph - DFSIO and RADOS Bench - negligible overhead</p>
+    <p>Evaluation: Performance Overhead</p>
+  </div>
+  <div class="page">
+    <p>Synchronous systems: HDFS, Ceph, etc.</p>
+    <p>Asynchronous systems: Spanner, ZooKeeper, etc.</p>
+    <p>Failure detection without timeout:</p>
+    <p>- Falcon and its following works [SOSP11, NSDI13, EuroSys15]</p>
+    <p>- Work if whole channel is a whitebox</p>
+    <p>- Use timeout as a backup</p>
+    <p>Related Work</p>
+  </div>
+  <div class="page">
+    <p>Real-time OS</p>
+    <p>- Support: real-time scheduling; prioritized interrupts and threads, etc.</p>
+    <p>- Guidelines: implement functions in low layers; pin memory; avoid disk I/Os, etc.</p>
+    <p>- Still cannot provide hard real-time guarantees</p>
+    <p>Related Work</p>
+  </div>
+  <div class="page">
+    <p>SafeTimer achieves accurate timeout detection despite arbitrary processing delays</p>
+    <p>Users can set shorter timeout intervals without sacrificing accuracy</p>
+    <p>The overhead of SafeTimer is small</p>
+    <p>Summary</p>
+  </div>
+  <div class="page">
+    <p>Questions?</p>
+    <p>The End</p>
+  </div>
+</Presentation>

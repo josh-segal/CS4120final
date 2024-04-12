@@ -1,0 +1,947 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<TEI xmlns="http://www.tei-c.org/ns/1.0" 
+xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+xsi:schemaLocation="http://www.tei-c.org/ns/1.0 /Users/atharsefid/Desktop/grobid-0.5.3/grobid-home/schemas/xsd/Grobid.xsd"
+ xmlns:xlink="http://www.w3.org/1999/xlink">
+	<teiHeader xml:lang="en">
+		<encodingDesc>
+			<appInfo>
+				<application version="0.5.3" ident="GROBID" when="2019-03-26T17:08+0000">
+					<ref target="https://github.com/kermitt2/grobid">GROBID - A machine learning software for extracting information from scholarly documents</ref>
+				</application>
+			</appInfo>
+		</encodingDesc>
+		<fileDesc>
+			<titleStmt>
+				<title level="a" type="main">Mondrian Memory Protection</title>
+			</titleStmt>
+			<publicationStmt>
+				<publisher/>
+				<availability status="unknown"><licence/></availability>
+			</publicationStmt>
+			<sourceDesc>
+				<biblStruct>
+					<analytic>
+						<author>
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Emmett</forename><surname>Witchel</surname></persName>
+							<email>witchel@lcs.mit.edu</email>
+							<affiliation key="aff0">
+								<orgName type="laboratory">MIT Laboratory for Computer Science</orgName>
+								<address>
+									<postCode>02139</postCode>
+									<settlement>Cambridge</settlement>
+									<region>MA</region>
+								</address>
+							</affiliation>
+						</author>
+						<author>
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Josh</forename><surname>Cates</surname></persName>
+							<email>cates@lcs.mit.edu</email>
+							<affiliation key="aff0">
+								<orgName type="laboratory">MIT Laboratory for Computer Science</orgName>
+								<address>
+									<postCode>02139</postCode>
+									<settlement>Cambridge</settlement>
+									<region>MA</region>
+								</address>
+							</affiliation>
+						</author>
+						<author>
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Krste</forename><forename type="middle">Asanovi´c</forename><surname>Asanovi´c</surname></persName>
+							<email>krste¡@lcs.mit.edu</email>
+							<affiliation key="aff0">
+								<orgName type="laboratory">MIT Laboratory for Computer Science</orgName>
+								<address>
+									<postCode>02139</postCode>
+									<settlement>Cambridge</settlement>
+									<region>MA</region>
+								</address>
+							</affiliation>
+						</author>
+						<title level="a" type="main">Mondrian Memory Protection</title>
+					</analytic>
+					<monogr>
+						<imprint>
+							<date/>
+						</imprint>
+					</monogr>
+				</biblStruct>
+			</sourceDesc>
+		</fileDesc>
+		<profileDesc>
+			<abstract>
+				<p>Mondrian memory protection (MMP) is a fine-grained protection scheme that allows multiple protection domains to flexibly share memory and export protected services. In contrast to earlier page-based systems, MMP allows arbitrary permissions control at the granularity of individual words. We use a compressed permissions table to reduce space overheads and employ two levels of permissions caching to reduce run-time overheads. The protection tables in our implementation add less than 9% overhead to the memory space used by the application. Accessing the protection tables adds less than 8% additional memory references to the accesses made by the application. Although it can be layered on top of demand-paged virtual memory, MMP is also well-suited to embedded systems with a single physical address space. We extend MMP to support segment translation which allows a memory segment to appear at another location in the address space. We use this translation to implement zero-copy networking underneath the standard read system call interface, where packet payload fragments are connected together by the translation system to avoid data copying. This saves 52% of the memory references used by a traditional copying network stack.</p>
+			</abstract>
+		</profileDesc>
+	</teiHeader>
+	<text xml:lang="en">
+		<body>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="1.">INTRODUCTION</head><p>Operating systems must provide protection among different user processes and between all user processes and trusted supervisor code. In addition, operating systems should support flexible sharing of data to allow applications to co-operate efficiently. The implementors of early architectures and operating systems <ref type="bibr" target="#b4">[5,</ref><ref type="bibr" target="#b25">26]</ref> believed the most natural solution to the protected sharing problem was to place each allocated region in a segment, which has the protection information. Although this provides fine-grain permission control and flexible memory sharing, it is difficult to implement efficiently and is cumbersome to use because each address has two components: the segment pointer and the offset within the segment.</p><p>Modern architectures and operating systems have moved towards a linear addressing scheme, in which each user process has a separate linear demand-paged virtual address space. Each address space has a single protection domain, shared by all threads that run Permission to make digital or hard copies of all or part of this work for personal or classroom use is granted without fee provided that copies are not made or distributed for profit or commercial advantage and that copies bear this notice and the full citation on the first page. To copy otherwise, to republish, to post on servers or to redistribute to lists, requires prior specific permission and/or a fee. ASPLOS-X '02 San Jose, CA Copyright 2002 ACM 1-58113-574-2/02/0010 ...$5.00.</p><p>within the process. A thread can only have a different protection domain if it runs in a different address space. Sharing is only possibly at page granularity, where a single physical memory page can be mapped into two or more virtual address spaces. Although this addressing scheme is now ubiquitous in modern OS designs and hardware implementations, it has significant disadvantages when used for protected sharing. Pointer-based data structures can be shared only if the shared memory region resides at the same virtual address for all participating processes, and all words on a page must have the same permissions. The interpretation of a pointer depends on addressing context, and any transfer of control between protected modules requires an expensive context switch. The coarse granularity of protection regions and the overhead of inter-process communication limit the ways in which protected sharing can be used by application developers. Although designers have been creative in working around these limitations to implement protected sharing for some applications <ref type="bibr" target="#b8">[9]</ref>, each application requires considerable custom engineering effort to attain high performance.</p><p>We believe the need for flexible, efficient, fine-grained memory protection and sharing has been neglected in modern computing systems. The need for fine-grained protection in the server and desktop domains is clear from the examples of a web server and a web client. These systems want to provide extensiblility where new code modules can be linked in to provide new functionality. The architects of these systems have rejected designs using the native OS support for a separate address space per module because of the complexity and run-time overhead of managing multiple address contexts. Instead, modern web servers and clients have solved the extensiblity problem with a plugin architecture. Plugins allow a user to link a new module into the original program to provide a new service. For instance, the Apache web server has a plugin for the interpretation of perl code in web pages <ref type="bibr" target="#b1">[2]</ref>, and browsers support plugins to interpret PDF documents <ref type="bibr" target="#b0">[1]</ref>. Linking in code modules makes communication between the server and the plugin fast and flexible, but because there is no protection between modules in the same address space it is also unsafe. Plugins can crash an entire browser, or open a security hole in a server (e.g., from a buffer overrun).</p><p>Embedded systems have the same problem since they are often organized as a set of tasks (sometimes including the operating system) that share physically-addressed memory (see Section 7). Without inter-task protection, an error in part of the system can make the entire system unreliable. Similarly, loadable OS kernel modules (such as in Linux) all run in the kernel's unprotected address space, leading to potential reliability and security problems. <ref type="figure" target="#fig_1">Figure 1</ref> illustrates a general protection system and is based on the diagrams in <ref type="bibr" target="#b16">[17]</ref> and <ref type="bibr" target="#b17">[18]</ref>. Each column represents one protection domain <ref type="bibr" target="#b15">[16]</ref> while each row represents a range of memory ad-  dresses. The address space can be virtual or physical-protection domains are independent from how virtual memory translation is done (if it is done at all). A protection domain can contain many threads, and every thread is associated with exactly one protection domain at any one point in its execution. Protection domains that want to share data with each other must share at least a portion of their address space. The color in each box represents the permissions that each protection domain has to access the region of memory. An ideal protection system would allow each protection domain to have a unique view of memory with permissions set on arbitrary-sized memory regions.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>Memory Addresses</head><p>The system we present in this paper implements this ideal protection system. We call this Mondrian memory protection (MMP) because it allows the grid in <ref type="figure" target="#fig_1">Figure 1</ref> to be painted with any pattern of access permissions, occasionally resembling works by the eponymous early twentieth century artist. Our design includes all of the flexibility and high-performance protected memory sharing of a segmented architecture, with the simplicity and efficiency of linear addressing. The design is completely compatible with existing ISAs, and can easily support conventional operating system protection semantics.</p><p>To reduce the space and run-time overheads of providing finegrained protection, MMP uses a highly-compressed permissions table structure and two levels of hardware permissions caching. MMP overheads are less than 9% even when the system is used aggressively to provide separate protection for every object in a program. We believe the increase in design robustness and the reduction in application design complexity will justify these small run-time overheads. In some cases, the new application structure enabled by fine-grained protection will improve performance by eliminating cross-context function calls and data copying. We demonstrate this by saving 52% of the memory traffic in our zerocopy networking implementation (see Section 5.3). The networking example also illustrates a fine-grain segment translation scheme which builds upon the base MMP data structures to provide a facility to present data at different addresses in different protection domains. The MMP design also has the desirable property that the overhead is only incurred when fine-grain protection is used, with less than 1% overhead when emulating conventional coarsegrained protection.</p><p>The rest of the paper is structured as follows. In Section 2 we give a motivating example and discuss our requirement for memory system protection. Then we present the hardware and software components of the MMP design in Section 3. We quantitatively measure the overheads of our design in our implementation model in Section 4. We discuss translation in Section 5 and describe its use in zero-copy networking. We include a discussion of uses for fine-grained protection and sharing in Section 6, and a discussion of related work in Section 7. We conclude in Section 8.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="2.">EXAMPLE AND REQUIREMENTS</head><p>We provide a brief example to motivate the need for the MMP system. More examples are discussed in Section 6. Consider a network stack where when a packet arrives, the network card uses DMA to place a packet into a buffer provided to it by the kernel driver. Instead of the kernel copying the network payload data to a user supplied buffer as is normally done, the kernel makes the packet headers inaccessible and the packet data read-only and passes a pointer to the user, saving the cost of a copy.</p><p>Implementing this example requires a memory system to support the following requirements: different: Different protection domains can have different permissions on the same memory region.</p><p>small: Sharing granularity can be smaller than a page. Putting every network packet on its own page is wasteful of memory if packets are small. Worse, to give the header separate permissions from the payload would require copying them to separate pages in a page-based system (unless the payload starts at a page boundary).</p><p>revoke: A protection domain owns regions of memory and is allowed to specify the permissions that other domains see for that memory. This includes the ability to revoke permissions.</p><p>Previous memory sharing models fail one or more of these requirements.</p><p>Conventional linear, demand-paged virtual memory systems can meet the different requirement by placing each thread in a separate address space and then mapping in physical memory pages to the same virtual address in each address context. These systems fail the small requirement because permissions granularity is at the level of pages.</p><p>Page-group systems <ref type="bibr" target="#b15">[16]</ref>, such as HP-PA RISC and PowerPC, define protection domains by which page-groups (collections of memory pages) are accessible. Every domain that has access to a page-group sees the same permissions for all pages in the group, violating the different requirement. They also violate the small requirement because they work at the coarse granularity of a page or multiple pages. Domain-page systems <ref type="bibr" target="#b15">[16]</ref> are similar to our design in that they have an explicit domain identifier, and each domain can specify a permissions value for each page. They fail to meet the small requirement because permissions are managed at page granularity.</p><p>Capability systems <ref type="bibr" target="#b9">[10,</ref><ref type="bibr" target="#b17">18]</ref> are an extension of segmented architectures where a capability is a special pointer that contains both location and protection information for a segment. Although designed for protected sharing, these fail the different requirement for the common case of shared data structures that contain pointers. Threads sharing the data structure use its pointers (capabilities) and therefore see the same permissions for objects accessed via the shared structure. Many capability systems fail to meet the revoke requirement because revocation can require an exhaustive sweep of the memory in a protection domain <ref type="bibr" target="#b6">[7]</ref>. Some capability systems meet the different and revoke requirements by performing an indirect lookup on each capability use <ref type="bibr" target="#b12">[13,</ref><ref type="bibr" target="#b28">29]</ref>, which adds considerable run-time overhead.</p><p>Large sparse address spaces provide an opportunity for probabilistic protection <ref type="bibr" target="#b34">[35]</ref>, but this strategy violates the revoke and different requirement.   <ref type="figure">Figure 2</ref>: The major components of the Mondrian memory protection system. On a memory reference, the processor checks permissions in the address register sidecar. If the reference is out of range of the sidecar information, or the sidecar is not valid, it attempts to reload the sidecar from the PLB. If the PLB does not have the permissions information, either hardware or software walks the permissions table which resides in memory. The matching entry from the permissions table is cached in the PLB and is used to reload the address register sidecar with a new segment descriptor</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.">MMP DESIGN</head><p>The major challenge in a MMP system is reducing the space and run-time overheads. In the following, we describe our initial exploration of this design space and our trial implementation. The implementation and results are for a 32-bit address space, but MMP can be readily extended to 64-bit addresses as discussed in Section 3.9.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.1">MMP Features</head><p>MMP provides multiple protection domains within a single address space (physical or virtual). Addressing is linear and is compatible with existing binaries for current ISAs. A privileged supervisor protection domain is available which provides an API to modify protection information. A user thread can change permissions for a range of addresses, a user segment, by specifying the base word address, the length in words, and the desired permission value. Changing memory protections only incurs the cost of an inter-protection domain call (Section 3.8), not a full system call.</p><p>In all the designs discussed in this section, we provide two bits of protection information per word, as shown in <ref type="table" target="#tab_1">Table 1</ref>. MMP can be easily modified to support more permission bits or different permission types.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>Perm Value</head><p>Meaning 00 no perm 01 read-only 10 read-write 11 execute-read Every allocated region of memory is owned by a protection domain, and this association is maintained by the supervisor. To support the construction of protected subsystems, we allow the owner of a region to export protected views of this region to other protection domains. <ref type="figure">Figure 2</ref> shows the overall structure of an MMP system. The CPU contains a hardware control register which holds the protection domain ID (PD-ID <ref type="bibr" target="#b15">[16]</ref>) of the currently running thread. Each domain has a permissions table, stored in privileged memory, which specifies the permission that domain has for each address in the address space. This table is similar to the permissions part of a page table, but permissions are kept for individual words in an MMP system. Another CPU control register holds the base address of the active domain's permissions table.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.2">MMP System Structure</head><p>The MMP protection table represents each user segment using one or more table segments, where a table segment is a convenient unit for the table representation. We use the term block to mean an address range that is naturally aligned and whose size is a power of two. In some MMP variants, all table segments are blocks.</p><p>Every memory access must be checked to see if the domain has appropriate access permissions. A permissions lookaside buffer (PLB) caches entries from the permissions table to avoid long walks through the memory resident table. As with a conventional TLB miss, a PLB miss can use hardware or software to search the permission tables. To further improve performance, we also add a sidecar register for every architectural address register in the machine (in machines that have unified address and data registers, a sidecar would be needed for every integer register). The sidecar caches the last table segment accessed through this address register. As discussed below, the information stored in the sidecar can map a wider address range than the index address range of the PLB entry from which it was fetched, avoiding both PLB lookups and PLB misses while a pointer moves within a table segment. The information retrieved from the tables on a PLB miss is written to both the register sidecar and the PLB.</p><p>The next two subsections discuss alternative layouts of the entries in the permissions tables. In choosing a format of the permissions table we must balance space overhead, access time overhead, PLB utilization, and the time to modify the tables when permissions change.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.3">Sorted Segment Table</head><p>A simple design for the permissions table is just a linear array of segments ordered by segment start address. Segments can be any number of words in length and start on any word boundary, but cannot overlap. <ref type="figure" target="#fig_3">Figure 3</ref> shows the layout of the sorted segment table (SST). Each entry is four bytes wide, and includes a 30-bit start address (which is word aligned, so only 30 bits are needed) and a 2-bit permissions field (the shaded part is optional and will be discussed in Section 5). The start address of the next segment implicitly encodes the end of the current segment, so segments with no permissions are used to encode gaps and to terminate the list. On a PLB miss, binary search is used to locate the segment containing the demand address. The SST is a compact way of describing the segment structure, especially when the number of segments is small, but it can take many steps to locate a segment when the number of segments is large. Because the entries are contiguous, they must be copied when a new entry is inserted. Furthermore, the SST table can only be shared between domains in its entirety, i.e., two domains have to have identical permissions maps. An alternative design is a multi-level permissions table (MLPT). The MLPT is organized like a conventional forward mapped page table, but with an additional level. <ref type="figure" target="#fig_4">Figure 4</ref> shows which bits of the address are used to index the table, and <ref type="figure" target="#fig_5">Figure 5</ref> shows the MLPT lookup algorithm. Entries are 32-bits wide. The root table has 1024 entries, each of which maps a 4 MB block. Entries in the mid-level table map 4 KB blocks. The leaf level tables have 64 entries which each provide individual permissions for 16 four-byte words. The supervisor can reduce MLPT space usage by sharing lower level tables across different protection domains when they share the same permissions map.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.4">Multi-level Permissions Table</head><p>We next examine different formats for the entries in the MLPT.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.4.1">Permission Vector Entries</head><p>A simple format for an MLPT entry is a vector of permission values, where each leaf entry has 16 two-bit values indicating the permissions for each of 16 words, as shown in <ref type="figure">Figure 6</ref>. User segments are represented with the tuple &lt; base addr, length, permissions&gt;. Addresses and lengths are given in bytes unless otherwise noted. The user segment &lt;0xFFC, 0x50, RW&gt; is broken up into three permission vectors, the latter two of which are shown in the <ref type="figure">figure.</ref> We say an address range owns a permissions table entry if looking up any address in the range finds that entry. For example, in <ref type="figure">Figure 6</ref>, 0x1000-0x103F owns the first permission vector entry shown.</p><p>Upper level MLPT entries could simply be pointers to lower level tables, but to reduce space and run-time overhead for large user segments, we allow an upper level entry to hold either a pointer to the next level table or a permissions vector for sub-blocks (  <ref type="table">The table is</ref> indexed with an address and returns a permissions table entry, which is cached in the PLB. The base of the root table is held in a dedicated CPU register. The implementation of is tbl ptr depends on the encoding of the permission entries.</p><formula xml:id="formula_0">¡ ¡ ¡ ¡ ¢ ¡ ¢ ¢ ¡ ¢ £ ¡ £ ¡ £ £ ¡ £ ¡ £ ¤ ¡ ¤ ¡ ¤ ¤ ¡ ¤ ¡ ¤ ¥ ¡ ¥ ¡ ¥ ¥ ¡ ¥ ¡ ¥ ¦ ¡ ¦ ¦ ¡ ¦ 0x1080 0x1040 0x1000</formula><p>Address <ref type="formula">Space</ref>  ure 7). Permission vector entries in the upper levels contain only eight sub-blocks because the upper bit is used to indicate whether the entry is a pointer or a permissions vector. For example, each mid-level permissions vector entry can represent individual permissions for the eight 512 B blocks within the 4 KB block mapped by this entry.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.4.2">Mini-SST entries</head><p>Although permission vectors are a simple format for MLPT entries, they do not take advantage of the fact that most user segments are longer than a single word. Also, the upper level entries are inefficient at representing the common case of non-aligned, nonpower-of-two sized user segments.</p><p>The sorted segment table demonstrated a more compact encoding for abutting segments-only base and permissions are needed because the length of one segment is implicit in the base of the next. A mini-SST entry uses the same technique to increase the encoding density of an individual MLPT entry.</p><p>Perm <ref type="formula">(2)</ref> Offset <ref type="formula">(4)</ref> Offset <ref type="formula">(5)</ref> Perm <ref type="formula">(2)</ref> Offset <ref type="formula">(4)</ref> Perm <ref type="formula">(2)</ref> Offset <ref type="formula">(4)</ref>   <ref type="figure" target="#fig_7">Figure 8</ref> shows the bit encoding for a mini-SST entry which can represent up to four table segments crossing the address range of an entry. As with the SST, start offsets and permissions are given for each segment, allowing length (for the first three entries) to be implicit in the starting offset of the next segment. The mini-SST was broken up into four segments because experiments showed that the size of heap allocated objects was usually greater than 16 bytes.</p><p>Mini-SST entries encode permissions for a larger region of memory than just the 16 words (or 16 sub-blocks at the upper table levels) that own it. The first segment has an offset which represent its start point as the number of sub-blocks (0-31) before the base address of the entry's owning range. Segments mid0 and mid1 must begin and end within this entry's 16 sub-blocks. The last segment can start at any sub-block in the entry except the first (a  zero offset means the last segment starts at the end address of the entry) and it has an explicit length that extends up to 31 sub-blocks from the end of the entry's owning range. The largest span for an entry is 79 sub-blocks (31 before, 16 in, 32 after). The example in <ref type="figure">Figure 6</ref> illustrates the potential benefit of storing information for words beyond the owning address range. If the entry owned by 0x1000-0x103F could provide permissions information for memory at 0x1040 then we might not have to load the entry owned by 0x1040. <ref type="figure" target="#fig_9">Figure 9</ref> shows a small example of mini-SST entry use. Segments within an SST entry are labelled using a &lt; base, length, permission &gt; tuple. Lengths shown in parentheses are represented implicitly as a difference in the base offsets of neighboring table segments. The entry owned by 0x1000-0x103F has segment information going back to 0xFFC, and going forward to 0x104C. Because of the internal representation limits of the mini-SST format, the user segment mapped by the entry at address range 0x1000-0x103F has been split across the first and last mini-SST table segments.</p><formula xml:id="formula_1">Mid0 = &lt;3, (5), NONE&gt; Mid1 = &lt;8, (2), RO&gt; Last = &lt;10, 8, RW&gt; ¡ ¡ ¢ ¡ ¢ ¢ ¡ ¢ £ ¡ £ ¡ £ £ ¡ £ ¡ £ ¤ ¡ ¤ ¤ ¡ ¤ 0x1080</formula><p>Mini-SST entries can contain overlapping address ranges, which complicates table updates. When the entry owned by one range is changed, any other entries which overlap with that range might also need updating. For example, if we free part of the user segment starting at 0xFFC by protecting a segment as &lt;0x1040, 0xC, NONE&gt;, we need to read and write the entries for both 0x1000-0x103F and 0x1040-0x107F even though the segment being written does not overlap the address range 0x1000-0x103F. All entries overlapping the modified user segment must also be flushed from the PLB to preserve consistency.</p><p>We can design an efficient MLPT using mini-SST entries as our primary entry type. The mini-SST format reserves the top two bits for an entry type tag, <ref type="table" target="#tab_3">Table 2</ref> shows the four possible types of entry. The upper tables can contain pointers to lower level tables. Any level can have a mini-SST entry. Any level can contain a pointer to a vector of 16 permissions. This is necessary because mini-SST entries can only represent up to four abutting segments. If a region contains more than four abutting segments, we represent the permissions using a permission vector held in a separate word of storage, and pointed to by the entry. Finally, we have a pointer to a record that has a mini-SST entry and additional information. We use this extended record to implement translation as discussed in Section 5.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.5">Protection Lookaside Buffer</head><p>The protection lookaside buffer (PLB) caches protection  ing number of significant bits (as with variable page size TLBs <ref type="bibr" target="#b14">[15]</ref>). The PLB tags have to be somewhat wider than a TLB as they support finer-grain addressing (26 tag bits for our example design). Entries are also tagged with protection domain identifiers (PD-IDs).</p><p>The ternary tags stored in the PLB entry can contain additional low-order "don't care" address bits to allow the tag to match addresses beyond the owning address range. For example, the tag 0x10XX, where XX are don't care bits, will match any address from 0x1000-0x10FF. On a PLB refill, the tag is set to match on addresses within the largest naturally aligned power-of-two sized block for which the entry has complete permissions information. Referring to the example in <ref type="figure" target="#fig_9">Figure 9</ref>, a reference to 0x1000 will pull in the entry for the block 0x1000-0x103F and the PLB tag will match any address in that range. A reference to 0x1040 will bring in the entry for the block 0x1040-0x107F, but this entry can be stored with a tag that matches the range 0x1000-0x107F because it has complete information for that naturally aligned power-of-two sized block. This technique increases effective PLB capacity by allowing a single PLB entry to cache permissions for a larger range of addresses.</p><p>When permissions are changed for a region in the permissions tables, we need to flush any out-of-date PLB entries. Permissions modification occurs much more frequently than page table modifications in a virtual memory system. To avoid excessive PLB flushing, we use a ternary search key for the CAM tags to invalidate potentially stale entries in one cycle. The ternary search key has some number of low order "don't care" bits, to match all PLB entries within the smallest naturally aligned power-of-two sized block that completely encloses the region we are modifying (this is a conservative scheme that may invalidate unmodified entries that happen to lie in this range). A similar scheme is used to avoid having two tags hit simultaneously in the PLB CAM structure. On a PLB refill, all entries that are inside the range of a new tag are first searched for and invalidated using a single search cycle with low-order "don't care" bits.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.6">Sidecar Registers</head><p>Addr <ref type="formula">(32)</ref> Valid <ref type="formula">(</ref> Each address register in the machine has an associated sidecar register which holds information for one table segment as depicted in <ref type="figure" target="#fig_1">Figure 10</ref>. The program counter also has its own sidecar used for instruction fetches. Sidecar registers are an optional component of the design, but they help reduce traffic to the fully-associative PLB.</p><p>On a PLB miss, the demand address from the processor is looked up in the permissions table, and the permissions table entry that is returned is entered into the PLB. The table segment that contains the demand address is also loaded into the sidecar for the address register that was used to calculate the effective address of the memory load or store. All fields of the table segment descriptor are blown up to maximum length in the address sidecar to facilitate fast checking of base and bounds. For each subsequent load or store, the effective address is compared against the base and bounds. If the address lies within the range, the sidecar permissions value is used to check the access. If the range check fails or the sidecar is invalid, the PLB is searched for the correct permissions information. The PLB in turn might miss, causing a fill from the permissions table in memory.</p><p>Sidecars also increase the permissions hit rate by caching an entire table segment. The PLB can often only index part of the permission table entry because its index range must be a naturally aligned power-of-two sized block. For example, in <ref type="figure" target="#fig_9">Figure 9</ref> a reference to 0x1040 will load the segment &lt;0xFFC, 0x50, RW&gt; into the register sidecar. If that register is used to access location 0xFFC we will have a permissions check hit from the sidecar. Sending 0xFFC to the PLB will result in a permissions check miss because it only indexes the range 0x1000-0x107F.</p><p>To guarantee consistency, all sidecars are invalidated when any protections are changed. Sidecars are also invalidated on protection domain switches. The sidecars can be refilled rapidly from the PLB. Permissions tables have the same coherence issues as page tables in a multi-processor system. If they are modified, any processor which might be caching the data must be notified so it can invalidate its sidecar registers and invalidate the necessary section of the PLB.</p><p>Register sidecar information is like a capability in that it has protection and range information, but it is not managed like a capability because it is ephemeral and not user visible. Sidecars are similar to the resolved address registers in the IBM System/38 <ref type="bibr" target="#b12">[13]</ref>, where an address such as the base of an array would be translated, cached and then reused to access successive array elements.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.7">Processor Pipeline Implementation</head><p>MMP requires some modifications to a processor pipeline, but the permissions check only needs to occur before the commit point in the pipeline, and so should not impact processor cycle time. A permissions fault is treated in the same way as any other address fault. In an in-order processor, the check is performed before write back, and in an out-of-order processor the check is performed before instruction retirement. A processor can speculatively use load data before permission is granted. Similarly, store data lives in the speculative store buffer until permission is granted to commit the store.</p><p>The sidecar registers can be physically located by the load/store unit and only need as many read ports as the number of simultaneous load and store instructions supported. For both in-order and out-of-order processors, the architectural register number is used to index the sidecar register file. The sidecar registers in an out-oforder pipeline may be speculatively refilled with the wrong data, but the segment descriptor will always be for a valid table segment. An incorrect speculation might bring in the wrong table segment, but this can only cause a sidecar miss to the PLB, not a protection breach.</p><p>The main performance impact of permissions checking is the additional additional memory traffic caused by table lookups. This is quantified below in Section 4.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.8">Protected calls</head><p>The memory protection structures of the permissions table and PLB are sufficient to implement call gates <ref type="bibr" target="#b25">[26]</ref>. Call gates are generalizations of system calls, and provide an efficient mechanism for mutually distrustful protection domains to safely call each other's services.</p><p>A subsystem exports a limited number of code entry points to client domains. Calls to these entry points cause a switch in protection domain to that of the subsystem. There are a number of ways to implement these protected entry points. The simplest is to remove all permissions on the entry points so that a call will trap into the supervisor. Subsystems register their entry points with the supervisor, so execution can be restarted in the exporting domain at the requested entry point. Alternatively, hardware can be used to accelerate the domain switch by encoding the protection domain for a code entry point within the permissions table entry.</p><p>The call gate has a minimum of semantics. For instance the exporting domain needs to establish its own stack if it needs one. Parameters are passed in registers. More elaborate data structures are passed using a very simplified form of marshalling which consists of the caller traversing the data structure and granting appropriate permission to the provider domain. No data copying is needed, only the permissions structures are affected. If two domains call each other frequently, they can copy arguments into buffers which are properly exported.</p><p>Hardware-supported call gates make cross-domain calls efficient by removing the demultiplexing overhead of system calls. This allows supervisor services to be implemented with a minimum of checking. Malloc and free could be implemented efficiently by the supervisor since it need only check the length on a malloc, and it need only verify the pointer on a free. There is no transfer of data. To further speed execution within the supervisor domain, we assume a small number of wired entries are reserved exclusively for supervisor use (4 in our implementation). The supervisor can keep protection information for its text, stack, and data in these entries so they do not need to be faulted in on every supervisor call.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.9">Extension to 64 bits</head><p>Although this paper only describes an MMP design for a 32-bit address space, we believe the design can be extended to 64 bits in a straightforward way, using many of the same techniques that were used to extend page tables to a wider address space. Using a forward-mapped scheme, we would have five levels of table lookup, where the top 3 level tables have 4K entries, and the last two levels have 2K entries. To make lookups faster, we can hash the top 42 bits of the address and index into an address hash table which has either permission entries or pointers to the same lowest two level tables used by the five table lookup path. The hash table is updated whenever a lookup fails and it is updated with the entry retrieved from searching the five level tables from the root. The space consumption for this strategy will be larger than the 32-bit case, but we believe the time consumption could be tuned to be close to the 32-bit case.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="4.">EVALUATION</head><p>Fine-grain memory protection is useful, but comes at a cost in both space and time. The permission tables occupy additional memory and accessing them generates additional memory traffic. The time and space overheads depend on three things: where the data is placed in memory, how the programmer protects that data, and how the program accesses the data.</p><p>Data placement is governed by the executable program layout and by the operation of the heap allocator. We evaluated both C  and Java programs. C programs were compiled with gcc version egcs-1.0.3a for a 32-bit MIPS target using -O3 optimization and static linking to generate an ELF binary. The malloc from the newlib library was used. The linker and malloc libraries were used unmodified. The results would be significantly better if the linker was modified to align and pad program sections, and if malloc was modified to try to align addresses and to place its internal management state away from the returned memory. The Java programs were compiled for a MIPS target using MIT's FLEX Javato-native compiler <ref type="bibr" target="#b24">[25]</ref>. FLEX's output was also linked with the newlib malloc library. The garbage collector in FLEX was disabled for all of our runs to put a heavier load on the memory system. The biggest challenge in evaluating MMP is trying to predict how programmers would take advantage of word-granularity protection. In this evaluation, we considered two extreme cases. In the first case, we assumed light use of the protection facilities. Programs were run with the standard protection regions for Unix processes: read-only program text, read-only data, read-write data, and stack. This level of protection is what is provided by most current virtual memory operating systems. In the second case, we assume that every object allocated by malloc is in a separate user segment and that the surrounding words are inaccessible because they hold malloc internal state.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>Benchmark</head></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>Refs</head><note type="other">¡ £ ¢ ¥ ¤ Segments Refs/Update Cs crafty test 3,088 96 64,327,162 6 gcc tr 1,</note><p>To gather data on how programs access data, we chose a mix of benchmarks that were both memory reference and memory allocation intensive. <ref type="table" target="#tab_5">Table 3</ref> lists the benchmarks used and their reference properties. Benchmark names prefixed with a "j-" are Java programs. Benchmarks crafty, gcc, twolf and vpr are from SPEC 2000, and vortex is from SPEC 95. The tr suffix indicates the training input, and test suffix indicates the test input. Names prefixed "o-" are from the Olden <ref type="bibr" target="#b5">[6]</ref> benchmark suite. Names prefixed with "m-" are from the Mediabench benchmark suite. <ref type="table" target="#tab_5">Table 3</ref> includes the number of memory references per table update. The permissions table is only updated on malloc, realloc, and free calls, and the results show a wide variation in how frequently objects are created and deleted.</p><p>The programs were run on a MIPS simulator modified to trace data memory references as well as calls to malloc, realloc, and free. We considered only data references because the instruction reference stream remains inside a single text segment for these codes, but we put the protection information for the text segment in the permissions table. These traces were fed to our model implementations of the SST and the MLPT which keep track of size of the tables, and the memory accesses needed to search and update the tables. The implementation also models all invalidates of sidecars and PLB required for consistency with table updates, and to prevent multiple hits in the PLB after refills. We measure space overhead by measuring the space occupied by the protection tables and dividing it by the space being used by the application for both program text and data at the end of a program run. We determine the space used by the application by querying every word in memory to see if it has valid permissions. As a result, the space between malloced regions is not counted as active memory even though it contributes to the address range consumed by malloc and to the protection table overhead. The stack starts at 64 KB and is grown in 256 KB increments. Each call to brk returns 1 MB.</p><p>We approximate the effect on runtime by measuring the number of additional memory references required to read and write the permission tables. We report overhead as the number of additional references divided by the number of memory references made by the application program. The performance impact of these additional memory references varies greatly with the processor implementation. An implementation with hardware PLB refill and a speculative execution model should experience lower performance overheads as these additional accesses are not latency critical. A system with software PLB refill and a simple pipeline should have higher relative time overhead. In addition to counting additional memory references, we also fed address traces containing the table accesses to a cache simulator to measure the increase in miss rate caused by the table lookups.</p><p>For the permissions caching hierarchy, we placed register sidecars on all 32 integer registers. The results used either a 64-entry or 128-entry PLB with 4 entries reserved for the supervisor and a random replacement policy. We do not model the supervisor code in our experiments, and so we report just the number of PLB entries available to the application (60 or 124). <ref type="table" target="#tab_7">Table 4</ref> shows the space and time overhead results for the coarsegrained protection model. We only present the results for the MLPT with mini-SST entries and a 60-entry PLB. We contrast the overheads of the permissions table with a model of a page table and TLB which would provide this same kind of protection in a modern computer system. The overheads are small in both space and time for both systems. The MLPT space overhead is bigger than the page table overhead, but it is less than 0.7% for all of the benchmarks. MLPT uses additional space because it must create a few leaf level tables to accomodate segments whose start or end addresses are not divisible by 256 B. If the program segments were aligned, and grew in aligned quantities, the MLPT and page table would consume the same space.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="4.1">Coarse-Grained Protection Results</head><p>The MLPT adds fewer than 0.6% extra memory references, and requires fewer table accesses than the page table for every benchmark except Mediabench's mpeg2. The mpeg2 run is so short that writes to the permission table make up a large part of the table accesses. The advantage of the MLPT is the reach of its midlevel mini-SST entries. These entries are owned by 4 KB of address space, but they can contain information for a 20 KB region. A conventional page  We also simulated an SST with a 60-entry PLB. This performs much better that either of the previous schemes, with both time and space overheads below 0.01% on all benchmarks. The ability of the SST table segments to represent large regions results in extremely low PLB miss rates. Because there are so few coarse grain segments, the lookup and table update overhead is small.</p><p>These results show that the overhead for MMP word-level protection is very low when it is not being used.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="4.2">Fine-Grained Protection Results</head><p>We model the use of fine-grain protection with a standard implementation of malloc which puts 4-8 bytes of header before each allocated block. We remove permissions on the malloc headers and only enable program access to the allocated block. We view this as an extreme case, as a protected subsystem will typically only export a subset of all the data it accesss, not its entire address space. <ref type="table" target="#tab_10">Table 5</ref> shows the results for the fine-grain protection workloads. While the SST organization performs well for some programs, its time and space overhead balloons on other programs. For o-health the space overhead reaches 44%. The binary search lookup has a heavy, but variable, time cost, which can more than double the number of memory references. For j-jack, it averages 20.8 loads per table lookup, but for mpeg2 it is only 4.8. Because SST must copy half the table on an update on average, updates also cause significant additional memory traffic. But SST does have significantly lower space and time overheads than the MLPT for some applications like gcc and crafty. The gcc code mallocs a moderate number of 4,072 byte regions for use with its own internal memory manager. This odd size means the MLPT must use leaf tables which have limited reach in the PLB, while the SST represents these segments in their entirety. We are investigating adaptive policies that would switch between SST and MLPT as the number of segments increase.  <ref type="table">Table 6</ref>: Measurements of miss rates for a MLPT with mini-SST entries and a 60 entry PLB. SCar is the sidecar miss rate. PLB is the global PLB miss rate (PLB misses/total references). SCar Elim is the number of references to the permissions table that were eliminated by the use of sidecar registers for the finegrained protection workload. For coarse-grained protection, the PLB miss rates were close to zero on all benchmarks and so are not shown here.</p><p>All MLPT organizations take almost exactly the same space and so their space overhead is reported together in one column. The space overhead for the MLPT is less than 9% for all permission entry types. The mini-SST format can require a little more space than the permission vector format when programs use many small segments that cannot be represented in the mini-SST format. Five of the benchmarks required permission vector escapes, but only two required more than 30 escapes. The health benchmark required 4,037 pointers to permissions vectors in the leaf entries, and j-jess 332. Although is not likely to represent real program behavior <ref type="bibr" target="#b35">[36]</ref>, health provides a stress test for our system because it allocates many small segments.</p><p>We garbage collect MLPT permission tables when they become unused. This keeps memory usage close to the overhead of the leaf tables, which is</p><formula xml:id="formula_2">¡ ¡ ¡ £ ¢ ¥ ¤ ¦ ¢ ¨ §©</formula><p>% because information for 16 words is held in a single word entry. Some overheads are higher than 6.25% because of non-leaf tables. Each table has a counter with the number of active entries. When this counter reaches zero, the table can be garbage collected. The reads and writes to update this counter are included in the memory reference overhead.</p><p>The mini-SST organization is clearly superior to the permission vector format (compare columns vec 60 PLB to mSST 60 PLB). Every benchmark performs better and the highest overhead (vpr) is more than halved, dropping from 19.4% to 7.5%. Lookups dominate the additional memory accesses, as would be expected. jpeg and mpeg from mediabench are small programs that don't run for very long so updating the tables is a noticable fraction of table memory references for these benchmarks. j-jack has high update overhead because it performs many small allocations with little activity in between (from <ref type="table" target="#tab_5">Table 3</ref> it does less than 500 memory reference in between table updates). When we increase the number of available PLB entries to 124 (column mSST 124 PLB), the worst case memory reference overhead drops to 6.3%, with some benchmarks, like vpr, benefiting greatly from the increased reach of the PLB. <ref type="table">Table 6</ref> shows the performance of the permissions caching hiBenchmark SST 60 PLB Space vec 60 PLB mSST 60 PLB mSST 124 PLB Space X-ref upd ld/lk X-ref upd ld/lk X-ref upd ld/lk X-ref upd ld/lk crafty test 0.0% 0.0% 49%  erarchy including the sidecar miss rate and the PLB global miss rate for the fine-grained protection workload. The sidecar registers normally capture 80-90% of all address accesses, while the PLB captures over 97% in all cases. We also show the percentage reduction in references to the permissions tables as a result of using sidecar registers. The principal motivation for using sidecars is to reduce traffic to the PLB, but there is a significant performance gain also (more than 10% for two benchmarks) because some sidecar hits would be PLB misses as explained in Section 3.6.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="4.3">Memory Hierarchy Performance</head><p>As another indirect measure of performance impact, we measured the increase in miss rate caused by the additional permissions table accesses. The results for a typical L1 cache (16 KB) and a typical L2 cache (1 MB) are shown in <ref type="figure">Figure 7</ref>. Both caches are 4-way set associative. For the L1 cache, at most an additional 0.25% was added to the miss rate, and for the L2 cache, at most 0.14% was added to the global miss rate but most apps experienced no difference in L2 miss rates.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="5.">SEGMENT TRANSLATION</head><p>The MMP table structures are effective at associating permissions with memory addresses. Other information can also be associated with addresses and held in the table segment descriptors. We can make a segment of memory appear to reside in a different address range by storing a translation offset in the table segment descriptor. The translation offset is added in to every address calculation within the table segment's range. <ref type="figure" target="#fig_1">Figure 11</ref> shows an example of how this facility might be used. Addresses in the range 0x1000-0x12FF actually refer to memory stored at the two different address regions 0x80002000-0x800021FF and 0x80002800-0x800028FF. This is implemented by the creation of two segments that have translation information, i.e., &lt;0x1000, 0x200, RO, +0x80001000&gt;, and &lt;0x1200, 0x100, RO, +0x80001600&gt;. The final segment field holds the translation offset.</p><p>The MMP system does not dictate policy, but one reasonable choice is that only the protection domain that owns a segment can install a translation, and the translation must point to another segment owned by the same protection domain. This property would be checked by the supervisor when it is called to establish the map-</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>Benchmark</head></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="16">KB, 4-way 1 MB, 4-way App MMP</head><p>App MMP crafty test</p><p>1.86% 1.87% 0.01% 0.01% 0.01% 0.00% gcc tr 4.25% 4.30% 0.06% 0.22% 0.22% 0.00% twolf train 2.82% 3.04% 0.21% 0.00% 0.00% -0.00% vpr test 3.37% 3.62% 0.25% 0.00% 0.00% 0.00% vortex tr 0.71% 0.72% 0.02% 0.10% 0.10% 0.00% j-compress 2.82% 2.82% 0.00% 0.12% 0.12% 0.00% j-db 2.25% 2.39% 0.14% 0.50% 0.53% 0.03% j-jack 0.54% 0.55% 0.01% 0.24% 0.24% 0.01% j-jess 0.84% 0.86% 0.02% 0.07% 0.07% 0.00% j-raytrace 0.22% 0.23% 0.00% 0.03% 0.03% 0.00% m-jpeg dec 0.43% 0.43% -0.00% 0.09% 0.09% 0.00% m-mpeg2 dec 0.20% 0.20% -0.00% 0.04% 0.04% 0.00% o-em3d 0.42% 0.42% 0.01% 0.19% 0.20% 0.00% o-health 2.44% 2.58% 0.14% 2.41% 2.55% 0.14% <ref type="table">Table 7</ref>: App is the cache miss rate of the application benchmark, while MMP is the combined cache miss rate for the references of the benchmark and the MMP protection structures.</p><p>is their difference. A MLPT was used with mini-SST entries and a 60 entry PLB. This table holds results from two experiments, differing only in cache size-16 KB and 1 MB. The cache was a 4-way set-associative with 32-byte lines. -0.00 means the miss rate decreased slightly. Reference streams were simulated for a maximum of 2 billion references.</p><p>pings. <ref type="figure" target="#fig_1">Figure 11</ref> shows how translation can be used to implement zerocopy networking with a standard read system call interface. The client domain passes a buffer to the kernel via read. The kernel becomes the owner of the buffer, and it remaps the packet payloads into the buffer without copying them. When the user references the buffer (e.g., 0x1000), it is reading data from 0x80002000 which is where the packet payload resides.</p><p>Segment translation does not preclude other levels of memory translation. For an embedded system that uses a physical address space, segment translation could be the only level of memory translation in the system. For a system that uses virtual addresses, the result of segment translation is a virtual address which is translated to a physical address by another mechanism. Translations are not</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>Client Segments</head><p>Kernel Packets header 0x1000 0x80002000 0x80002800 header 0x1200 0x1300 0x80002900 0x80002200 &lt;0x1000,0x200,RO,+0x80001000&gt; &lt;0x1200,0x100,RO,+0x80001600&gt; recursive, a translated segment cannot be the target of other translations.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="5.1">Byte Granularity Translation</head><p>To allow packet payloads to consist of any number of bytes, segment translation must be done at the byte level. Byte level translation creates two issues.</p><p>The first is that addresses which appear to be aligned can create unaligned references when used. The address issued by the processor is the user address plus the translation offset. If a segment is translated to an odd-byte boundary (e.g., &lt;0x1000, 0x200, +0x80002003&gt;), then a reference to user address 0x1000 becomes an unaligned reference to 0x80003003. Some modern processors can handle unaligned loads from the same cache line in a single cycle, but require two cycles for unaligned loads that cross cache line boundaries.</p><p>The second issue is a little more complex. Returning to the example in <ref type="figure" target="#fig_1">Figure 11</ref>, consider the case where the first packet has one fewer byte of data payload: 0x1FF bytes instead of 0x200. We can almost represent this situation with the segments &lt;0x1000, 0x1FF, RO, +0x80001000&gt; and &lt;0x11FF, 0x101, RO +0x80001601&gt;, but the length of our segments and their base address must be word aligned, they can not be byte aligned. The problem is with the word at address 0x11FC. The first three bytes need to come from the first segment, and the last byte needs to come from the second segment.</p><p>We call a word that spans segment translation boundaries a seamed word. Seamed words must be represented in the permissions table. To simplify the representation, they are defined to be single word segments that must occur on the first word of two adjacent segments, e.g., the word at address 0x11FC in our example. We then only need to represent that two adjacent segments have a seam and how many bytes from the first segment are used. The remaining bytes are taken from the second segment. <ref type="figure" target="#fig_1">Figure 12</ref> shows the record used to represent seamed words and translation information in the mini-SST format. The record is six words long and is pointed to by a table entry which is a type 10 pointer (see <ref type="table" target="#tab_3">Table 2</ref>). There are 32 bits of translation for each segment.</p><p>The upper two bits, used for type information when the mini-SST format is used for table entries, are reallocated in this record to indicate the location of seamed words. We can use these bits first <ref type="formula">(7)</ref> seam <ref type="formula">(2)</ref> mid0 <ref type="formula">(6)</ref>  because we already know the type of the entry once we reach it. The arrow heads indicate where seamed words are allowed to occur. The bits are independent and if the first bit (seam0) is set, a seam is between table segments first and mid0. If the second bit is set(seam1), a seam is between mid1 and last. We divide the last word of the record into two 16-bit fields, which each represent the byte cross-over point for the corresponding seamed entry.</p><p>In our example, the cross-over point is 3 bytes because 0x11FC-0x11FE come from the first segment and 0x11FF comes from the second segment. This record format restricts the system to two seamed entries in every 16 words, and requires that translated segments be representable by a mini-SST entry. If there are many small regions (e.g., many small network packets) it is better to copy the contents rather than construct many translated or seamed regions.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="5.2">Translation Hardware Implementation</head><p>The translation offset sits in the address sidecar register <ref type="figure" target="#fig_1">(Fig- ure 10)</ref> and must be added in to every memory address calculation. This will increase the typical two operand add used for address arithmetic to a three operand add. The additional 3:2 carry-save adder will add a few gate delays to memory access latency.</p><p>A seamed load requires the processor have support to collect the bytes within a single word load from different addresses. Fortunately, the pipeline mechanism is almost identical to what is needed for unaligned loads that cross cache line boundaries-bytes from different locations must be shifted and muxed together. The only difference with seamed loads is that the two locations being read are not within three bytes of each other.</p><p>Segment translation does not cause cache hardware aliasing problems, because translation occurs before the access is sent to the cache and memory system. There can be a software pointer aliasing problem if software assumes that only numerically equal pointers point to the same data. Since all memory meta-data is changed via supervisor calls, the supervisor can enforce policies that mitigate the negative effects of software pointer aliasing. One policy would be that, since a domain must own both the translated segment and its image, the domain can only export the segment, and not the image. This prevents other domains from seeing the translation and becoming confused, but would support applications like zero-copy networking.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="5.3">Zero-copy Networking</head><p>There are many proposals in the literature for zero-copy networking <ref type="bibr" target="#b8">[9,</ref><ref type="bibr" target="#b22">23,</ref><ref type="bibr" target="#b29">30]</ref>. Most are successful at eliminating extra copies in the kernel. The hardest implementation issue is eliminating the copy between the kernel and the user. Systems like IOLite <ref type="bibr" target="#b22">[23]</ref> change the user/kernel interface and programming model to pass around collections of pointers. The user is aware that her data is split into various memory regions which complicates programming. Another approach has user handlers manage the copy from the network interface directly <ref type="bibr" target="#b19">[20]</ref>. Direct access to the network interface requires special hardware, does not interact well with multiprogramming and demand paging, and results in the entire packet, not just the payload, being transfered to user space. A final approach <ref type="bibr" target="#b8">[9]</ref> uses page remapping, which can be implemented under the standard read system call. The implementation in <ref type="bibr" target="#b8">[9]</ref> is limited to the hardware page granularity, and so only applicable within large packets (the largest standard Ethernet packet is less than 1600 bytes).</p><p>We believe the page remapping approach is the best for zerocopy networking. MMP eliminates the page size restriction and extends the approach to data that is split among multiple packets. It offers the programming ease of linear buffers with the performance of zero copy networking stacks.</p><p>The kernel buffers packets as they arrive on a TCP connection. It then maps the payload from these packets into contiguous segments (provided by read) which the user can then access (see <ref type="figure" target="#fig_1">Figure 11</ref>). Permissions are only given for access to the data payload so the network stack is isolated from a malicious or buggy user.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="5.3.1">Evaluation</head><p>We recorded a web client receiving 500 KB of packets and simulated the action of a kernel driver which accepts the packets into kernel memory and then translates the packet payload segments into a contiguous segment which is exported to the client. The client then streams through the entire payload. In this scenario, the kernel reads the packet headers, and writes the permissions tables to establish the translation information. The client reads the data, causing the system to read the translation and permissions data from the protection table.</p><p>We compare the number of memory references required for the segment translation solution with the number of memory references required for the standard copying implementation. In the copying implementation the kernel reads the headers, and then reads the packet payloads and writes them to a new buffer. The client streams through the new buffer.</p><p>Zero-copy networking saves 52% of the memory refereces of a traditional copying implementation. It has a size overhead of 29.6% for the permission tables. 61% of that 29.6% overhead is for permissions tables and the remaining 39% is for the translation records. 11% of the references are unaligned and cross cache line boundaries. 0.5% of the references are seamed. If we charge 2 cycles for the unaligned loads that cross cache line boundaries, 10 cycles for the seamed loads and discount all other instructions, the translation implementation still saves 46% of the reference time of a copying implementation.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="6.">OTHER USES FOR FINE-GRAINED PROTECTION AND TRANSLATION</head><p>We believe that fine-grained protection offers exciting opportunities for application developers. Appel <ref type="bibr" target="#b2">[3]</ref> surveys some applications that make use of page-based virtual memory. Many of these same ideas could perform better with finer grain protection and with cheap inter-protection domain calls.</p><p>Fine-grained protection can provide support for fast memory bounds checking. Buffer overruns in unsafe languages are a common source of security holes <ref type="bibr" target="#b31">[32]</ref>. MMP could catch a program's attempt to jump into writable data. It could also catch the program trying to write off the end of a piece of memory. Bounds checking is useful for program debugging and if implemented by MMP would be available to the kernel.</p><p>A related functionality, data watchpoints <ref type="bibr" target="#b32">[33]</ref>, can be easily implemented with our fine-grained protection. A data watchpoint generates a trap when a given word in memory is modified. Some processors support a handful of watched memory locations <ref type="bibr" target="#b14">[15,</ref><ref type="bibr" target="#b13">14]</ref>, but our fine-grained protection scales to thousands of individually protected words.</p><p>Generational garbage collectors <ref type="bibr" target="#b18">[19]</ref> need to be notified when older objects are updated to point to younger ones. Checking this in software is time consuming. With MMP, we can write protect older objects and signal whenever an update causes a young object to be referenced by an old object.</p><p>Compilers for unsafe languages like C are often unable to apply compelling optimizations because of their inability to prove something about the memory reference behavior of the program. The following loop illustrates the point.</p><formula xml:id="formula_3">void foo(int* a, int B[]) { for(int i = 0; i &lt; N; ++i) { *a += B[i]; }}</formula><p>The compiler can not register allocate *a if it can not prove that a and B are not aliases. With fine-grained protection, the compiler can write-protect B outside the loop and then accumulate *a in a register. Fix up code is needed in case B is written. Flexible sub-page protection enables distributed shared memory systems like Shasta <ref type="bibr" target="#b26">[27]</ref> and its predecessor <ref type="bibr" target="#b27">[28]</ref>. Shasta found significant benefit from configurable line sizes, but since these line sizes did not map to virtual address pages it performed access checks in software. While the authors of Shasta used impressive compiler techniques to reduce the cost of these software access checks, our fine-grained protection would reduce this cost further. In addition, fine-grained protection can be used to perform objectlevel distributed caching, rather than standard block based caching which is susceptible to false sharing.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="6.1">Combining fine-grained protection and translation</head><p>When fine-grained protection is combined with byte level translation, we discover additional opportunities for implementing system services. We explored one application in detail, zero-copy networking, in Section 5.3.</p><p>A persistent problem for supporting large numbers of user threads is the space occupied by each thread's stack <ref type="bibr" target="#b10">[11]</ref>. Each thread needs enough stack to operate, but reserving too much stack space wastes memory. With paged virtual memory, stack must be allocated in page sized chunks. This strategy requires a lot of physical memory to support many threads, even though most threads don't need a page worth of stack space. With MMP segment translation, the kernel can start a thread and only translate a very small part of its stack (e.g., 128 bytes). If the thread uses more stack than this, the kernel can translate the next region of the stack to a segment non-contiguous with the first, so the stack only occupies about as much physical memory as it is using, and that memory does not have to be physically contiguous.</p><p>A common data structure that MMP protection and translation could optimize is the mostly-read-only data structure. An example comes from the widely used NS network simulator <ref type="bibr" target="#b21">[22]</ref>. Each packet is mostly read-only data. When simulating a wireless network, packets are "broadcast" to nodes which read the read-only data, but also write a small node-specific scratch area in the packet (e.g., to fill in the receive power which is node specific). The current NS simulator supports this data structure by copying the packet for each node. This copying reduces the size of simulations that are possible with a given amount of physical memory, and takes cycles that could be used for computation. Splitting the packet into read-only and read-write sections and managing them separately is possible, but it complicates a core data structure. By using finegrain MMP translation, a single read-only payload can be made visible at different addresses within multiple protection domains. Each domain can then have a private read/write region allocated to run contiguous to the read-only view.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="7.">RELATED WORK</head><p>In Section 2, we discussed the problems with page-based virtual memory, segment-based architectures, capabilities, and probabilistic protection address spaces.</p><p>Single-address space operating systems (SASOSes) place all processes in a single large address space, so any process can attempt to access any address within the space. Protection is provided by per-process protection domains which specify the access rights for regions of memory. Management of protection information can be separated from paging information <ref type="bibr" target="#b15">[16]</ref>, though these are often combined. The granularity of protection in single-address space systems is usually a page to match the capabilities of the underlying paging hardware. An advantage of the protection domain approach is that conventional pointers can be used, and permissions can be easily revoked by modifying the per-process permissions tables. Domain-page systems <ref type="bibr" target="#b15">[16]</ref> can only set permissions at the granularity of a memory page. Page-group systems, such as HP PA-RISC and PowerPC, require that a collection of pages are mapped together and with the same permissions across all domains (though each domain independently might or might not have access at that fixed permission) <ref type="bibr" target="#b15">[16]</ref>. MMP builds upon the SASOS protection domain approach but extends it to word granularity. MMP can be considered a domain-segment system.</p><p>The Apple Newton also had a form of page-group system, where an active process had access to a set of regions (called domains) which had the same access permissions across all processes. The ARM940T is a recent embedded processor that allows the active process to access eight overlapping segments of the global physical address space, but the segments must have power-of-2 size and alignment with a minimum size of 4 KB <ref type="bibr" target="#b3">[4]</ref>.</p><p>Research on SASOSes has concentrated on large virtual address spaces where pointers are immutable names <ref type="bibr" target="#b7">[8,</ref><ref type="bibr" target="#b11">12]</ref>. Another important application area is embedded systems, which often have a single small physical address space. Capabilities are one popular solution for permissions control in SASOSes, but they are ill suited to embedded systems because of the need to reuse physical addresses which requires efficient rights revocation. In contrast, MPP is well suited for use within a single small physical address space embedded system because revocation is straightforward.</p><p>There are a range of software techniques for memory protection. Software fault isolation <ref type="bibr" target="#b33">[34]</ref> is a general technique that restricts the address range of loads and stores by modifying a program binary. Purify <ref type="bibr" target="#b23">[24]</ref> is a software solution for memory bounds checking based on executable rewriting. It has gained wide acceptance, however it can't be used in an OS kernel, or in some embedded development environments since required system services are often not available in these environments and the allocators for these systems tend to have individual, non-standard semantics. Executable rewriting systems degrade performance considerably. Safe langauge techniques <ref type="bibr" target="#b30">[31]</ref> degrade performance less, but are only applicable to a given target language. Proof-carrying code <ref type="bibr" target="#b20">[21]</ref> is a system where software carries its own proof of safety that just needs to be checked at run-time, but only works for small pieces of code. An MMP system can run arbitrary code for existing ISAs at high speed.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="8.">CONCLUSION</head><p>We have presented and evaluated a proposal for fine-grained memory protection and translation. MMP is compatible with current architectures and ISAs. It supports flexible sharing of data between applications and simplifies the construction of protected subsystems. Compared with previous protection domain approaches, we remove the restriction that permissions are managed at page granularity. Compared to capabilities, we provide a more flexible permissions model, fast rights revocation, and compatibility with current linearly addressed ISAs. Our feasibility study indicates that the space and run-time overhead of providing this fine-grain protection is small and scales with the degree to which fine-grain protection is used. Our zero-copy networking example shows how our new facilities can be used to implement efficient applications.</p></div><figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_1"><head>Figure 1 : A visual depiction of multiple memory protection do- mains within a single shared address space.</head><label>1</label><figDesc>Figure 1: A visual depiction of multiple memory protection domains within a single shared address space.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_3"><head>Figure 3 : A sorted segment table (SST). Entries are kept in sorted or- der and binary searched on lookup. The shaded part contains optional translation information.</head><label>3</label><figDesc>Figure 3: A sorted segment table (SST). Entries are kept in sorted order and binary searched on lookup. The shaded part contains optional translation information.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_4"><head>Figure 4 :</head><label>4</label><figDesc>Figure 4: How an address indexes the multi-level permissions table (MLPT).</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_5"><head>Figure 5 : Pseudo-code for the MLPT lookup algorithm.</head><label>5</label><figDesc>Figure 5: Pseudo-code for the MLPT lookup algorithm. The table is</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_6"><head>Figure 6 : A MLPT entry consisting of a permissions vector. User segments are broken up into individual word permissions.Figure 7 : The bit allocation for upper level entries in the permis- sions vector MLPT, and the implementation of the function used in MLPT lookup.</head><label>67</label><figDesc>Figure 6: A MLPT entry consisting of a permissions vector. User segments are broken up into individual word permissions. Type (1)</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_7"><head>Figure 8 : The bit allocation for a mini-SST permission table entry.</head><label>8</label><figDesc>Figure 8: The bit allocation for a mini-SST permission table entry.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_8"><head>First</head><label></label><figDesc></figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_9"><head>Figure 9 : An example of segment representation for mini-SST entries.</head><label>9</label><figDesc>Figure 9: An example of segment representation for mini-SST entries.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_10"><head>1 )</head><label>1</label><figDesc>Figure 10: The layout of an address register with sidecar. The shaded portion is optional translation information.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_11"><head>Figure 11 : Using memory protection and segment translation to im- plement zero-copy networking. The network interface card DMAs packets into the kernel. The kernel exports the packets to an untrusted client by creating segments for the payload of the packets. Segment translation is used to present the illusion to the client that the packet payloads are contiguous in memory</head><label>11</label><figDesc>Figure 11: Using memory protection and segment translation to implement zero-copy networking. The network interface card DMAs packets into the kernel. The kernel exports the packets to an untrusted client by creating segments for the payload of the packets. Segment translation is used to present the illusion to the client that the packet payloads are contiguous in memory at 0x1000-0x12FF.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_12"><head>Figure 12 : The format for a record with a mini-SST entry and trans- lation information.</head><label>12</label><figDesc>Figure 12: The format for a record with a mini-SST entry and translation information.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_0" validated="false"><head>Table PLB Domain ID Perm Table Base MEMORY lookup refill</head><label>PLB</label><figDesc></figDesc><table>Sidecars 
+Address Regs 
+
+CPU 
+
+</table></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_1" validated="false"><head>Table 1 :</head><label>1</label><figDesc></figDesc><table>Example permission values and their meaning. 
+
+</table></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_2" validated="false"><head></head><label></label><figDesc>table entries in the same way as a TLB caches page table entries. The PLB hardware uses a conventional ternary content addressable memory (CAM) structure to hold address tags that have a vary-</figDesc><table>Type Description 
+00 Pointer to next level table. 
+11 Mini-SST entry (4 segments spanning 79 sub-blocks). 
+01 Pointer to permission vector (16x2b). 
+10 Pointer to mini-SST+ (e.g., translation (6x32b)). 
+
+bool is tbl ptr(PERM ENTRY e) § return(e&gt;&gt;30)==0;¨ 
+
+</table></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_3" validated="false"><head>Table 2 :</head><label>2</label><figDesc></figDesc><table>The different types of MLPT entries, and the imple-
+mentation of the function used in MLPT lookup. Type is the 
+type code. Leaf tables do not have type 00 pointers. 
+
+</table></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_5" validated="false"><head>Table 3 :</head><label>3</label><figDesc></figDesc><table>The reference behavior of benchmarks. The Refs col-
+umn is total number of loads and stores in millions. The Seg-
+ments column is the number of segments written to the table 
+(which is twice the number of calls to malloc since each call 
+effectively creates two segments). The next column is the av-
+erage number of memory references between updates to the 
+permissions table. Cs is the number of segments when run-
+ning with coarse-grained protection. These come from initial 
+program segments, from calls to brk (extending the heap), or 
+from extending the stack. 
+
+</table></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_6" validated="false"><head>table entry only has information for the 4 KB range</head><label>entry</label><figDesc></figDesc><table>Benchmark 
+
+MLPT mSST 60 PLB 
+PAGE+TLB 
+X-ref Space 
+l/k 
+X-ref Space l/k 
+crafty test 
+0.56% 0.41% 
+2.1 2.59% 0.15% 
+2 
+gcc tr 
+0.01% 0.08% 
+2.0 0.17% 0.03% 
+2 
+twolf train 
+0.00% 0.31% 
+2.0 0.76% 0.11% 
+2 
+vpr test 
+0.00% 0.62% 
+2.6 0.00% 0.22% 
+2 
+vortex tr 
+0.02% 0.10% 
+2.0 0.77% 0.04% 
+2 
+j-compress 
+0.00% 0.11% 
+2.1 2.16% 0.04% 
+2 
+j-db 
+0.32% 0.17% 
+2.0 0.98% 0.06% 
+2 
+j-jack 
+0.00% 0.04% 
+2.2 0.04% 0.02% 
+2 
+j-jess 
+0.06% 0.18% 
+2.1 0.59% 0.06% 
+2 
+j-raytrace 
+0.00% 0.07% 
+2.2 0.01% 0.03% 
+2 
+m-jpeg dec 
+0.27% 0.61% 
+2.8 0.12% 0.22% 
+2 
+m-mpeg2 dec 0.01% 0.61% 
+2.3 0.01% 0.22% 
+2 
+o-em3d 
+0.00% 0.07% 
+2.1 0.02% 0.03% 
+2 
+o-health 
+0.02% 0.12% 
+2.1 0.07% 0.05% 
+2 
+
+</table></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_7" validated="false"><head>Table 4 : The extra memory references X-ref and extra storage space Space required</head><label>4</label><figDesc>that owns it. For instance, compress, a benchmark known to have poor TLB performance, mallocs a 134 KB hash table which is accessed uniformly. This table requires 33 TLB entries to map, but would only require 8 entries in the worst case for the PLB. The number of loads per lookup is close to 2 indicating that mid level entries are heavily used.</figDesc><table>for a mini-SST permissions table and 60 
+entry PLB used to protect coarse-grain program regions. We 
+compare to a traditional page table with a 60 entry TLB. The 
+l/k column gives the average number of loads required for a 
+table lookup, which is a measure of how much the mid level 
+entries are used for permission information. 
+
+</table></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_10" validated="false"><head>Table 5 :</head><label>5</label><figDesc></figDesc><table>Comparison of time and space overheads with inaccessible words before and after every malloced region. The Space column 
+is the size of the permissions table as a percentage of the application's active memory. The last three organizations are all MLPT 
+and all occupy about the same space. The X-Ref column is the number of permissions table memory accesses as a percentage of 
+the application's memory references. The upd colum indicates the percentage of table memory accesses that were performed during 
+table update. The remainder of the references are made during table lookup. The ld/lk column gives the average number of loads 
+required for a table lookup. 
+
+</table></figure>
+		</body>
+		<back>
+
+			<div type="acknowledgement">
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="9.">ACKNOWLEDGEMENTS</head><p>We would like to thank Frans Kaashoek (who would have preferred we used the Dutch spelling, Mondriaan), Ronny Krashinsky, Chris Batten, John Jannotti, Doug DeCouto and the anonymous reviewers for their comments and Benjie Chen for the NS example. This work is supported by DARPA PAC/C award F30602-00-2-0562, NSF CAREER award CCR-0093354, and a donation from Infineon Technologies.</p></div>
+			</div>
+
+			<div type="references">
+
+				<listBibl>
+
+<biblStruct xml:id="b0">
+	<analytic>
+		<title/>
+		<ptr target="http://www.adobe.com/" />
+	</analytic>
+	<monogr>
+		<title level="j">Adobe Systems Incorporated. Adobe PDF Plugin</title>
+		<imprint>
+			<date type="published" when="2002" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b1">
+	<monogr>
+		<title level="m" type="main">Apache Software Foundation. mod perl</title>
+		<ptr target="http://perl.apache.org/" />
+		<imprint>
+			<date type="published" when="2002" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b2">
+	<analytic>
+		<title level="a" type="main">Virtual memory primitives for user programs</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><forename type="middle">W</forename><surname>Appel</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">K</forename><surname>Li</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of ASPLOS-IV</title>
+		<meeting>ASPLOS-IV</meeting>
+		<imprint>
+			<date type="published" when="1991-04" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b3">
+	<monogr>
+		<title level="m" type="main">ARM940T Technical Reference Manual (Rev 2), ARM DDI 0144B</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Arm</forename><surname>Ltd</surname></persName>
+		</author>
+		<imprint>
+			<date type="published" when="2000" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b4">
+	<monogr>
+		<title level="m" type="main">The Descriptor-a Definition of the B5000 Information Processing System</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><surname>Burroughs Corporation</surname></persName>
+		</author>
+		<ptr target="http://www.cs.virginia.edu/brochure/images/manuals/b5000/descrip/descrip.html" />
+		<imprint>
+			<date type="published" when="1961" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b5">
+	<monogr>
+		<title level="m" type="main">Olden: Parallelizing Programs with Dynamic Data Structures on Distributed-Memory Machines</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Carlisle</surname></persName>
+		</author>
+		<imprint>
+			<date type="published" when="1996" />
+		</imprint>
+		<respStmt>
+			<orgName>Princeton University</orgName>
+		</respStmt>
+	</monogr>
+<note type="report_type">PhD thesis</note>
+</biblStruct>
+
+<biblStruct xml:id="b6">
+	<analytic>
+		<title level="a" type="main">Hardware support for fast capability-based addressing</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">N</forename><forename type="middle">P</forename><surname>Carter</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><forename type="middle">W</forename><surname>Keckler</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">W</forename><forename type="middle">J</forename><surname>Dally</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of ASPLOS-VI</title>
+		<meeting>ASPLOS-VI<address><addrLine>San Jose, California</addrLine></address></meeting>
+		<imprint>
+			<date type="published" when="1994" />
+			<biblScope unit="page" from="319" to="327" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b7">
+	<monogr>
+		<title level="m" type="main">An Operating System Structure for Wide-Address Architectures</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Chase</surname></persName>
+		</author>
+		<imprint>
+			<date type="published" when="1995" />
+		</imprint>
+		<respStmt>
+			<orgName>University of Washington</orgName>
+		</respStmt>
+	</monogr>
+<note type="report_type">PhD thesis</note>
+</biblStruct>
+
+<biblStruct xml:id="b8">
+	<analytic>
+		<title level="a" type="main">Zero-copy TCP in Solaris</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">H</forename><forename type="middle">K J</forename><surname>Chu</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">USENIX Annual Technical Conference</title>
+		<imprint>
+			<date type="published" when="1996" />
+			<biblScope unit="page" from="253" to="264" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b9">
+	<analytic>
+		<title level="a" type="main">Programming semantics for multiprogrammed computations</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><forename type="middle">B</forename><surname>Dennis</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">E</forename><forename type="middle">C V</forename><surname>Horn</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">CACM</title>
+		<imprint>
+			<biblScope unit="volume">9</biblScope>
+			<biblScope unit="issue">3</biblScope>
+			<biblScope unit="page" from="143" to="155" />
+			<date type="published" when="1966-03" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b10">
+	<analytic>
+		<title level="a" type="main">Whole-program optimization for time and space efficient threads</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Grunwald</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Neves</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of ASPLOS-VII</title>
+		<meeting>ASPLOS-VII</meeting>
+		<imprint>
+			<date type="published" when="1996-10" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b11">
+	<monogr>
+		<title level="m" type="main">The Mungi single-address-space operating system. Software-Practice and Experience</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">G</forename><surname>Heiser</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">K</forename><surname>Elphinstone</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Vochteloo</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Russell</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Liedtke</surname></persName>
+		</author>
+		<imprint>
+			<date type="published" when="1998" />
+			<biblScope unit="volume">28</biblScope>
+			<biblScope unit="page" from="901" to="928" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b12">
+	<analytic>
+		<title level="a" type="main">IBM System/38 support for capability-based addressing</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><forename type="middle">E</forename><surname>Houdek</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">F</forename><forename type="middle">G</forename><surname>Soltis</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><forename type="middle">L</forename><surname>Hoffman</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">ISCA</title>
+		<imprint>
+			<date type="published" when="1981" />
+			<biblScope unit="page" from="341" to="348" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b13">
+	<analytic>
+			</analytic>
+	<monogr>
+		<title level="m">Basic architecture. Intel Architecture Software Developer&apos;s Manual</title>
+		<meeting><address><addrLine>Basic Architecture</addrLine></address></meeting>
+		<imprint>
+			<date type="published" when="1997" />
+			<biblScope unit="volume">1</biblScope>
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b14">
+	<monogr>
+		<title level="m" type="main">MIPS RISC Architecture (R2000/R3000)</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">G</forename><surname>Kane</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Heinrich</surname></persName>
+		</author>
+		<imprint>
+			<date type="published" when="1992" />
+			<publisher>Prentice Hall</publisher>
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b15">
+	<analytic>
+		<title level="a" type="main">Architectural support for single address space operating systems</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">E</forename><forename type="middle">J</forename><surname>Koldinger</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><forename type="middle">S</forename><surname>Chase</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><forename type="middle">J</forename><surname>Eggers</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">ASPLOS-V</title>
+		<imprint>
+			<date type="published" when="1992" />
+			<biblScope unit="page" from="175" to="186" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b16">
+	<analytic>
+		<title level="a" type="main">Protection</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">B</forename><surname>Lampson</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. 5th Princeton Conf. on Information Sciences and Systems</title>
+		<meeting>5th Princeton Conf. on Information Sciences and Systems</meeting>
+		<imprint>
+			<date type="published" when="1971" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b17">
+	<monogr>
+		<title level="m" type="main">Capability-Based Computer Systems</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">H</forename><forename type="middle">M</forename><surname>Levy</surname></persName>
+		</author>
+		<imprint>
+			<date type="published" when="1984" />
+			<publisher>Digital Press</publisher>
+			<pubPlace>Bedford, Massachusetts</pubPlace>
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b18">
+	<analytic>
+		<title level="a" type="main">A real-time garbage collector based on the lifetimes of objects</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">H</forename><surname>Lieberman</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Hewitt</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Communications of the ACM</title>
+		<imprint>
+			<biblScope unit="volume">23</biblScope>
+			<biblScope unit="issue">6</biblScope>
+			<biblScope unit="page" from="419" to="429" />
+			<date type="published" when="1983" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b19">
+	<analytic>
+		<title level="a" type="main">Exploiting two-case delivery for fast protected messaging</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">K</forename><surname>Mackenzie</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Kubiatowicz</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Frank</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">W</forename><surname>Lee</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">V</forename><surname>Lee</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Agarwal</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><forename type="middle">F</forename><surname>Kaashoek</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">HPCA</title>
+		<imprint>
+			<date type="published" when="1998" />
+			<biblScope unit="page" from="231" to="242" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b20">
+	<analytic>
+		<title level="a" type="main">Proof-carrying code</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">G</forename><forename type="middle">C</forename><surname>Necula</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">POPL &apos;97</title>
+		<meeting><address><addrLine>Paris</addrLine></address></meeting>
+		<imprint>
+			<date type="published" when="1997-01" />
+			<biblScope unit="page" from="106" to="119" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b21">
+	<monogr>
+				<ptr target="http://www.isi.edu/vint/nsnam/" />
+		<title level="m">NS Notes and Documentation</title>
+		<imprint>
+			<date type="published" when="2000" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b22">
+	<analytic>
+		<title level="a" type="main">IO-Lite: a unified I/O buffering and caching system</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">V</forename><forename type="middle">S</forename><surname>Pai</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>Druschel</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">W</forename><surname>Zwaenepoel</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">ACM Transactions on Computer Systems</title>
+		<imprint>
+			<biblScope unit="volume">18</biblScope>
+			<biblScope unit="issue">1</biblScope>
+			<biblScope unit="page" from="37" to="66" />
+			<date type="published" when="2000" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b23">
+	<analytic>
+		<title/>
+		<ptr target="http://www.rational.com/media/products/pqc/D610PurifyPlusunix.pdf" />
+	</analytic>
+	<monogr>
+		<title level="j">Rational Software Corporation. Purify</title>
+		<imprint>
+			<date type="published" when="2002" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b24">
+	<monogr>
+		<title level="m" type="main">The FLEX compiler infrastructure</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Rinard</surname></persName>
+		</author>
+		<ptr target="http://www.flex-compiler.lcs.mit.edu" />
+		<imprint>
+			<date type="published" when="1999" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b25">
+	<analytic>
+		<title level="a" type="main">Protection and the control of information sharing in Multics</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Saltzer</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Comm. ACM</title>
+		<imprint>
+			<biblScope unit="volume">17</biblScope>
+			<biblScope unit="page" from="388" to="402" />
+			<date type="published" when="1974-07" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b26">
+	<analytic>
+		<title level="a" type="main">Shasta: A low overhead, software-only approach for supporting finegrain shared memory</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Scales</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">K</forename><surname>Gharachorloo</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Thekkath</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of ASPLOS-VII</title>
+		<meeting>ASPLOS-VII</meeting>
+		<imprint>
+			<date type="published" when="1996-10" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b27">
+	<analytic>
+		<title level="a" type="main">Fine-grain access control for distributed shared memory</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">I</forename><surname>Schoinas</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">B</forename><surname>Falsafi</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><forename type="middle">R</forename><surname>Lebeck</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><forename type="middle">K</forename><surname>Reinhardt</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><forename type="middle">R</forename><surname>Larus</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><forename type="middle">A</forename><surname>Wood</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">ASPLOS-VI</title>
+		<imprint>
+			<date type="published" when="1994" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b28">
+	<analytic>
+		<title level="a" type="main">EROS: a fast capability system</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><forename type="middle">S</forename><surname>Shapiro</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><forename type="middle">M</forename><surname>Smith</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><forename type="middle">J</forename><surname>Farber</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">SOSP</title>
+		<imprint>
+			<date type="published" when="1999" />
+			<biblScope unit="page" from="170" to="185" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b29">
+	<analytic>
+		<title level="a" type="main">U-net: A user-level network interface for parallel and distributed computing</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">T</forename><surname>Von Eicken</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Basu</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">V</forename><surname>Buch</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">W</forename><surname>Vogels</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Symposium on Operating Systems Principles</title>
+		<imprint>
+			<date type="published" when="1995" />
+			<biblScope unit="page" from="303" to="316" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b30">
+	<analytic>
+		<title level="a" type="main">J-kernel: A capability-based operating system for Java</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">T</forename><surname>Von Eicken</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C.-C</forename><surname>Chang</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">G</forename><surname>Czajkowski</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Hawblitzel</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Hu</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Spoonhower</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Secure Internet Programming</title>
+		<imprint>
+			<date type="published" when="1999" />
+			<biblScope unit="page" from="369" to="393" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b31">
+	<analytic>
+		<title level="a" type="main">A first step towards automated detection of buffer overrun vulnerabilities</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Wagner</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><forename type="middle">S</forename><surname>Foster</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">E</forename><forename type="middle">A</forename><surname>Brewer</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Aiken</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Network and Distributed System Security Symposium</title>
+		<meeting><address><addrLine>San Diego, CA</addrLine></address></meeting>
+		<imprint>
+			<date type="published" when="2000-02" />
+			<biblScope unit="page" from="3" to="17" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b32">
+	<analytic>
+		<title level="a" type="main">Efficient data breakpoints</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Wahbe</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of ASPLOS-V</title>
+		<meeting>ASPLOS-V</meeting>
+		<imprint>
+			<date type="published" when="1992-10" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b33">
+	<analytic>
+		<title level="a" type="main">Efficient software-based fault isolation</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Wahbe</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Lucco</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">T</forename><forename type="middle">E</forename><surname>Anderson</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><forename type="middle">L</forename><surname>Graham</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">ACM SIGOPS Operating Systems Review</title>
+		<imprint>
+			<biblScope unit="volume">27</biblScope>
+			<biblScope unit="issue">5</biblScope>
+			<biblScope unit="page" from="203" to="216" />
+			<date type="published" when="1993-12" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b34">
+	<analytic>
+		<title level="a" type="main">Anonymous RPC: Low-latency protection in a 64-bit address space</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Yarvin</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Bukowski</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">T</forename><surname>Anderson</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">USENIX Summer</title>
+		<imprint>
+			<date type="published" when="1993" />
+			<biblScope unit="page" from="175" to="186" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b35">
+	<analytic>
+		<title level="a" type="main">Benchmark health considered harmful</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><forename type="middle">B</forename><surname>Zilles</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Computer Architecture News</title>
+		<imprint>
+			<biblScope unit="volume">29</biblScope>
+			<biblScope unit="issue">3</biblScope>
+			<date type="published" when="2001" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+				</listBibl>
+			</div>
+		</back>
+	</text>
+</TEI>

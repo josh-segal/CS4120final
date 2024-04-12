@@ -1,0 +1,224 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>Automatic Techniques to Systematically Discover New Heap Exploitation Primitives</p>
+    <p>Insu Yun, Dhaval Kapil, and Taesoo Kim</p>
+    <p>Georgia Institute of Technology</p>
+  </div>
+  <div class="page">
+    <p>Heap vulnerabilities are the most common, yet serious security issues.</p>
+    <p>From Killing Uninitialized Memory: Protecting the OS Without Destroying Performance, Joe Bialek and Shayne Hiet-Block, CppCon 2019</p>
+    <p>%</p>
+    <p>= 233 604</p>
+    <p>= 39%</p>
+  </div>
+  <div class="page">
+    <p>Heap exploitation techniques (HETs) are preferable methods to exploit heap vulnerabilities  Abuse underlying allocator to achieve more powerful primitives (e.g.,</p>
+    <p>arbitrary write) for control hijacking  Application-agnostic: rely on only underlying allocators  Powerful: e.g., off-by-one null byte overflow  arbitrary code execution</p>
+    <p>Used to compromise (in 2019)</p>
+  </div>
+  <div class="page">
+    <p>Example: unlink() in ptmalloc2</p>
+    <p>fd bkChunk fd bkChunk fd bkChunk</p>
+    <p>unlink(): P-&gt;fd-&gt;bk = P-&gt;bk P-&gt;bk-&gt;fd = P-&gt;fd</p>
+  </div>
+  <div class="page">
+    <p>Example: unlink() in ptmalloc2</p>
+    <p>fd bkChunk fd bkChunk fd bkChunk</p>
+    <p>unlink(): P-&gt;fd-&gt;bk = P-&gt;bk P-&gt;bk-&gt;fd = P-&gt;fd</p>
+  </div>
+  <div class="page">
+    <p>Example: Unsafe unlink() in the presence of memory corruptions (e.g., overflow)</p>
+    <p>fd bkChunk addr evil</p>
+    <p>Object fptr</p>
+    <p>Chunk</p>
+    <p>unlink(): P-&gt;fd-&gt;bk = P-&gt;bk =&gt; fptr = evil</p>
+    <p>fd bkChunkfd bk</p>
+  </div>
+  <div class="page">
+    <p>Security checks are introduced in the allocator to prevent such exploitations unlink(): assert(P-&gt;fd-&gt;bk == P);</p>
+    <p>P-&gt;fd-&gt;bk = P-&gt;bk</p>
+    <p>This check is still bypassable, but it makes HET more complicated</p>
+  </div>
+  <div class="page">
+    <p>Researchers have been studied reusable HETs to handle such complexities</p>
+    <p>All analyses are manual, ad-hoc, and allocator-specific!</p>
+  </div>
+  <div class="page">
+    <p>Problem 1: Existing analyses are highly biased to certain allocators</p>
+    <p>tcmalloc</p>
+    <p>jemalloc</p>
+    <p>DieHarder</p>
+    <p>mimalloc</p>
+    <p>mesh</p>
+    <p>scudo</p>
+    <p>Freeguard</p>
+    <p>ptmalloc2 (Linux allocator)</p>
+  </div>
+  <div class="page">
+    <p>ptmalloc2 (Linux allocator)</p>
+    <p>Problem2: A manual re-analysis is required in the changes of an allocators implementation</p>
+    <p>A new feature: thread-local cache (tcache)</p>
+    <p>Question: How to find HETs automatically?</p>
+  </div>
+  <div class="page">
+    <p>Our key idea: ArcHeap autonomously explore spaces similar to fuzzing!</p>
+    <p>HET</p>
+  </div>
+  <div class="page">
+    <p>Technical challenges</p>
+    <p>HET</p>
+    <p>Large search space</p>
+    <p>Lack of an efficient way to evaluate HETs</p>
+  </div>
+  <div class="page">
+    <p>Technical challenges</p>
+    <p>HET</p>
+    <p>Large search space</p>
+    <p>Lack of an efficient way to evaluate HETs</p>
+  </div>
+  <div class="page">
+    <p>Search space consisting of heap actions is enormous</p>
+    <p>malloc(sz) Allocation</p>
+    <p>free(p) Deallocation</p>
+    <p>p[i]=v Heap write</p>
+    <p>buf[i]=v Buffer write</p>
+    <p>p[ioverflow]=v Overflow</p>
+    <p>free(pfreed) Double free</p>
+    <p>pfreed[i]=v Write-after-free</p>
+    <p>free(pnon-heap) Arbitrary free</p>
+    <p>Legitimate actions</p>
+    <p>Buggy actions</p>
+    <p>Search space can be reduced using model-based search based on common designs of allocators!</p>
+  </div>
+  <div class="page">
+    <p>Common design 1: Binning</p>
+    <p>Specially managing chunks in different size groups  Small chunks: Performance is more important  Large chunks: Memory footprint is more important</p>
+    <p>e.g., ptmalloc  fast bin (&lt; 128 bytes): no merging in free chunks  small bin ( &lt; 1024 bytes): merging is enabled</p>
+    <p>Sampling a size uniformly in the 264 space  P(fast bin) = 2-57</p>
+  </div>
+  <div class="page">
+    <p>ArcHeap selects an allocation size aware of binning</p>
+    <p>Sampling in exponentially distant size groups</p>
+    <p>ArcHeap partitions an allocation size into four groups: (20, 25], (25, 210], (210, 215], and (215, 220]</p>
+    <p>Then, it selects a group and then selects a size in the group uniformly  e.g., P(fast bin) &gt; P(selecting a first group) =</p>
+  </div>
+  <div class="page">
+    <p>Other common designs: Cardinal data and In-place metadata  Cardinal data: Metadata in a chunk are either sizes or pointers, but not</p>
+    <p>other random values</p>
+    <p>In-place metadata: Allocators place metadata near its chunks start or end for locality</p>
+  </div>
+  <div class="page">
+    <p>Cardinal data and In-place metadata reduce search space in data writes</p>
+    <p>p[i]=v Heap write</p>
+    <p>Size</p>
+    <p>Pointer</p>
+    <p>Random size Other chunks size Other chunk Buffer Container An array that stores chunks</p>
+  </div>
+  <div class="page">
+    <p>Technical challenges</p>
+    <p>HET</p>
+    <p>Large search space</p>
+    <p>Lack of an efficient way to evaluate HETs</p>
+  </div>
+  <div class="page">
+    <p>Automatically synthesizing full exploits is inappropriate in evaluating HETs  Difficult: e.g., In the DAPRA CGC competition, only one heap bug was</p>
+    <p>successfully exploited by the-state-of-the-art systems</p>
+    <p>Inefficient: Takes a few seconds, minutes, or even hours for one try</p>
+    <p>Application-dependent: A HET, which is not useful in a certain application, may be useful in general</p>
+  </div>
+  <div class="page">
+    <p>Our idea: Evaluating impacts of exploitations (i.e., detecting broken invariants that have security implications)</p>
+    <p>Easy to detect: Check this at every allocation</p>
+    <p>How about this? (NOTE: should be efficient)</p>
+  </div>
+  <div class="page">
+    <p>Shadow memory can detect arbitrary writes and restricted writes  Maintain external consistency  Check divergence</p>
+    <p>container[i] = malloc(sz) containershadow[i] = malloc(sz)</p>
+    <p>Allocation</p>
+    <p>buf[i]=v</p>
+    <p>Buffer write</p>
+    <p>bufshadow[i]=v</p>
+    <p>malloc(sz) Allocation</p>
+    <p>free(p) Deallocation</p>
+    <p>p[i]=v Heap write buf[i]=v</p>
+    <p>Buffer write</p>
+    <p>CHECK: equal(container, containershadow) equal(buf, bufshadow)</p>
+    <p>Divergence can only happen in the internal of allocators</p>
+  </div>
+  <div class="page">
+    <p>ArcHeap provides a minimized PoC code for further analysis  Proof-of-Concept code: Converting actions into C code  Trivial, because they have one-to-one mapping</p>
+    <p>Minimize the PoC code using delta-debugging  Idea: Eliminate an action, which is not necessary for triggering the impact of</p>
+    <p>exploitations  Details can be found in our paper</p>
+  </div>
+  <div class="page">
+    <p>Evaluation questions</p>
+  </div>
+  <div class="page">
+    <p>ArcHeap discovered five new HETs in ptmalloc2, which cannot be found by HeapHopper  Unsorted bin into stack: Write-after-free  Arbitrary chunk  Requires fewer steps (5 steps vs 9 steps)</p>
+    <p>House of unsorted einherjar: Off-by-one write  Arbitrary chunk  No require heap address leak</p>
+    <p>Unaligned double free: Double free  Overlapping chunk  First HET targets small bin chunks, which have more checks than fast bin</p>
+    <p>Overlapping chunks using a small bin : Overflow  Overlapping chunk</p>
+    <p>Fast bin into other bin: Write-after-free  Arbitrary chunk</p>
+    <p>All HETS cannot be discovered by HeapHopper because of its scalability issue (i.e., symbolic execution + model checking)</p>
+  </div>
+  <div class="page">
+    <p>ArcHeap is generic enough to test various allocators  Tested 10 different allocators  Cannot find HETs in LLVM Scudo, FreeGuard, and Guarder, which are secure</p>
+    <p>allocators</p>
+    <p>Works for ptmalloc2unrelated allocators</p>
+    <p>Even found HETs in secure allocators</p>
+  </div>
+  <div class="page">
+    <p>Case study1: Double free  Overlapping chunks in DieHarder and mimalloc-secure</p>
+    <p>// [PRE-CONDITION] // lsz : large size (&gt; 64 KB) // xlsz: more large size (&gt;= lsz + 4KB) // [BUG] double free // [POST-CONDITION] // p2 == malloc(lsz); void* p0 = malloc(lsz); free(p0); void* p1 = malloc(xlsz);</p>
+    <p>// [BUG] free 'p0' again free(p0);</p>
+    <p>void* p2 = malloc(lsz); free(p1);</p>
+    <p>assert(p2 == malloc(lsz));</p>
+    <p>Double free large chunk  Overlapping chunk</p>
+    <p>Same thing happens in both DieHarder and mimalloc</p>
+  </div>
+  <div class="page">
+    <p>Interestingly, these issues are irrelevant</p>
+    <p>Me: Is mimalloc related to DieHarder?</p>
+    <p>Mimalloc developer: No!</p>
+    <p>free(plarge)</p>
+    <p>DieHarder</p>
+    <p>mimalloc</p>
+    <p>unmap(plarge)</p>
+    <p>check(plarge)</p>
+    <p>No check!</p>
+    <p>Wrong check!</p>
+  </div>
+  <div class="page">
+    <p>Our PoC has been added in a mimallocs regression test</p>
+  </div>
+  <div class="page">
+    <p>Case study 2: Overflow  Arbitrary chunk in dlmalloc-2.8.6  dlmalloc: ancestor of ptmalloc2 but has been diverged after its fork</p>
+    <p>void* p0 = malloc(sz); void* p1 = malloc(xlsz); void* p2 = malloc(lsz); void* p3 = malloc(sz);</p>
+    <p>// [BUG] overflowing p3 to overwrite top chunk struct malloc_chunk *tc = raw_to_chunk(p3 + chunk_size(sz)); tc-&gt;size = 0;</p>
+    <p>void* p4 = malloc(fsz); void* p5 = malloc(dst - p4 - chunk_size(fsz) \</p>
+    <p>- offsetof(struct malloc_chunk, fd)); assert(dst == malloc(sz));</p>
+    <p>Looks complicated</p>
+  </div>
+  <div class="page">
+    <p>Its root cause is more complicated! // Make top chunk available void* p0 = malloc(sz); // Set mr.mflags |= USE_NONCONTIGUOUS_BIT void* p1 = malloc(xlsz); // Current top size &lt; lsz (4096) and no available bins, so dlmalloc calls sys_alloc // Instead of using sbrk(), it inserts current top chunk into treebins // and set mmapped area as a new top chunk because of the non-continous bit void* p2 = malloc(lsz); void* p3 = malloc(sz); // [BUG] overflowing p3 to overwrite treebins struct malloc_chunk *tc = raw_to_chunk(p3 + chunk_size(sz)); tc-&gt;size = 0; // dlmalloc believes that treebins (i.e., top chunk) has enough size // However, underflow happens because its size is actually zero void* p4 = malloc(fsz); // Similar to house-of-force, we can allocate an arbitrary chunk void* p5 = malloc(dst - p4 - chunk_size(fsz) \</p>
+    <p>- offsetof(struct malloc_chunk, fd)); assert(dst == malloc(sz));</p>
+    <p>Easy to miss by manual analysis  Shows benefits of automated methods!</p>
+  </div>
+  <div class="page">
+    <p>Discussion &amp; Limitations</p>
+    <p>Incompleteness: Unlike HeapHopper that is complete under its model  But HeapHoppers model cannot be complete because of its scalability issue</p>
+    <p>Overfitting: Our strategy might not work for certain allocators  In practice, our model is quite generic: found HETs in seven allocators out of</p>
+    <p>ten except for secure allocators</p>
+    <p>Scope: ArcHeap only finds HETs and does not generate end-to-end exploits for an application</p>
+  </div>
+  <div class="page">
+    <p>Conclusion</p>
+    <p>Automatic ways to discover HETs  Model-based search based on common designs of allocators  Shadow-memory-based detection</p>
+    <p>Five new HETs in ptmalloc2 and several ones in other allocators  Including secure allocators, DieHarder and mimalloc secure</p>
+    <p>Open source: https://github.com/sslab-gatech/ArcHeap</p>
+  </div>
+  <div class="page">
+    <p>Thank you!</p>
+  </div>
+</Presentation>

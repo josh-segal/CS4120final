@@ -1,0 +1,266 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>Exploiting Commutativity For Practical Fast Replication</p>
+    <p>Seo Jin Park and John Ousterhout</p>
+  </div>
+  <div class="page">
+    <p>Problem: consistent replication adds latency and throughput overheads  Why? Replication happens after ordering</p>
+    <p>Key idea: exploit commutativity to enable fast replication before ordering  CURP (Consistent Unordered Replication Protocol)</p>
+    <p>Clients replicate in 1 round-trip time (RTT) if operations are commutative  Simple augmentation on existing primary-backup systems</p>
+    <p>Results  RAMClouds performance improvements</p>
+    <p>Latency: 14 s  7.1 s (no replication: 6.1 s)  Throughput: 184 kops/sec  728 kops/s (~4x)</p>
+    <p>Redis cache is now fault-tolerant with small cost (12% latency , 18% throughput )</p>
+    <p>Slide 2</p>
+    <p>Overview</p>
+  </div>
+  <div class="page">
+    <p>Unreplicated Systems: 1 RTT for operation</p>
+    <p>Replicated Systems: 2 RTTs for operations</p>
+    <p>Slide 3</p>
+    <p>Consistent Replication Doubles Latencies</p>
+    <p>client</p>
+    <p>Server</p>
+    <p>write x = 1  ok X: 1</p>
+    <p>client</p>
+    <p>Primary Backup</p>
+    <p>write x = 1  ok X: 1 ok</p>
+    <p>X: 1 X: 1 X: 1X: 1</p>
+  </div>
+  <div class="page">
+    <p>Slide 4</p>
+    <p>Strawman 1 RTT Replication</p>
+    <p>Client</p>
+    <p>Client</p>
+    <p>Primary</p>
+    <p>x1 x2x1</p>
+    <p>x 2</p>
+    <p>x2 x1</p>
+    <p>Backups</p>
+    <p>Strong consistency is broken!</p>
+    <p>State: x = 1</p>
+    <p>State: x = 2</p>
+  </div>
+  <div class="page">
+    <p>Consistent replication protocols must solve two problems:  Consistent Ordering: all replicas should appear to execute operations in the same order  Durability: once completed, an operation must survive crashes.</p>
+    <p>Previous protocols combined the two requirements</p>
+    <p>Slide 5</p>
+    <p>What Makes Consistent Replication Expensive?</p>
+    <p>Client</p>
+    <p>Client</p>
+    <p>Client Primary</p>
+    <p>x3 x1 x2</p>
+    <p>x1</p>
+    <p>x3</p>
+    <p>x2</p>
+    <p>Backups</p>
+    <p>x3 x1 x2</p>
+    <p>x3 x1 x2</p>
+    <p>x3 x1 x2</p>
+    <p>Time to complete an operation 1 RTT</p>
+    <p>for replication</p>
+  </div>
+  <div class="page">
+    <p>For performance: cannot do totally ordered replication in 2 RTTs  Replicate just for durability &amp; exploit commutativity to defer ordering</p>
+    <p>Safe to reorder if operations are commutative (e.g. updates on different keys)</p>
+    <p>Consistent Unordered Replication Protocol (CURP):  When concurrent operations commute, replicate without ordering  When not, fall back to slow totally-ordered replication</p>
+    <p>Slide 6</p>
+    <p>Exploiting Commutativity to Defer Ordering</p>
+  </div>
+  <div class="page">
+    <p>Primary returns execution results immediately (before syncing to backups)  Clients directly replicate to ensure durability</p>
+    <p>Slide 7</p>
+    <p>Overview of CURP</p>
+    <p>Client</p>
+    <p>Client</p>
+    <p>Primary</p>
+    <p>x1 x2 y5 z7 y5</p>
+    <p>z 7</p>
+    <p>x1 x2</p>
+    <p>Backups</p>
+    <p>z7</p>
+    <p>y5</p>
+    <p>Witnesses</p>
+    <p>async</p>
+    <p>an operation</p>
+    <p>Witness  No ordering info  Temporary until primary replicates to backups  Witness data are replayed during recovery</p>
+    <p>garbage collection</p>
+  </div>
+  <div class="page">
+    <p>Slide 8</p>
+    <p>Normal Operation</p>
+    <p>Client Primary</p>
+    <p>exe cut</p>
+    <p>e</p>
+    <p>z 7</p>
+    <p>async</p>
+    <p>recordz7accepted</p>
+    <p>res ult:</p>
+    <p>ok</p>
+    <p>z7</p>
+    <p>y5</p>
+    <p>Witnesses</p>
+    <p>x1 x2</p>
+    <p>Backups</p>
+    <p>x1 x2 y5 z7</p>
+    <p>Clients send an RPC request to primary and witnesses in parallel  If all witnesses accepted (saved) request, client can complete operation</p>
+    <p>safely without sync to backups.</p>
+  </div>
+  <div class="page">
+    <p>Slide 9</p>
+    <p>Normal Operation (continued.)</p>
+    <p>Client Primary</p>
+    <p>x1 x2 y5 z7 e xec</p>
+    <p>ute z</p>
+    <p>x1 x2</p>
+    <p>recordz2rejected</p>
+    <p>s ync</p>
+    <p>z 2 y5 z7</p>
+    <p>z7</p>
+    <p>y5</p>
+    <p>Witnesses</p>
+    <p>Backupssy nce</p>
+    <p>d</p>
+    <p>If any witness rejected (not saved) request, client must wait for sync to backups.  Operation completes in 2 RTTs mostly (worst case 3 RTTs)</p>
+    <p>When a primary receives a sync request, usually syncing to backups is already completed or at least initiated</p>
+  </div>
+  <div class="page">
+    <p>Slide 10</p>
+    <p>Crash Recovery</p>
+    <p>Primary</p>
+    <p>x1 x2 y5 z7  x1 x2</p>
+    <p>Backups</p>
+    <p>z7</p>
+    <p>y5</p>
+    <p>Witnesses</p>
+    <p>async</p>
+    <p>New Primary y5 z7 x1 x2</p>
+    <p>retry</p>
+    <p>y5 z7</p>
+    <p>y5 z7</p>
+    <p>async</p>
+    <p>State: x = 2, y = 5, z = 7</p>
+    <p>State: x = 2, y = 5, z = 7</p>
+    <p>First load from a backup and then replay requests in a witness  Example:</p>
+  </div>
+  <div class="page">
+    <p>Slide 11</p>
+  </div>
+  <div class="page">
+    <p>Witness has no way to know operation order determined by primary  Witness detects non-commutative operations and rejects them</p>
+    <p>Then, client needs to issue explicit sync request to primary</p>
+    <p>Okay to replay in any order</p>
+    <p>Slide 12</p>
+    <p>P1. Replay From Witness May Be Out Of Order</p>
+    <p>Witness</p>
+    <p>y5 x3</p>
+    <p>Witness</p>
+    <p>Client x3</p>
+    <p>y5accepted x4</p>
+    <p>Client rejected</p>
+  </div>
+  <div class="page">
+    <p>Primary doesnt know if an operation is made durable in witnesses  Subsequent operations (e.g. reads) may externalize the new data</p>
+    <p>Must wait for sync to backups if a client request depends on any unsynced updates</p>
+    <p>x = 3</p>
+    <p>Slide 13</p>
+    <p>P2. Primaries May Reveal Not-yet-durable Data</p>
+    <p>Client A</p>
+    <p>Client B Primary</p>
+    <p>x1 x2 x3</p>
+    <p>x3</p>
+    <p>rea d x</p>
+    <p>x1 x2</p>
+    <p>Backups</p>
+    <p>async</p>
+    <p>Recorded in witnesses or not?</p>
+    <p>State: x = 3</p>
+  </div>
+  <div class="page">
+    <p>State: x: 3, y: 7</p>
+    <p>A client request may exist both in backups and witnesses.</p>
+    <p>Replaying operations recovered by backups endangers consistency</p>
+    <p>Slide 14</p>
+    <p>P3. Replay Can Cause Duplicate Executions</p>
+    <p>Primary</p>
+    <p>x1 x2 x3 z7  x1 x2 x3</p>
+    <p>Backups</p>
+    <p>z7</p>
+    <p>x2</p>
+    <p>Witnesses</p>
+    <p>async</p>
+    <p>New primary</p>
+    <p>x1 x2 x3 x2 z7  retry</p>
+    <p>Detect &amp; ignore duplicate requests, e.g. RIFL [SOSP15]</p>
+    <p>State: x: 2, y: 7</p>
+  </div>
+  <div class="page">
+    <p>Performance Evaluation of CURP</p>
+    <p>Slide 15</p>
+    <p>P er</p>
+    <p>fo rm</p>
+    <p>an ce</p>
+    <p>Implemented in Redis and RAMCloud</p>
+    <p>Consistency</p>
+    <p>RAMCloud</p>
+    <p>CURP</p>
+    <p>C U</p>
+    <p>R P</p>
+    <p>Fast KV cache</p>
+    <p>Replicated in-memory KV store</p>
+    <p>Consistently replicated &amp; As fast as no replication</p>
+  </div>
+  <div class="page">
+    <p>F ra</p>
+    <p>c ti o n o</p>
+    <p>f W</p>
+    <p>ri te</p>
+    <p>s</p>
+    <p>Latency (s)</p>
+    <p>Original (3 B) CURP (3 B, 3 W) CURP (1 B, 1 W)</p>
+    <p>Unreplicated</p>
+    <p>Writes are issued sequentially by a client to a master  40 B key, 100 B value</p>
+    <p>Keys are randomly (uniform dist.) selected from 2 M unique keys</p>
+    <p>Slide 16</p>
+    <p>RAMClouds Latency after CURP</p>
+    <p>Median 7.1 s vs. 14 sConfiguration</p>
+    <p>Xeon 4 cores (8 T) @ 3 GHz</p>
+    <p>Mellanox Connect-X 2 InfiniBand (24 Gbps)</p>
+    <p>Kernel-bypassing transport</p>
+  </div>
+  <div class="page">
+    <p>Thanks to CURP, can batch replication requests without impacting latency: improves throughput</p>
+    <p>Each client issues writes (40B key, 100B value) sequentially</p>
+    <p>Slide 17</p>
+    <p>RAMClouds Throughput after CURP</p>
+    <p>~6% per replica</p>
+    <p>T h ro</p>
+    <p>u g h p u t (k</p>
+    <p>w ri te</p>
+    <p>p e r</p>
+    <p>s e c o n d )</p>
+    <p>Client Count (number of clients)</p>
+    <p>Unreplicated CURP (1 B, 1 W) CURP (3 B, 3 W) Original (3 B)</p>
+  </div>
+  <div class="page">
+    <p>Design  Garbage collection  Reconfiguration handling (data migration, backup crash, witness crash)  Read operation  How to extend CURP to quorum-based consensus protocols</p>
+    <p>Performance  Measurement with skewed workloads (many non-commutative ops)  Resource consumption by witness servers  CURPs impact on Redis performance</p>
+    <p>Slide 18</p>
+    <p>See Paper for</p>
+  </div>
+  <div class="page">
+    <p>Rely on commutativity for fast replication  Generalized Paxos (2005): 1.5 RTT  EPaxos (SOSP13) : 2 RTTs in LAN, expensive read</p>
+    <p>Rely on the networks in-order deliveries of broadcasts  Special networking hardware: NOPaxos (OSDI16), Speculative Paxos (NSDI15)  Presume &amp; rollback: PLATO (SRDS06), Optimistic Active Replication (ICDCS01)  Combine with transaction layer for rollback: TAPIR (SOSP15), Janus (OSDI16)</p>
+    <p>CURP is  Faster than other protocols using commutativity  Doesnt require rollback or special networking hardware  Easy to integrate with existing primary-backup systems</p>
+    <p>Slide 19</p>
+    <p>Related work</p>
+  </div>
+  <div class="page">
+    <p>Total order is not necessary for consistent replication  CURP clients replicate without ordering in parallel with sending requests</p>
+    <p>to execution servers  1 RTT  Exploit commutativity for consistency  Improves both latency (2 RTTs -&gt; 1 RTT) and throughput (4x)</p>
+    <p>RAMClouds latency: 14 s  7.1 s (no replication: 6.1 s)</p>
+    <p>Throughput: 184 kops/sec  728 kops/s (~4x)</p>
+    <p>Slide 20</p>
+    <p>Conclusion</p>
+  </div>
+</Presentation>

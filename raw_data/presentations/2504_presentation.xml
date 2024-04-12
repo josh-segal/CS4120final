@@ -1,0 +1,476 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>Detec%ng and Defending Against Third-Party Tracking on the Web</p>
+    <p>Franziska Roesner, Tadayoshi Kohno, David Wetherall</p>
+    <p>April 26, 2012 NSDI</p>
+  </div>
+  <div class="page">
+    <p>Third-Party Web Tracking</p>
+    <p>Tracker.com</p>
+    <p>Adver%se.com</p>
+    <p>Bigger browsing profiles = increased value for trackers = reduced privacy for users</p>
+    <p>(Hypothe%cal tracking rela%onships only.)</p>
+  </div>
+  <div class="page">
+    <p>Tracking is Complicated</p>
+    <p>Much discussion of tracking, but limited understanding of how it actually works.</p>
+    <p>Our goals:  Understand the tracking ecosystem.</p>
+    <p>How is tracking actually done in the wild?  What kinds of browsing profiles do trackers compile?  How effec%ve are defenses available to users?</p>
+    <p>Address gaps with new defense (ShareMeNot).</p>
+  </div>
+  <div class="page">
+    <p>Outline</p>
+    <p>How Tracking Works  Tracking Mechanisms  Tracking Taxonomy</p>
+    <p>Measurements  Defenses</p>
+  </div>
+  <div class="page">
+    <p>Mechanisms Required By Trackers</p>
+    <p>Ability to store user iden%ty in the browser  Browser cookies  HTML5 LocalStorage and Flash cookies (LSOs)  Not considering more exo%c storage mechanisms or approximate fingerprin%ng</p>
+    <p>Ability to communicate visited page and user iden%ty back to tracker  Iden%ty: Cookies a_ached to requests  Visited page: HTTP referrers  Both: scripts that embed informa%on in URLs</p>
+  </div>
+  <div class="page">
+    <p>Tracking: The Simple Version</p>
+    <p>Within-Site:</p>
+    <p>Cross-Site:</p>
+    <p>logs</p>
+    <p>Cookie Database</p>
+    <p>tracker.com: id=789</p>
+    <p>h_p://site1.com</p>
+    <p>processing engine</p>
+    <p>cookie: id=789</p>
+    <p>&lt;iframe src=tracker.com/ ad.html&gt;! ! ! ! ! &lt;/iframe&gt;!</p>
+    <p>ad 9:31am: user 789 visited site2.com</p>
+    <p>h_p://site2.com</p>
+    <p>cookie: id=789</p>
+    <p>tracker.com</p>
+    <p>First-party cookies are used to track repeat visits to a site.</p>
+    <p>Third-party cookies are used by trackers included in other sites to create profiles.</p>
+  </div>
+  <div class="page">
+    <p>Our Tracking Taxonomy Name Scope User Visits</p>
+    <p>Directly? Overview</p>
+    <p>N/A Within-Site Yes Site does its own on-site analy%cs.</p>
+    <p>Analy%cs Within-Site No Site uses third-party analy%cs engine (e.g., Google Analy%cs).</p>
+    <p>Vanilla Cross-Site No Site embeds third-party tracker that uses third-party storage (e.g., Doubleclick).</p>
+    <p>Forced Cross-Site Yes (forced)</p>
+    <p>Site embeds third-party tracker that forced the user to visit directly (e.g., via popup).</p>
+    <p>Referred Cross-Site No Tracker relies on another cross-site tracker to leak unique iden%fier values.</p>
+    <p>Personal Cross-Site Yes Site embeds third-party tracker that the user otherwise visits directly (e.g., Facebook).</p>
+    <p>EvoluBon: Embedding analyBcs libraries</p>
+    <p>EvoluBon: Third-party cookie blocking</p>
+  </div>
+  <div class="page">
+    <p>Quirks of Third-Party Cookie Blocking</p>
+    <p>Op%on blocks the seHng of third-party cookies: all browsers</p>
+    <p>Op%on blocks the sending of third-party cookies: only Firefox</p>
+    <p>Result: Once a third-party cookie is somehow set, it can be used (in most browsers).</p>
+  </div>
+  <div class="page">
+    <p>&lt;iframe src=tracker.com/ ad.html&gt;! ! ! ! ! &lt;/iframe&gt;!</p>
+    <p>logs</p>
+    <p>processing engine tracker.com</p>
+    <p>h_p://site2.com</p>
+    <p>Cookie Database</p>
+    <p>tracker.com: id=321</p>
+    <p>h_p://site1.com</p>
+    <p>&lt;iframe src=tracker.com/ ad.html&gt;! ! ! ! ! &lt;/iframe&gt;!</p>
+    <p>ad</p>
+    <p>ad</p>
+    <p>popup</p>
+    <p>Forced Tracking</p>
+    <p>High-level point: On most browsers, if a tracker can ever set a cookie, third-party cookie blocking is rendered ineffec%ve.</p>
+  </div>
+  <div class="page">
+    <p>Our Tracking Taxonomy</p>
+    <p>Type (Name) Scope User Visits Directly?</p>
+    <p>Overview</p>
+    <p>N/A Within-Site Yes Site does its own on-site analy%cs.</p>
+    <p>Analy%cs Within-Site No Site uses third-party analy%cs engine (e.g., Google Analy%cs).</p>
+    <p>Vanilla Cross-Site No Site embeds third-party tracker that uses third-party storage (e.g., Doubleclick).</p>
+    <p>Forced Cross-Site Yes (forced)</p>
+    <p>Site embeds third-party tracker that forced the user to visit directly (e.g., via popup).</p>
+    <p>Referred Cross-Site No Tracker relies on another cross-site tracker to leak unique iden%fier values.</p>
+    <p>Personal Cross-Site Yes Site embeds third-party tracker that the user otherwise visits directly (e.g., Facebook).</p>
+    <p>EvoluBon: Complex ad networks</p>
+    <p>EvoluBon: Embedding analyBcs libraries</p>
+    <p>EvoluBon: Third-party cookie blocking</p>
+  </div>
+  <div class="page">
+    <p>tracker.com</p>
+    <p>Cookie Database</p>
+    <p>tracker.com: id=522</p>
+    <p>h_p://site1.com &lt;iframe src=tracker.com/ ad.html&gt;! ! ! ! ! &lt;/iframe&gt;!</p>
+    <p>ad</p>
+    <p>other tracker.com/track? id=522&amp;referrer=site1.com</p>
+    <p>h_p://site2.com &lt;iframe src=tracker.com/ ad.html&gt;! ! ! ! ! &lt;/iframe&gt;!</p>
+    <p>ad</p>
+    <p>other tracker.com/track? id=522&amp;referrer=site2.com</p>
+    <p>logs processing engine othertracker.com</p>
+    <p>processing engine</p>
+    <p>Referred Tracking</p>
+    <p>High-level point: One tracker with client-side state can enable tracking by partners without client-side state.</p>
+  </div>
+  <div class="page">
+    <p>Type (Name) Scope User Visits Directly?</p>
+    <p>Overview</p>
+    <p>N/A Within-Site Yes Site does its own on-site analy%cs.</p>
+    <p>Analy%cs Within-Site No Site uses third-party analy%cs engine (e.g., Google Analy%cs).</p>
+    <p>Vanilla Cross-Site No Site embeds third-party tracker that uses third-party storage (e.g., Doubleclick).</p>
+    <p>Forced Cross-Site Yes (forced)</p>
+    <p>Site embeds third-party tracker that forced the user to visit directly (e.g., via popup).</p>
+    <p>Referred Cross-Site No Tracker relies on another cross-site tracker to leak unique iden%fier values.</p>
+    <p>Personal Cross-Site Yes Site embeds third-party tracker that the user otherwise visits directly (e.g., Facebook).</p>
+    <p>Our Tracking Taxonomy</p>
+    <p>EvoluBon: Social networks</p>
+    <p>EvoluBon: Complex ad networks</p>
+    <p>EvoluBon: Embedding analyBcs libraries</p>
+    <p>EvoluBon: Third-party cookie blocking</p>
+  </div>
+  <div class="page">
+    <p>Personal Tracking</p>
+    <p>Just loading these bu_ons (not clicking on them) enables tracking.</p>
+    <p>Users visit these sites directly.  This tracking is oien not anonymous (linked to accounts).</p>
+  </div>
+  <div class="page">
+    <p>Type (Name) Scope User Visits Directly?</p>
+    <p>Overview</p>
+    <p>N/A Within-Site Yes Site does its own on-site analy%cs.</p>
+    <p>Analy%cs Within-Site No Site uses third-party analy%cs engine (e.g., Google Analy%cs).</p>
+    <p>Vanilla Cross-Site No Site embeds third-party tracker that uses third-party storage (e.g., Doubleclick).</p>
+    <p>Forced Cross-Site Yes (forced)</p>
+    <p>Site embeds third-party tracker that forced the user to visit directly (e.g., via popup).</p>
+    <p>Referred Cross-Site No Tracker relies on another cross-site tracker to leak unique iden%fier values.</p>
+    <p>Personal Cross-Site Yes Site embeds third-party tracker that the user otherwise visits directly (e.g., Facebook).</p>
+    <p>Our Tracking Taxonomy</p>
+    <p>EvoluBon: Social networks</p>
+    <p>EvoluBon: Complex ad networks</p>
+    <p>EvoluBon: Embedding analyBcs libraries</p>
+    <p>EvoluBon: Third-party cookie blocking</p>
+    <p>Anonymous</p>
+  </div>
+  <div class="page">
+    <p>Outline</p>
+    <p>How Tracking Works  Tracking mechanisms  Tracking taxonomy</p>
+    <p>Measurements  Defenses</p>
+  </div>
+  <div class="page">
+    <p>Measurement Tool: TrackingTracker</p>
+    <p>Firefox add-on  Based on taxonomy of client-side mechanisms  Crawls the web, automa%cally categorizing trackers  Monitors:  Third-party requests  Cookies, HTML5 LocalStorage, Flash LSOs</p>
+    <p>(considers state that changes across clean measurement runs)</p>
+    <p>Iden%fier leaks</p>
+  </div>
+  <div class="page">
+    <p>Measurement Study</p>
+    <p>3 data sets  Alexa Top 500</p>
+    <p>5 pages per domain: main page and up to 4 links  Alexa Non-Top 500</p>
+    <p>Sites ranked #501, #601, #701, etc.  5 pages per domain: main page and up to 4 links</p>
+    <p>AOL search logs  300 unique queries for 35 random users</p>
+    <p>April 26, 2012 Franziska Roesner</p>
+  </div>
+  <div class="page">
+    <p>Tracking Prevalence (Top 500)  524 unique trackers on 500 domains</p>
+    <p>between 4 and 5 trackers.</p>
+    <p>One domain includes 43 trackers.</p>
+  </div>
+  <div class="page">
+    <p>!&quot;#$</p>
+    <p>!%#$!%&amp;$ &quot;!$</p>
+    <p>'%$ (&amp;$ (($ (%$ ))$ )*$ )*$ *#$ *+$ *'$</p>
+    <p>!&amp;($!(#$</p>
+    <p>#)$</p>
+    <p>)($ )%$</p>
+    <p>*#+$</p>
+    <p>%$</p>
+    <p>&amp;%$</p>
+    <p>!%%$</p>
+    <p>!&amp;%$</p>
+    <p>*%%$</p>
+    <p>*&amp;%$</p>
+    <p>)%%$</p>
+    <p>)&amp;%$</p>
+    <p>(%%$</p>
+    <p>,-, ./0 12 1.3 45 675 -8 $</p>
+    <p>?15 /; -=75 -8 $</p>
+    <p>,-, ./7 58$</p>
+    <p>B: 12 &gt;6/ @C/ 758$</p>
+    <p>&gt;D &lt;E /@ 758$</p>
+    <p>&lt;8 @D -@ .9D</p>
+    <p>&lt;9/ 758$</p>
+    <p>@/ C6 5&lt;7 2/ &gt;$</p>
+    <p>&lt;2C &lt;&gt;/ 8/ 9&lt;1 758$</p>
+    <p>;.: /= 1&lt;7 58$</p>
+    <p>!&quot; #$ %&amp; &quot;' (&quot; &amp;) #* &amp;+</p>
+    <p>$&amp; ',</p>
+    <p>'. /0</p>
+    <p>#1 +2 3'</p>
+    <p>!/4'56'!&quot;#$%&amp;&quot;2'/+'!/4'766'./0#1+2'</p>
+    <p>H&lt;&gt;A&lt;20I&lt;&gt;/$</p>
+    <p>J@-660I&lt;&gt;/$KL/@6-21.M$</p>
+    <p>J@-660I&lt;&gt;/$KN2-238-:6M$</p>
+  </div>
+  <div class="page">
+    <p>!&quot; #!&quot; $!&quot; %!&quot; &amp;!&quot;</p>
+    <p>'!!&quot; '#!&quot; '$!&quot; '%!&quot; '&amp;!&quot; #!!&quot;</p>
+    <p>() *+ ,-. ,/. 012 -3 &quot;</p>
+    <p>;* 52 389&lt;1.) 6&quot;</p>
+    <p>?/,(6</p>
+    <p>/6 9= )9 ,(=</p>
+    <p>/(1.) 6&quot;</p>
+    <p>/2&lt; /36(/5 1.) 6&quot;</p>
+    <p>?) *3 *+ -1. )6 &quot;</p>
+    <p>+,* -0 5/1 .) 6&quot;</p>
+    <p>#) D12 -3 &quot;</p>
+    <p>!&quot; #$</p>
+    <p>%&amp; '( )* &amp;' +, '! -. &amp;/ 0'</p>
+    <p>Each line represents one user.</p>
+    <p>April 26, 2012 Franziska Roesner</p>
+    <p>Doubleclick: Avg 39% (Max 66%)</p>
+    <p>Facebook: Avg 23% (Max 45%)</p>
+    <p>Google: Avg 21% (Max 61%)</p>
+  </div>
+  <div class="page">
+    <p>Surprisingly li_le use of these mechanisms!  Of 524 trackers on Alexa Top 500:  Only 5 set unique iden%fiers in LocalStorage  35 set unique iden%fiers in Flash cookies</p>
+    <p>Respawning:  LS  Cookie: 1 case; Cookie  LS: 3 cases  Flash Cookie: 6 cases; Cookie  Flash: 7 cases</p>
+    <p>LocalStorage and Flash Cookies</p>
+  </div>
+  <div class="page">
+    <p>Outline</p>
+    <p>How Tracking Works  Tracking mechanisms  Tracking taxonomy</p>
+    <p>Measurements  Defenses</p>
+  </div>
+  <div class="page">
+    <p>Defenses to Reduce Tracking</p>
+    <p>We explore several in the paper:  Third-party cookie blocking  Do Not Track header  Popup blocking  Clearing client-side state  Disabling JavaScript  Private browsing mode</p>
+  </div>
+  <div class="page">
+    <p>!&quot;#$</p>
+    <p>!%#$!%&amp;$ &quot;!$</p>
+    <p>'%$ (&amp;$ (($ (%$ ))$ )*$ )*$ *#$ *+$ *'$</p>
+    <p>!&amp;($!(#$</p>
+    <p>#)$</p>
+    <p>)($ )%$</p>
+    <p>*#+$</p>
+    <p>%$</p>
+    <p>&amp;%$</p>
+    <p>!%%$</p>
+    <p>!&amp;%$</p>
+    <p>*%%$</p>
+    <p>*&amp;%$</p>
+    <p>)%%$</p>
+    <p>)&amp;%$</p>
+    <p>(%%$</p>
+    <p>,-, ./0 12 1.3 45 675 -8 $</p>
+    <p>?15 /; -=75 -8 $</p>
+    <p>,-, ./7 58$</p>
+    <p>B: 12 &gt;6/ @C/ 758$</p>
+    <p>&gt;D &lt;E /@ 758$</p>
+    <p>&lt;8 @D -@ .9D</p>
+    <p>&lt;9/ 758$</p>
+    <p>@/ C6 5&lt;7 2/ &gt;$</p>
+    <p>&lt;2C &lt;&gt;/ 8/ 9&lt;1 758$</p>
+    <p>;.: /= 1&lt;7 58$</p>
+    <p>!&quot; #$ %&amp; &quot;' (&quot; &amp;) #* &amp;+</p>
+    <p>$&amp; ',</p>
+    <p>'. /0</p>
+    <p>#1 +2 3'</p>
+    <p>!/4'56'!&quot;#$%&amp;&quot;2'/+'!/4'766'./0#1+2'</p>
+    <p>H&lt;&gt;A&lt;20I&lt;&gt;/$</p>
+    <p>J@-660I&lt;&gt;/$KL/@6-21.M$</p>
+    <p>J@-660I&lt;&gt;/$KN&gt;A/@M$</p>
+    <p>!&quot;#$</p>
+    <p>!%#$!%&amp;$ &quot;!$</p>
+    <p>'%$ (&amp;$ (($ (%$ ))$ )*$ )*$ *#$ *+$ *'$</p>
+    <p>!&amp;($!(#$</p>
+    <p>#)$</p>
+    <p>)($ )%$</p>
+    <p>*#+$</p>
+    <p>%$</p>
+    <p>&amp;%$</p>
+    <p>!%%$</p>
+    <p>!&amp;%$</p>
+    <p>*%%$</p>
+    <p>*&amp;%$</p>
+    <p>)%%$</p>
+    <p>)&amp;%$</p>
+    <p>(%%$</p>
+    <p>,-, ./0 12 1.3 45 675 -8 $</p>
+    <p>?15 /; -=75 -8 $</p>
+    <p>,-, ./7 58$</p>
+    <p>B: 12 &gt;6/ @C/ 758$</p>
+    <p>&gt;D &lt;E /@ 758$</p>
+    <p>&lt;8 @D -@ .9D</p>
+    <p>&lt;9/ 758$</p>
+    <p>@/ C6 5&lt;7 2/ &gt;$</p>
+    <p>&lt;2C &lt;&gt;/ 8/ 9&lt;1 758$</p>
+    <p>;.: /= 1&lt;7 58$</p>
+    <p>!&quot; #$ %&amp; &quot;' (&quot; &amp;) #* &amp;+</p>
+    <p>$&amp; ',</p>
+    <p>'. /0</p>
+    <p>#1 +2 3'</p>
+    <p>!/4'56'!&quot;#$%&amp;&quot;2'/+'!/4'766'./0#1+2'</p>
+    <p>H&lt;&gt;A&lt;20I&lt;&gt;/$</p>
+    <p>J@-660I&lt;&gt;/$KL/@6-21.M$</p>
+    <p>J@-660I&lt;&gt;/$KN2-238-:6M$</p>
+    <p>(no cookie blocking)</p>
+    <p>!&quot;#</p>
+    <p>$%!#$&amp;'#</p>
+    <p>&quot;&amp;#</p>
+    <p>(&amp;# !)#</p>
+    <p>!'*#</p>
+    <p>$&amp;# +#</p>
+    <p>%+#</p>
+    <p>$++#</p>
+    <p>$%+#</p>
+    <p>!++#</p>
+    <p>!%+#</p>
+    <p>(++#</p>
+    <p>(%+#</p>
+    <p>&amp;++#</p>
+    <p>,-, ./0 12 1.3 45 675 -8 #</p>
+    <p>?15 /; -=75 -8 #</p>
+    <p>,-, ./7 58#</p>
+    <p>B: 12 &gt;6/ @C/ 758#</p>
+    <p>&gt;D &lt;E /@ 758#</p>
+    <p>&lt;8 @D -@ .9D</p>
+    <p>&lt;9/ 758#</p>
+    <p>@/ C6 5&lt;7 2/ &gt;#</p>
+    <p>&lt;2C &lt;&gt;/ 8/ 9&lt;1 758#</p>
+    <p>;.: /= 1&lt;7 58#</p>
+    <p>!&quot; #$ %&amp; &quot;' (&quot; &amp;) #* &amp;+</p>
+    <p>$&amp; ',</p>
+    <p>'. /0</p>
+    <p>#1 +2 3'</p>
+    <p>!/4'56'!&quot;#$%&amp;&quot;2'/+'!/4'766'./0#1+2',!81&quot;9:(#&quot;;&lt;'=//%1&amp;2'&gt;*/$%&amp;93'</p>
+    <p>H&lt;&gt;A&lt;20I&lt;&gt;/#</p>
+    <p>J@-660I&lt;&gt;/#KL/@6-21.M#</p>
+    <p>J@-660I&lt;&gt;/#KN&gt;A/@M#</p>
+    <p>!&quot;#$</p>
+    <p>!%#$!%&amp;$ &quot;!$</p>
+    <p>'%$ (&amp;$ (($ (%$ ))$ )*$ )*$ *#$ *+$ *'$</p>
+    <p>!&amp;($!(#$</p>
+    <p>#)$</p>
+    <p>)($ )%$</p>
+    <p>*#+$</p>
+    <p>%$</p>
+    <p>&amp;%$</p>
+    <p>!%%$</p>
+    <p>!&amp;%$</p>
+    <p>*%%$</p>
+    <p>*&amp;%$</p>
+    <p>)%%$</p>
+    <p>)&amp;%$</p>
+    <p>(%%$</p>
+    <p>,-, ./0 12 1.3 45 675 -8 $</p>
+    <p>?15 /; -=75 -8 $</p>
+    <p>,-, ./7 58$</p>
+    <p>B: 12 &gt;6/ @C/ 758$</p>
+    <p>&gt;D &lt;E /@ 758$</p>
+    <p>&lt;8 @D -@ .9D</p>
+    <p>&lt;9/ 758$</p>
+    <p>@/ C6 5&lt;7 2/ &gt;$</p>
+    <p>&lt;2C &lt;&gt;/ 8/ 9&lt;1 758$</p>
+    <p>;.: /= 1&lt;7 58$</p>
+    <p>!&quot; #$ %&amp; &quot;' (&quot; &amp;) #* &amp;+</p>
+    <p>$&amp; ',</p>
+    <p>'. /0</p>
+    <p>#1 +2 3'</p>
+    <p>!/4'56'!&quot;#$%&amp;&quot;2'/+'!/4'766'./0#1+2'</p>
+    <p>H&lt;&gt;A&lt;20I&lt;&gt;/$</p>
+    <p>J@-660I&lt;&gt;/$KL/@6-21.M$</p>
+    <p>J@-660I&lt;&gt;/$KN2-238-:6M$</p>
+    <p>!&quot;# $$#</p>
+    <p>$%!#$&amp;'#</p>
+    <p>&quot;&amp;#</p>
+    <p>(&amp;# !)# !*# $&amp;# $!# $!# $$# $*# $*# $*# &quot;# '# '#</p>
+    <p>!'+#</p>
+    <p>$&amp;# *#</p>
+    <p>%*#</p>
+    <p>$**#</p>
+    <p>$%*#</p>
+    <p>!**#</p>
+    <p>!%*#</p>
+    <p>(**#</p>
+    <p>(%*#</p>
+    <p>&amp;**#</p>
+    <p>,-, ./0 12 1.3 45 675 -8 #</p>
+    <p>,-, ./7 58#</p>
+    <p>&lt;= &gt;? /@ 758#</p>
+    <p>:1 &gt;AC 758#</p>
+    <p>&lt;@&gt; :1 .9C 6&gt;275 -8 #</p>
+    <p>DC 12 &lt;6/ @E/ 758#</p>
+    <p>.&gt;2 ;/ A&gt;2 758#</p>
+    <p>F8 6/ @E/ 758#</p>
+    <p>=@A G@ /6 675 -8 #</p>
+    <p>&lt;1 -: 1758#</p>
+    <p>DD 758#</p>
+    <p>H/ A758#</p>
+    <p>!&quot; #$ %&amp; &quot;' (&quot; &amp;) #* &amp;+</p>
+    <p>$&amp; ',</p>
+    <p>'. /0</p>
+    <p>#1 +2 3'</p>
+    <p>!/4'56'!&quot;#$%&amp;&quot;2'/+'!/4'766'./0#1+2',!81&quot;9:(#&quot;;&lt;'=//%1&amp;2'&gt;*/$%&amp;93'</p>
+    <p>J&gt;&lt;B&gt;20K&gt;&lt;/#</p>
+    <p>L@-660K&gt;&lt;/#MN/@6-21.O#</p>
+    <p>L@-660K&gt;&lt;/#MP&lt;B/@O#</p>
+    <p>!&quot;#$</p>
+    <p>!%#$!%&amp;$ &quot;!$</p>
+    <p>'%$ (&amp;$ (($ (%$ ))$ )*$ )*$ *#$ *+$ *'$</p>
+    <p>!&amp;($!(#$</p>
+    <p>#)$</p>
+    <p>)($ )%$</p>
+    <p>*#+$</p>
+    <p>%$</p>
+    <p>&amp;%$</p>
+    <p>!%%$</p>
+    <p>!&amp;%$</p>
+    <p>*%%$</p>
+    <p>*&amp;%$</p>
+    <p>)%%$</p>
+    <p>)&amp;%$</p>
+    <p>(%%$</p>
+    <p>,-, ./0 12 1.3 45 675 -8 $</p>
+    <p>?15 /; -=75 -8 $</p>
+    <p>,-, ./7 58$</p>
+    <p>B: 12 &gt;6/ @C/ 758$</p>
+    <p>&gt;D &lt;E /@ 758$</p>
+    <p>&lt;8 @D -@ .9D</p>
+    <p>&lt;9/ 758$</p>
+    <p>@/ C6 5&lt;7 2/ &gt;$</p>
+    <p>&lt;2C &lt;&gt;/ 8/ 9&lt;1 758$</p>
+    <p>;.: /= 1&lt;7 58$</p>
+    <p>!&quot; #$ %&amp; &quot;' (&quot; &amp;) #* &amp;+</p>
+    <p>$&amp; ',</p>
+    <p>'. /0</p>
+    <p>#1 +2 3'</p>
+    <p>!/4'56'!&quot;#$%&amp;&quot;2'/+'!/4'766'./0#1+2'</p>
+    <p>H&lt;&gt;A&lt;20I&lt;&gt;/$</p>
+    <p>J@-660I&lt;&gt;/$KL/@6-21.M$</p>
+    <p>J@-660I&lt;&gt;/$KN2-238-:6M$</p>
+    <p>Referred Tracker Forced Tracker</p>
+  </div>
+  <div class="page">
+    <p>Personal Tracking Revisited</p>
+    <p>Most popular, based on measurements:  Facebook, Google, Twi_er, AddThis, YouTube, LinkedIn, Digg, Stumbleupon</p>
+    <p>Third-party cookie blocking is ineffec%ve.  Exis%ng browser extension solu%ons remove the bu_ons (undesirable to some users).</p>
+    <p>Can we reduce tracking but allow use?</p>
+  </div>
+  <div class="page">
+    <p>ShareMeNot</p>
+    <p>A browser extension that protects against tracking from third-party social media bu_ons while s%ll allowing them to be used.</p>
+    <p>Firefox version: removes cookies from relevant requests un%l user clicks bu_on.  Similar: Priv3 Firefox add-on</p>
+    <p>Chrome version: replace bu_ons with local stand-in bu_on un%l user click.</p>
+    <p>NEW</p>
+    <p>h_p://sharemenot.cs.washington.edu</p>
+  </div>
+  <div class="page">
+    <p>Effec%veness of ShareMeNot (Top 500)</p>
+    <p>Tracker Without ShareMeNot With ShareMeNot Facebook 154 9 Google 149 15 Twi_er 93 0 AddThis 34 0 YouTube 30 0 LinkedIn 22 0 Digg 8 0 Stumbleupon 6 0</p>
+  </div>
+  <div class="page">
+    <p>Summary  Introduced taxonomy of tracking behavior for any client-side iden%fiers.  Analy&amp;cs, Vanilla, Forced, Referred, Personal</p>
+    <p>Studied tracking in the wild with browser measurements.  Revealed rich tracking ecosystem.  Results can assist informed broader discussions.</p>
+    <p>Developed ShareMeNot, a new privacy- enhancing defense for personal tracking.</p>
+    <p>hOp://sharemenot.cs.washington.edu/</p>
+  </div>
+</Presentation>

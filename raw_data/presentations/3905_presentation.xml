@@ -1,0 +1,118 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>BioLite A lightweight bioinformatics framework with</p>
+    <p>automated tracking of diagnostics and provenance</p>
+    <p>Mark Howison1,2, Nicholas A. Sinnott-Armstrong2, Casey W. Dunn2</p>
+    <p>Brown University</p>
+    <p>Presented at USENIX TaPP 12 | http://www.dunnlab.org/biolite</p>
+  </div>
+  <div class="page">
+    <p>The Problem Next-Gen Sequencing technologies produce big data:  ~250GB per run for an Illumina HiSeq 2000</p>
+    <p>The data require complex analyses:  Quality control and filtering of the raw reads  Assembly of short reads into contiguous sequences  Alignment and comparison to known sequences</p>
+    <p>Need a better solution than ad hoc analyses and onetime scripts!</p>
+    <p>TaPP12: BioLite 1</p>
+  </div>
+  <div class="page">
+    <p>Other Workflow Solutions</p>
+    <p>TaPP12: BioLite 2</p>
+    <p>Heavyweight Lightweight</p>
+    <p>Galaxy</p>
+    <p>Ruffus</p>
+    <p>Need lightweight + provenance!</p>
+    <p>PaPY</p>
+    <p>W ith Provenance</p>
+    <p>W ithout</p>
+    <p>Taverna</p>
+  </div>
+  <div class="page">
+    <p>Lightweight Design Goals  Command-line usage  Easily extendable through scripting and</p>
+    <p>programming  Minimal administrative overhead and</p>
+    <p>dependencies  Portability and performance</p>
+    <p>TaPP12: BioLite 3</p>
+  </div>
+  <div class="page">
+    <p>BioLite A Python framework and set of C++ tools for:  building out customized analysis pipelines  fault-tolerance, through built-in checkpointing  automating the collection/reporting of diagnostics  tracking the provenance of analyses:</p>
+    <p>resource usage  paths and parameters  program versioning  statistics</p>
+    <p>TaPP12: BioLite 4</p>
+  </div>
+  <div class="page">
+    <p>BioLites Database diagnostics</p>
+    <p>id VARCHAR</p>
+    <p>run_id INTEGER</p>
+    <p>entity VARCHAR</p>
+    <p>attribute VARCHAR</p>
+    <p>value TEXT</p>
+    <p>timestamp DATETIME</p>
+    <p>catalog</p>
+    <p>id VARCHAR</p>
+    <p>paths TEXT</p>
+    <p>species VARCHAR</p>
+    <p>ncbi_id INTEGER</p>
+    <p>itis_id INTEGER</p>
+    <p>extraction_id VARCHAR</p>
+    <p>library_id VARCHAR</p>
+    <p>library_type VARCHAR</p>
+    <p>tissue VARCHAR</p>
+    <p>sequencer VARCHAR</p>
+    <p>seq_center VARCHAR</p>
+    <p>note TEXT</p>
+    <p>sample_prep TEXT</p>
+    <p>timestamp DATETIME</p>
+    <p>runs</p>
+    <p>run_id INTEGER</p>
+    <p>id VARCHAR</p>
+    <p>name VARCHAR</p>
+    <p>hostname VARCHAR</p>
+    <p>username VARCHAR</p>
+    <p>timestamp DATETIME</p>
+    <p>The diagnostics table has a complete non-executable history of the analysis:</p>
+    <p>TaPP12: BioLite 5</p>
+    <p>several restart invocations. The diagnostics table archives summary statistics that</p>
+    <p>can be accessed across multiple stages of a pipeline, from different pipelines, and in HTML reports. Diagnostic entries are timestamped and stored as key/value pairs indexed by run ID. An additional namespace field prevents key collisions, since the same key could arise multiple times within a pipeline run. By default, the namespace is the pipeline name plus the stage name, so that key/value pairs can be traced to the pipeline and stage during which they were entered. Entries in the diagnostics table can include paths to derivative files, which can be summaries of intermediate files that are used to generate reports or intermediate data files that serve as input to other stages and pipelines.</p>
+    <p>Detailed system utilization statistics, including memory high-water marks and compute wall-time are also stored in the diagnostics table by the base pipeline and wrapper classes. The diagnostics table has a complete non-executable history of the analysis, which complements the original scripts that were used to run the analysis. In combination, the diagnostics table and original scripts provide provenance for all analyses.</p>
+    <p>Storage requirements for the diagnostics are minimal. Table 1 shows that for 168 pipeline runs on a collection of 30 Illumina HiSeq data sets, the footprint of the SQLite database and related text files (e.g. histograms) is a small fraction (0.03%) of the total run data. BioLite also distinguishes between two types of storage for intermediate results: permanent and scratch. This reflects the layout of file systems at most scientific computing centers. Permanent files are kept long term, and scratch files can be deleted at will. This arrangement allows the user to inspect temporary intermediate files after a run has completed, while simplifying garbage collection.</p>
+    <p>Table 1: Storage requirements for 168 runs</p>
+    <p>Data GB</p>
+    <p>raw data sets 192.4 intermediate results (permanent) 1,241.6 intermediate results (scratch) 1,057.1 diagnostics: SQLite and text files 0.073</p>
+    <p>BioLite borrows from Ruffus [5] the idea of using Python function decorators to delineate pipeline stages. Pipelines are created with a sequence of ordinary Python functions decorated by a pipeline object, which registers each function as a stage in the pipeline. The pipeline object maintains a persistent, global dictionary, called the state, and runs each stage by looking up the argument names in the stage functions signature, and calling the</p>
+    <p>function with the values in the state dictionary whose keys match the functions argument names. This is implemented using the function inspection methods available from the inspect module in the Python standard library. If the stage function returns a dictionary, it is ingested into the pipelines state by adding values for any new keys and updating values for existing keys. Arguments passed on the command-line to the pipeline script form the initial data in the pipelines state.</p>
+    <p>Modularity is a key design goal, and it is possible to reuse one or more stages of an existing pipeline when building a new pipeline. It is also possible to build metapipelines that connect together several sub-pipelines.</p>
+    <p>The pipeline object also incorporates fault tolerance. At the end of each stage, the pipeline stores a checkpoint by dumping its current state to a binary file with Pythons pickle module. This way, if a run is interrupted, either due to an internal error or to external conditions, such as a kill signal from a batch system or a hardware failure, the run can be restarted from the last completed stage (or, optionally, from any previous stage in the checkpoint).</p>
+    <p>A pool of wrapper functions is available for commonly used NGS tools, such as the Bowtie aligner [6] and Oases transcriptome assembler [9], The base wrapper class can be extended to support additional tools.</p>
+    <p>Figure 2: Diagnostics for the non-ribosomal RNA content after a filtering stage of our pre-assembly pipeline.</p>
+    <p>Diagnostics enable validation and optimization of sample preparation methods. Figure 2 shows the percent of non-ribosomal RNA reads remaining after a filtering stage in our pre-assembly pipeline for transcriptomes. The preparation methods that used two rounds of purification beads were much more effective at removing ribosomal RNA, and therefore increasing the usable content of sequence data for transcriptome assembly.</p>
+    <p>Paired-end Illumina reads are sequenced with both a forward and reverse read, which cover the begin</p>
+    <p>diagnostics + pipeline script = reproducibility</p>
+  </div>
+  <div class="page">
+    <p>Reports  API for accessing raw diagnostics,</p>
+    <p>generating custom reports  Reporting code is integrated with analysis</p>
+    <p>scripts  Tabular reports show comparisons across</p>
+    <p>data sets</p>
+    <p>TaPP12: BioLite 6</p>
+  </div>
+  <div class="page">
+    <p>Resource Profiling For understanding how resources are used by different stages of a pipeline run</p>
+    <p>TaPP12: BioLite 7</p>
+  </div>
+  <div class="page">
+    <p>Resource Profiling</p>
+    <p>TaPP12: BioLite 8</p>
+    <p>For comparing computational requirements across analyses, forecast future requirements</p>
+  </div>
+  <div class="page">
+    <p>Diagnostics For answering questions about up-stream data collection, comparisons across analyses, etc.</p>
+    <p>Example application: how does purification method affect usable RNA content?</p>
+    <p>TaPP12: BioLite 9</p>
+  </div>
+  <div class="page">
+    <p>Applications of BioLite  Development is driven primarily by Agalma, a de</p>
+    <p>novo transcriptome pipeline  Chlorox, a chloroplast genome assembly tool  Other tools in progress at Brown</p>
+    <p>TaPP12: BioLite 10</p>
+  </div>
+  <div class="page">
+    <p>Questions?</p>
+    <p>TaPP12: BioLite 11</p>
+  </div>
+</Presentation>

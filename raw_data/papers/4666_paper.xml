@@ -1,0 +1,506 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<TEI xmlns="http://www.tei-c.org/ns/1.0" 
+xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+xsi:schemaLocation="http://www.tei-c.org/ns/1.0 /Users/atharsefid/Desktop/grobid-0.5.3/grobid-home/schemas/xsd/Grobid.xsd"
+ xmlns:xlink="http://www.w3.org/1999/xlink">
+	<teiHeader xml:lang="en">
+		<encodingDesc>
+			<appInfo>
+				<application version="0.5.3" ident="GROBID" when="2019-03-26T16:57+0000">
+					<ref target="https://github.com/kermitt2/grobid">GROBID - A machine learning software for extracting information from scholarly documents</ref>
+				</application>
+			</appInfo>
+		</encodingDesc>
+		<fileDesc>
+			<titleStmt>
+				<title level="a" type="main">Searching Substructures with Superimposed Distance *</title>
+			</titleStmt>
+			<publicationStmt>
+				<publisher/>
+				<availability status="unknown"><licence/></availability>
+			</publicationStmt>
+			<sourceDesc>
+				<biblStruct>
+					<analytic>
+						<author>
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Xifeng</forename><surname>Yan</surname></persName>
+							<email>xyan@cs.uiuc.edu</email>
+							<affiliation key="aff0">
+								<orgName type="department">Department of Computer Science</orgName>
+								<orgName type="laboratory">‡ IBM T. J. Watson Research Center</orgName>
+								<orgName type="institution">University of Illinois at Urbana-Champaign</orgName>
+							</affiliation>
+						</author>
+						<author>
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Feida</forename><surname>Zhu</surname></persName>
+							<email>feidazhu@cs.uiuc.edu</email>
+							<affiliation key="aff0">
+								<orgName type="department">Department of Computer Science</orgName>
+								<orgName type="laboratory">‡ IBM T. J. Watson Research Center</orgName>
+								<orgName type="institution">University of Illinois at Urbana-Champaign</orgName>
+							</affiliation>
+						</author>
+						<author>
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Jiawei</forename><surname>Han</surname></persName>
+							<email>hanj@cs.uiuc.edu</email>
+							<affiliation key="aff0">
+								<orgName type="department">Department of Computer Science</orgName>
+								<orgName type="laboratory">‡ IBM T. J. Watson Research Center</orgName>
+								<orgName type="institution">University of Illinois at Urbana-Champaign</orgName>
+							</affiliation>
+						</author>
+						<author>
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Philip</forename><forename type="middle">S</forename><surname>Yu</surname></persName>
+							<email>psyu@us.ibm.com</email>
+							<affiliation key="aff0">
+								<orgName type="department">Department of Computer Science</orgName>
+								<orgName type="laboratory">‡ IBM T. J. Watson Research Center</orgName>
+								<orgName type="institution">University of Illinois at Urbana-Champaign</orgName>
+							</affiliation>
+						</author>
+						<title level="a" type="main">Searching Substructures with Superimposed Distance *</title>
+					</analytic>
+					<monogr>
+						<imprint>
+							<date/>
+						</imprint>
+					</monogr>
+				</biblStruct>
+			</sourceDesc>
+		</fileDesc>
+		<profileDesc>
+			<abstract>
+				<p>Efficient indexing techniques have been developed for the exact and approximate substructure search in large scale graph databases. Unfortunately, the retrieval problem of structures with categorical or geometric distance constraints is not solved yet. In this paper, we develop a method called PIS (Partition-based Graph Index and Search) to support similarity search on substructures with superimposed distance constraints. PIS selects discriminative fragments in a query graph and uses an index to prune the graphs that violate the distance constraints. We identify a criterion to distinguish the selectivity of fragments in multiple graphs and develop a partition method to obtain a set of highly selective fragments, which is able to improve the pruning performance. Experimental results show that PIS is effective in processing real graph queries.</p>
+			</abstract>
+		</profileDesc>
+	</teiHeader>
+	<text xml:lang="en">
+		<body>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="1">Introduction</head><p>With the increasing volume of graph databases, there is a strong need for fast graph search systems. Unfortunately, traditional indexing mechanisms can no longer address the challenging issues raised by complex graph databases: Given an exponential number of subgraphs in a complex structure, we simply do not know what to index and how to index. Interest has been growing in using unconventional indexing techniques to tackle the search problem. Previous studies focused on two kinds of graph search tasks: (1) the exact substructure (or full structure) search, and (2) the approximate substructure (or full structure) search. The exact substructure search finds all of the graphs in a database that * The work was supported in part by the U.S. National Science Foundation NSF IIS-02-09199/IIS-03-8215, and an IBM Faculty Award. Any opinions, findings, and conclusions or recommendations expressed in this paper are those of the authors and do not necessarily reflect the views of the funding agencies. contain the query structure, while the approximate substructure search finds inexact matches in the database. Shasha et al. <ref type="bibr" target="#b11">[12]</ref> proposed a path-based approach for the exact substructure search. Yan et al. <ref type="bibr" target="#b15">[16]</ref> devised discriminative frequent structures and used them as indexing features. Holder et al. <ref type="bibr" target="#b6">[7]</ref> adopted the minimum description length principle for the approximate search. Raymond et al. <ref type="bibr" target="#b9">[10]</ref> developed a three-tier algorithm for structure similarity search.</p><p>The two search scenarios mentioned so far are mainly involved with the topological structure of graphs. However, there are other similarity search problems that are as important, but which we are unable to handle yet. Let us first check an example. is an anticoagulant. Digitoxigenin in <ref type="figure" target="#fig_0">Figure 1</ref>(c) is wellknown for its strong cardiotonic effect. <ref type="figure">Figure 2</ref> shows a query graph. The three sample molecules contain the same topological substructures as the query graph. However, some of their edge labels are different from those in the query graph. We define a mutation distance as the number of times one has to relabel edges in one graph in order to get another graph. According to this definition, the mutation distance between 1H-Indene in <ref type="figure" target="#fig_0">Figure 1</ref>(a) and the query graph is 1: we need to mutate one edge label in 1H-Indene so that it contains exactly the query structure, with exactly the same labels. If a user wants to find graphs whose mutation distance from the query graph is less than 2, the query system should return the first and the third graphs in <ref type="figure" target="#fig_0">Figure 1</ref>.</p><p>The example above indicates that the substructure search with superimposed distance constraints (SSSD) is a general graph search problem. We formulate the SSSD problem as follows: Given a set of graphs D = {G 1 , G 2 , . . . G n } and a query graph Q, find all graphs G in D such that Q is isomorphic to a subgraph Q ′ of G and the optimal distance between Q and Q ′ is less than a threshold σ. We can also rephrase the SSSD problem as a constrained graph alignment problem: We want to find an alignment of the query graph in target graphs such that the minimum superimposed distance between Q and its image in the target graphs is less than σ.</p><p>One solution to this new substructure search problem is to enumerate all of the isomorphic images of Q in the target graphs and check their distance. This brute-force approach may not work well since it is time-consuming to check each graph in a large scale database. In this paper, we develop an algorithm, called PIS (Partition-based Graph Index and Search), to tackle the SSSD problem. Our strategy is to first build a fragment-based index on the graph database, then partition each query graph into highly selective fragments, use the index to efficiently identify the set of candidate graphs, and verify each candidate to find all eligible answers. Our approach has two advantages over the brute-force method: (1) All operations except the candidate verification are only involved with the index structure, thus avoiding one-by-one subgraph isomorphism computation for graphs in the database. The isomorphism computation is performed on the candidate graph set, which is of a significantly smaller size. (2) The candidate set itself is identified efficiently by pruning most invalid graphs with the help of selective fragments and a distance lower bound introduced in this paper.</p><p>We call the index strategy of PIS fragment-based index. Graphs in the database are decomposed into fragments (probably overlapping) and indexed to facilitate similarity search. Fragments with the same topology can be indexed using an R-tree <ref type="bibr" target="#b3">[4,</ref><ref type="bibr" target="#b10">11]</ref> or a metric-based index <ref type="bibr" target="#b5">[6]</ref>. We observed that, for many distance measures, the superimposed distance between a query graph and a target graph is lowerbounded by the sum of distances between their corresponding indexed non-overlapping fragments.</p><p>This lower bound leads to efficient pruning of most invalid graphs in the database. A query graph is partitioned into fragments according to the index structure. Since there are multiple ways to partition a query graph, it is important to choose the optimal one that achieves the best pruning performance. We identify the criterion of an optimal partition that should give a set of non-overlapping fragments with the highest selectivity. This optimization problem is, as we will later prove, equivalent in computational complexity to a well-known NP-hard problem: maximum weighted independent set (MWIS). Although theoretical results show that MWIS does not have any polynomial approximation solution, the heuristic greedy algorithm we developed works well for real chemical datasets. We call the overall search strategy partition-based search.</p><p>Our contribution in this study is an examination of a new search problem in graph databases and the proposal of a partition-based index and search algorithm. The development of our method exposes new database management challenges in complicated graph databases.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="2">Preliminaries</head><p>Graphs with attributes are called labeled graphs. A graph G is a subgraph of G ′ if there exists a subgraph isomorphism from G to G ′ , denoted by G ⊆ G ′ . G ′ is called a supergraph of G. The skeleton (without labels) of a graph is called its structure or topology. The definition of subgraph isomorphism in this paper only considers the structure of a graph.</p><p>If G is a subgraph of G ′ and vice versa, we say G is isomorphic to G ′ , written G ∼ = G ′ . If G is a subgraph of G ′ and also has the same label information with G ′ , we say G is a subgraph of G ′ with reserved label information, written  <ref type="figure" target="#fig_1">Figure 3</ref> shows a superposition between the query graph in <ref type="figure">Figure 2</ref> (Q) and the first graph in <ref type="figure" target="#fig_0">Figure  1</ref> </p><formula xml:id="formula_0">G ⊑ G ′ . QQ GG Q''</formula><formula xml:id="formula_1">(G). Q ′ is the image of Q in G. As one can see, Q 񮽙 ⊑ G although Q ⊆ G.</formula><p>Subgraph isomorphism only gives the structural comparison between two graphs. The label information is also critical in determining the characteristics of graphs. Thus, we need a distance measure to differentiate labeled graphs with the same structure. This kind of distance is termed superimposed distance, a distance measure applied to two superimposed graphs. Here we introduce two commonly used measures: Mutation Distance (MD) and Linear Mutation Distance (LD).</p><p>Suppose we have two isomorphic labeled graphs, G and G ′ . We can build a superposition from G to G ′ , which maps each vertex of G to a unique vertex in G ′ . The mutation distance between G and G ′ is defined as follows,</p><formula xml:id="formula_2">MD = v ′ =f (v) D(l(v), l ′ (v ′ )) + e ′ =f (e) D(l(e), l ′ (e ′ ))</formula><p>where D is a mutation score matrix, l is a label function, and f is an isomorphic function, f : V (G) → V (G ′ ). The mutation score matrix includes the distance score between a mutation from one label to another label. If the labels are numeric, a linear distance function may be appropriate for distance measure, e.g.,</p><formula xml:id="formula_3">LD = v ′ =f (v) |w(v) − w ′ (v ′ )| + e ′ =f (e) |w(e) − w ′ (e ′ )|</formula><p>where w and w ′ are the weight functions of G and G ′ .</p><p>Since multiple superpositions may exist for two isomorphic graphs, we usually select the best superposition that has the smallest distance.</p><p>Definition 1 (Minimum Superimposed Distance) Given two graphs, Q and G, let M be the set of subgraphs in G that are isomorphic to</p><formula xml:id="formula_4">Q, M = {Q ′ |Q ′ ⊑ G ∧ Q ′ ∼ = Q}.</formula><p>The minimum superimposed distance between Q and G is the minimum distance between Q and Q ′ in M ,</p><formula xml:id="formula_5">d(Q, G) = min Q ′ ∈M d(Q, Q ′ ),<label>(1)</label></formula><p>where d(Q, Q ′ ) is a distance function of two isomorphic graphs Q and Q ′ .</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>Definition 2 (Substructure Search with Superimposed Distance (SSSD)) Given a set of graphs</head><formula xml:id="formula_6">D = {G 1 , G 2 , . . . G n } and a query graph Q, SSSD is to find all G i ∈ D such that d(Q, G i ) ≤ σ.</formula><p>A naive solution is to scan the whole database and check whether a target graph has a superposition with a distance less than the threshold. This solution is not scalable. A better solution, which we call topoPrune, gets rid of graphs that do not contain the query structure first, and then checks the remaining candidates to find the qualified graphs. topoPrune is more efficient than the naive approach. However, it still suffers huge computational costs since it has to enumerate the superpositions of a query graph in a large set of candidate graphs. If most of the candidate graphs are not qualified, topoPrune could be very inefficient.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3">Framework of PIS</head><p>Besides structure pruning, we can also utilize the superimposed distance constraint to prune candidates. In PIS, we partition a query graph Q into non-overlapping fragments g 1 , g 2 , ..., and g n , and use them to do pruning. If a distance function satisfies the following inequality,</p><formula xml:id="formula_7">n i=1 d(g i , G) ≤ d(Q, G),<label>(2)</label></formula><p>we can set the lower bound of the superimposed distance between Q and G by the superimposed distance between g i and G. Whenever</p><formula xml:id="formula_8">n i=1 d(g i , G) &gt; σ,</formula><p>we can safely remove G from the answer set. For this kind of pruning, we only need two operations: (1) enumerate fragments in the query graph and (2) search the index to calculate the superimposed distance d(g i , G). We have</p><formula xml:id="formula_9">d(g i , G) = min g ′ ⊑G∧g ′∼ =gi d(g i , g ′ ).<label>(3)</label></formula><p>Therefore, if we index all of the fragments in G that have the same topology with g i , we can calculate d(g i , G) through the index directly. This kind of pruning needs to check the index only, not the original database. In summary, we are able to use the lower bound given in Eq. <ref type="formula" target="#formula_7">(2)</ref> to prune more unqualified graphs by indexing fragments in graph databases. This method consists of two components: fragment-based index and partition-based search. We first formalize the definition of graph partition.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>Definition 3 (Graph Partition) Given a graph</head><formula xml:id="formula_10">Q = (V, E), a partition of G is a set of subgraphs {g 1 , g 2 , . . . , g n } such that V (g i ) ⊆ V and V (g i )∩V (g j ) = ∅ for any i 񮽙 = j.</formula><p>Interestingly, many distance functions hold the inequality in Eq. (2) for a given partition. Both distances we mentioned, mutation distance and linear mutation distance, have this inequality. We leave the proof to readers.</p><p>In Eq. <ref type="formula" target="#formula_9">(3)</ref>, if a fragment g is indexed, then all of the fragments having the same topology as g should be indexed, since the right side of Eq. <ref type="formula" target="#formula_9">(3)</ref> has to access all of the superpositions of g in G.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>Definition 4 (Structural Equivalence Class) Labeled graphs G and G ′ belong to the same equivalence class if and only if</head><formula xml:id="formula_11">G ∼ = G ′ . The structural equivalence class of G is written [G].</formula><p>We formulate the framework of PIS (partition-based graph index and search) in the following three steps.</p><p>1. Fragment-based Index: We select a set of structures as indexing features according to the criteria proposed in GraphGrep <ref type="bibr" target="#b11">[12]</ref> or gIndex <ref type="bibr" target="#b15">[16]</ref>. For each structure f (f is a bare structure without any label), we enumerate all of the fragments in the database that belong to <ref type="bibr">[f ]</ref> and build an index in which a range query d(g, g ′ ) ≤ σ can be evaluated efficiently, where g and g ′ are labeled graphs and their skeleton is f .</p><p>2. Partition-based Search: For a given query graph Q, we partition it into a set of indexed non-overlapping fragments, g 1 , g 2 , . . . , g n . For each fragment g i , we find its equivalence class in the index and submit a range query d(g i , g ′ ) ≤ σ to find all of the fragments g ′ in the database that meet the superimposed distance threshold. We then sum up their distance to obtain the lower bound of d(Q, G) for each graph G in the database,</p><formula xml:id="formula_12">n i=1 d(g i , G) = n i=1 min g ′ ⊑G∧g ′∼ =gi d(g i , g ′ ).<label>(4)</label></formula><p>If G does not have any subgraph g ′ such that g ′ ∼ = g i , we drop G from the answer set (structure violation).</p><p>If the lower bound in Eq. <ref type="formula" target="#formula_12">(4)</ref> is greater than σ, we also drop G from the answer set (superimposed distance violation). The resulting candidate answer set, C Q , will include all of the graphs that pass the filtering:</p><formula xml:id="formula_13">C Q = {G|G ∈ D ∧ n i=1 d(g i , G) ≤ σ}.</formula><p>3. Candidate Verification: We calculate the real superimposed distance between Q and the candidate graphs returned in the second step, and then remove graphs that do not satisfy the distance threshold.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="4">Fragment-based Index</head><p>In this section, we present the details of constructing a fragment-based index, the first step in the framework of PIS. The index construction has two steps. In the first step, we select structures as features. These structures do not include label information. In the second step, any fragment in the database that has the selected structure is identified and indexed. That is, for each selected structure f , we enumerate all of the fragments in the graph database that belong to <ref type="bibr">[f ]</ref>. <ref type="figure">Figure 4</ref> illustrates the procedure of inserting a selected fragment g into the index. The structure of g is first transformed into a sequence s(g), which is indexed in a hash table. We use a canonical representation of g that can translate a graph into a unique sequence. If two graphs belong to the same class, they will share the same canonical representation. When the hashing is performed on g, we only consider the canonical representation of its structure, not its labels. </p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>Noo</head><p>Yess select a set of structures (T))</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>Figure 4. Index Construction</head><p>of canonical representation available. A naive one is to concatenate rows or columns of the adjacency matrix of a graph into an integer sequence and use the minimum sequence as the canonical representation for this graph. There are more sophisticated canonical representations such as DFS coding <ref type="bibr" target="#b14">[15]</ref>. Overall, we can always find a representation function</p><formula xml:id="formula_14">s : G 񮽙 → S such that if G ∼ = G ′ , s(G) = s(G ′ ) and if G 񮽙 ∼ = G ′ , s(G) 񮽙 = s(G ′ ),</formula><p>where S is a sequence space. Using a canonical representation system, we can quickly identify the class of a graph by checking its canonical representation. The canonical representations are indexed in a hash table H, as shown in <ref type="figure" target="#fig_2">Figure 5</ref>. For each equivalence class (every hash table entry), we build an index structure to facilitate range queries d(g, g ′ ) ≤ σ. There are various kinds of indexing structures available for this task. The selection of index structure is determined by the type of distance function. For the mutation distance, we can use a trie to accommodate the sequential representations of the labeled graphs. For linear mutation distance, we can use an R-tree to do the range query.</p><p>In summary, for a fragment g in the database, when hashing is performed, the label information of g is ignored, i.e, only the skeleton structure is considered. When g is inserted into the index of [g], its label information is included. We construct an R-tree to index g ′ . If a query fragment g is isomorphic to g 2 , we submit a range query to that R-tree to find all of the vectors g ′ such that LD(g, g ′ ) ≤ σ.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>Example 3 Let D be a graph database where graphs have weighted edges. A user applies a linear mutation distance,</head><formula xml:id="formula_15">LD(G, G ′ ) = e ′ =f (e ′ ) |w(e) − w ′ (e ′ )|,</formula></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="5">Partition-based Search</head><p>Using the fragment-based index, we develop a search strategy to prune candidates for a given query graph. In order to apply the lower bound in Eq. (2), we need to partition the query graph into several non-overlapping indexed fragments. Since the index is built beforehand, a query graph may be partitioned in more than one way. Thus, we have to select an optimal partition that can achieve the best pruning performance. Let us first check an example.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>Example 4</head><p>Suppose we index all of the edges in the sample database <ref type="figure" target="#fig_0">(Figure 1</ref>) and want to find the graphs whose mutation distance with the query graph <ref type="figure">(Figure 2</ref>) is less than 2. If we partition the query graph into single edges, we will not be able to filter any graph since 10 i=1 d(g i , G) = 0, where g i is an edge in the query graph (the query graph has 10 edges). In contrast, if we select a six-carbon ring fragment, we may successfully prune the graph in <ref type="figure" target="#fig_0">Figure 1</ref>(b) since its mutation distance with this fragment is 3, greater than the threshold.</p><p>As shown in the above example, different partitions may have different pruning power. The question is how to find an optimal partition. Intuitively, a partition is optimal if it generates the highest lower bound for d(Q, G) such that, if the lower bound is greater than the threshold σ, G can be immediately discarded from the candidate set. The optimal partition of a query graph Q for SSSD on a single graph G is given by:</p><formula xml:id="formula_16">P opt(Q,G) = arg max P n i=1 d(g i , G)<label>(5)</label></formula><p>where P = {g 1 , g 2 , . . . , g n } is a partition of Q. However, when we are given a large graph database, it is simply unaffordable to find an optimal partition between the query graph and each graph in the database. As a tradeoff, we need to find a partition in the query graph that is generally good for all of the graphs in the database, in the sense that it can simultaneously prune away most invalid graphs and quickly give us a small candidate set for further verification. In other words, we need a partition whose fragments have the greatest pruning power, which we measure by the notion of selectivity defined as follows.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>Definition 5 (Selectivity) Given a graph database</head><formula xml:id="formula_17">D = {G 1 , G 2 , . . . , G n } and a fragment g, if [g]</formula><p>is indexed, the selectivity of g is defined by its average minimum distance between g and the graphs in the database, written as</p><formula xml:id="formula_18">w(g) = n i=1 d(g,Gi) n .</formula><p>The selectivity can roughly measure the distance between a fragment and an average graph in the database. When g 񮽙 ⊆ G, d(g, G) = ∞. In order to avoid the singularity of w(g), we set the cutoff value of d(g, G) to the maximum distance threshold σ. The closer w(g) to σ, the more selective the fragment g. Using the selectivity as a weight function, we are able to define an optimal partition of a query graph Q for a large graph database with a fragment-based index I,</p><formula xml:id="formula_19">P opt(Q,I) = arg max P n i=1 w(g i )<label>(6)</label></formula><p>where P = {g 1 , g 2 , . . . , g n } is a partition of Q. We call this optimization problem the index-based partition problem. </p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>Figure 6. Overlapping-Relation Graph</head><p>The Index-based partition problem has a connection to the Maximum Weighted Independent Set problem (MWIS <ref type="bibr" target="#b0">[1]</ref>) . Let g 1 , g 2 , . . . , g m be the indexed fragments in Q. We construct an overlapping-relation graph 񮽙 Q to model the overlapping relation among {g i }: each fragment g i is represented as a node v i in 񮽙 Q; and if g i and g j overlap, we connect v i and v j . Each vertex v i is associated with a weight w i = d(g i , G) equal to the selectivity of g i . <ref type="figure">Figure 6</ref> depicts an overlapping-relation graph that has seven vertices, corresponding to seven fragments in a query graph. The Indexbased Partition is equivalent to finding an independent set with maximum weights in 񮽙 Q.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>Definition 6 (Maximum Weighted Independent Set) A finite Graph G=(V, E) and a function w:</head><p>V 񮽙 → R + . A maximum weighted independent set is a subset S opt ⊆ V such that S opt = arg max S v∈S w(v),</p><p>where S is an independent set of G, i.e. ∀v, w, ∈ S, (v, w) 񮽙 ∈ E.</p><p>A general MWIS problem is NP-hard, as can be shown by an immediate reduction from MIS (Maximum Independent Set), which is a well-known NP-hard problem <ref type="bibr" target="#b2">[3]</ref>. Unfortunately, the Index-based Partition problem has the same hardness.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>Theorem 1 Index-based Partition is NP-hard.</head><p>Proof. We prove the theorem by showing that Index-based Partition is at least as hard as MWIS. We give polynomialtime reduction from an instance of MWIS to an instance of Index-based Partition. Let an instance, (I, Q), of indexbased partition be an index structure I and a query graph Q. Let an instance, (G, w), of MWIS be a graph G = (V, E) with a weight function w : V 񮽙 → R + .</p><p>Given an instance (G, w) of MWIS, we construct an instance (I, Q) of Index-based Partition as follows:(assuming G contains no self-loops, and it's easy to extend the argument to cases containing self-loops) For each vertex v i ∈ V (G), 1 ≤ i ≤ |V (G)|, let all the neighbors of v i be {v 1 i , v 2 i , . . . , v ni i }. Replace v i with a ring of n i vertices Ring(v i ) = {u 1 , u 2 , . . . , u ni }, add i self-loops to each vertex on this ring, and replace each edge v i v j i with a new edge u j v j i , 1 ≤ j ≤ n i . Do this to all vertices of G and we thus obtain our query graph Q. Each ring, Ring(v i ), together with all its adjacent edges now forms a subgraph sub(v i ) of unique topology in Q. We then construct the index I with each sub(v i ) as a key [sub(v i )] and set w(sub(v i )), the selectivity of sub(v i ), equal to w(v i ), the weight of vertex v i , in the original MWIS instance. Run an algorithm for Indexbased Partition on this constructed instance (I, Q) and let the solution be P . Observe that, constrained by the index I, P must be a set of subgraphs as described, i.e. each is a ring whose vertices all have the same number of self-loops and each vertex has one "dangling" adjacent edge. Given P , we obtain a solution S to the original MWIS problem as follows: S is initially empty. For each subgraph in P , if each vertex on the ring has i self-loops, add v i to S. It's easy to verify that this is by construction a bijection between the set of solutions to MWIS and the set of solutions to Indexbased Partition, because every maximum weight independent set induces a unique partition of maximum weight and every partition of maximum weight uniquely corresponds to a maximum weight independent set.</p><p>Since MWIS is NP-hard and Index-based Partition is at least as hard as MWIS, Index-based Partition is also NPhard. <ref type="figure">Figure 6</ref> illustrates the connection between an optimal partition and MWIS. In our problem setting, we often have knowledge about the size of a partition, i.e., the maximum independent set size in 񮽙 Q.</p><p>Lemma 1 Given a query graph Q, let 񮽙 Q be the corresponding overlapping-relation graph. Let S opt be the maximum weighted independent set of 񮽙 Q, then |S opt | ≤ |Q|/l, where l is the minimum indexed fragment size.</p><p>Assume the weighted graph 񮽙 Q = ( 񮽙 V , 񮽙 E) is given in a standard adjacency list representation and let L v be the linked list of 񮽙 V . Algorithm 1 shows a greedy algorithm to solve MWIS. At each iteration, Greedy() selects a vertex with the maximum weight in L v and removes all of its adjacent vertices from L v . This process is repeated until L v becomes empty.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>Algorithm 1 Greedy</head><p>Input: A graph 񮽙 Q = ( 񮽙 V , 񮽙 E) and a function w : 񮽙 V 񮽙 → R. Output: An independent set S.</p><formula xml:id="formula_21">1: let S ← ∅; 2: while L v 񮽙 = ∅ do 3:</formula><p>scan L v and find v with maximum w(v); 4:</p><p>S ← S ∪ {v}; 5:</p><p>remove v and all neighbors of v from L v ; 6: return S;</p><p>ww <ref type="bibr" target="#b10">11</ref> ww 33 ww <ref type="bibr">55</ref> ww 77 ww 66 ww <ref type="bibr">44</ref> ww <ref type="bibr">22</ref> </p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>Figure 7. Greedy Selection</head><p>Example 5 <ref type="figure">Figure 7</ref> shows a running example of Greedy(). Suppose the weights of vertices have the following order, w 4 ≥ w 6 ≥ w 5 ≥ w 1 ≥ w 7 ≥ w 2 ≥ w 3 . Greedy() choose w 4 , w 5 , and w 2 as a solution.</p><p>The result returned by Greedy() may not be optimal. We use the optimality ratio, defined by w(S) w(Sopt) , to measure the quality of a returned independent set in comparison with an optimal solution.</p><p>Theorem 2 Given a graph 񮽙 Q = ( 񮽙 V , 񮽙 E), Greedy() runs in O(cn) time and has an optimality ratio of 1/c, where n = | 񮽙 V | and c = arg max S |S|, S is an independent set of 񮽙 Q,</p><p>In Theorem 2, c is the maximum independent set size of 񮽙 Q, which is also the maximum partition size of Q. According to Lemma 1, c ≤ |Q|/l, where |Q| is the query graph size and l is the minimum indexed fragment size. In practice, we always find c to be a small constant.</p><p>We can further improve Greedy() so that a ⌈c/k⌉ optimality ratio can be guaranteed. Instead of selecting a vertex with the maximum weight, we select a maximum independent k-set, a set of k vertices that are not adjacent and whose sum of weights is maximum among all independent k-sets. The maximum independent k-set is allowed to have less than k vertices. In each iteration, we select a maximum independent k-set and remove all the neighbors of its vertices in 񮽙 Q. Since we have to enumerate all independent k-sets in n vertices, the new algorithm, called EnhancedGreedy(k), runs in O(ckn k ).</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>Theorem 3 Given a graph 񮽙</head><formula xml:id="formula_22">Q = ( 񮽙 V , 񮽙 E)</formula><p>, Enhanced Greedy(k) achieves a guaranteed optimality ratio of ⌈c/k⌉ in O(ckn k ) time, where n = | 񮽙 V |, c = argmax S |S|, S is an independent set of 񮽙 Q, and 1 ≤ k ≤ | 񮽙 V |.</p><p>Theoretically, EnhancedGreedy(k) has a better optimality ratio than Greedy() in the worst case, though it is very slow when k is large. However, we found that EnhancedGreedy(k) (k is set at 2) has comparable performance with Greedy() in real datasets, indicating Greedy() actually works well on average. Theorems 2 and 3 also indicate that if we can increase the size of the smallest indexed fragments, we can improve the optimality ratio in the worst case. Therefore, we prefer indexing larger fragments. Furthermore, larger fragments are usually more selective than small ones. Unfortunately, the number of fragments increases exponentially with their size. In practice, we have to make a tradeoff.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="6">Implementation</head><p>In this section, we outline our partition-based graph search method in Algorithm 2.</p><p>We denote the candidate graph set by C Q for a given query graph Q and the set of indexed fragments in Q by F . F may contain many overlapping fragments in Q. In the first step, it enumerates the indexed fragments in a query Algorithm 2 Partition-based Graph Search Input: Graph database D = {G 1 , . . . , G n }, Query graph Q, Maximum distance threshold σ. Output: Candidate answer set C Q .</p><p>1: C Q ← D; 2: F ← ∅; 3: for each fragment g ⊑ Q and [g] is indexed do 4:</p><p>F ← F ∪ {g}; 5: remove fragments g from F if w(g) ≤ ǫ; 6: for each fragment g ∈ F do 7: calculate g's canonical label, s(g); 8:</p><p>locate the index structure I pointed by s(g); 9: submit a range query d(g, g ′ ) ≤ σ to I; 10:</p><p>T ← ∅; 11:</p><formula xml:id="formula_23">for each pair g ′ , G s.t. d(g, g ′ ) ≤ σ do 12:</formula><p>if G ∈ T then 13:</p><formula xml:id="formula_24">d(g, G) ← min(d(g, G), d(g, g ′ )); 14: else 15: d(g, G) ← d(g, g ′ ); 16: T ← T ∪ {G}; 17: C Q ← C Q ∩ T ;</formula><p>18: <ref type="bibr">19</ref>: construct an overlapping relation graph for Q; 20: select a partition P according to Greedy();</p><formula xml:id="formula_25">w(g) ← G∈T d(g,G) n + n−|T | n × σ;</formula><formula xml:id="formula_26">21: for each G ∈ C Q do 22: if g∈P d(g, G) &gt; σ then 23: C Q ← C Q \ {G}; 24: return;</formula><p>graph Q <ref type="figure" target="#fig_1">(Lines 3-4)</ref>. On Line 5, we drop all of the fragments whose selectivity is less than ǫ. Since they are contained nearly by all graphs in the database, these fragments do not have pruning capability. We may tune the value of ǫ to maximize the performance.</p><p>For each fragment in F , we submit a range query to find all of the graphs whose distance with that fragment is less than or equal to the maximum distance threshold (Lines 7-17). The range query will be answered by the corresponding index structure such as trie, R-tree, or metric-based index. Line 17 eliminates the graphs that do not contain a fragment in Q or the graphs whose superimposed distance with that fragment is greater than σ. The intersection operation in Line 17 will retain those qualified graphs.</p><p>Line 18 computes the selectivity of each fragment. We note that there are (n − |T |) graphs that do not contain the structure of g (or whose superimposed distance with g is greater than σ), and each of them will contribute σ/n to w(g) according to Definition 5. Lines 19-20 construct an overlapping relation graph and find a partition through the Greedy() algorithm. The resulting partition is used to prune graphs that do not satisfy the minimum distance threshold ( <ref type="bibr">Lines 21-23)</ref>.</p><p>In our implementation, we do not store real graphs in the index. Instead, we assign a unique graph identifier (an integer) to each graph in the database. Thus, g ′ , G (Line 11) actually is a pair of a fragment identifier and a graph identifier. Algorithm 2 will return an identifier list. Overall, Algorithm 2 does not directly access the original graphs in the database.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="7">Experimental Results</head><p>In this section, we perform an empirical study to evaluate the efficiency of PIS. The performance of PIS is compared with topoPrune, the structure pruning algorithm introduced in Section 2. We demonstrate that PIS can substantially improve search efficiency in real graph databases.</p><p>The real dataset is from an AIDS antiviral screen database containing the structures of chemical compounds. This dataset is available on the website of the Developmental Therapeutics Program (NCI/NIH) <ref type="bibr" target="#b0">1</ref> . In this dataset, thousands of compounds have been checked for evidence of anti-HIV activity. The dataset has around 44,000 structures.</p><p>We build topoPrune and PIS based on the gIndex algorithm <ref type="bibr" target="#b15">[16]</ref>. gIndex first mines frequent structures and then retains discriminative ones as indexing features. Other kinds of features can also be used in PIS. For example, PIS can take paths <ref type="bibr" target="#b11">[12]</ref> as features to build the index. topoPrune and PIS are implemented in C++ with standard template library. All of the experiments are done on a 2.5GHZ, 1GB-memory, Intel Xeon PC running Fedora 2.0.</p><p>The test dataset consists of 10, 000 graphs that are randomly drawn from the AIDS screen database. These graphs have 25 nodes and 27 edges on average. The maximum one has 214 nodes and 217 edges in total. Note that in this dataset most of the atoms are carbons and most of the edges are carbon-carbon bonds. This characteristic makes the substructure search very challenging. We use the edge mutation distance to define the superimposed distance between two isomorphic graphs. The distance is the number of edges whose labels are mismatched when we superimpose the query graph to a target graph. We select around 2, 000 fragments in this dataset as indexing features, which are grouped together according to their structural equivalence class. Fragments belonging to the same class are put in a trie after they are sequentialized.</p><p>The query graphs are directly sampled from the database and are grouped together according to their size. We denote a query set by Q m , where m is the query graph size. For example, if the graphs in a query set have 20 edges each, the query set is written Q 20 . Different from the experimental setting in <ref type="bibr" target="#b15">[16]</ref>, the edges in our dataset are assigned with edge labels, such as single bond, double bond, and so on. We ignore vertex labels in this test in order to make the problem hard. The queries under examination are "finding graphs in the database that contain the query structure and have at most σ mismatched edge labels". </p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>Figure 8. Structure Query with 16 edges</head><p>Figure 8 depicts the performance of topoPrune and PIS for the query set Q 16 . For a given query, we write the number of candidate graphs returned by topoPrune as Y t and that returned by PIS as Y p . We divide the query graphs into 6 groups based on the value of Y t : 0 ≤ Y t &lt; 300, 300 ≤ Y t &lt; 750, 750 ≤ Y t &lt; 1, 500, 1, 500 ≤ Y t &lt; 3, 000, 3, 000 ≤ Y t &lt; 5, 000, and 5, 000 ≤ Y t ≤ 10, 000. These six groups are written as Q &lt;300 , Q 750 , Q 1.5k , Q 3k , Q 5k , and Q &gt;5k . In each group, we average Y t and its counterpart Y p . The X axis shows the six groups in an order. The Y axis shows the average number of candidate graphs in each group. A better algorithm should filter as many graphs as possible before performing real superimposed distance computation. We plot the performance of PIS with different superimposed distance thresholds (σ). The performance of topoPrune will not change with the distance threshold since it only applies structure pruning. <ref type="figure">Figure 8</ref> demonstrates that PIS outperforms topoPrune up to 100 times. We depict the candidate graph reduction ratio Yt Yp in <ref type="figure">Figure 9</ref>. We can see that there is a huge reduction in the number of candidate graphs returned by PIS when topoPrune returns less than 1, 000 candidates. The reduction ratio gradually decreases when more graphs contain the query structure. In the query set Q &gt;5k , the reduction ratio is down to 300% when σ = 1 and 150% when σ = 4. <ref type="figure" target="#fig_0">Figure 10</ref> depicts the candidate graph reduction ratio of PIS for the query set Q 24 . Similar performance patterns show in this query set. The pruning process in PIS takes less than 1 second per query, which is negligible compared to the result verification cost. </p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>Figure 10. Structure Query with 24 edges</head><p>Next, we check the sensitivity of the cutoff setting in the selectivity computation. In the previous experiments, we set d(g, G) = σ, when g 񮽙 ⊆ G or d(g, G) &gt; σ. This setting seems to be ad hoc. However, it can be justified through the following experiments. Suppose the cutoff value of d(g, G) is set to λσ (0 ≤ λ). We vary the value of λ. If λ ≫ 1, the selectivity of g turns out to be proportional to the number of graphs that do not contain g; <ref type="figure" target="#fig_0">Figure 11</ref> shows the pruning performance for the query set Q 16 with the distance constraint, σ = 2.</p><p>According to <ref type="figure" target="#fig_0">Figure 11</ref>, we find that the pruning performance descends when λ &lt; 1. In contrast, there is no performance change when λ &gt; 1. The two curves of λ = 1 and λ = 2 are completely overlapping, indicating that the pruning is not sensitive to the setting of λ when it is greater than 1.</p><p>We then test the pruning performance with varying sizes of maximum indexed fragments, from 4 edges to 6 edges. The results are depicted in <ref type="figure" target="#fig_0">Figure 12</ref>. As discussed in Section 5, the pruning performance will improve if we index larger fragments, since larger fragments are not only more selective, but also result in smaller partition sizes. In this case, the greedy partition algorithm has a better bound in comparison with the optimal one.   </p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="8">Related Work</head><p>Structure search including similarity search has been studied in several fields. <ref type="bibr">Shasha et al. [12]</ref> proposed a pathbased approach for the exact substructure search. Yan et al. <ref type="bibr" target="#b15">[16]</ref> devised discriminative frequent structures and used them as indexing features to improve search performance. Holder et al. <ref type="bibr" target="#b6">[7]</ref> adopted the minimum description length principle for the approximate search. Raymond et al. <ref type="bibr" target="#b9">[10]</ref> developed a three-tier algorithm for full structure similarity search, which became a commercial tool in Pfizer. Funk et al. studied how to build a 3D model search engine using spherical harmonics <ref type="bibr" target="#b1">[2]</ref>. For 3D structure comparison and protein structure superposition, efficient algorithms such as geometric hash <ref type="bibr" target="#b13">[14]</ref>, DALI <ref type="bibr" target="#b7">[8]</ref>, and LOCK <ref type="bibr" target="#b12">[13]</ref> were developed. However, these methods mainly focus on aligning 3D points along a sequential skeleton (protein primary structure), not the general SSSD problem that we examined in this paper.</p><p>The initial work on substructure similarity search was done by Hagadone <ref type="bibr" target="#b4">[5]</ref>. He applied vertex and edge labels to screening. Messmer and Bunke <ref type="bibr" target="#b8">[9]</ref> studied the reverse substructure similarity search problem in pattern recognition. Our recent work <ref type="bibr" target="#b16">[17]</ref> accessed the substructure similarity problem based on the number of allowable missing edges, instead of the SSSD problem studied in this paper.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="9">Conclusions</head><p>In this paper, we proposed a new graph search problem that has additional similarity requirements for the categorical or geometric attributes associated with graphs. Existing algorithms are unable to process this new search request efficiently. Thus, we proposed a novel strategy that selects "discriminative" fragments in a query graph and uses an index to find graphs that contain isomorphic subgraphs to these fragments while the overall distance is retained within a given threshold. We developed two components, fragment-based index and partition-based search, to implement this strategy. We also identified a criterion to distinguish the selectivity of different fragments and demonstrated that a good partition should have a set of highly selective non-overlapping fragments. Surprisingly, we can transform this partition selection problem to the well-known maximum weighted independent set problem (MWIS). Although MWIS does not have a polynomial-time solution, we showed that a greedy solution works well for improving search efficiency in real datasets.</p></div><figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_0"><head>Figure 1 .</head><label>1</label><figDesc>Figure 1. A Chemical Database</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_1"><head>Figure 3 .</head><label>3</label><figDesc>Figure 3. Superposition</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_2"><head>Figure 5 .</head><label>5</label><figDesc>Figure 5. The Index Components of PIS</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_3"><head>10</head><label>10</label><figDesc></figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_4"><head>Figure 12 .</head><label>12</label><figDesc>Figure 12. Performance vs. Fragment Size</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_0" validated="false"><head></head><label></label><figDesc>By doing so, we can group different fragments according to their structural equivalence class. There are several forms</figDesc><table>scan the database, for eachh 
+fragment g, if the structuree 
+of g is in TT 
+
+insert s(g) to HH 
+
+[[gg 11 ]] 
+
+Is s(g) indexed ?? 
+
+[[gg 22 ]] 
+[[gg nn ]] 
+
+.... 
+
+create an indexx 
+of [g]] 
+
+insert g to thee 
+index of [g]] 
+
+</table></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_1" validated="false"><head>to measure the superimposed distance in D. Assume we index all of the fragments having the same structure with g 2 shown in Fig- ure 5. For any fragment g ′ in D, if g ′ ∼ = g 2 , we can trans- form g ′ into</head><label></label><figDesc>a feature vector in a three dimensional space, where each dimension records the weight of one of its edges.</figDesc><table></table></figure>
+
+			<note place="foot" n="1"> http://dtpsearch.ncifcrf.gov/FTP/AIDO99SD.BIN</note>
+		</body>
+		<back>
+			<div type="references">
+
+				<listBibl>
+
+<biblStruct xml:id="b0">
+	<analytic>
+		<title level="a" type="main">Algorithm 457: Finding all cliques of an undirected graph</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Bron</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Kerbosch</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Comm. of the ACM</title>
+		<imprint>
+			<biblScope unit="volume">16</biblScope>
+			<biblScope unit="page" from="575" to="577" />
+			<date type="published" when="1973" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b1">
+	<analytic>
+		<title level="a" type="main">A search engine for 3d models</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">T</forename><surname>Funkhouser</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>Min</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Kazhdan</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Chen</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Halderman</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Dobkin</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Jacobs</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">ACM Trans. on Graphics</title>
+		<imprint>
+			<biblScope unit="volume">22</biblScope>
+			<biblScope unit="page" from="83" to="105" />
+			<date type="published" when="2003" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b2">
+	<monogr>
+		<title level="m" type="main">Computers and Intractability: A Guide to the Theory of NP-Completeness</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Garey</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Johnson</surname></persName>
+		</author>
+		<imprint>
+			<date type="published" when="1979" />
+			<publisher>Freeman &amp; Co</publisher>
+			<pubPlace>New York</pubPlace>
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b3">
+	<analytic>
+		<title level="a" type="main">R-trees: a dynamic index structure for spatial searching</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Guttman</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. 1984 ACM Int. Conf. on Management of Data (SIGMOD&apos;84)</title>
+		<meeting>1984 ACM Int. Conf. on Management of Data (SIGMOD&apos;84)</meeting>
+		<imprint>
+			<date type="published" when="1984" />
+			<biblScope unit="page" from="47" to="57" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b4">
+	<analytic>
+		<title level="a" type="main">Molecular substructure similarity searching: efficient retrieval in two-dimensional structure databases</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">T</forename><surname>Hagadone</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">J. Chem. Inf. Comput. Sci</title>
+		<imprint>
+			<biblScope unit="volume">32</biblScope>
+			<biblScope unit="page" from="515" to="521" />
+			<date type="published" when="1992" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b5">
+	<analytic>
+		<title level="a" type="main">Index-driven similarity search in metric spaces</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">G</forename><surname>Hjaltason</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">H</forename><surname>Samet</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">ACM Trans. on Database Systems (TODS)</title>
+		<imprint>
+			<date type="published" when="2003" />
+			<biblScope unit="page" from="517" to="580" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b6">
+	<analytic>
+		<title level="a" type="main">Substructure discovery in the subdue system</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">L</forename><surname>Holder</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Cook</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Djoko</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. AAAI94 Workshop on Knowledge Discovery in Databases (KDD94)</title>
+		<meeting>AAAI94 Workshop on Knowledge Discovery in Databases (KDD94)</meeting>
+		<imprint>
+			<date type="published" when="1994" />
+			<biblScope unit="page" from="169" to="180" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b7">
+	<analytic>
+		<title level="a" type="main">Protein structure comparison by alignment of distance matrices</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">L</forename><surname>Holm</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Sander</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">J. of Molecular Biology</title>
+		<imprint>
+			<biblScope unit="volume">233</biblScope>
+			<biblScope unit="page" from="123" to="138" />
+			<date type="published" when="1993" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b8">
+	<analytic>
+		<title level="a" type="main">A new algorithm for errortolerant subgraph isomorphism detection</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">B</forename><surname>Messmer</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">H</forename><surname>Bunke</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">IEEE Trans. on Pattern Analysis and Machine Intelligence</title>
+		<imprint>
+			<biblScope unit="volume">20</biblScope>
+			<biblScope unit="page" from="493" to="504" />
+			<date type="published" when="1998" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b9">
+	<analytic>
+		<title level="a" type="main">Rascal: Calculation of graph similarity using maximum common edge subgraphs</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Raymond</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">E</forename><surname>Gardiner</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>Willett</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">The Computer Journal</title>
+		<imprint>
+			<biblScope unit="volume">45</biblScope>
+			<biblScope unit="page" from="631" to="644" />
+			<date type="published" when="2002" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b10">
+	<analytic>
+		<title level="a" type="main">The R+-Tree: A dynamic index for multi-dimensional objects</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">T</forename><surname>Sellis</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">N</forename><surname>Roussopoulos</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Faloutsos</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. 1987 Int. Conf. on Very Large Data Bases (VLDB&apos;87)</title>
+		<meeting>1987 Int. Conf. on Very Large Data Bases (VLDB&apos;87)</meeting>
+		<imprint>
+			<date type="published" when="1987" />
+			<biblScope unit="page" from="3" to="11" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b11">
+	<analytic>
+		<title level="a" type="main">Algorithmics and applications of tree and graph searching</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Shasha</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Wang</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Giugno</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. 21th ACM Symp. on Principles of Database Systems (PODS&apos;02)</title>
+		<meeting>21th ACM Symp. on Principles of Database Systems (PODS&apos;02)</meeting>
+		<imprint>
+			<date type="published" when="2002" />
+			<biblScope unit="page" from="39" to="52" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b12">
+	<analytic>
+		<title level="a" type="main">Hierarchical protein structure superposition using both secondary structure and atomic representations</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Singh</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Brutlag</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. 5th Int. Conf. on Intelligent Systems for Molecular Biology (ISMB&apos;97)</title>
+		<meeting>5th Int. Conf. on Intelligent Systems for Molecular Biology (ISMB&apos;97)</meeting>
+		<imprint>
+			<date type="published" when="1997" />
+			<biblScope unit="page" from="284" to="293" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b13">
+	<analytic>
+		<title level="a" type="main">Geometric hashing: An introduction</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">H</forename><surname>Wolfson</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">I</forename><surname>Rigoutsos</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">IEEE Computational Science and Engineering</title>
+		<imprint>
+			<biblScope unit="volume">4</biblScope>
+			<biblScope unit="page" from="10" to="21" />
+			<date type="published" when="1997" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b14">
+	<analytic>
+		<title level="a" type="main">gSpan: Graph-based substructure pattern mining</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">X</forename><surname>Yan</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Han</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. 2002 Int. Conf. on Data Mining (ICDM&apos;02)</title>
+		<meeting>2002 Int. Conf. on Data Mining (ICDM&apos;02)</meeting>
+		<imprint>
+			<date type="published" when="2002" />
+			<biblScope unit="page" from="721" to="724" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b15">
+	<analytic>
+		<title level="a" type="main">Graph indexing: A frequent structure-based approach</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">X</forename><surname>Yan</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>Yu</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Han</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. 2004 ACM Int. Conf. on Management of Data (SIGMOD&apos;04)</title>
+		<meeting>2004 ACM Int. Conf. on Management of Data (SIGMOD&apos;04)</meeting>
+		<imprint>
+			<date type="published" when="2004" />
+			<biblScope unit="page" from="335" to="346" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b16">
+	<analytic>
+		<title level="a" type="main">Substructure similarity search in graph databases</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">X</forename><surname>Yan</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>Yu</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Han</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. 2005 ACM Int. Conf. on Management of Data (SIGMOD&apos;05)</title>
+		<meeting>2005 ACM Int. Conf. on Management of Data (SIGMOD&apos;05)</meeting>
+		<imprint>
+			<date type="published" when="2005" />
+			<biblScope unit="page" from="766" to="777" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+				</listBibl>
+			</div>
+		</back>
+	</text>
+</TEI>

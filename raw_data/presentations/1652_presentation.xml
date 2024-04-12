@@ -1,0 +1,170 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>CRaft: An Erasure-coding-supported Version of Raft for Reducing Storage Cost and Network Cost</p>
+    <p>Zizhong Wang, Tongliang Li, Haixia Wang, Airan Shao, Yunren Bai, Shangming Cai, Zihan Xu, and Dongsheng Wang</p>
+    <p>Tsinghua University</p>
+    <p>Presented by: Xiaoqi Chen FAST20, Feb 27th 2020 @ Santa Clara</p>
+  </div>
+  <div class="page">
+    <p>Data replication: when server crashes...</p>
+    <p>User data written to N servers  When any F servers crashed, we still have other copies</p>
+    <p>X=42</p>
+    <p>X=42 X=42</p>
+    <p>X=42</p>
+    <p>X=42</p>
+    <p>X=42</p>
+    <p>Crash</p>
+    <p>CrashX=?</p>
+  </div>
+  <div class="page">
+    <p>Consensus between servers</p>
+    <p>Network may partition  Need consensus protocol!</p>
+    <p>Observation: N=2F servers not enough to tolerate F crashes, cant distinguish from partition</p>
+    <p>X=42 X= 24</p>
+    <p>X=42 X=24</p>
+    <p>X=?</p>
+  </div>
+  <div class="page">
+    <p>Raft: distributed consensus</p>
+    <p>Use N=2F+1 servers to tolerate F crashes A leader is elected by at least F+1 followers  Data is considered committed when stored F+1 copies</p>
+    <p>Leader crash: new election, reconciliation  New leaders F+1 followers has at least 1 in common</p>
+    <p>F+1</p>
+    <p>Cra sh</p>
+    <p>F+1 Cra</p>
+    <p>shN=7, F=3</p>
+  </div>
+  <div class="page">
+    <p>Problem: data copied N times</p>
+    <p>Replication is costly  N times network traffic!  N times storage space!</p>
+    <p>Can we do better?</p>
+    <p>X={1GB}</p>
+    <p>X= {1GB}</p>
+    <p>Crash</p>
+    <p>X= {1GB}</p>
+    <p>X= {1GB}</p>
+    <p>X= {1GB}</p>
+  </div>
+  <div class="page">
+    <p>Erasure Coding: Reed-Solomon Code</p>
+    <p>(k,m)-Reed Solomon code:  Data split into (k+m) fragments, each 1/k size  Any k fragments can recover original data</p>
+    <p>Fragment #1</p>
+    <p>Fragment #2</p>
+    <p>Fragment #5</p>
+    <p>Fragment #3</p>
+    <p>Fragment #4</p>
+    <p>Data {1GB}</p>
+    <p>R-S Code k=3,m=2</p>
+    <p>Data {1GB}</p>
+    <p>Each 1/3 GB</p>
+  </div>
+  <div class="page">
+    <p>Combine erasure coding with crash tolerance?</p>
+    <p>We already used N=2F+1=5 servers for fault tolerance  Correctness requires F+1=3 healthy servers.  Why not just recover data from 3 out of 5 coded fragments?</p>
+    <p>X={1GB}</p>
+    <p>Crash</p>
+    <p>Crash</p>
+    <p>Fragment {0.33GB}</p>
+    <p>Fragment {0.33GB}</p>
+    <p>Fragment {0.33GB}</p>
+    <p>Fragment {0.33GB}</p>
+    <p>Fragment {0.33GB}</p>
+    <p>X=?</p>
+    <p>{1GB}</p>
+  </div>
+  <div class="page">
+    <p>Prior work: RS-Paxos Use (k,m) Reed-Solomon code  Write is committed after written to QW servers  Read requires reading from QR servers for consensus  QW+QR-Nk (at least k in common, allows decoding)</p>
+    <p>Liveness issue: when N=2F+1, cant tolerate F crashes! 8</p>
+    <p>QW</p>
+    <p>QR</p>
+    <p>N=7, k=3 QW=4, QR=6</p>
+    <p>Cr as h</p>
+    <p>Cr as h</p>
+    <p>*When Paxos meets erasure code: Reduce network and storage cost in state machine replication. Shuai Mu et. al., HPDC14</p>
+  </div>
+  <div class="page">
+    <p>Pando: optimizing RS-Paxos</p>
+    <p>Presented on Tuesdays NSDI20 session  Shrink the quorum overlap from k to 1 to reduce latency:  Faster in normal case, read from more if observed inconsistency  Liveness issue persists</p>
+    <p>QW</p>
+    <p>QR</p>
+    <p>N=7, k=3 QW=4, QR=4</p>
+  </div>
+  <div class="page">
+    <p>CRaft: erasure coding + Raft</p>
+    <p>Use N=2F+1 servers to tolerate F crashes A leader is elected by at least F+1 followers Leader replicates by sending coded fragments Use (k,m) Reed-Solomon code, k+m=N and kF+1 Data is committed when (F+k) fragments are stored, i.e., next elected leader can see at least k fragments</p>
+    <p>F+k</p>
+    <p>F+1 N=7, F=3, k=3</p>
+  </div>
+  <div class="page">
+    <p>Challenge #1: liveness</p>
+    <p>What if therere fewer than (F+k) healthy servers?  Note: N=2F+1, need to tolerate F crashes  Worst case: only F+1 healthy servers!</p>
+    <p>Solution: full replication when necessary  When &lt;(F+k) healthy, send full copies (not fragments)  Predict if therere (F+k) healthy using heartbeats</p>
+  </div>
+  <div class="page">
+    <p>Challenge #1: liveness</p>
+    <p>In normal case, replicate coded fragments When &lt;(F+k) servers are healthy, send full copies</p>
+    <p>Crash</p>
+    <p>Crash</p>
+    <p>Y={1GB} Full copy {1GB}</p>
+    <p>Full copy {1GB}</p>
+    <p>Full copy {1GB}</p>
+    <p>N=5, F=2, k=3 F+k=5</p>
+  </div>
+  <div class="page">
+    <p>Challenge #2: newly-elected leader</p>
+    <p>The new leader has coded fragments, not full copies  For committed entrys fragments:  Any F+1 servers holds at least k fragments for the entry, so the new leader can always recover full data by querying its followers</p>
+    <p>For entries not yet committed:  In the worst case, cannot guarantee recovery</p>
+    <p>Solution: a post-election LeaderPre phase. Try recovery (collect fragments), or discard the entry!</p>
+  </div>
+  <div class="page">
+    <p>Challenge #2: newly-elected leader</p>
+    <p>Leader re-election follows normal Raft procedure (requires F+1 followers)  In the LeaderPre phase,</p>
+    <p>new leader tries recovery using data fragments  If recovery failed, delete</p>
+    <p>later entries</p>
+    <p>Crash</p>
+    <p>N=5, F=2, k=3 F+k=5</p>
+  </div>
+  <div class="page">
+    <p>CRaft: erasure coding + Raft</p>
+    <p>Efficient: replicate coded fragments when possible, save network and storage (1/k fraction)  Liveness:  When therere &lt;(F+k) healthy servers, send full copies  Newly-elected leader reads uncommitted fragments in the LeaderPre phase, trying to recover data from fragments</p>
+    <p>Correctness: if recovery failed in LeaderPre, delete this entry and all following entries does not affect correctness</p>
+  </div>
+  <div class="page">
+    <p>Comparing consensus protocols</p>
+    <p>CRaft Raft RS-Paxos Disk</p>
+    <p>Space &amp; I/O 2F/k+1 2F+1 2F/k+1</p>
+    <p>Network Throughput 2F/k 2F 2F/k</p>
+    <p>Liveness (max #crash) F F F-(k-1)/2</p>
+    <p>F crashes (N=2F+1)</p>
+  </div>
+  <div class="page">
+    <p>Evaluation highlights</p>
+    <p>Can CRaft achieve higher throughput than vanilla Raft?  Yes! Thanks to the network/storage saving</p>
+    <p>Can CRaft achieve liveness upon F crashes?  Yes, CRaft degrades into Raft in this case</p>
+    <p>What about latency?  Write latency: improved (less network send per write)  Read latency: new leaders recovery reads are slower</p>
+  </div>
+  <div class="page">
+    <p>Evaluation setup</p>
+    <p>We implement a Key-Value store application on top of Raft  Tolerate F=2 or 3 crashes, using N=5 or 7 servers (N=2F+1)  Using Reed-Solomon Code k=3, m=2 or 4 (satisfying k+m=N)</p>
+    <p>Clients run on a separate machine, send read/write requests  To compare against RS-Paxos, we implement RS-Raft, using very similar consensus procedure (read/write quorum QR/QW)</p>
+  </div>
+  <div class="page">
+    <p>Evaluation: throughput</p>
+    <p>CRaft and RS-Raft enjoy network/storage saving 19</p>
+    <p>N=5 servers N=7 servers</p>
+  </div>
+  <div class="page">
+    <p>Evaluation: liveness</p>
+    <p>k=3, F=3, N=2F+1=7</p>
+    <p>RS-Raft: max(QR,QW)  5 CRaft:  Replicate coded fragment</p>
+    <p>when healthy F+k=6  Send full data when &lt;6</p>
+  </div>
+  <div class="page">
+    <p>Evaluation: read latency</p>
+    <p>After leader crash and re-election, first read is slower (data recovery by collecting fragments) Subsequent reads have the same latency</p>
+  </div>
+  <div class="page">
+    <p>Summary: CRaft</p>
+    <p>Uses erasure coding to lower Rafts overhead in network &amp; storage Ensures correctness and liveness upon F crashes (with N=2F+1) Boosts throughput significantly over original Raft</p>
+  </div>
+</Presentation>

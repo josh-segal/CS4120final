@@ -1,0 +1,702 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>RetCon: Transactional Repair without Replay</p>
+    <p>Colin Blundell, Arun Raghavan, and Milo M. K. Martin</p>
+    <p>University of Pennsylvania</p>
+  </div>
+  <div class="page">
+    <p>This work licensed under the Creative Commons</p>
+    <p>Attribution-Share Alike 3.0 United States License  You are free:</p>
+    <p>to Share  to copy, distribute, display, and perform the work  to Remix  to make derivative works</p>
+    <p>Under the following conditions:  Attribution. You must attribute the work in the manner specified by the author or</p>
+    <p>licensor (but not in any way that suggests that they endorse you or your use of the work).</p>
+    <p>Share Alike. If you alter, transform, or build upon this work, you may distribute the resulting work only under the same, similar or a compatible license.</p>
+    <p>For any reuse or distribution, you must make clear to others the license terms of this work. The best way to do this is with a link to:</p>
+    <p>http://creativecommons.org/licenses/by-sa/3.0/us/</p>
+    <p>Any of the above conditions can be waived if you get permission from the copyright holder.</p>
+    <p>Apart from the remix rights granted under this license, nothing in this license impairs or restricts the author's moral rights.</p>
+  </div>
+  <div class="page">
+    <p>A Troubling Example for Transactional Memory</p>
+    <p>RetCon - Blundell - ISCA 2010 [ 3 ][ 3 ]</p>
+    <p>atomic{ ... h-&gt;insert(k1,v1); ... h-&gt;insert(k2,v2); ... }</p>
+    <p>atomic{ ... ... h-&gt;insert(k3,v3); ... }</p>
+    <p>T1 T2</p>
+    <p>Even if keys hash to distinct buckets T1 and T2 should execute in parallel</p>
+    <p>Shared hashtable</p>
+    <p>In reality, it doesnt quite work out that way: The &quot;modcount&quot; field is bumped for every update  'put' operations always have a true data conflict.</p>
+    <p>Cliff Click (Azul Systems), on Azuls experiences with HTM</p>
+  </div>
+  <div class="page">
+    <p>insert(k,v){ size++; if (size &gt; max_size) resize(); b = buckets[hash(k)]; b-&gt;insert(Entry(k,v)); }</p>
+    <p>RetCon - Blundell - ISCA 2010 [ 4 ][ 4 ]</p>
+    <p>atomic{ ... h-&gt;insert(k1,v1); ... h-&gt;insert(k2,v2); ... }</p>
+    <p>atomic{ ... ... h-&gt;insert(k3,v3); ... }</p>
+    <p>T1 T2</p>
+    <p>T1 and T2 should execute in parallel Even if keys hash to distinct buckets</p>
+    <p>still conflict on h-&gt;size</p>
+    <p>A Troubling Example for Transactional Memory</p>
+  </div>
+  <div class="page">
+    <p>RetCon - Blundell - ISCA 2010 [ 5 ][ 5 ]</p>
+    <p>atomic{ ... h-&gt;insert(k1,v1); ... h-&gt;insert(k2,v2); ... }</p>
+    <p>atomic{ ... ... h-&gt;insert(k3,v3); ... }</p>
+    <p>T1 T2</p>
+    <p>A Troubling Example for Transactional Memory</p>
+    <p>general pattern of updates to peripheral shared values  is very common and it kills the HTM. Cliff Click (Azul Systems), on Azuls experiences with HTM</p>
+    <p>One implication: put effort into devising smarter hashtables However, hashtable example is part of broader problem:</p>
+  </div>
+  <div class="page">
+    <p>Auxiliary data that serializes parallel operations  Hashtable size fields</p>
+    <p>Reference counts</p>
+    <p>Transaction IDs allocated from a global counter</p>
+    <p>Can significantly degrade performance  genome (STAMP): -DHASHTABLE_RESIZABLE  50% slower  python: reference counts serialize execution  specjbb: IDs cause 60% performance loss [Chung+06]</p>
+    <p>The Peripheral Data Problem</p>
+    <p>RetCon - Blundell - ISCA 2010 [ 6 ][ 6 ]</p>
+    <p>Our goal: mitigate impact in hardware</p>
+  </div>
+  <div class="page">
+    <p>Our Approach: RetCon</p>
+    <p>Peripheral data conflicts have limited impact  Often do not change control flow/dataflow</p>
+    <p>Ignore these conflictsrepair state at commit  Inspired by selective replay [Srinivasan+04,Sarangi+05,]</p>
+    <p>RetCon: repair without replay  Maintain symbolic values of outputs</p>
+    <p>Track constraints on inputs</p>
+    <p>At commit: reacquire inputs, check, plug into outputs</p>
+    <p>[ 7 ][ 7 ]RetCon - Blundell - ISCA 2010</p>
+    <p>retcon, verb: Deliberate changing of previously-established facts</p>
+    <p>Wikipedia</p>
+  </div>
+  <div class="page">
+    <p>Roadmap</p>
+    <p>Repair via Symbolic Tracking</p>
+    <p>The RetCon Architecture</p>
+    <p>Evaluation</p>
+    <p>Future Work &amp; Conclusions</p>
+    <p>[ 8 ][ 8 ]RetCon - Blundell - ISCA 2010</p>
+  </div>
+  <div class="page">
+    <p>Repair via Symbolic Tracking: Motivation</p>
+    <p>insert(k,v){ size++; if (size &gt; max_size) resize(); b = buckets[hash(k)]; b-&gt;insert(Entry(k,v)); }</p>
+    <p>RetCon - Blundell - ISCA 2010 [ 9 ][ 9 ]</p>
+    <p>atomic{ ... h-&gt;insert(k1,v1); ... h-&gt;insert(k2,v2); ... }</p>
+    <p>atomic{ ... ... h-&gt;insert(k3,v3); ... }</p>
+    <p>T1 T2</p>
+    <p>T1 and T2 still conflict on h-&gt;size Even if keys hash to distinct buckets</p>
+    <p>Value of h-&gt;size incorrect Infrequently impacts control flow Doesnt impact dataflow</p>
+    <p>What happens if T1 simply ignores T2s update?</p>
+    <p>Ignore peripheral data conflicts during execution Repair peripheral data values at commit Detect more complex effects and abort</p>
+  </div>
+  <div class="page">
+    <p>Repair via Symbolic Tracking</p>
+    <p>Track symbolic values of outputs</p>
+    <p>Control flow: generate constraint on input</p>
+    <p>Complex dataflow: disallow input change</p>
+    <p>At commit: reacquire inputs and use to repair  Constraints satisfied? Generate correct outputs</p>
+    <p>[ 10 ][ 10 ]RetCon - Blundell - ISCA 2010</p>
+    <p>size++; ... size++;</p>
+    <p>// refct = 7 refct--; if (refct &lt;= 0){</p>
+    <p>// ptr = 0xbfff t = ptr-&gt;task; process_task(t);</p>
+    <p>sizeout = sizein + 2</p>
+    <p>refctin &gt; 1</p>
+    <p>ptrin == 0xbfff</p>
+  </div>
+  <div class="page">
+    <p>RetCon: Overview</p>
+    <p>Foundation: baseline hardware TM  Uses read/written bits on L1 cache lines</p>
+    <p>Selectively employs symbolic tracking  Via predictor that trains on history of conflicts</p>
+    <p>New structures to maintain symbolic info  Shadow register file entries</p>
+    <p>Cache-like structures to track through memory</p>
+    <p>More specific in a bit</p>
+    <p>During repair: enforces atomicity via R/W bits</p>
+    <p>[ 11 ][ 11 ]RetCon - Blundell - ISCA 2010</p>
+  </div>
+  <div class="page">
+    <p>RetCon: Example</p>
+    <p>Val</p>
+    <p>Regfile</p>
+    <p>Code sequence L1 cache</p>
+    <p>Val State</p>
+    <p>RetCon - Blundell - ISCA 2010 [ 12 ][ 12 ]</p>
+    <p>Predicted problem block During execution, conflict occurs</p>
+    <p>Via tracking, RetCon repairs outputs</p>
+    <p>xaction_begin; ... load [a], r1; r1 = r1 + 1; if (r1 &gt;= 8) // not taken store r1, [b]; ... load [b], r2; r2 = r2 + 1; ... xaction_end;</p>
+  </div>
+  <div class="page">
+    <p>Initiating Symbolic Tracking</p>
+    <p>Val</p>
+    <p>Regfile</p>
+    <p>Code sequence L1 cache</p>
+    <p>Val State</p>
+    <p>RetCon - Blundell - ISCA 2010 [ 13 ][ 13 ]</p>
+    <p>xaction_begin; ... load [a], r1; r1 = r1 + 1; if (r1 &gt;= 8) // not taken store r1, [b]; ... load [b], r2; r2 = r2 + 1; ... xaction_end;</p>
+  </div>
+  <div class="page">
+    <p>Initiating Symbolic Tracking</p>
+    <p>Val</p>
+    <p>Regfile</p>
+    <p>Code sequence L1 cache</p>
+    <p>Val State</p>
+    <p>RetCon - Blundell - ISCA 2010 [ 14 ][ 14 ]</p>
+    <p>Would normally set read bit</p>
+    <p>xaction_begin; ... load [a], r1; r1 = r1 + 1; if (r1 &gt;= 8) // not taken store r1, [b]; ... load [b], r2; r2 = r2 + 1; ... xaction_end;</p>
+  </div>
+  <div class="page">
+    <p>Initiating Symbolic Tracking</p>
+    <p>Val</p>
+    <p>Input buf</p>
+    <p>Val</p>
+    <p>Regfile</p>
+    <p>Code sequence L1 cache</p>
+    <p>Val State</p>
+    <p>RetCon - Blundell - ISCA 2010 [ 15 ][ 15 ]</p>
+    <p>Instead, buffer value of a and track output</p>
+    <p>Would normally set read bit</p>
+    <p>xaction_begin; ... load [a], r1; r1 = r1 + 1; if (r1 &gt;= 8) // not taken store r1, [b]; ... load [b], r2; r2 = r2 + 1; ... xaction_end;</p>
+  </div>
+  <div class="page">
+    <p>Initiating Symbolic Tracking</p>
+    <p>Val</p>
+    <p>Regfile</p>
+    <p>Code sequence L1 cache</p>
+    <p>Val State</p>
+    <p>RetCon - Blundell - ISCA 2010 [ 16 ][ 16 ]</p>
+    <p>Sym</p>
+    <p>NIL</p>
+    <p>NIL</p>
+    <p>Val</p>
+    <p>Input buf</p>
+    <p>Instead, buffer value of a and track output</p>
+    <p>xaction_begin; ... load [a], r1; r1 = r1 + 1; if (r1 &gt;= 8) // not taken store r1, [b]; ... load [b], r2; r2 = r2 + 1; ... xaction_end;</p>
+  </div>
+  <div class="page">
+    <p>Initiating Symbolic Tracking</p>
+    <p>Val</p>
+    <p>Regfile</p>
+    <p>Sym</p>
+    <p>a</p>
+    <p>NIL</p>
+    <p>Code sequence L1 cache</p>
+    <p>Val State</p>
+    <p>RetCon - Blundell - ISCA 2010 [ 17 ][ 17 ]</p>
+    <p>Instead, buffer value of a and track output</p>
+    <p>Val</p>
+    <p>Input buf</p>
+    <p>xaction_begin; ... load [a], r1; r1 = r1 + 1; if (r1 &gt;= 8) // not taken store r1, [b]; ... load [b], r2; r2 = r2 + 1; ... xaction_end;</p>
+  </div>
+  <div class="page">
+    <p>Executing Past Conflicts</p>
+    <p>Val</p>
+    <p>Input buf</p>
+    <p>Val</p>
+    <p>Regfile</p>
+    <p>Sym</p>
+    <p>a</p>
+    <p>NIL</p>
+    <p>Code sequence L1 cache</p>
+    <p>Val State</p>
+    <p>inv a</p>
+    <p>Give up block without rollback</p>
+    <p>RetCon - Blundell - ISCA 2010 [ 18 ][ 18 ]</p>
+    <p>xaction_begin; ... load [a], r1; r1 = r1 + 1; if (r1 &gt;= 8) // not taken store r1, [b]; ... load [b], r2; r2 = r2 + 1; ... xaction_end;</p>
+  </div>
+  <div class="page">
+    <p>Computation on Symbolic Values</p>
+    <p>Val</p>
+    <p>Input buf</p>
+    <p>Val</p>
+    <p>Regfile</p>
+    <p>Sym</p>
+    <p>a</p>
+    <p>NIL</p>
+    <p>Code sequence L1 cache</p>
+    <p>Val State</p>
+    <p>RetCon - Blundell - ISCA 2010 [ 19 ][ 19 ]</p>
+    <p>xaction_begin; ... load [a], r1; r1 = r1 + 1; if (r1 &gt;= 8) // not taken store r1, [b]; ... load [b], r2; r2 = r2 + 1; ... xaction_end;</p>
+  </div>
+  <div class="page">
+    <p>Val</p>
+    <p>Input buf</p>
+    <p>Val</p>
+    <p>Regfile</p>
+    <p>Sym</p>
+    <p>a</p>
+    <p>NIL</p>
+    <p>Code sequence L1 cache</p>
+    <p>Val State</p>
+    <p>RetCon - Blundell - ISCA 2010 [ 20 ][ 20 ]</p>
+    <p>Computation on Symbolic Values</p>
+    <p>xaction_begin; ... load [a], r1; r1 = r1 + 1; if (r1 &gt;= 8) // not taken store r1, [b]; ... load [b], r2; r2 = r2 + 1; ... xaction_end;</p>
+  </div>
+  <div class="page">
+    <p>Computation on Symbolic Values</p>
+    <p>Val</p>
+    <p>Input buf</p>
+    <p>Val</p>
+    <p>Regfile</p>
+    <p>Sym</p>
+    <p>a + 1</p>
+    <p>NIL</p>
+    <p>Code sequence L1 cache</p>
+    <p>Val State</p>
+    <p>RetCon - Blundell - ISCA 2010 [ 21 ][ 21 ]</p>
+    <p>xaction_begin; ... load [a], r1; r1 = r1 + 1; if (r1 &gt;= 8) // not taken store r1, [b]; ... load [b], r2; r2 = r2 + 1; ... xaction_end;</p>
+  </div>
+  <div class="page">
+    <p>Control Flow</p>
+    <p>Val</p>
+    <p>Input buf</p>
+    <p>Val</p>
+    <p>Regfile</p>
+    <p>Sym</p>
+    <p>a + 1</p>
+    <p>NIL</p>
+    <p>Code sequence L1 cache</p>
+    <p>Val State</p>
+    <p>RetCon - Blundell - ISCA 2010 [ 22 ][ 22 ]</p>
+    <p>Constraint: ?</p>
+    <p>xaction_begin; ... load [a], r1; r1 = r1 + 1; if (r1 &gt;= 8) // not taken store r1, [b]; ... load [b], r2; r2 = r2 + 1; ... xaction_end;</p>
+  </div>
+  <div class="page">
+    <p>Control Flow</p>
+    <p>Val</p>
+    <p>Input buf</p>
+    <p>Val</p>
+    <p>Regfile</p>
+    <p>Sym</p>
+    <p>a + 1</p>
+    <p>NIL</p>
+    <p>Code sequence L1 cache</p>
+    <p>Val State</p>
+    <p>RetCon - Blundell - ISCA 2010 [ 23 ][ 23 ]</p>
+    <p>Constraint: ?</p>
+    <p>xaction_begin; ... load [a], r1; r1 = r1 + 1; if (r1 &gt;= 8) // not taken store r1, [b]; ... load [b], r2; r2 = r2 + 1; ... xaction_end;</p>
+  </div>
+  <div class="page">
+    <p>Control Flow</p>
+    <p>Val</p>
+    <p>Input buf</p>
+    <p>Val</p>
+    <p>Regfile</p>
+    <p>Sym</p>
+    <p>a + 1</p>
+    <p>NIL</p>
+    <p>Code sequence L1 cache</p>
+    <p>Val State</p>
+    <p>Constraint: (a + 1) &lt; 8</p>
+    <p>RetCon - Blundell - ISCA 2010 [ 24 ][ 24 ]</p>
+    <p>Cond</p>
+    <p>a &lt; 7</p>
+    <p>xaction_begin; ... load [a], r1; r1 = r1 + 1; if (r1 &gt;= 8) // not taken store r1, [b]; ... load [b], r2; r2 = r2 + 1; ... xaction_end;</p>
+  </div>
+  <div class="page">
+    <p>Symbolic Stores</p>
+    <p>Val</p>
+    <p>Input buf</p>
+    <p>Cond</p>
+    <p>Val</p>
+    <p>Regfile</p>
+    <p>Sym</p>
+    <p>Val</p>
+    <p>Sym store buf</p>
+    <p>Sym</p>
+    <p>a + 1</p>
+    <p>NIL</p>
+    <p>Code sequence L1 cache</p>
+    <p>Val State</p>
+    <p>RetCon - Blundell - ISCA 2010 [ 25 ][ 25 ]</p>
+    <p>Store concrete &amp; symbolic val</p>
+    <p>xaction_begin; ... load [a], r1; r1 = r1 + 1; if (r1 &gt;= 8) // not taken store r1, [b]; ... load [b], r2; r2 = r2 + 1; ... xaction_end;</p>
+  </div>
+  <div class="page">
+    <p>Symbolic Stores</p>
+    <p>Val</p>
+    <p>Input buf</p>
+    <p>Cond</p>
+    <p>Val</p>
+    <p>Regfile</p>
+    <p>Sym</p>
+    <p>Val</p>
+    <p>Sym store buf</p>
+    <p>Sym</p>
+    <p>a + 1</p>
+    <p>NIL</p>
+    <p>Code sequence L1 cache</p>
+    <p>Val State</p>
+    <p>Store concrete &amp; symbolic val</p>
+    <p>RetCon - Blundell - ISCA 2010 [ 26 ][ 26 ]</p>
+    <p>xaction_begin; ... load [a], r1; r1 = r1 + 1; if (r1 &gt;= 8) // not taken store r1, [b]; ... load [b], r2; r2 = r2 + 1; ... xaction_end;</p>
+  </div>
+  <div class="page">
+    <p>Forwarding From Symbolic Stores</p>
+    <p>Val</p>
+    <p>Input buf</p>
+    <p>Cond</p>
+    <p>Val</p>
+    <p>Regfile</p>
+    <p>Sym</p>
+    <p>Val</p>
+    <p>Sym store buf</p>
+    <p>Sym</p>
+    <p>a + 1</p>
+    <p>NIL</p>
+    <p>Code sequence L1 cache</p>
+    <p>Val State</p>
+    <p>Forward concrete &amp; symbolic val</p>
+    <p>RetCon - Blundell - ISCA 2010 [ 27 ][ 27 ]</p>
+    <p>xaction_begin; ... load [a], r1; r1 = r1 + 1; if (r1 &gt;= 8) // not taken store r1, [b]; ... load [b], r2; r2 = r2 + 1; ... xaction_end;</p>
+  </div>
+  <div class="page">
+    <p>Forwarding From Symbolic Stores</p>
+    <p>Val</p>
+    <p>Input buf</p>
+    <p>Cond</p>
+    <p>Val</p>
+    <p>Regfile</p>
+    <p>Sym</p>
+    <p>Val</p>
+    <p>Sym store buf</p>
+    <p>Sym</p>
+    <p>a + 1</p>
+    <p>a + 1</p>
+    <p>Code sequence L1 cache</p>
+    <p>Val State</p>
+    <p>Forward concrete &amp; symbolic val</p>
+    <p>RetCon - Blundell - ISCA 2010 [ 28 ][ 28 ]</p>
+    <p>xaction_begin; ... load [a], r1; r1 = r1 + 1; if (r1 &gt;= 8) // not taken store r1, [b]; ... load [b], r2; r2 = r2 + 1; ... xaction_end;</p>
+  </div>
+  <div class="page">
+    <p>And On We Go</p>
+    <p>Val</p>
+    <p>Input buf</p>
+    <p>Cond</p>
+    <p>Val</p>
+    <p>Regfile</p>
+    <p>Sym</p>
+    <p>Val</p>
+    <p>Sym store buf</p>
+    <p>Sym</p>
+    <p>a + 1</p>
+    <p>a + 1</p>
+    <p>Code sequence L1 cache</p>
+    <p>Val State</p>
+    <p>Inc concrete &amp; symbolic val</p>
+    <p>RetCon - Blundell - ISCA 2010 [ 29 ][ 29 ]</p>
+    <p>xaction_begin; ... load [a], r1; r1 = r1 + 1; if (r1 &gt;= 8) // not taken store r1, [b]; ... load [b], r2; r2 = r2 + 1; ... xaction_end;</p>
+  </div>
+  <div class="page">
+    <p>And On We Go</p>
+    <p>Val</p>
+    <p>Input buf</p>
+    <p>Cond</p>
+    <p>Val</p>
+    <p>Regfile</p>
+    <p>Sym</p>
+    <p>Val</p>
+    <p>Sym store buf</p>
+    <p>Sym</p>
+    <p>a + 1</p>
+    <p>a + 2</p>
+    <p>Code sequence L1 cache</p>
+    <p>Val State</p>
+    <p>Inc concrete &amp; symbolic val</p>
+    <p>RetCon - Blundell - ISCA 2010 [ 30 ][ 30 ]</p>
+    <p>xaction_begin; ... load [a], r1; r1 = r1 + 1; if (r1 &gt;= 8) // not taken store r1, [b]; ... load [b], r2; r2 = r2 + 1; ... xaction_end;</p>
+  </div>
+  <div class="page">
+    <p>Initiating Repair</p>
+    <p>Val</p>
+    <p>Input buf</p>
+    <p>Cond</p>
+    <p>Val</p>
+    <p>Regfile</p>
+    <p>Sym</p>
+    <p>Val</p>
+    <p>Sym store buf</p>
+    <p>Sym</p>
+    <p>Code sequence</p>
+    <p>req a, S</p>
+    <p>L1 cache</p>
+    <p>Val State</p>
+    <p>req b, M</p>
+    <p>RetCon - Blundell - ISCA 2010</p>
+    <p>a + 1</p>
+    <p>a + 2</p>
+    <p>[ 31 ][ 31 ]</p>
+    <p>(Re)acquire all blocks</p>
+    <p>xaction_begin; ... load [a], r1; r1 = r1 + 1; if (r1 &gt;= 8) // not taken store r1, [b]; ... load [b], r2; r2 = r2 + 1; ... xaction_end;</p>
+  </div>
+  <div class="page">
+    <p>Initiating Repair</p>
+    <p>Val</p>
+    <p>Input buf</p>
+    <p>Cond</p>
+    <p>a: a &lt; 7</p>
+    <p>Val</p>
+    <p>Regfile</p>
+    <p>Sym</p>
+    <p>Val</p>
+    <p>Sym store buf</p>
+    <p>Sym</p>
+    <p>Code sequence L1 cache</p>
+    <p>Val State</p>
+    <p>RetCon - Blundell - ISCA 2010</p>
+    <p>a + 1</p>
+    <p>a + 2</p>
+    <p>[ 32 ][ 32 ]</p>
+    <p>R/W bits ensure atomicity</p>
+    <p>xaction_begin; ... load [a], r1; r1 = r1 + 1; if (r1 &gt;= 8) // not taken store r1, [b]; ... load [b], r2; r2 = r2 + 1; ... xaction_end;</p>
+    <p>(Re)acquire all blocks</p>
+    <p>req a, S req b, M</p>
+  </div>
+  <div class="page">
+    <p>Initiating Repair</p>
+    <p>Val</p>
+    <p>Input buf</p>
+    <p>Cond</p>
+    <p>Val</p>
+    <p>Regfile</p>
+    <p>Sym</p>
+    <p>Val</p>
+    <p>Sym store buf</p>
+    <p>Sym</p>
+    <p>Code sequence L1 cache</p>
+    <p>Val State</p>
+    <p>RetCon - Blundell - ISCA 2010</p>
+    <p>a + 1</p>
+    <p>a + 2</p>
+    <p>[ 33 ][ 33 ]</p>
+    <p>outdated</p>
+    <p>xaction_begin; ... load [a], r1; r1 = r1 + 1; if (r1 &gt;= 8) // not taken store r1, [b]; ... load [b], r2; r2 = r2 + 1; ... xaction_end;</p>
+    <p>Use new input value to repair</p>
+  </div>
+  <div class="page">
+    <p>Checking Constraints</p>
+    <p>Val</p>
+    <p>Input buf</p>
+    <p>Cond</p>
+    <p>a: a &lt; 7</p>
+    <p>Val</p>
+    <p>Regfile</p>
+    <p>Sym</p>
+    <p>Val</p>
+    <p>Sym store buf</p>
+    <p>Sym</p>
+    <p>Code sequence L1 cache</p>
+    <p>Val State</p>
+    <p>RetCon - Blundell - ISCA 2010</p>
+    <p>a + 1</p>
+    <p>a + 2</p>
+    <p>[ 34 ][ 34 ]</p>
+    <p>xaction_begin; ... load [a], r1; r1 = r1 + 1; if (r1 &gt;= 8) // not taken store r1, [b]; ... load [b], r2; r2 = r2 + 1; ... xaction_end;</p>
+  </div>
+  <div class="page">
+    <p>Checking Constraints</p>
+    <p>Val</p>
+    <p>Input buf</p>
+    <p>Cond</p>
+    <p>a: 4 &lt; 7</p>
+    <p>Val</p>
+    <p>Regfile</p>
+    <p>Sym</p>
+    <p>Val</p>
+    <p>Sym store buf</p>
+    <p>Sym</p>
+    <p>Code sequence L1 cache</p>
+    <p>Val State</p>
+    <p>RetCon - Blundell - ISCA 2010</p>
+    <p>a + 1</p>
+    <p>a + 2</p>
+    <p>[ 35 ][ 35 ]</p>
+    <p>xaction_begin; ... load [a], r1; r1 = r1 + 1; if (r1 &gt;= 8) // not taken store r1, [b]; ... load [b], r2; r2 = r2 + 1; ... xaction_end;</p>
+  </div>
+  <div class="page">
+    <p>Repair</p>
+    <p>Val</p>
+    <p>Input buf</p>
+    <p>Cond</p>
+    <p>Val</p>
+    <p>Regfile</p>
+    <p>Sym</p>
+    <p>Val</p>
+    <p>Sym store buf</p>
+    <p>Sym</p>
+    <p>Code sequence L1 cache</p>
+    <p>Val State</p>
+    <p>RetCon - Blundell - ISCA 2010</p>
+    <p>a + 1</p>
+    <p>a + 2</p>
+    <p>[ 36 ][ 36 ]</p>
+    <p>Step 1: update values</p>
+    <p>xaction_begin; ... load [a], r1; r1 = r1 + 1; if (r1 &gt;= 8) // not taken store r1, [b]; ... load [b], r2; r2 = r2 + 1; ... xaction_end;</p>
+  </div>
+  <div class="page">
+    <p>Repair</p>
+    <p>Val</p>
+    <p>Input buf</p>
+    <p>Cond</p>
+    <p>Val</p>
+    <p>Regfile</p>
+    <p>Sym</p>
+    <p>Val</p>
+    <p>Sym store buf</p>
+    <p>Sym</p>
+    <p>Code sequence L1 cache</p>
+    <p>Val State</p>
+    <p>RetCon - Blundell - ISCA 2010</p>
+    <p>[ 37 ][ 37 ]</p>
+    <p>Step 1: update values</p>
+    <p>xaction_begin; ... load [a], r1; r1 = r1 + 1; if (r1 &gt;= 8) // not taken store r1, [b]; ... load [b], r2; r2 = r2 + 1; ... xaction_end;</p>
+  </div>
+  <div class="page">
+    <p>Repair</p>
+    <p>Val</p>
+    <p>Input buf</p>
+    <p>Cond</p>
+    <p>Val</p>
+    <p>Regfile</p>
+    <p>Sym</p>
+    <p>Val</p>
+    <p>Sym store buf</p>
+    <p>Sym</p>
+    <p>Code sequence L1 cache</p>
+    <p>Val State</p>
+    <p>RetCon - Blundell - ISCA 2010</p>
+    <p>[ 38 ][ 38 ]</p>
+    <p>Step 1: update values</p>
+    <p>xaction_begin; ... load [a], r1; r1 = r1 + 1; if (r1 &gt;= 8) // not taken store r1, [b]; ... load [b], r2; r2 = r2 + 1; ... xaction_end;</p>
+  </div>
+  <div class="page">
+    <p>Repair</p>
+    <p>Val</p>
+    <p>Input buf</p>
+    <p>Cond</p>
+    <p>Val</p>
+    <p>Regfile</p>
+    <p>Sym</p>
+    <p>Val</p>
+    <p>Sym store buf</p>
+    <p>Sym</p>
+    <p>Code sequence L1 cache</p>
+    <p>Val State</p>
+    <p>RetCon - Blundell - ISCA 2010</p>
+    <p>[ 39 ][ 39 ]</p>
+    <p>Step 2: perform stores</p>
+    <p>xaction_begin; ... load [a], r1; r1 = r1 + 1; if (r1 &gt;= 8) // not taken store r1, [b]; ... load [b], r2; r2 = r2 + 1; ... xaction_end;</p>
+  </div>
+  <div class="page">
+    <p>Repair</p>
+    <p>Val</p>
+    <p>Input buf</p>
+    <p>Cond</p>
+    <p>Val</p>
+    <p>Regfile</p>
+    <p>Sym</p>
+    <p>Val</p>
+    <p>Sym store buf</p>
+    <p>Sym</p>
+    <p>Code sequence L1 cache</p>
+    <p>Val State</p>
+    <p>RetCon - Blundell - ISCA 2010</p>
+    <p>[ 40 ][ 40 ]</p>
+    <p>Step 2: perform stores</p>
+    <p>xaction_begin; ... load [a], r1; r1 = r1 + 1; if (r1 &gt;= 8) // not taken store r1, [b]; ... load [b], r2; r2 = r2 + 1; ... xaction_end;</p>
+  </div>
+  <div class="page">
+    <p>Commit</p>
+    <p>Val</p>
+    <p>Input buf</p>
+    <p>Cond</p>
+    <p>Val</p>
+    <p>Regfile</p>
+    <p>Sym</p>
+    <p>Val</p>
+    <p>Sym store buf</p>
+    <p>Sym</p>
+    <p>Code sequence L1 cache</p>
+    <p>Val State</p>
+    <p>X</p>
+    <p>X</p>
+    <p>RetCon - Blundell - ISCA 2010 [ 41 ][ 41 ]</p>
+    <p>xaction_begin; ... load [a], r1; r1 = r1 + 1; if (r1 &gt;= 8) // not taken store r1, [b]; ... load [b], r2; r2 = r2 + 1; ... xaction_end;</p>
+  </div>
+  <div class="page">
+    <p>RetCon Key Points</p>
+    <p>How do we decide which blocks to track?  Predictor that trains up on conflicts</p>
+    <p>trains down on violated constraints</p>
+    <p>What computation do we track?  Currently: expressions of form [addr] + value  Compact representation; sufficient for our use cases</p>
+    <p>How do we handle computation we cant track?  Constrain the input to original value</p>
+    <p>Input doesnt change  dataflow doesnt change</p>
+    <p>RetCon - Blundell - ISCA 2010 [ 42 ][ 42 ]</p>
+  </div>
+  <div class="page">
+    <p>RetCon Key Points</p>
+    <p>How do we decide which blocks to track?  Predictor that trains up on conflicts</p>
+    <p>trains down on violated constraints</p>
+    <p>What computation do we track?  Currently: expressions of form [addr] + value  Compact representation; sufficient for our use cases</p>
+    <p>How do we handle computation we cant track?  Constrain the input to original value</p>
+    <p>Input doesnt change  dataflow doesnt change</p>
+    <p>RetCon - Blundell - ISCA 2010 [ 43 ][ 43 ]</p>
+    <p>See paper for handling of real-world issues  Condition codes  Coarser-than-word-granularity cache blocks</p>
+  </div>
+  <div class="page">
+    <p>Bonus: RetCon Has Other Benefits</p>
+    <p>Value-based conflict detection [Olszewski+07,Tabba+09]  Compare values to detect conflicts</p>
+    <p>Eliminates aborts due to false/silent sharing conflicts</p>
+    <p>RetCon: detects conflicts via (value-based) constraints</p>
+    <p>Lazy conflict detection [Hammond+04,Ceze+06]  Delay writes until transaction commit</p>
+    <p>Mitigates convoying of readers behind writers</p>
+    <p>RetCon: selectively delays writes</p>
+    <p>Will examine impact in evaluation</p>
+    <p>RetCon - Blundell - ISCA 2010 [ 44 ][ 44 ]</p>
+  </div>
+  <div class="page">
+    <p>Evaluation Methodology</p>
+    <p>Simulator: in-house version of FeS2 [Neelakantam+08]  Full-system, execution-driven simulation</p>
+    <p>Simulated machine: 32-core x86-based MP  RetCon: 8-entry input buf, 32-entry symbolic store buf</p>
+    <p>Workloads: STAMP [Minh+08], python, raytrace  STAMP: compiled with DHASHTABLE_RESIZEABLE  python-opt: handful of uses of __thread keyword  intruder-opt: split lists, replaced r-b tree w/ hashtable</p>
+    <p>RetCon - Blundell - ISCA 2010 [ 45 ][ 45 ]</p>
+  </div>
+  <div class="page">
+    <p>RetCons Performance Impact</p>
+    <p>RetCon - Blundell - ISCA 2010 [ 46 ][ 46 ]</p>
+    <p>Higher is better</p>
+    <p>Near-ideal</p>
+    <p>Takeaway #1: RetCon mitigates the peripheral data problem</p>
+    <p>?</p>
+  </div>
+  <div class="page">
+    <p>Analyzing RetCons Other Benefits</p>
+    <p>RetCon - Blundell - ISCA 2010 [ 47 ][ 47 ]</p>
+    <p>lazy-vb: RetCon variant capturing laziness/false sharing only</p>
+    <p>neato!</p>
+  </div>
+  <div class="page">
+    <p>Analyzing RetCons Other Benefits</p>
+    <p>RetCon - Blundell - ISCA 2010 [ 48 ][ 48 ]</p>
+    <p>Takeaway 2: RetCon has benefits beyond optimizing peripheral data</p>
+    <p>Woohoo! More papers!</p>
+    <p>neato!</p>
+  </div>
+  <div class="page">
+    <p>Related Work</p>
+    <p>ReSlice [Sarangi+05]  Maintains insns in dependent slice of conflicting operation in TLS  To repair, re-executes these instructions</p>
+    <p>Dependence-aware transactional memory [Ramadan+08]  Forwards speculative values to optimize ordered communication</p>
+    <p>Unlike RetCon, cant handle conflicts with cyclic communication</p>
+    <p>but OTOH, can handle arbitrarily complex computation</p>
+    <p>Advanced TM interfaces &amp; data structure implementations  Open nesting [Moss+05,Moravan+06,Ni+07]  Transactional boosting [Herlihy+08]  Abstract nesting [Harris+07]  Lock-free hashtables [Click07,]  Scalable non-zero indicators [Ellen+07]</p>
+    <p>[ 49 ][ 49 ]RetCon - Blundell - ISCA 2010</p>
+  </div>
+  <div class="page">
+    <p>Conclusions</p>
+    <p>Focus of this work: the peripheral data problem  Auxiliary data that serializes parallel operations</p>
+    <p>Can significantly degrade overall performance</p>
+    <p>Our solution: repair via symbolic tracking  Exploits simplicity of peripheral data computation</p>
+    <p>as well as limited impact of peripheral data conflicts</p>
+    <p>RetCon: repair without replay  Adds selective symbolic tracking to baseline HTM</p>
+    <p>Side benefit: unifies prior-proposed optimizations</p>
+    <p>Mitigates impact of peripheral data conflicts</p>
+    <p>RetCon - Blundell - ISCA 2010 [ 50 ][ 50 ]</p>
+  </div>
+  <div class="page"/>
+</Presentation>

@@ -1,0 +1,242 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>CompoundFS: Compounding I/O Operations in Firmware File Systems</p>
+    <p>Yujie Ren1, Jian Zhang2 and Sudarsun Kannan1</p>
+  </div>
+  <div class="page">
+    <p>Background  Analysis  Design  Evaluation  Conclusion</p>
+    <p>Outline</p>
+  </div>
+  <div class="page">
+    <p>In-storage Processors Are Powerful</p>
+    <p>CPU: 2-core 3-core 5-core</p>
+    <p>RAM: 128MB DDR2 512MB LPDDR2 1GB LPDDR4</p>
+    <p>Year: 2008 2013 2018</p>
+    <p>Samsung 840 Samsung 970Intel X25M</p>
+    <p>Price: $7.4/GB $0.92/GB $0.80/GB</p>
+    <p>Latency: ~70s ~60s ~40s</p>
+    <p>B/W: 250 MB/s 500 MB/s 3300 MB/s</p>
+  </div>
+  <div class="page">
+    <p>Software Latency Matters Now</p>
+    <p>OS Kernel Software Overhead Matters !</p>
+    <p>Page Cache</p>
+    <p>Block I/O Layer</p>
+    <p>Device Driver</p>
+    <p>VFS Layer</p>
+    <p>Actual FS</p>
+    <p>Application</p>
+    <p>: Kernel Trap</p>
+    <p>: Data Copy</p>
+    <p>: OS OverheadPMFS ext4</p>
+    <p>write()</p>
+  </div>
+  <div class="page">
+    <p>Current Solutions  DirectFS (i.e. Strata, SplitFS, DevFS) reduces software overhead</p>
+    <p>bypassing OS kernel partially or fully</p>
+    <p>Application</p>
+    <p>FS Lib</p>
+    <p>FS Server</p>
+    <p>Storage</p>
+    <p>Strata (SOSP17) DevFS (FAST18)SplitFS (SOSP19)</p>
+    <p>Application Application</p>
+    <p>FS Lib</p>
+    <p>Kernel DAX FS</p>
+    <p>Storage</p>
+    <p>FS Lib</p>
+    <p>Storage</p>
+    <p>Firmware FS</p>
+    <p>: data-plane ops : control-plane ops</p>
+  </div>
+  <div class="page">
+    <p>Limitation of Current Solutions  DirectFS designs do not reduce boundary crossing</p>
+    <p>- Strata needs boundary crossing between FS Lib and FS Server - SplitFS needs kernel trap for control-plane operations - DevFS suffers from high PCIe latency for every operation</p>
+    <p>DirectFS designs do not efficiently reduce data copy - Current solutions need multiple data copies back and forth between application and storage stack</p>
+    <p>DirectFS designs do not utilize in-storage computation - Current solutions only use host CPUs for I/O related operations</p>
+  </div>
+  <div class="page">
+    <p>Background  Analysis  Design  Evaluation  Conclusion</p>
+    <p>Outline</p>
+  </div>
+  <div class="page">
+    <p>Analysis Methodology</p>
+    <p>File Systems - ext4-DAX: ext4 on byte-addressable storage bypassing page cache - SplitFS: direct-access file system bypassing kernel for data-plane ops</p>
+    <p>Application - LevelDB: Well-known persistent key-value store - db_bench: random write and read benchmarks</p>
+    <p>Storage - Emulated persistent memory on DRAM like prior work (e.g., SplitFS)</p>
+  </div>
+  <div class="page">
+    <p>LevelDB Overhead Breakdown</p>
+    <p>LevelDB spends significant time (~%50) in OS storage stack  Spends ~%15 of time on data copy between App and OS  Spends ~%20 of time on App-level crash consistency  CRC of data</p>
+    <p>R un</p>
+    <p>t im</p>
+    <p>e pe</p>
+    <p>rc en</p>
+    <p>ta ge</p>
+    <p>(% )</p>
+    <p>Value size (bytes)</p>
+    <p>Data allocation (OS) Data copy (OS) Filesystem update (OS) Lock (OS) Data allocation (user) Data copy (user) CRC32 (user)</p>
+  </div>
+  <div class="page">
+    <p>Background  Analysis  Design  Evaluation  Conclusion</p>
+    <p>Outline</p>
+  </div>
+  <div class="page">
+    <p>Our solution: CompoundFS</p>
+    <p>Combine (compound) multiple file system I/O ops into one</p>
+    <p>Offload I/O pre- and post-processing to storage-level CPUs</p>
+    <p>Bypass OS kernel and provide direct-access</p>
+  </div>
+  <div class="page">
+    <p>Our solution: CompoundFS</p>
+    <p>Combine (compound) multiple file system I/O ops into one - e.g. write() after read() compounded to write-after-read() - Reduces boundary crossing b/w host and storage (e.g., syscall)</p>
+    <p>Offload I/O pre- and post-processing to storage-level CPUs - e.g. checksum() after write() compounded to write-and-checksum() - Storage CPUs perform computation (e.g., checksum) and persist - Reduce data movement cost across boundaries</p>
+    <p>Bypass OS kernel and provide direct-access - firmware file system design to provide direct access for data plane and most control plane operations</p>
+  </div>
+  <div class="page">
+    <p>I/O Only Compound Operations</p>
+    <p>Read-modify-write:</p>
+    <p>Traditional FS Path:</p>
+    <p>User space</p>
+    <p>Kernel space</p>
+    <p>User space</p>
+    <p>Storage</p>
+    <p>Only 1 data copy with direct access</p>
+    <p>Read(data) Write(data) Read_modify_write(data)</p>
+    <p>Compound FS Path:</p>
+    <p>: Kernel Trap</p>
+    <p>: Data Copy</p>
+    <p>modify</p>
+    <p>Storage FS</p>
+    <p>StorageFS performs compound op</p>
+  </div>
+  <div class="page">
+    <p>I/O + Compute Compound Operations</p>
+    <p>Write-and-checksum</p>
+    <p>Traditional FS Path:</p>
+    <p>User space</p>
+    <p>Kernel space</p>
+    <p>User space</p>
+    <p>Storage</p>
+    <p>Only 1 data copy with direct access</p>
+    <p>Write(data) Write(checksum) Write_and_checksum(data)</p>
+    <p>Compound FS Path:</p>
+    <p>: Kernel Trap</p>
+    <p>: Data Copy</p>
+    <p>checksum</p>
+    <p>Storage FS</p>
+    <p>StorageFS handles checksum calculation</p>
+  </div>
+  <div class="page">
+    <p>CompoundFS Architecture Application (Thread 1)</p>
+    <p>Op1 open(File1) -&gt; fd1</p>
+    <p>Application (Thread 2)</p>
+    <p>Op2+ read_modify_write(fd2, buf, off=30, sz=5)</p>
+    <p>UserLib (in Host) Per-inode I/O Queue Per-inode Data Buffer</p>
+    <p>Converting POSIX I/O syscalls to CompoundFS compoundOps</p>
+    <p>Journal</p>
+    <p>TxB TxE Metadata</p>
+    <p>NVM Data Block Addr</p>
+    <p>Cred Table</p>
+    <p>CPUID</p>
+    <p>Cred</p>
+    <p>CPUID CPUID</p>
+    <p>Cred Cred</p>
+    <p>StorageFS (In Device)</p>
+    <p>I/O Request Processing Threads</p>
+    <p>Device CPU Cores</p>
+    <p>Compounding I/O ops</p>
+    <p>Perform CRC calculation before write()</p>
+    <p>Op3* write_and_checksum(fd1,buff, off=10, sz=1K, checksum_pos=head)</p>
+    <p>Op4 read(fd2, buf, off=30, sz=5)</p>
+    <p>Op1 Op2+ Op4Op3*</p>
+  </div>
+  <div class="page">
+    <p>CompoundFS Implementation</p>
+    <p>Command-based arch based on PMFS (Eurosys14) - control-plane ops (e.g. open) as commands via ioctl() - ioctl() carries arguments for each I/O ops</p>
+    <p>Avoids VFS overhead - control-plane ops are issued via ioctl(), no VFS layer</p>
+    <p>Avoids system call overhead - UserLib and StorageFS share a command buffer - UserLib adds requests to command buffer - StorageFS processes requests from the buffer</p>
+  </div>
+  <div class="page">
+    <p>CompoundFS Challenges  Crash-consistency model for compound I/O operations</p>
+    <p>All-or-nothing model (current solution) - an entire compound operation is a transaction</p>
+    <p>- partially completed operations cannot be recovered</p>
+    <p>- e.g., write-and-checksum, only data is persisted but checksum not</p>
+    <p>All-or-something model (ongoing) - fine-grained journaling and partial recovery is supported</p>
+    <p>- recovery could become complex</p>
+  </div>
+  <div class="page">
+    <p>Background  Analysis  Design  Evaluation  Conclusion</p>
+    <p>Outline</p>
+  </div>
+  <div class="page">
+    <p>Evaluation Goal</p>
+    <p>Effectiveness to reduce boundary crossing</p>
+    <p>Effectiveness to reduce data copy overheads</p>
+    <p>Ability to exploit compute capability of modern storage</p>
+  </div>
+  <div class="page">
+    <p>Experimental Setup  Hardware Platform</p>
+    <p>- dual-socket 64-core Xeon Scalable CPU @ 2.6GHz - 512GB Intel DC Optane NVM</p>
+    <p>Emulate firmware-level FS - reserve dedicated device threads handling I/O requests - add PCIe latency for every I/O operation - reduce CPU frequency to 1.2GHz for device CPU</p>
+    <p>State-of-the-art File Systems - ext4-DAX (Kernel-level file system) - SplitFS (User-level file system) - DevFS (Device-level file system)</p>
+  </div>
+  <div class="page">
+    <p>Micro-Benchmark</p>
+    <p>Read-modify-write Write-and-checksum</p>
+    <p>CompoundFS reduces unnecessary data movement and system call overhead by combining operations</p>
+    <p>T hr</p>
+    <p>o ug</p>
+    <p>hp ut</p>
+    <p>( M</p>
+    <p>B /s</p>
+    <p>)</p>
+    <p>Value Size</p>
+    <p>ext4-DAX</p>
+    <p>SplitFS</p>
+    <p>DevFS</p>
+    <p>CompoundFS</p>
+    <p>CompoundFS-slowCPU</p>
+    <p>T hr</p>
+    <p>o ug</p>
+    <p>hp ut</p>
+    <p>( M</p>
+    <p>B /s</p>
+    <p>)</p>
+    <p>Value Size</p>
+    <p>Even with slow device CPUs, CompoundFS can still provide gains for instorage computation</p>
+  </div>
+  <div class="page">
+    <p>LevelDB</p>
+    <p>db_bench random writedb_bench random read</p>
+    <p>CompoundFS also shows promising speedup in Leveldb</p>
+    <p>T hr</p>
+    <p>o ug</p>
+    <p>hp ut</p>
+    <p>( M</p>
+    <p>B /s</p>
+    <p>)</p>
+    <p>db_bench Value Size (500k keys)</p>
+    <p>La te</p>
+    <p>nc y</p>
+    <p>(u s/</p>
+    <p>o p)</p>
+    <p>db_bench Value Size (500k keys)</p>
+    <p>ext4-DAX</p>
+    <p>SplitFS</p>
+    <p>DevFS</p>
+    <p>CompoundFS</p>
+    <p>CompoundFS-slowCPU</p>
+  </div>
+  <div class="page">
+    <p>Conclusion  Storage hardware is moving to microsecond era</p>
+    <p>- Software overhead matters and providing direct-access is critical - Storage compute capability can benefit I/O intensive applications</p>
+    <p>CompoundFS combines I/O ops and offloads computations - Reduces boundary crossing (system call) and data copy overhead - Takes advantage of in-storage compute resources</p>
+    <p>Our ongoing work - Fine-grained crash consistency mechanism - Efficient I/O scheduler for managing computation in storage</p>
+  </div>
+  <div class="page">
+    <p>Thanks!</p>
+    <p>Questions?</p>
+    <p>yujie.ren@rutgers.edu</p>
+  </div>
+</Presentation>

@@ -1,0 +1,259 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>Towards Accurate and Fast Evaluation of Multi-Stage Log-Structured Designs</p>
+    <p>Hyeontaek Lim</p>
+    <p>David G. Andersen, Michael Kaminsky</p>
+    <p>Carnegie Mellon University</p>
+    <p>Intel Labs</p>
+  </div>
+  <div class="page">
+    <p>Multi-Stage Log-Structured (MSLS) Designs</p>
+    <p>(Nave) Log-structured design  Fast writes with sequential I/O</p>
+    <p>Compaction  Fewer table count  Less space use  Heavy I/O required</p>
+    <p>Multi-stage design  Cheaper compaction</p>
+    <p>by segregating fresh and old data</p>
+    <p>Slow query speed  Large space use</p>
+    <p>Example: LevelDB, RocksDB, Cassandra, HBase,  Y X X</p>
+    <p>Item inserts</p>
+    <p>X Y Sorted table</p>
+    <p>X Z</p>
+    <p>Sorted table</p>
+    <p>X Y Z Merged sorted table</p>
+    <p>X Y</p>
+    <p>Sorted table</p>
+    <p>fresh</p>
+    <p>old old old</p>
+    <p>Sorted in memory Written sequentially</p>
+  </div>
+  <div class="page">
+    <p>MSLS Design Evaluation Needed</p>
+    <p>Mobile app Filesystem Desktop app Data-intensive</p>
+    <p>computing</p>
+    <p>Diverse workloads Large design space</p>
+    <p>Many tunable knobs</p>
+    <p>Problem: How to evaluate and tune MSLS designs for a workload?</p>
+  </div>
+  <div class="page">
+    <p>Two Extremes of Prior MSLS Evaluation</p>
+    <p>Speed</p>
+    <p>Accuracy</p>
+    <p>Asymptotic Analysis of core algorithms</p>
+    <p>(e.g., O(log N) I/Os per insert)</p>
+    <p>Experiment using full implementation</p>
+    <p>(e.g., 12 k inserts per second)</p>
+    <p>Want: Accurate and fast evaluation method</p>
+  </div>
+  <div class="page">
+    <p>What You Can Do With Accurate and Fast Evaluation</p>
+    <p>Initial system</p>
+    <p>parameters System</p>
+    <p>performance evaluator</p>
+    <p>Optimized system</p>
+    <p>parameters</p>
+    <p>New system</p>
+    <p>parameters</p>
+    <p>Generic numerical optimizer</p>
+    <p>Our level size optimization on LevelDB  Up to 26.2% lower per-insert cost, w/o sacrificing query performance  Finishes in 2 minutes (full experiment would take years)</p>
+    <p>Executed 16,000+ times! E.g., level sizes in LevelDB</p>
+    <p>Adjust level sizes for higher performance</p>
+  </div>
+  <div class="page">
+    <p>Accurate and Fast Evaluation of MSLS Designs</p>
+    <p>Analytically model multi-stage log-structured designs using new analytic primitives that consider redundancy</p>
+    <p>Accuracy: Only  36.5% off from LevelDB/RocksDB experiment Speed: &lt; 5 ms per run for a workload with 100 M unique keys</p>
+  </div>
+  <div class="page">
+    <p>Performance Metric to Use</p>
+    <p>(Application-level) Write amplification</p>
+    <p>Size of data written to flash/disk (B) Size of inserted data (A)</p>
+    <p>Easier to analyze than raw throughput  Closely related to raw throughput:</p>
+    <p>write amplification  1/throughput</p>
+    <p>Focus of this talk: Insert performance of MSLS designs  Often bottlenecked by writes to flash/disk  Need to model amortized write I/O of inserts</p>
+    <p>MSLS</p>
+    <p>Flash/disk</p>
+    <p>User application</p>
+    <p>B</p>
+    <p>A =</p>
+  </div>
+  <div class="page">
+    <p>Divide-and-Conquer to Model MSLS Design</p>
+    <p>MSLS Design</p>
+    <p>Table creation</p>
+    <p>Compaction</p>
+    <p>WAtblcreation WAcompaction</p>
+    <p>WAtblcreation + WAcompaction</p>
+  </div>
+  <div class="page">
+    <p>Modeling Cost of Table Creation: Strawman</p>
+    <p>Y B X A X</p>
+    <p>B X Y A Sorted table containing 4 items</p>
+    <p>Write amplification of this table creation event = 4 5</p>
+    <p>Must keep track of individual item inserts</p>
+    <p>Must perform redundant key removal</p>
+  </div>
+  <div class="page">
+    <p>Modeling Cost of Table Creation: Better Way</p>
+    <p>Unique(bufsize): expected # of unique keys in bufsize requests</p>
+    <p>? ? ? ? ? ? ? ? ? ?</p>
+    <p>? ? ? ? ? ? ?</p>
+    <p>bufsize (max # of inserts buffered in memory)</p>
+    <p>Write amplification of regular table creation = Unique(bufsize)</p>
+    <p>No item-level information required  Estimates general operation cost</p>
+    <p>? ? ? ? ?</p>
+    <p>? ? ? ? ?</p>
+    <p>bufsize</p>
+  </div>
+  <div class="page">
+    <p>Modeling Cost of Compaction: Strawman</p>
+    <p>C X A B Input</p>
+    <p>sorted table1</p>
+    <p>C X Y Z A B Merged sorted table containing 6 items</p>
+    <p>X Y Z Input</p>
+    <p>sorted table2</p>
+    <p>A X B A C Y Z X X Z</p>
+    <p>Write amplification of this compaction event = 6</p>
+    <p>Must keep track of original item inserts</p>
+    <p>Must perform redundant key removal</p>
+  </div>
+  <div class="page">
+    <p>Unique-1(tblsize2): expected # of requests containing tblsize2 unique keys i.e., Unique(Unique-1(tblsize2)) = tblsize2</p>
+    <p>Modeling Cost of Compaction: Better Way</p>
+    <p>? ? ? ? tblsize1</p>
+    <p>? ? ? ? ? ?</p>
+    <p>? ? ? tblsize2</p>
+    <p>? ? ? ? ? ? ? ? ? ?</p>
+    <p>Unique-1(tblsize1)</p>
+    <p>Merge(tblsize1, tblsize2): expected # of unique keys in input tables whose sizes are tblsize1 and tblsize2</p>
+    <p>Write amplification of 2-way compaction = Merge(tblsize1, tblsize2)</p>
+    <p>No item-level information required  Estimates general operation cost</p>
+    <p>Unique-1(tblsize1) + Unique-1(tblsize2)</p>
+  </div>
+  <div class="page">
+    <p>New Analytic Primitives Capturing Redundancy</p>
+    <p>Unique-1: [# of requests]  [# of unique keys]</p>
+    <p>Merge: [multiple # of unique keys]  [total # of unique keys]</p>
+    <p>Fast to compute (see paper for mathematical descriptions)  Consider redundancy: Unique(p)  p Merge(u, v)  u + v  Reflect workload skew: [Unique(p) for Zipf]  [Unique(p) for uniform]</p>
+    <p>Caveat: Assume no or little dependence between requests</p>
+    <p>Unique: [# of requests]  [# of unique keys]</p>
+  </div>
+  <div class="page">
+    <p>High Accuracy of Our Evaluation Method</p>
+    <p>Compare measured/estimated write amplification of insert requests on LevelDB  Key-value item size: 1,000 bytes  Unique key count: 1 million1 billion (1 GB1 TB)  Key popularity dist.: Uniform</p>
+    <p>Our analysis Accurate estimation</p>
+    <p>( 3% error)</p>
+    <p>Unique key count</p>
+    <p>Write amplification Worst-case analysis</p>
+    <p>Overestimation</p>
+    <p>Full LevelDB implementation</p>
+    <p>Our lightweight in-memory LevelDB simulation</p>
+  </div>
+  <div class="page">
+    <p>High Speed of Our Evaluation Method</p>
+    <p>Compare single-run time to obtain write amplification of insert requests for a specific workload using a single set of system parameters  LevelDB implementation: fsync disabled  LevelDB simulation: in-memory, optimized for insert processing</p>
+    <p>Method Workload size</p>
+    <p>(# of unique keys) Elapsed time</p>
+    <p>Experiment using LevelDB implementation</p>
+    <p>Experiment using LevelDB simulation</p>
+    <p>Our analysis 100 M &lt; 5 ms</p>
+  </div>
+  <div class="page">
+    <p>Summary  Evaluation method for multi-stage log-structured designs</p>
+    <p>New analytic primitives that consider redundancy</p>
+    <p>System models using new analytic primitives</p>
+    <p>Accurate and fast  Only  36.5% error in estimating insert cost of LevelDB/RocksDB</p>
+    <p>Several orders of magnitude faster than experiment</p>
+    <p>Example applications  Automatic system optimization (~26.2% faster inserts on LevelDB)</p>
+    <p>Design improvement (~32.0% faster inserts on RocksDB)</p>
+    <p>Code: github.com/efficient/msls-eval</p>
+  </div>
+  <div class="page">
+    <p>Backup Slides</p>
+  </div>
+  <div class="page">
+    <p>X</p>
+    <p>Sorted table</p>
+    <p>X Y Merged sorted table</p>
+    <p>X Y</p>
+    <p>Sorted table</p>
+    <p>Nature of MSLS Operations</p>
+    <p>Only one instance survives for each key</p>
+    <p>Table creation and compaction: essentially redundancy removal  Modeling operation cost requires</p>
+    <p>considering redundancy</p>
+    <p>Y X X</p>
+    <p>Item inserts</p>
+    <p>X Y Sorted table</p>
+  </div>
+  <div class="page">
+    <p>Write Amplification vs. Throughput</p>
+    <p>Compare measured write amplification/throughput of insert requests on LevelDB  Key-value item size: 1,000 bytes  Unique key count: 1 million10 million (1 GB10 GB)  Key popularity dist.: Uniform, Zipf (skew=0.99)</p>
+  </div>
+  <div class="page">
+    <p>Mathematical Description of New Primitives</p>
+    <p>Unique-1: [# of requests]  [# of unique keys]</p>
+    <p>Merge: [multiple # of unique keys]  [total # of unique keys] Merge(u, v) = Unique(Unique-1(u) + Unique-1(v))</p>
+    <p>Unique: [# of requests]  [# of unique keys]</p>
+    <p>Unique   1</p>
+    <p># of requests</p>
+    <p>Total # of unique keys (||)</p>
+    <p>Set of unique keys</p>
+    <p>Probability of key  in each request for a key popularity distribution</p>
+  </div>
+  <div class="page">
+    <p>Unique as a Function of Request Count</p>
+    <p>Uniform key popularity</p>
+    <p>Skewed key popularity</p>
+    <p>Compare measured write amplification/throughput of insert requests on LevelDB  Key-value item size: 1,000 bytes  Unique key count: 100 M (100 GB)  Request count: 01 billion  Key popularity dist.: Uniform, Zipf (skew=0.99)</p>
+  </div>
+  <div class="page">
+    <p>LevelDB Design Overview</p>
+    <p>Level 1</p>
+    <p>Level 2</p>
+    <p>Level 3</p>
+    <p>Level 4</p>
+    <p>Key space</p>
+    <p>(Omitted: memtable, write-ahead log, level 0)</p>
+    <p>Each level are partitioned into small tables (~2 MB)</p>
+    <p>for incremental compaction</p>
+    <p>Each levels total size = ~10X previous levels</p>
+    <p>Table to compact</p>
+    <p>Overlapping tables Merged tables</p>
+    <p>Q: Average # of overlaps?</p>
+    <p>Less than 10! (non-uniformity)</p>
+  </div>
+  <div class="page">
+    <p>Non-Uniformity in LevelDB</p>
+    <p>Level l-1</p>
+    <p>Level l</p>
+    <p>Level l+1</p>
+    <p>Key space</p>
+    <p>(Omitted: memtable, write-ahead log, level 0)</p>
+    <p>Fast to sweep small level  Add new data to</p>
+    <p>next level uniformly across key space</p>
+    <p>Slow to sweep large level  Soon-to-be-compacted</p>
+    <p>region becomes dense, causing non-uniformity</p>
+    <p>Fewer overlapping tables in next level</p>
+    <p>Just compacted</p>
+    <p>Soon to be compacted</p>
+    <p>Direction of compaction in key space (round-robin way)</p>
+  </div>
+  <div class="page">
+    <p>LevelDB-specific function to take into account non-uniformity</p>
+    <p>Pseudo Code of LevelDB Model</p>
+  </div>
+  <div class="page">
+    <p>Sensitivity to Workload Skew</p>
+    <p>Compare measured/estimated write amplification of insert requests on LevelDB  Key-value item size: 1,000 bytes  Unique key count: 1 million1 billion (1 GB1 TB)  Key popularity dist.: Zipf (skew=0.99)</p>
+    <p>Write amplification</p>
+    <p>LevelDB impl/simul</p>
+    <p>Our analysis Accurate estimation</p>
+    <p>Worst-case analysis Workload skew ignored</p>
+  </div>
+  <div class="page">
+    <p>Automatic System Optimization Result</p>
+    <p>Compare measured/estimated write amplification of insert requests on LevelDB  Key-value item size: 1,000 bytes  Write buffer size: 4 MiB[10% of total unique key count]  Unique key count: 10 million (10 GB)  Key popularity dist.: Uniform, Zipf (skew=0.99)</p>
+  </div>
+  <div class="page">
+    <p>End of Slides</p>
+  </div>
+</Presentation>

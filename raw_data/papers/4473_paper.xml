@@ -1,0 +1,896 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<TEI xmlns="http://www.tei-c.org/ns/1.0" 
+xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+xsi:schemaLocation="http://www.tei-c.org/ns/1.0 /Users/atharsefid/Desktop/grobid-0.5.3/grobid-home/schemas/xsd/Grobid.xsd"
+ xmlns:xlink="http://www.w3.org/1999/xlink">
+	<teiHeader xml:lang="en">
+		<encodingDesc>
+			<appInfo>
+				<application version="0.5.3" ident="GROBID" when="2019-03-26T16:50+0000">
+					<ref target="https://github.com/kermitt2/grobid">GROBID - A machine learning software for extracting information from scholarly documents</ref>
+				</application>
+			</appInfo>
+		</encodingDesc>
+		<fileDesc>
+			<titleStmt>
+				<title level="a" type="main">Query Suggestion Using Hitting Time</title>
+			</titleStmt>
+			<publicationStmt>
+				<publisher/>
+				<availability status="unknown"><licence/></availability>
+			</publicationStmt>
+			<sourceDesc>
+				<biblStruct>
+					<analytic>
+						<author>
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Qiaozhu</forename><surname>Mei</surname></persName>
+							<affiliation key="aff0">
+								<orgName type="institution" key="instit1">University of Illinois at Urbana-Champaign</orgName>
+								<orgName type="institution" key="instit2">Microsoft Research Redmond</orgName>
+								<orgName type="institution" key="instit3">Microsoft Research Redmond</orgName>
+								<address>
+									<postCode>98052, 98052</postCode>
+									<region>WA, WA</region>
+								</address>
+							</affiliation>
+						</author>
+						<author>
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Dengyong</forename><surname>Zhou</surname></persName>
+							<email>dengyong.zhou@microsoft.com</email>
+							<affiliation key="aff0">
+								<orgName type="institution" key="instit1">University of Illinois at Urbana-Champaign</orgName>
+								<orgName type="institution" key="instit2">Microsoft Research Redmond</orgName>
+								<orgName type="institution" key="instit3">Microsoft Research Redmond</orgName>
+								<address>
+									<postCode>98052, 98052</postCode>
+									<region>WA, WA</region>
+								</address>
+							</affiliation>
+						</author>
+						<author>
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Kenneth</forename><surname>Church</surname></persName>
+							<email>church@microsoft.com</email>
+							<affiliation key="aff0">
+								<orgName type="institution" key="instit1">University of Illinois at Urbana-Champaign</orgName>
+								<orgName type="institution" key="instit2">Microsoft Research Redmond</orgName>
+								<orgName type="institution" key="instit3">Microsoft Research Redmond</orgName>
+								<address>
+									<postCode>98052, 98052</postCode>
+									<region>WA, WA</region>
+								</address>
+							</affiliation>
+						</author>
+						<title level="a" type="main">Query Suggestion Using Hitting Time</title>
+					</analytic>
+					<monogr>
+						<imprint>
+							<date/>
+						</imprint>
+					</monogr>
+				</biblStruct>
+			</sourceDesc>
+		</fileDesc>
+		<profileDesc>
+			<textClass>
+				<keywords>
+					<term>H33 [Informa- tion Search and Retrieval]: Text Mining General Terms: Algorithms Keywords: Hitting time</term>
+					<term>bipartite graph</term>
+					<term>query sugges- tion</term>
+					<term>personalized query suggestion</term>
+				</keywords>
+			</textClass>
+			<abstract>
+				<p>Generating alternative queries, also known as query suggestion , has long been proved useful to help a user explore and express his information need. In many scenarios, such suggestions can be generated from a large scale graph of queries and other accessory information, such as the clickthrough. However, how to generate suggestions while ensuring their semantic consistency with the original query remains a challenging problem. In this work, we propose a novel query suggestion algorithm based on ranking queries with the hitting time on a large scale bipartite graph. Without involvement of twisted heuristics or heavy tuning of parameters, this method clearly captures the semantic consistency between the suggested query and the original query. Empirical experiments on a large scale query log of a commercial search engine and a scientific literature collection show that hitting time is effective to generate semantically consistent query suggestions. The proposed algorithm and its variations can successfully boost long tail queries, accommodating personalized query suggestion, as well as finding related authors in research.</p>
+			</abstract>
+		</profileDesc>
+	</teiHeader>
+	<text xml:lang="en">
+		<body>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="1.">INTRODUCTION</head><p>The explosive growth of web information has not only created a crucial challenge for search engine companies to handle large scale data, but also increased the difficulty for a user to manage his information need. It has become increasingly difficult for a user to compose a succinct and precise query to present his search need. Instead of pushing this burden to the users, it is common practice for a search engine to provide some types of query suggestions.</p><p>When a user types a query "msg" to the search engines, he will be provided with quite a few alternative potential queries. For example, he will be suggested "msg chinese food," "msg health," and "other names for msg" by Google, and "msg error," "msg network," and "msg seating chart" by Yahoo <ref type="bibr" target="#b0">1</ref> . There are also other query suggestion mechanisms which could automatically complete a query <ref type="bibr" target="#b6">[7]</ref>, and automatically correct spelling mistakes <ref type="bibr" target="#b9">[10]</ref>.</p><p>Such query suggestion mechanisms are usually developed based on morphological information of queries, or cooccurrence of one query word with other queries (e.g., in the same query, or in the same working session). Although such query suggestions are proved useful in different ways, there is usually no guarantee that the suggested queries convey close semantic information with the original query. Indeed, it is usually annoying for a researcher who searches for "Chris Burges" but is suggested with "chris burgess 2 " or "Chris Burge Ministries <ref type="bibr" target="#b2">3</ref> ." Similarly, it is not very helpful to suggest "KDD" with "KBB", "kddi," "Ntt 4 ," and "Harry Shum" with "Harry Potter <ref type="bibr" target="#b4">5</ref> ." People searching for "larry page" maybe interested in "sergey brin" but not "yellow page." A good query suggestion system should consider a handful of features, but in most cases it is important to ensure that the semantics of the suggested query do not drift too much from the original one.</p><p>The problem becomes more challenging when personalization is taking into consideration. Some users will issue the query "msg" to search for the sports center in New York and others use it to search the food additive. "msr" could mean "microsoft research," but also "mountain safety research, " or even "mortgage servicing rights." Without the constraint of semantics, a general suggestion to such ambiguous queries would easily be off the track.</p><p>Another big challenge and opportunity for the current query suggestion systems lies in the suggestion of infrequent queries. It has been a well known theory in business that a company could "sell less of more" by boosting the long tail of the power law distribution <ref type="bibr" target="#b1">[2]</ref>. Netflix spends millions to look for an effective way to suggest hard-to-find movies. The same question lies in search engine business, especially in advertising where customers bid for query terms. Frequently clicked queries cost more and long tail queries cost less. If a well designed query suggestion system could route the traf-fic and boost the clickthrough of long tail queries, there is a huge opportunity to maximize the benefits for both a search engine company and customers of its advertising system.</p><p>Is there a principled way to suggest semantically similar queries while also boosting long tail queries? Can such a method also provide a natural solution to personalization? It is challenging because "semantics" is hard to define and both long tail queries and personalization usually suffer from data sparsity.</p><p>In this paper, we propose a unified approach to query suggestion, by computing the hitting time on a large scale bipartite graph of queries and clickthrough. Despite its simplicity, this novel approach introduces quite a few benefits to query suggestion: 1) the suggestions generated with the proposed algorithm are semantically similar to the original query; 2) the suggestions generated do not have to occur with the original query; 3) this approach boosts the long tail queries as suggestions; and 4) this model provides a natural treatment for personalized query suggestion. Empirical experiments on a large scale query log of a commercial search engine, as well as a public available scientific bibliography dataset show that our proposed algorithm is effective for semantically coherent query suggestion, which provides a potential new framework, or an important and novel feature for building a real query suggestion system. The approach of using hitting time is quite general, which could provide potential solutions to many other search related problems other than query suggestion. We will discuss these possibilities later in Section 6.</p><p>The rest of the paper is organized as follows. In Section 2, we formally introduce the concept of hitting time on a bipartite graph. In Section 3, we propose the algorithm of query suggestion using hitting time. We show our experiments and results in Section 4, introduce the related work in Section 5, and conclude in Section 7.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="2.">BIPARTITE GRAPH AND HITTING TIME</head><p>A bipartite graph is a graph G = (V, E) in which there exists an partition V = V1 ∪ V2 such that every edge in E connects a vertex in V1 and one in V2; that is, there is no edge between two vertices in the same set. Let w : V1 × V2 → R + denote the weight function. Given i ∈ V1 and j ∈ V2, if there is an edge connecting i and j, then w(i, j) is positive; otherwise, w(i, j) = 0.</p><p>Given a bipartite graph, a random walk can be formed as follows. Assume the current position is at a vertex in V1. Then an edge connected to this vertex is chosen with the probability proportional to the weight of the edge. By following this edge, the random walk arrives at a vertex in V2. Then, similarly, an edge connected to V2 is chosen to follow and the random walk goes back to V1. Given i ∈ V1 and j ∈ V2, the transition probability is defined as</p><formula xml:id="formula_0">pij = w(i, j) di .</formula><p>where di = j∈V 2 w(i, j). If one is only interested in the vertices in one side, such as V1, then a new random walk based on the above one can be introduced by</p><formula xml:id="formula_1">pij = k∈V 2 w(i, k) di w(k, j) d k .</formula><p>It is easy to check that the stationary probability πi is proportional to di. In what follows, we discuss hitting time on a graph G = (V, E). All materials are self-contained. For readers who are familiar with this concept, they can skip the discussion. Let A be a subset of V. Let Xt denote the position of the random walk at discrete time t. The hitting time T A is the first time that the random walk is at a vertex in A, thus T A = min{t : Xt ∈ A, t ≥ 0}. It is obvious that T A is a random variable. From the definition of the hitting time, given i / ∈ A, we immediately have</p><formula xml:id="formula_2">P [T A = m|X0 = i] = j∈V P [X1 = j|X0 = i] ·P [T A = m − 1|X0 = j] = j∈V pijP [TA = m − 1|X0 = j].</formula><p>The mean hitting time h A i is the expectation of T A under the condition X0 = i, that is,</p><formula xml:id="formula_3">h A i = E[TA|X0 = i].</formula><p>Thus</p><formula xml:id="formula_4">h A i = ∞ m=1 mP [T A = m|X0 = i] = ∞ m=1 m j∈V pijP [T A = m − 1|X0 = j] = j∈V ∞ m=1 (m − 1)pijP [T A = m − 1|X0 = j] + j∈V ∞ m=1 pijP [T A = m − 1|X0 = j] Obviously, j∈V ∞ m=1 (m − 1)pijP [T A = m − 1|X0 = j] = j∈V pij ∞ m=1 mP [T A = m|X0 = j] = j∈V pijh A j</formula><p>For computing the second term, it is necessary to notice that</p><formula xml:id="formula_5">∞ m=1 P [T A = m − 1|X0 = j] = 1. Thus, j∈V ∞ m=1 pijP [T A = m − 1|X0 = j] = j∈V pij = 1.</formula><p>Consequently,</p><formula xml:id="formula_6">h A i = j∈V pijh A j + 1.</formula><p>In addition, it is obvious that h A i = 0, for i ∈ A. Combining all pieces together, we obtain the linear system for computing the hitting time:</p><formula xml:id="formula_7">񮽙 h A i = 0 for i ∈ A h A i = j / ∈A pijh A j + 1 for i / ∈ A</formula><p>This linear system has a unique solution. This fact can be elegantly verified by using Maximum Principle and Uniqueness Principle in the discrete potential theory.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.">SUGGESTION USING HITTING TIME</head><p>Based on the formal definition of hitting time, we now propose our algorithm of query suggestion using hitting time.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.1">The Algorithm</head><p>Let us begin with a query log dataset, from each record of which we can extract a pair Query, U RL. By summarizing all such pairs, we can construct a bipartite graph G = V, E, where V = V1 ∪ V2. Clearly, V1 corresponds to all queries, and V2 corresponds to all URLs. Each edge e = (i, j) ∈ E corresponds to a pair Qi, Uj with positive frequency. We weight each edge with w(i, j) = C(Qi, Uj), which is the number of records where this pair appears.</p><p>There are also other variations to this setup, e.g., by normalizing the edge weights, constructing a k-Nearest-Neighbor graph, or using a Query-Query graph, Query-IP graph, etc. In this section, we use the undirected Query-URL bipartite graph as a representative case to illustrate our algorithm. A simple example of such a graph is shown in <ref type="figure" target="#fig_0">Figure 1</ref>. From <ref type="figure" target="#fig_0">Figure 1</ref>, we see that every query is connected with a number of URLs, on which the users clicked when submitting this query to the search engine. The weights on the edges present how many times the users used this query to access this URL. Please note that there is no edge connecting two queries, or two URLs.</p><p>The labeled query indicates the query for which we want to generate suggestions. Intuitively, if for all URLs that we use a query to access, other people exclusively use another query to access, that query is a good suggestion to the original query, e.g., "american airline" to "aa" in <ref type="figure" target="#fig_0">Figure 1</ref>.</p><p>Let QT be the original (target) query. In principle, we can set A = {QT } and compute the Hitting time h A (i) for all other queries Qi based on this graph, use this measure to rank Qis, and select the top-k queries as suggestions to QT . However, there are two concerns for using the straightforward and formal solution we presented in Section 2.</p><p>• The graph G can be too large (e.g., 500M queries and URLs). In fact, most vertices are irrelevant to the original query, but they increase the computational cost.</p><p>• Solving the linear system can be time consuming. When the number of variables of the linear system is millions, it becomes extremely inefficient to get an exact solution to that linear system.</p><p>To overcome these two concerns, we propose the following efficient algorithm for query suggestion using hitting time:</p><p>Algorithm 1 Query Suggestion Using Hitting Time A bipartite graph G = (V1 ∪ V2, E) consists of query set V1 and URL set V2. There is an edge in E from a query i to an URL k if this URL is clicked, and the edge is weighted by the click frequency w(i, k).</p><p>1. Given a query s in V1, a subgraph is constructed by using depth-first search in G. The search stops when the number of queries is larger than a predefined number of n queries.</p><p>2. Form a random walk on the subgraph by defining transition probabilities between two queries i and j in V1 as</p><formula xml:id="formula_8">pij = k∈V 2 w(i, k) di w(k, j) d k .</formula><p>3. For all queries except the given one, iterate</p><formula xml:id="formula_9">hi(t + 1) = j񮽙 =s pijhj(t) + 1</formula><p>for a predefined number of m iterations started with hi(0) = 0.</p><p>4. Let h * i be the final value of hi(t). Output the queries which have the top k smallest h * i as suggestions.</p><p>A good selection of k would control that the ranking of top k queries stays stable in future iterations. In Section 4, we will show that k does not need to be large, which ensures the efficiency of this algorithm. In some scenarios, a different initialization of W can be used. For example, one can use mutual information of a query and a URL instead of the clickthrough frequency to initialize wij. One can also use a weighting schema such that wij 񮽙 = wji, which naturally generalizes this method to directed graphes.</p><p>Please note that since we are interested in query suggestions, we fold the bipartite graph into a general graph in the algorithm above. In general, we can easily unfold the graph in the algorithm, by setting pij = w(i,j)</p><formula xml:id="formula_10">d i .</formula></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.2">Personalized Query Suggestion</head><p>Personalization is desirable for many scenarios where different user has different information need. People in New York are likely to use "msg" to access the sports center, thus a suggestion like "madison square garden" is quite useful. People in other states, on the other hand, may use "msg" to access the food additive, and a suggestion like "Monosodium glutamate" is desirable.</p><p>There has been quite a few work on personalized search <ref type="bibr" target="#b10">[11]</ref>. However, how to generate personalized query suggestion is still an unsolved problem. <ref type="bibr" target="#b7">[8]</ref> presents automatical query completion with local information, but that method is based on query morphology and cannot be applied to generate personalized semantic suggestions.</p><p>We now present that our method using hitting time on bipartite graph can be easily adapted to generate personalized query suggestions. Intuitively, when we know the identity of the user (e.g., his IP address), we should update our knowledge about the information need of this query.</p><p>One may say that a simple method is to construct the bipartite graph solely based on the history of that user. However, that could easily fall into the problem of data sparsity. The simple treatment also loses the opportunity of using common wisdom. If a user already knows what query to use (e.g., learning from his history), it is not clear how much query suggestion could help.  Once we know the user, we need to update what we know about the query. This can be viewed as equivalent to replacing the original query (e.g., "aa") with a pseudo query, which is user specified (e.g., "aa" + user).</p><p>Once we know the user, we adjust the URLs that he would click with this query based on the history of this user. Now the pseudo query connects to some URLs instead of others. And different suggestions will be generated comparing with the non-personalized suggestions. In <ref type="figure" target="#fig_1">Figure 2</ref>, "american airline" is now a better suggestion than "alcoholics anonymous" to "aa" given the user.</p><p>The remain problem is how to adjust the weights on the edges between the pseudo query and the URLs. In principle, giving the original query QT , in computing the hitting time we only cares about pij where vj = QT and vi is a URL, or simply as p(QT |U RL). p(QT |U RL) is computed with</p><formula xml:id="formula_11">c(Q T ,U RL) Q c(Q,U RL) in</formula><p>Step 2 in the algorithm in Section 3. Similarly, giving the pseudo query QP , we are only interested in p(QP |U RL), or p(QT |U rl, U ser).</p><p>A simple computation is</p><formula xml:id="formula_12">p(QT |U RL, U ser) = c(QT , U RL, U ser) Q c(Q, U RL, U ser) .<label>(1)</label></formula><p>However, it could still fall into the problem of data sparsity. Interestingly, one can notice that many probabilistic personalized search algorithms proposed nowadays are essentially computingˆpcomputingˆ computingˆp(U rl|Q, U ser) <ref type="bibr" target="#b19">[20,</ref><ref type="bibr" target="#b16">17,</ref><ref type="bibr" target="#b15">16]</ref>. This means that we can easily adopt any such personalized search algorithm, and compute</p><formula xml:id="formula_13">p(QT |U rl, U ser) = ˆ p(U RL|QT , U ser)p(QT |U ser) p(U RL|U ser) .<label>(2)</label></formula><p>This suggests that without twisting the algorithm structure or the whole graph, we can easily embed personalization into query suggestion, by adjusting wij at step 2 in the algorithm in Section 3. Specifically, if vj = QT (the original query) and vi is a URL, we assign new weights for Wij by</p><formula xml:id="formula_14">wij = p(QT |U RL, U ser) j 񮽙 =j w ij 1 − p(QT |U RL, U ser) .<label>(3)</label></formula><p>The rest of the algorithm remains the same with the nonpersonalized query suggestion. As a concrete example, if we use the IP address to identify a user, we can adopt the personalization with backoff model in <ref type="bibr" target="#b15">[16]</ref> and embed in Equation 2 with ˆ p(U RL|Q, IP ) =</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="4.">EXPERIMENTS</head><p>In Section 3, we introduced the algorithm of query suggestion using hitting time, and its natural adaptation to personalized query suggestion. In this section, we use empirical results to show the effectiveness of the proposed algorithms.</p><p>We collect a large scale query log dataset from a commercial search engine of about 1.5 years up to July 2007. This 1.5 years data contains 637 million unique queries, and 585 million unique URLs. We use IP address to identify users in personalized query suggestion. This dataset contains 193 million unique IP addresses.</p><p>To make it easier for others to reproduce our results, we also collected a publicly available dataset of authors and titles from DBLP 6 , as of Feb. 2008. We extract 110k papers in computer science and around 580k unique authors from that dataset.</p><p>The experiments and results from the two datasets are presented in the following sections.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="4.1">Experiments on Search Log Data</head></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>Semantic Query Suggestion</head><p>We use the Query-URL bipartite graph extracted from the 18 month data and generate suggestions for all queries. We selectively show the results in <ref type="table" target="#tab_1">Table 1</ref>.</p><p>We present the comparison of suggestions generated from our algorithm and those from Google, Yahoo, and Live. Clearly, we can see that the suggestions generated with hitting time focus on different aspects than suggestions currently provided by the three major search engines. Specifically, there are several major differences:</p><p>1. The suggestions generated with our method are more semantically consistent to the original query.</p><p>2. Our method generates suggestions that are morphologically different, but semantically relevant to the original query.</p><p>3. Our method generates useful suggestions even for infrequent queries. For original queries that are infrequent themselves, our method makes reasonable suggestions while the major search engines don't. </p><note type="other">msg network marine security guard yahoo msg Ticketmaster engineers madison square garden michael schenker verizon text msg Msg Tickets microsoft engineers Query = friends Query = ranknet HittingTime Google Yahoo Live HittingTime wikipedia friends friendship secret friends Find Friend learning to rank friends tv show wikipedia friends poem friends reunited Friendship ndcg measure ir friends home page friendster hide friends Friends TV Show ndcg friends warner bros friends episode guide hi 5 friends Best Friends lambdarank the friends series friends scripts find friends Secret Friends chris burges friends official site how to make friends poems for friends Jennifer Aniston pairwise test friends(1994) true friends friends quotes Friendster rank function Query = aa Query = long tail HittingTime Google Yahoo Live HittingTime alcoholics anonymous aa route planner AA Route Finder wikipedia long tail automobile association aa route finder AA Route Planner long tail chris anderson theaa N/A aa airlines AA Airlines long tail wired american airlines aa meetings American Airlines chris anderson american air aa autoroute American Airlines full sentence outlineamerican airlineaa road map AA Meetings on outsourcing betterticket reservations</note><p>aa 12 shotgun quality at a lower cost</p><p>The system generated suggestions for "msg" are comparable with those suggested by the major search engines. Our method captures the food additive in the suggestions, which is the most commonly known semantics of msg. We also see another meaning of msg, madison square garden, ranked lower in top 10 suggestions. When people use "friends" as a query instead of "friend," it usually carries a special semantics (i.e., the Friends TV series). The query suggestions generated using our system well captured this special semantics, while the major search engines mostly return suggestions about the common sense of friend. Indeed, the three search engines generate mostly the same suggestions for "friend" and "friends," while our system generate quite different suggestions for "friend," such as "friend to friend shelter," "friend dictionary," and "web friend."</p><p>From the suggestions for "aa," we see that our system not only captures the most common sense, the "american airline, " it also successfully boosts infrequent queries as suggestion ("alcoholics anonymous" and "automobile association"). The major search engines, however, captured the most common meaning but lost the opportunity of visiting the long tails.</p><p>On the rightmost column of <ref type="table" target="#tab_1">Table 1</ref>, we show three example queries for which our system generates good suggestions while the search engines do not. All such queries are "long tail" queries in search business. We see that using hitting time on the Query-URL graph, we generate meaningful suggestions even if the suggested terms do not co-occur with the original query.</p><p>For example, the query "ranknet" is a learning-based ranking algorithm used in web IR based on "pairwise tests." "learning to rank" is a nice generalization of the query, while "ndcg" is the key performance measure used in web search, which such an algorithm tries to optimize. Chris Burges is one of the inventors of RankNet, and "lambdarank" is their following work. Such suggestions are all semantically relevant to the original query.</p><p>In another example, "the long tail" is a famous book by Chris Anderson, the theory of which is well applied in outsourcing better quality at a lower cost.</p><p>All experiments presented above show that our algorithm effectively generates semantic consistent query suggestions, and provides a way of treating and boosting long tail queries.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>Personalized Query Suggestion</head><p>As discussed in Section 3.2, the algorithm of query suggestion with hitting time can be easily adapted to personalized query suggestion. As an illustrative example, we use an IP address to identify a user, and embed the personalization with backoff model (Equation 4) in computing Equation 2. The personalized query suggestion compared with non-personalized query suggestion are shown in <ref type="table" target="#tab_2">Table 2</ref>.</p><p>From <ref type="table" target="#tab_2">Table 2</ref>, we see that given the IP address of the user, the system generates quite different query suggestions than if the IP is unknown. If the query is from Microsoft, the system will suggest "microsoft research" related queries for "msr" instead of "mountain safety research," and "kdd conference" related queries for "kdd." "KDDI" is a Japanese corporation on telephone business which is used to be called "Kokusai Denshin Denwa (KDD)," and is more interesting to the common audience. Similar treatments can be found for the query "msg," where "madison square garden" related queries are suggested to people who live near New York.</p><p>Another interesting example is the query "football", which means American football in the States but usually means soccer in Europe. When the query is from the United States, the system suggests American football related concepts, as well as the "fox nfl", where "Fox" is a well-known television network in the States. If the query is from United Kingdom, the systems suggests soccer related concepts, as well as "bbc", a broadcasting corporation located in UK.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="4.2">Experiments on DBLP Data</head><p>Search log data is associated with privacy concerns as well as Intelligence Property issues, and is usually not accessible to people outside the search engine companies. To generate reproducible results for the common audience, we design similar experiments on a publicly available dataset, DBLP.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>Query Suggestion on Coauthor Graph</head><p>The most commonly explored graph on the bibliography data is the coauthor graph. In this experiment, we constructed a coauthor graph from the DBLP data, by making a vertex for every author, and an edge between two authors if they coauthored in a paper. The weight on each edge corresponds to how many papers that the two researchers have coauthored.</p><p>The method of query suggestion using hitting time is generalized, and can be applied on both bipartite graph, or a general graph (e.g., a query-query graph). Indeed, with the notion introduced in Section 2, we can fold a bipartite graph into a graph with only one group of vertices, but with a different weighing function for the folded edges. We use such a coauthor graph to demonstrate that our algorithm can generate interesting suggestions with a general coocurrence graph.</p><p>In <ref type="table">Table 3</ref>, we present the suggestions generated based on computing the hitting time on the coauthor graph. The middle three columns presents the suggestions based on the hitting time computation. By default, for each author name query (shown in column 1), we construct the subgraph by including all authors that are less or equal to distance 6 to the target author. The six degrees of separation 7 is well known in social network analysis that the average distance of a vertex to all others is around 6. Indeed, such a subgraph usually contains 410∼450k authors, which covers more than 70% of the entire graph. We vary the number of iterations and the size of the subgraph to show the robustness of our method.</p><p>From Column 3 through 5, we see that our system tends to suggest authors that collaborate intensively with the target query (e.g., students of a professor, and collaborators who works exclusively with the author). It is interesting to see that the system suggests "Lawrence Page" for "Sergey Brin". When we use 10 iterations for our algorithm in Section 3, it already achieves similar ranking to the exact solution, which we get from solving the linear system completely.</p><p>Can we use a smaller subgraph? We present the experiments on smaller subgraphs, where all authors are at most 2 steps away from the original author query. From the 4 th column of <ref type="table">Table 3</ref>, we see that a smaller graph captures most of the values of the larger one in terms of query suggestion. This experiment shows that without much loss of performance, the algorithm of query suggestion using hitting time can be made more efficient by using a smaller subgraph ( ∼1000 vertices) and a few iterations.</p><p>Since our work is also based on a random walk on a large scale graph, it is interesting to show how different are our results from other random walk methods. For example, personalized PageRank <ref type="bibr" target="#b10">[11]</ref> is a method that is usually used to rank vertices on the graph in a query dependant way. The corresponding linear system of personalized PageRank can be shown as:</p><formula xml:id="formula_15">Ri = (1 − s)R (0) i + s · j pjiR (0) j .<label>(5)</label></formula><p>where</p><formula xml:id="formula_16">R (0) i</formula><p>is a personalized (or query dependent) initial values for vertex i. We may set R (0) i = 1 if vi = QT and 0 otherwise. It is easy to show that if s = 1, R will be the stationary distribution of random walking on the graph, which is proportional to the degree of vertices. We expect that personalized PageRank would still favor authors who published a lot of papers and have a lot of coauthors.</p><p>We present the query suggestions ranked by personalized PageRank in the rightmost column in <ref type="table">Table 3</ref>. We also present the nearest neighbors of QT (i.e., vj's with the largest w(QT , j)).</p><p>We see that personalized PageRank generates quite different suggestions to hitting time. It indeed favors authors with higher degrees, e.g., "Andrew Tomkins" and "Sridhar Rajagopalan" for "Jon M. Kleinberg," and "Monika R. Henzinger" for "Sergey Brin." In fact, we can see that using personalized PageRank does not gain much different top-k</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>David Sontag</head><p>Polle Zellweger Kyuseok Shim We only include authors with a degree larger than 5. Dumping parameter used in Personalized PageRank: 0.5.</p><p>suggestions compared with using just the k nearest neighbors. Although "big" authors are more visible, putting them in the query suggestions blocks the "smaller" authors to be seen, and also causes a topic drift. One could imagine that when a user want to find a Ph.D student whose name he couldn't remember, he is likely to begin with searching his advisor (and a query suggestion of his students would be very helpful). On the other hand, there are way many better directions to find a "big" name than beginning with another "big" name. Please note that our method does not have a model parameter to tune.</p><p>The experiments above suggest that our proposed method applies well on query-query graphs, generates better suggestions than other random walk method, and can be made quite efficient.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>Query Suggestion on Author-Keyword Bipartite Graph</head><p>We then constructed a bipartite graph from the bibliography data by segmenting the titles of every paper into all unigram and bigram words it contains. We made a vertex for every author and every keyword. We then connected an author and a keyword with an edge if the author used that keyword. The weight on each edge corresponds to the frequency that the user used that keyword. We removed the stop words from the title, and no domain knowledge has been applied.</p><p>In this way, we get a bipartite graph G = (V, E). V = V1 ∪V2 where V1 are the set of all authors and V2 is the set of all unigram and bigram title terms. As a result, this provides us a bipartite graph of 1.6M vertices, in which around 1M vertices are unigram and bigram keywords. We then simulate that a user would type a keyword (either a unigram or a bigram) as a query, and use our proposed algorithm to generate suggestions to the keyword query. The sample results are presented in <ref type="table" target="#tab_3">Table 4</ref>.</p><p>It can be easily discovered from <ref type="table" target="#tab_3">Table 4</ref> that our system generates very reasonable suggestions to those keyword queries. All suggestions for the six given queries are semantically close the original query.</p><p>Another interesting question on the DBLP data is whether we can suggest keywords for a query of author. Indeed, we can apply our algorithm by computing the hitting time from every keywords to the original query (an author). We then select the top ranked keywords as keyword suggestions for an author query. The results are selectively shown in <ref type="table" target="#tab_4">Table 5</ref>.</p><p>Presumably, the suggestion keywords should well capture the semantics of the author, or the research topics that the author mostly works on. We first present the k nearest neighbor keywords of each author in the Author-Keyword bipartite graph. For both queries, we see that all such nearest neighbor terms are too broad. They tend to be too general to capture the author's specific research topics. We also used personalized PageRank to generate suggestions (as in column 4), but unfortunately it still improves tiny over the k nearest neighbors. From the column 3 of <ref type="table" target="#tab_4">Table 5</ref>, however, we clearly see that we get much better suggestions using hitting time. Indeed, the suggestions generated are general enough to convey coherence meanings, and also tight enough to represent the special interest of the author query. Interestingly, because we segment unigrams and bigrams in a totally unsupervised way, a huge number of bigrams are nonmeaningful segments, such as "based approach," "guided mining," and "clusters among," the suggested bigrams using hitting time are all meaningful phrases.</p><p>In this Section, we use experiments on two different datasets to show that query suggestion using hitting time is effective to generate semantically consistent query suggestions, long tail suggestions, as well as personalized suggestions.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="5.">RELATED WORK</head><p>Query suggestion has been a well-accepted utility used by many search engines to help user explore and express their information need. While there are quite a few work on generating different types of query suggestions, such as query auto completion <ref type="bibr" target="#b6">[7,</ref><ref type="bibr" target="#b7">8]</ref>, query spelling correction <ref type="bibr" target="#b9">[10,</ref><ref type="bibr" target="#b14">15]</ref>, query expansion <ref type="bibr" target="#b20">[21,</ref><ref type="bibr" target="#b21">22,</ref><ref type="bibr" target="#b2">3]</ref>, and query rewriting <ref type="bibr" target="#b0">[1,</ref><ref type="bibr" target="#b12">13]</ref>. While most early query suggestion methods explore document information, query log data has been widely used recently.</p><p>Query frequency <ref type="bibr" target="#b14">[15,</ref><ref type="bibr" target="#b6">7,</ref><ref type="bibr" target="#b7">8]</ref>, term coocurrence <ref type="bibr" target="#b3">[4,</ref><ref type="bibr" target="#b12">13,</ref><ref type="bibr" target="#b18">19]</ref>, query clickthrough <ref type="bibr" target="#b11">[12,</ref><ref type="bibr" target="#b22">23,</ref><ref type="bibr" target="#b8">9,</ref><ref type="bibr" target="#b17">18]</ref>, and query chains <ref type="bibr" target="#b16">[17]</ref> are among the most used types of information in query log. In this paper, we adopt the query clickthrough information, but the proposed method of query suggestion using hitting time does not rely on such information. Indeed, our algorithm can be applied with all such types of information, as long as an undirected graph of queries, or a bipartite graph of queries and other types of entities, can be constructed.</p><p>There are different ranking methods proposed using ran-  dom walk on a Query-URL graph. PageRank <ref type="bibr" target="#b4">[5]</ref> is basically computing the stationary distribution of a smoothed Markov chain. Personalized PageRank generalizes PageRank by smoothing the Markov chain with a user (or query) specific jumping probability vector instead of a uniform vector, thus is often used for query-dependent ranking <ref type="bibr" target="#b10">[11]</ref>. HITS <ref type="bibr" target="#b13">[14]</ref> is an alternative query-dependent ranking algorithm which computes two different scores (hub and authority) in an alternating way. <ref type="bibr" target="#b8">[9]</ref> proposed a ranking function which is basically computing the n-step transition probability from the original vertex to the target.</p><p>However, all such methods are essentially computing "how much weights can be distributed to a vertex from its neighbors". This ends up with favoring vertices with large degree and usually results in topic drift. Indeed, topic drift has been a well discussed problem of HITS <ref type="bibr" target="#b5">[6]</ref>. Instead, our algorithm computes "how soon can I reach the original query if I begin at a suggestion, with an average of all possible paths". This guarantees that the semantics of the top ranked suggestion will be coherent with the original query. Unlike other random walk methods, it also boosts infrequent queries. Another advantage of the hitting time is that it does not have a parameter to tune, while all the self-jump based methods (e.g., PageRank, personalized PageRank, and n-step transition) all has one or more critical parameters to tune.</p><p>In terms of updating the original query, our work is also relevant to feedback <ref type="bibr" target="#b23">[24,</ref><ref type="bibr" target="#b19">20,</ref><ref type="bibr" target="#b16">17]</ref> in information retrieval. However, both pseudo-feedback and implicit-feedback could easily add in irrelevant terms into the query, especially when the feedback documents has a rich content. Our method utilizes the common wisdom and control the relevance of suggested queries.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="6.">DISCUSSION</head><p>As a ranking function on a graph, hitting time is general and does not rely on the specific type of graphs. We illustrated its power by generating query suggestions from a Query-URL bipartite graph, but there are many other possibilities. On the other hand, the Query-URL relation (i.e., clickthrough) is not the only information conveyed in a large scale search log. Indeed, one can extract Query-IP graphs, Query-Query relations considering session information, etc.</p><p>Ranking search-related entities on a graph using hitting time can be regarded as a general treatment of a lot of interesting problem. For example, ranking URLs given a query (by computing h A (U RL → Q)) suggests a method of ranking web pages without looking at their content. h A (U RL → U RL) leads to finding similar pages, h A (Q → U RL) suggests search terms for a webpage, and h A (IP → IP ) provides a way to find people who have similar interests like you. All these are interesting directions to apply the method proposed in this paper.</p><p>There are many interesting future directions to this work. A real query suggestion system should balance many different features. It is interesting to embed our method as a new feature into a real query suggestion system, and quantitatively evaluate how much our method can benefit the current system. Another possible future work is to apply the general algorithm on other types of graphs, for example graphs built from query-session data, query-user graphs, as well as directed graphs. It will then be interesting to generate query suggestions using multiple types of graphs.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="7.">CONCLUSION</head><p>In this paper, we proposed a novel query suggestion approach based on the computation of hitting time on large scale bipartite graphs. Unlike existing query suggestion methods, our proposed method controls the semantic consistency of the suggestions to the original query. The proposed method has several advantages over existing methods: 1) the generated suggestions are semantically consistent to the original query; 2) the method boosts long tail queries as suggestion, and also generates suggestions for long tail queries despite of sparsity of data; 3) the method extracts suggestions that did not cooccur with original query; and 4) our method can be generalized to personalized query suggestion by simply embedding in any probabilistic personalized search methods. Experiments show that our method effectively generates semantic query suggestions as well as personalized query suggestions. The hitting time based method does not have a model parameter to tune, and can be easily transformed as a feature in existing query suggestion systems.</p></div><figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_0"><head>Figure 1 :</head><label>1</label><figDesc>Figure 1: Example of an undirected Query-URL bipartite graph</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_1"><head>Figure 2 :</head><label>2</label><figDesc>Figure 2: Personalized query suggestion Figure 2 illustrates an intuitive treatment of personalized query suggestion. Once we know the user, we need to update what we know about the query. This can be viewed as equivalent to replacing the original query (e.g., "aa") with a pseudo query, which is user specified (e.g., "aa" + user). Once we know the user, we adjust the URLs that he would click with this query based on the history of this user. Now the pseudo query connects to some URLs instead of others. And different suggestions will be generated comparing with the non-personalized suggestions. In Figure 2, "american airline" is now a better suggestion than "alcoholics anonymous" to "aa" given the user. The remain problem is how to adjust the weights on the edges between the pseudo query and the URLs. In principle, giving the original query QT , in computing the hitting time we only cares about pij where vj = QT and vi is a URL, or simply as p(QT |U RL). p(QT |U RL) is computed with</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_1" validated="true"><head>Table 1 : Query suggestions generated using hitting time on Query-URL graph</head><label>1</label><figDesc></figDesc><table>Query = msg 
+Query = harry shum 
+HititngTime 
+Google 
+Yahoo 
+Live 
+HittingTime 
+msg facts 
+msg chinese food 
+msg error 
+Madison Square Garden 
+ce liu 
+food msg 
+msg health 
+msg network 
+Msg Allergy 
+managing director of-
+poisoning of america 
+other names for msg 
+msg seating chart MSN 
+microsoft 
+msg in fast food 
+msg duty 
+valentine msg 
+Msg Food 
+shum 
+... 
+msg symptoms 
+foods with msg 
+Monosodium Glutamate 
+microsoft distinguished-
+</table></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_2" validated="false"><head>Table 2 : Personalized Query Suggestions using IP Address</head><label>2</label><figDesc>omit the last two bytes of IP addresses for privacy reason. Corresponding locations of IP are shown in brackets. ‡: Original suggested queries are in Japanese. We present their translations in English.</figDesc><table>Query 
+Non-personalized 
+Personalized 
+Query 
+Non-personalized 
+Personalized 
+
+"mountain safety research" 
+
+microsoft research 
+msg facts 
+madison square garden 
+msrcorp 
+research 
+food msg 
+madison square gardens 
+msr 
+
+mountain safety research 
+
+what is research 
+msg 
+poisoning of america 
+
+madison square garden events 
+
+msr outdoor 
+research website 
+msg in fast food 
+
+madison square garden tickets 
+
+131.107.*.* msr camp stoves 
+ms research 
+71.250.*.* what is msg 
+madison square 
+(Microsoft) msr outdoor equipment 
+
+university of pittsburgh-
+
+(NJ, US) 
+msg food additive 
+madison square garden-
+
+clinical trials 
+
+new york 
+msr snowshoes 
+microsoft research-
+
+monosodium glutamate 
+
+madison square garden-
+and development 
+box office 
+msr racing 
+yahoo research labs 
+msg network 
+madison sq garden 
+Query 
+Non-personalized 
+Personalized 
+Query 
+169.229.*.* (US) 
+212.58.*.* (UK) 
+kidd 
+kdd 2007 
+cheerleader of the day bbc football 
+kid (kidd)  ‡ 
+kdd 2006 
+terms in football 
+bbc sport football 
+kdd 
+kddi corporation  ‡ 
+football 
+nfl franchise 
+football news 
+sigkdd 
+nfl 
+football fixtures 
+131.107.*.* 
+kdd international tel.  ‡ 
+
+national football league 
+
+bbc football news 
+(Microsoft) kddi international-
+kdd2006 
+fox nfl 
+bbc soccer 
+telephone  ‡ 
+sigkdd2006 
+football mercato 
+football mercato 
+kidd group 
+kdd conference 2007 
+football uk 
+abedi andre dede 
+* We </table></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_3" validated="true"><head>Table 4 : Keyword suggestions generated from Keyword-Author graph using hitting time</head><label>4</label><figDesc></figDesc><table>Query 
+Suggestions 
+Query 
+Suggestions 
+Query 
+Suggestions 
+dimension updates 
+pagerank computation 
+clickthrough data 
+olap data 
+ranking systems 
+page classification 
+olap cubes 
+pagerank approximation 
+query classification 
+olap 
+olap queries 
+pagerank 
+peer web 
+clickthrough 
+implicit feedback 
+view size 
+incremental computations 
+recommending 
+range top 
+web spam 
+optimizing web 
+hierarchical clustered 
+iterative computation 
+based smoothing 
+Query 
+Suggestions 
+Query 
+Suggestions 
+Query 
+Suggestions 
+amazon 
+walk 
+knowledge collaboration 
+dynamic collaborative 
+timing recovery 
+community structure 
+
+recommendation algorithms 
+
+rao bound 
+resource organization 
+collaborative re ranking 
+random walk hyperlink analysis 
+social networks information kiosks 
+filtering 
+item based 
+stabilizing group 
+efficient searching 
+design recommender 
+based scoring 
+exploit social 
+demographics 
+between nodes 
+network extraction 
+* We omit keywords that has a degree less than 10. 
+
+</table></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_4" validated="true"><head>Table 5 : Generating keyword suggestions to author queries in DBLP</head><label>5</label><figDesc></figDesc><table>Query 
+kNN-keywords Hitting Time Suggestions Personalized PgRank 
+mining 
+large databases 
+mining 
+data 
+frequent pattern 
+data 
+frequent 
+sequential pattern 
+based 
+Jiawei Han 
+based 
+frequent patterns 
+efficient 
+efficient 
+pattern mining 
+frequent 
+pattern 
+frequent 
+pattern 
+data mining 
+multi dimensional 
+data mining 
+Query 
+kNN-keywords Hitting Time Suggestions Personalized PgRank 
+learning 
+dirichlet process 
+learning 
+statistical 
+approximate inference 
+based 
+kernel 
+dirichlet 
+statistical 
+Michael I. Jordan markov 
+mean field 
+model 
+inference 
+supervised learning 
+kernel 
+model 
+graphic models 
+markov 
+bayesian 
+mixture 
+bayesian 
+* We omit keywords that has a degree less than 10. 
+
+</table></figure>
+
+			<note place="foot" n="1"> All real examples are collected on Feb. 25th, 2008. 2 http://search.yahoo.com/search?p=chris+burges 3 http://search.live.com/results.aspx?q=chris+burges 4 http://search.live.com/results.aspx?q=KDD 5 http://search.live.com/results.aspx?q=harry+shum</note>
+
+			<note place="foot" n="4">  i=0 λip(U RL|Q, IPi). (4) Here IPi means the first i bytes of IP. An alternative treatment for personalized query suggestion is to add some related vertices (queries or URLs) into the target set A based on the user interest. We leave this as a direction in the future.</note>
+
+			<note place="foot" n="6"> http://www.informatik.uni-trier.de/∼ley/db/</note>
+
+			<note place="foot" n="7"> http://en.wikipedia.org/wiki/Six degrees of separation</note>
+		</body>
+		<back>
+			<div type="references">
+
+				<listBibl>
+
+<biblStruct xml:id="b0">
+	<analytic>
+		<title level="a" type="main">Learning search engine specific query transformations for question answering</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">E</forename><surname>Agichtein</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Lawrence</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">L</forename><surname>Gravano</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the 10th international conference on World Wide Web</title>
+		<meeting>the 10th international conference on World Wide Web</meeting>
+		<imprint>
+			<date type="published" when="2001" />
+			<biblScope unit="page" from="169" to="178" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b1">
+	<monogr>
+		<title level="m" type="main">The Long Tail: Why the Future of Business is Selling Less of More. Hyperion</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Anderson</surname></persName>
+		</author>
+		<imprint>
+			<date type="published" when="2006" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b2">
+	<analytic>
+		<title level="a" type="main">Query recommendation using query logs in search engines</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><forename type="middle">A</forename><surname>Baeza-Yates</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><forename type="middle">A</forename><surname>Hurtado</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Mendoza</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">EDBT Workshops</title>
+		<imprint>
+			<date type="published" when="2004" />
+			<biblScope unit="page" from="588" to="596" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b3">
+	<analytic>
+		<title level="a" type="main">Agglomerative clustering of a search engine query log</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Beeferman</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Berger</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of KDD &apos;00</title>
+		<meeting>KDD &apos;00</meeting>
+		<imprint>
+			<date type="published" when="2000" />
+			<biblScope unit="page" from="407" to="416" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b4">
+	<analytic>
+		<title level="a" type="main">The anatomy of a large-scale hypertextual web search engine</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Brin</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">L</forename><surname>Page</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Comput. Netw. ISDN Syst</title>
+		<imprint>
+			<biblScope unit="volume">30</biblScope>
+			<biblScope unit="issue">1-7</biblScope>
+			<biblScope unit="page" from="107" to="117" />
+			<date type="published" when="1998" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b5">
+	<analytic>
+		<title level="a" type="main">Enhanced topic distillation using text, markup tags, and hyperlinks</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Chakrabarti</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Joshi</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">V</forename><surname>Tawde</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the 24th annual international ACM SIGIR conference on Research and development in information retrieval</title>
+		<meeting>the 24th annual international ACM SIGIR conference on Research and development in information retrieval</meeting>
+		<imprint>
+			<date type="published" when="2001" />
+			<biblScope unit="page" from="208" to="216" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b6">
+	<analytic>
+		<title level="a" type="main">The wild thing!</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">K</forename><surname>Church</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">B</forename><surname>Thiesson</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the ACL 2005 on Interactive poster and demonstration sessions</title>
+		<meeting>the ACL 2005 on Interactive poster and demonstration sessions</meeting>
+		<imprint>
+			<date type="published" when="2005" />
+			<biblScope unit="page" from="93" to="96" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b7">
+	<analytic>
+		<title level="a" type="main">The wild thing goes local</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">K</forename><forename type="middle">W</forename><surname>Church</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">B</forename><surname>Thiesson</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the 30th annual international ACM SIGIR conference on Research and development in information retrieval</title>
+		<meeting>the 30th annual international ACM SIGIR conference on Research and development in information retrieval</meeting>
+		<imprint>
+			<date type="published" when="2007" />
+			<biblScope unit="page" from="901" to="901" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b8">
+	<analytic>
+		<title level="a" type="main">Random walks on the click graph</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">N</forename><surname>Craswell</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Szummer</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the 30th annual international ACM SIGIR conference on Research and development in information retrieval</title>
+		<meeting>the 30th annual international ACM SIGIR conference on Research and development in information retrieval</meeting>
+		<imprint>
+			<date type="published" when="2007" />
+			<biblScope unit="page" from="239" to="246" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b9">
+	<analytic>
+		<title level="a" type="main">Spelling correction as an iterative process that exploits the collective knowledge of web users</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Cucerzan</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">E</forename><surname>Brill</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of EMNLP 2004</title>
+		<meeting>EMNLP 2004</meeting>
+		<imprint>
+			<date type="published" when="2004" />
+			<biblScope unit="page" from="293" to="300" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b10">
+	<monogr>
+		<title level="m" type="main">An analytical comparison of approaches to personalizing pagerank</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">T</forename><surname>Haveliwala</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Kamvar</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">G</forename><surname>Jeh</surname></persName>
+		</author>
+		<imprint>
+			<date type="published" when="2003" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b11">
+	<analytic>
+		<title level="a" type="main">Accurately interpreting clickthrough data as implicit feedback</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">T</forename><surname>Joachims</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">L</forename><surname>Granka</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">B</forename><surname>Pan</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">H</forename><surname>Hembrooke</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">G</forename><surname>Gay</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the 28th annual international ACM SIGIR conference on Research and development in information retrieval</title>
+		<meeting>the 28th annual international ACM SIGIR conference on Research and development in information retrieval</meeting>
+		<imprint>
+			<date type="published" when="2005" />
+			<biblScope unit="page" from="154" to="161" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b12">
+	<analytic>
+		<title level="a" type="main">Generating query substitutions</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Jones</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">B</forename><surname>Rey</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">O</forename><surname>Madani</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">W</forename><surname>Greiner</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the 15th international conference on World Wide Web</title>
+		<meeting>the 15th international conference on World Wide Web</meeting>
+		<imprint>
+			<date type="published" when="2006" />
+			<biblScope unit="page" from="387" to="396" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b13">
+	<analytic>
+		<title level="a" type="main">Authoritative sources in a hyperlinked environment</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><forename type="middle">M</forename><surname>Kleinberg</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">J. ACM</title>
+		<imprint>
+			<biblScope unit="volume">46</biblScope>
+			<biblScope unit="issue">5</biblScope>
+			<biblScope unit="page" from="604" to="632" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b14">
+	<analytic>
+		<title level="a" type="main">Exploring distributional similarity based models for query spelling correction</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Li</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Y</forename><surname>Zhang</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Zhu</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Zhou</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the 21st International Conference on Computational Linguistics and the 44th annual meeting of the ACL</title>
+		<meeting>the 21st International Conference on Computational Linguistics and the 44th annual meeting of the ACL</meeting>
+		<imprint>
+			<date type="published" when="2006" />
+			<biblScope unit="page" from="1025" to="1032" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b15">
+	<analytic>
+		<title level="a" type="main">Entropy of search logs: how hard is search? with personalization? with backoff?</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Q</forename><surname>Mei</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">K</forename><surname>Church</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the international conference on Web search and web data mining</title>
+		<meeting>the international conference on Web search and web data mining</meeting>
+		<imprint>
+			<date type="published" when="2008" />
+			<biblScope unit="page" from="45" to="54" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b16">
+	<analytic>
+		<title level="a" type="main">Query chains: learning to rank from implicit feedback</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">F</forename><surname>Radlinski</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">T</forename><surname>Joachims</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the eleventh ACM SIGKDD international conference on Knowledge discovery in data mining</title>
+		<meeting>the eleventh ACM SIGKDD international conference on Knowledge discovery in data mining</meeting>
+		<imprint>
+			<date type="published" when="2005" />
+			<biblScope unit="page" from="239" to="248" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b17">
+	<analytic>
+		<title level="a" type="main">Active exploration for learning rankings from clickthrough data</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">F</forename><surname>Radlinski</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">T</forename><surname>Joachims</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of KDD&apos; 07</title>
+		<meeting>KDD&apos; 07</meeting>
+		<imprint>
+			<date type="published" when="2007" />
+			<biblScope unit="page" from="570" to="579" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b18">
+	<analytic>
+		<title level="a" type="main">Personal name classification in web queries</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Shen</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">T</forename><surname>Walkery</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Z</forename><surname>Zhengy</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Q</forename><surname>Yangz</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Y</forename><surname>Li</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the international conference on Web search and web data mining</title>
+		<meeting>the international conference on Web search and web data mining</meeting>
+		<imprint>
+			<date type="published" when="2008" />
+			<biblScope unit="page" from="149" to="158" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b19">
+	<analytic>
+		<title level="a" type="main">Implicit user modeling for personalized search</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">X</forename><surname>Shen</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">B</forename><surname>Tan</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Zhai</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of CIKM&apos; 05</title>
+		<meeting>CIKM&apos; 05</meeting>
+		<imprint>
+			<date type="published" when="2005" />
+			<biblScope unit="page" from="824" to="831" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b20">
+	<analytic>
+		<title level="a" type="main">Clustering user queries of a search engine</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J.-R</forename><surname>Wen</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J.-Y</forename><surname>Nie</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">H.-J</forename><surname>Zhang</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of WWW &apos;01</title>
+		<meeting>WWW &apos;01</meeting>
+		<imprint>
+			<date type="published" when="2001" />
+			<biblScope unit="page" from="162" to="168" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b21">
+	<analytic>
+		<title level="a" type="main">Examining the effectiveness of real-time query expansion</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><forename type="middle">W</forename><surname>White</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">G</forename><surname>Marchionini</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Inf. Process. Manage</title>
+		<imprint>
+			<biblScope unit="volume">43</biblScope>
+			<biblScope unit="issue">3</biblScope>
+			<biblScope unit="page" from="685" to="704" />
+			<date type="published" when="2007" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b22">
+	<analytic>
+		<title level="a" type="main">Optimizing web search using web click-through data</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">G.-R</forename><surname>Xue</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">H.-J</forename><surname>Zeng</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Z</forename><surname>Chen</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Y</forename><surname>Yu</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">W.-Y</forename><surname>Ma</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">W</forename><surname>Xi</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">W</forename><surname>Fan</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of CIKM &apos;04</title>
+		<meeting>CIKM &apos;04</meeting>
+		<imprint>
+			<date type="published" when="2004" />
+			<biblScope unit="page" from="118" to="126" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b23">
+	<analytic>
+		<title level="a" type="main">Model-based feedback in the language modeling approach to information retrieval</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Zhai</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Lafferty</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of CIKM&apos; 01</title>
+		<meeting>CIKM&apos; 01</meeting>
+		<imprint>
+			<date type="published" when="2001" />
+			<biblScope unit="page" from="403" to="410" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+				</listBibl>
+			</div>
+		</back>
+	</text>
+</TEI>

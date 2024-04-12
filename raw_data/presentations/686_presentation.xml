@@ -1,0 +1,202 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>Nomad: online migration for geo-distributed storage systems</p>
+    <p>Nguyen Tran, Marcos K. Aguilera, and Mahesh Balakrishnan</p>
+    <p>Microsoft Research Silicon Valley  New York University</p>
+  </div>
+  <div class="page">
+    <p>Internet applications are increasingly geo-distributed</p>
+    <p>Large web apps no longer at a single site</p>
+    <p>They are geo-distributed Geo-distributed: distributed over multiple sites</p>
+    <p>(site=data center)  Reasons</p>
+    <p>Scalability  Reliability  Access locality: data close to its user</p>
+  </div>
+  <div class="page">
+    <p>Geo-distributed storage systems needs to support migration</p>
+    <p>Best site for data may change  Users relocate  Workload changes  New sites, new network links</p>
+    <p>Migration mechanism  Online: data is available and consistent during migration  Support for canceling migration or changing target  Integrated with caching and replication</p>
+  </div>
+  <div class="page">
+    <p>Sample use case</p>
+    <p>Redmond</p>
+    <p>Cambridge UK</p>
+    <p>Silicon Valley</p>
+    <p>China</p>
+    <p>cache</p>
+  </div>
+  <div class="page">
+    <p>Existing approaches: locking, logging</p>
+    <p>old site new site</p>
+    <p>Writes are blocked during migration Migration may take a long time!!!</p>
+    <p>Locking [Ceph OSDI06] [GFS SOSP03] [Farsite OSDI06]</p>
+  </div>
+  <div class="page">
+    <p>Existing approaches: locking, logging</p>
+    <p>old site new site</p>
+    <p>write log</p>
+    <p>Read/Write</p>
+    <p>Locking [Ceph OSDI06] [GFS SOSP03] [Farsite OSDI06]  Disallow writes during migration</p>
+    <p>Logging [AFS TOCS88] [Farsite OSDI06]</p>
+  </div>
+  <div class="page">
+    <p>Existing approaches: locking, logging</p>
+    <p>Locking [Ceph OSDI06] [GFS SOSP03] [Farsite OSDI06]  Disallow writes during migration</p>
+    <p>Logging [AFS TOCS88] [Farsite OSDI06]  Disallow writes while transferring log  Reads and writes go to old site during migration</p>
+    <p>We want reads and writes on new site, otherwise  Wastes bandwidth  Delays migration benefit</p>
+    <p>Both require additional complexity to support caching and replication consistently  E.g., cache coherence protocol</p>
+  </div>
+  <div class="page">
+    <p>New approach: distributed data overlay</p>
+    <p>Data is accessible at all times  Migration benefit is realized quickly</p>
+    <p>Writes go to new site instantly  Reads are served at new site as soon as possible  Intuition: read first at new site and redirect if data not there</p>
+    <p>Seamlessly support caching and replication</p>
+  </div>
+  <div class="page">
+    <p>Overlay: a simple abstraction</p>
+    <p>Overlays</p>
+    <p>final image</p>
+  </div>
+  <div class="page">
+    <p>Overlay stack structure for an object</p>
+    <p>Data segments Redmond Silicon Valley Cambridge UK</p>
+    <p>overlays</p>
+  </div>
+  <div class="page">
+    <p>Semantics of overlay operations: Create, Read, Write, Migrate</p>
+  </div>
+  <div class="page">
+    <p>Overlay operation: CREATE</p>
+  </div>
+  <div class="page">
+    <p>READ</p>
+    <p>Overlay operation: READ</p>
+  </div>
+  <div class="page">
+    <p>Overlay operation: WRITE</p>
+    <p>WRITE</p>
+  </div>
+  <div class="page">
+    <p>Overlay operation: MIGRATE from to</p>
+    <p>WRITE</p>
+  </div>
+  <div class="page">
+    <p>Using overlays</p>
+    <p>Redmond</p>
+    <p>Cambridge UK</p>
+    <p>Silicon Valley Overlay stack</p>
+    <p>cache</p>
+    <p>China</p>
+    <p>cache</p>
+  </div>
+  <div class="page">
+    <p>Overlay implementation</p>
+  </div>
+  <div class="page">
+    <p>Overlay internals</p>
+    <p>Server side Client side Cache the overlay</p>
+    <p>stack structure At each overlay, maintain local pointers</p>
+    <p>to the above and below overlays</p>
+    <p>Missing from</p>
+    <p>cache</p>
+    <p>Parent pointers</p>
+    <p>Children pointers</p>
+  </div>
+  <div class="page">
+    <p>Local pointers are used to redirect R/W</p>
+    <p>WRITE</p>
+  </div>
+  <div class="page">
+    <p>Challenges of concurrent overlay operations</p>
+  </div>
+  <div class="page">
+    <p>Update pointers in CREATE operation</p>
+    <p>Update order: create pointers at the new overlay before pointers at its parent, before pointer at its child</p>
+    <p>Challenges: pointers are at different machines. Do we need 2PC? Answer: NO</p>
+    <p>Pointers need to be updated</p>
+  </div>
+  <div class="page">
+    <p>Nomads architecture</p>
+    <p>Storage server</p>
+    <p>Storage server</p>
+    <p>Storage server Directory service</p>
+    <p>Object ID  (site, local ID) of the root overlay</p>
+    <p>Client library (Object storage interface)</p>
+    <p>Application Nomad FS</p>
+  </div>
+  <div class="page">
+    <p>Evaluation of overlays</p>
+  </div>
+  <div class="page">
+    <p>Comparison with locking, logging</p>
+    <p>Time [sec]</p>
+    <p>La te</p>
+    <p>nc y</p>
+    <p>[m ill</p>
+    <p>is ec</p>
+    <p>]</p>
+    <p>Object of 50 MB is initially at Redmond  Client at Silicon Valley issues 1 Read and 1 Write every 200 msec  Migrate object from Redmond to Silicon Valley after 50 sec</p>
+    <p>Read, Locking Write, Locking Read, Logging Write, Logging</p>
+    <p>Read, Nomad Write, Nomad</p>
+    <p>Migrate from Redmond to Silicon Valley</p>
+  </div>
+  <div class="page">
+    <p>Nomad provides flexible migration</p>
+    <p>Time [sec]</p>
+    <p>La te</p>
+    <p>nc y</p>
+    <p>[m ill</p>
+    <p>is ec</p>
+    <p>]</p>
+    <p>User is initially at UK  She has 50MB of data  Her working set is 2MB</p>
+    <p>She moves to Boston (MA)  A cache is created for her working set at MA  Her data is migrated to MA</p>
+    <p>She moves to Redmond (WA)  Her cache is migrated from MA to WA  Her data is still migrated from UK to MA</p>
+    <p>She moves to Mountain View (CA)  Her cache is migrated from WA to CA  Her data is still migrated from UK to MA</p>
+    <p>Read Write</p>
+  </div>
+  <div class="page">
+    <p>Policies to drive migration</p>
+  </div>
+  <div class="page">
+    <p>Migration policies  Goal</p>
+    <p>Study when and what to migrate based on cost and predicted benefits</p>
+    <p>Web mail application</p>
+    <p>Suppose user travels and closest site changes. When should we trigger migration of her data?</p>
+    <p>Two simple policies  Count policy: # of accesses at new site is &gt;Tcount  Time policy: user stays at new site for longer than Ttime</p>
+  </div>
+  <div class="page">
+    <p>Evaluation of migration policies</p>
+    <p>Based on trace of Hotmail usage  50,000 random users (Aug-Sept 2009)  Each user: login time, IP address  Convert IP addresses to locations</p>
+  </div>
+  <div class="page">
+    <p>Hotmail users movement</p>
+    <p>User changes sites if she moves more than t miles</p>
+    <p>Data center granularity  Large-DC: t = 2000 miles  Small-DC: t = 450 miles</p>
+  </div>
+  <div class="page">
+    <p>Count policy vs time policy</p>
+    <p>Count policy is better than time policy  At a given time, migrating data for users with more remote accesses</p>
+    <p>yields more benefits</p>
+    <p>Percentage of users migrated (function of thresholds)</p>
+    <p>R em</p>
+    <p>ot e</p>
+    <p>ac ce</p>
+    <p>ss es</p>
+    <p>s av</p>
+    <p>ed</p>
+    <p>pe r</p>
+    <p>m ig</p>
+    <p>ra te</p>
+    <p>d us</p>
+    <p>er</p>
+    <p>Count, Large-DC Count, Small-DC Time, Large-DC Time, Small-DC Migration cost</p>
+    <p>Higher Tcount higher benefit</p>
+    <p>Smaller Tcount smaller benefit</p>
+  </div>
+  <div class="page">
+    <p>Summary</p>
+    <p>Overlays: mechanism for online migration, caching, and replication  More flexible and efficient than prior methods</p>
+    <p>Nomad: object storage system with overlays</p>
+    <p>Study policies to drive migration for Hotmail application</p>
+  </div>
+</Presentation>

@@ -1,0 +1,506 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>wPerf: Generic Off-CPU Analysis to Identify Bottleneck Waiting Events</p>
+    <p>Fang Zhou, Yifan Gan, Sixiang Ma, Yang Wang The Ohio State University</p>
+  </div>
+  <div class="page">
+    <p>Optimizing bottleneck is critical to throughput</p>
+    <p>Bottleneck: factors that limit the throughput of application.</p>
+    <p>Question: where is the bottleneck?</p>
+  </div>
+  <div class="page">
+    <p>Both execution and waiting can create the bottlenecks.</p>
+    <p>Where is the bottleneck?</p>
+    <p>PID %CPU %MEM COMMAND</p>
+    <p>Device tps kB_read/s kB_wrtn/s</p>
+    <p>sda 7.37 0 1778.27</p>
+    <p>Where is the bottleneck?</p>
+  </div>
+  <div class="page">
+    <p>On-CPU &amp; Off-CPU analysis</p>
+    <p>On-CPU analysis  What execution events are creating the bottleneck?  Quite well studied: Recording execution time (perf, oprofile, etc.), Critical Path</p>
+    <p>Analysis, Causal Profiler (Coz SOSP15), etc.</p>
+    <p>Off-CPU analysis  What waiting events are creating the bottleneck?  Common waiting events: lock contention, condition variable, I/O waiting, etc.  Lock-based (e.g., SyncPerf EuroSys17, etc.) solutions are incomplete.  Length-based (e.g., Off-CPU flamegraph, etc.) solutions are inaccurate.</p>
+  </div>
+  <div class="page">
+    <p>Key challenge of off-CPU analysis</p>
+    <p>Local impact vs global impact</p>
+    <p>Local impact: impact on threads directly waiting for the event  Global impact: impact on the whole application  Large local impact does not mean large global impact</p>
+  </div>
+  <div class="page">
+    <p>Overview of wPerf</p>
+    <p>Goal: identify bottlenecks caused by all kinds of waiting events.  (Note: how to optimize bottlenecks requires the users efforts)</p>
+    <p>To compute global impact  Generate a holistic view (wait-for graph) of the application  Theorem: knot in a wait-for graph must contain a bottleneck</p>
+    <p>Results:  Up to 4.83x improvement in seven open source applications</p>
+  </div>
+  <div class="page">
+    <p>Concrete example</p>
+    <p>Queue is a producer-consumer queue with max size k. Assume k = 1 for simplicity. Thread A (enqueue) blocks if queue size is 1. Thread B (dequeue) blocks if queue size is 0.</p>
+    <p>while (true) recv req from network funA(req) // 2ms queue.enqueue(req)</p>
+    <p>Thread A while (true)</p>
+    <p>req = queue.dequeue() funB(req) // 5ms log req to a file sync() // 5ms</p>
+    <p>Thread B</p>
+  </div>
+  <div class="page">
+    <p>Concrete example</p>
+    <p>Queue</p>
+    <p>Thread A</p>
+    <p>Thread B</p>
+    <p>Disk</p>
+    <p>NIC</p>
+    <p>FunA Waiting EventFunB Sync Queue NIC</p>
+    <p>Time</p>
+    <p>Ri</p>
+    <p>R1</p>
+    <p>R2</p>
+    <p>R2</p>
+    <p>R2</p>
+    <p>R3</p>
+    <p>R3</p>
+    <p>R1</p>
+    <p>R1</p>
+    <p>R2</p>
+    <p>R2</p>
+    <p>R3</p>
+    <p>R3</p>
+    <p>R3</p>
+    <p>R5</p>
+    <p>R4</p>
+    <p>R4</p>
+    <p>R6</p>
+    <p>R5</p>
+    <p>R4R1R1</p>
+  </div>
+  <div class="page">
+    <p>Concrete example</p>
+    <p>Queue</p>
+    <p>Thread A</p>
+    <p>Thread B</p>
+    <p>Disk</p>
+    <p>NIC</p>
+    <p>FunA Waiting EventFunB Sync Queue NIC</p>
+    <p>Time</p>
+    <p>Ri</p>
+    <p>R1 R2</p>
+    <p>R3</p>
+    <p>R3</p>
+    <p>R1</p>
+    <p>R2</p>
+    <p>R2</p>
+    <p>R3</p>
+    <p>R3</p>
+    <p>R3</p>
+    <p>R5</p>
+    <p>R4</p>
+    <p>R4</p>
+    <p>R6</p>
+    <p>R5</p>
+    <p>R4R1 R2R2</p>
+    <p>R1R1</p>
+  </div>
+  <div class="page">
+    <p>Concrete example</p>
+    <p>Queue</p>
+    <p>Thread A</p>
+    <p>Thread B</p>
+    <p>Disk</p>
+    <p>NIC</p>
+    <p>FunA Waiting EventFunB Sync Queue NIC</p>
+    <p>Time</p>
+    <p>Ri</p>
+    <p>R1 R2</p>
+    <p>R3</p>
+    <p>R1</p>
+    <p>R2</p>
+    <p>R2</p>
+    <p>R3</p>
+    <p>R3</p>
+    <p>R3</p>
+    <p>R5</p>
+    <p>R4</p>
+    <p>R4</p>
+    <p>R6</p>
+    <p>R5</p>
+    <p>R4R1 R2R2</p>
+    <p>R1 R2</p>
+    <p>R1R1</p>
+    <p>R2</p>
+    <p>R3</p>
+  </div>
+  <div class="page">
+    <p>Concrete example</p>
+    <p>Queue</p>
+    <p>Thread A</p>
+    <p>Thread B</p>
+    <p>Disk</p>
+    <p>NIC</p>
+    <p>FunA Waiting EventFunB Sync Queue NIC</p>
+    <p>Time</p>
+    <p>Ri</p>
+    <p>R1 R2</p>
+    <p>R3</p>
+    <p>R2</p>
+    <p>R2</p>
+    <p>R3</p>
+    <p>R3</p>
+    <p>R3</p>
+    <p>R5</p>
+    <p>R4</p>
+    <p>R4</p>
+    <p>R6</p>
+    <p>R5</p>
+    <p>R4R1 R2R2</p>
+    <p>R1 R2</p>
+    <p>R1R1</p>
+    <p>R2</p>
+    <p>R3</p>
+    <p>R1</p>
+  </div>
+  <div class="page">
+    <p>Concrete example</p>
+    <p>Queue</p>
+    <p>Thread A</p>
+    <p>Thread B</p>
+    <p>Disk</p>
+    <p>NIC</p>
+    <p>FunA Waiting EventFunB Sync Queue NIC</p>
+    <p>Time</p>
+    <p>Ri</p>
+    <p>R1 R2</p>
+    <p>R3</p>
+    <p>R2</p>
+    <p>R3</p>
+    <p>R3</p>
+    <p>R3</p>
+    <p>R5</p>
+    <p>R4</p>
+    <p>R6</p>
+    <p>R5</p>
+    <p>R1 R2R2</p>
+    <p>R1 R2</p>
+    <p>R1R1</p>
+    <p>R3</p>
+    <p>R1</p>
+    <p>R2</p>
+    <p>R4R4</p>
+  </div>
+  <div class="page">
+    <p>R2</p>
+    <p>Concrete example</p>
+    <p>Queue</p>
+    <p>Thread A</p>
+    <p>Thread B</p>
+    <p>Disk</p>
+    <p>NIC</p>
+    <p>FunA Waiting EventFunB Sync Queue NIC</p>
+    <p>Time</p>
+    <p>Ri</p>
+    <p>R1 R2</p>
+    <p>R3</p>
+    <p>R3</p>
+    <p>R3</p>
+    <p>R3</p>
+    <p>R5</p>
+    <p>R4</p>
+    <p>R4</p>
+    <p>R6</p>
+    <p>R5</p>
+    <p>R4R1 R2R2</p>
+    <p>R1 R2</p>
+    <p>R1R1</p>
+    <p>R3</p>
+    <p>R1</p>
+    <p>R2</p>
+  </div>
+  <div class="page">
+    <p>Concrete example</p>
+    <p>Queue</p>
+    <p>Thread A</p>
+    <p>Thread B</p>
+    <p>Disk</p>
+    <p>NIC</p>
+    <p>FunA Waiting EventFunB Sync Queue NIC</p>
+    <p>Time</p>
+    <p>Ri</p>
+    <p>R1 R2</p>
+    <p>R3</p>
+    <p>R2</p>
+    <p>R2 R3</p>
+    <p>R3</p>
+    <p>R5</p>
+    <p>R4</p>
+    <p>R6R4R1 R2R2</p>
+    <p>R1 R2</p>
+    <p>R1R1</p>
+    <p>R3</p>
+    <p>R1</p>
+    <p>R3</p>
+    <p>R4</p>
+    <p>R5</p>
+  </div>
+  <div class="page">
+    <p>Concrete example</p>
+    <p>Queue</p>
+    <p>Thread A</p>
+    <p>Thread B</p>
+    <p>Disk</p>
+    <p>NIC</p>
+    <p>FunA Waiting EventFunB Sync Queue NIC</p>
+    <p>Time</p>
+    <p>Ri</p>
+    <p>R1 R2</p>
+    <p>R3</p>
+    <p>R2</p>
+    <p>R2</p>
+    <p>R3</p>
+    <p>R3</p>
+    <p>R3</p>
+    <p>R5</p>
+    <p>R4</p>
+    <p>R4</p>
+    <p>R6</p>
+    <p>R5</p>
+    <p>R4R1 R2R2</p>
+    <p>R1 R2</p>
+    <p>R1R1</p>
+    <p>R3</p>
+    <p>R1</p>
+    <p>R3</p>
+    <p>R4</p>
+    <p>R6</p>
+    <p>R5</p>
+  </div>
+  <div class="page">
+    <p>Concrete example</p>
+    <p>Queue</p>
+    <p>syncing</p>
+    <p>Thread A</p>
+    <p>Thread B</p>
+    <p>Disk</p>
+    <p>NIC</p>
+    <p>FunA Waiting EventFunB Sync Queue NIC</p>
+    <p>Time</p>
+    <p>Ri</p>
+    <p>R1</p>
+    <p>syncing syncing</p>
+    <p>R2</p>
+    <p>R3</p>
+    <p>R2</p>
+    <p>R2</p>
+    <p>R3</p>
+    <p>R3</p>
+    <p>R3</p>
+    <p>R5</p>
+    <p>R4</p>
+    <p>R4</p>
+    <p>R6</p>
+    <p>R5</p>
+    <p>R4R1 R2R2</p>
+    <p>R1 R2</p>
+    <p>R1R1</p>
+    <p>R3</p>
+    <p>R1</p>
+  </div>
+  <div class="page">
+    <p>Observation: waiting is important</p>
+    <p>Observations: Waiting can have a large impact on throughput. Longer waiting events may not be more important. Contention is not the only waiting event that matters.</p>
+    <p>Thread A</p>
+    <p>Thread B</p>
+    <p>Disk</p>
+    <p>syncing syncingsyncing</p>
+    <p>FunA Waiting EventFunB Sync</p>
+  </div>
+  <div class="page">
+    <p>Observation: waiting is important</p>
+    <p>Thread A</p>
+    <p>Thread B</p>
+    <p>Disk</p>
+    <p>Observations : Waiting can have a large impact on throughput. Longer waiting events may not be more important. Contention is not the only waiting event that matters.</p>
+    <p>FunA Waiting EventFunB Sync</p>
+  </div>
+  <div class="page">
+    <p>Observation: long waiting may not be important</p>
+    <p>Observations : Waiting can have a large impact on throughput. Longer waiting events may not be more important.  Large local impact does not mean large global impact. Contention is not the only waiting event that matters.</p>
+    <p>Thread A</p>
+    <p>Thread B</p>
+    <p>Disk</p>
+    <p>syncing syncingsyncing</p>
+    <p>FunA Waiting EventFunB Sync</p>
+  </div>
+  <div class="page">
+    <p>Observation: contention is not everything</p>
+    <p>Observations: Waiting can have a large impact on throughput. Longer waiting events may not be more important. Contention is not the only waiting event that matters.</p>
+    <p>Thread A</p>
+    <p>Thread B</p>
+    <p>Disk</p>
+    <p>syncing syncingsyncing</p>
+    <p>FunA Waiting EventFunB Sync</p>
+  </div>
+  <div class="page">
+    <p>Key insights of wPerf</p>
+    <p>Insight 1: to improve the throughput, we need to improve all the threads involved in request processing (worker threads).  Worker threads: request handling, disk flushing, garbage collection, etc.  Background threads: heartbeat processing, deadlock checking, etc.  See formal definition in the paper.</p>
+    <p>Implication:  Bottleneck is an event whose optimization can improve all worker threads</p>
+  </div>
+  <div class="page">
+    <p>Key insights of wPerf</p>
+    <p>Insight 1: a bottleneck is an event whose optimization can improve all worker threads.</p>
+    <p>Thread A</p>
+    <p>Thread B</p>
+    <p>Disk</p>
+  </div>
+  <div class="page">
+    <p>Key insights of wPerf</p>
+    <p>Optimizing sync can double the throughputs of all worker threads, so sync is a bottleneck.</p>
+    <p>Thread A Thread B Disk</p>
+    <p>Thread A Thread B Disk</p>
+    <p>Before optimization:</p>
+    <p>After optimization:</p>
+  </div>
+  <div class="page">
+    <p>Key insights of wPerf</p>
+    <p>Insight 1: a bottleneck is an event whose optimization can improve all worker threads</p>
+    <p>Insight 2: if thread B never waits for A, either directly or indirectly, then optimizing As event will not help B.  Implication: As event is not a bottleneck, if B is a worker thread.</p>
+  </div>
+  <div class="page">
+    <p>Key insights of wPerf</p>
+    <p>Insight 2: if thread B never waits for A, either directly or indirectly, then optimizing As event will not help B.</p>
+    <p>Thread A</p>
+    <p>Thread B</p>
+    <p>Disk</p>
+  </div>
+  <div class="page">
+    <p>Key idea of wPerf</p>
+    <p>Insight 1: a bottleneck is an event whose optimization can improve all worker threads</p>
+    <p>Insight 2: if thread B never waits for A, either directly or indirectly, then optimizing As event will not help B.  Implication: As event is not a bottleneck, if B is a worker thread.</p>
+    <p>Key idea: narrow down the search space by excluding non-bottlenecks</p>
+  </div>
+  <div class="page">
+    <p>Key idea of wPerf</p>
+    <p>Construct a holistic view of the application using wait-for graph:  Each thread is a vertex.  A directed edge (A-&gt;B) means thread A sometimes is waiting for thread B.</p>
+    <p>The wait-for graph of the example</p>
+    <p>Knot</p>
+    <p>Theorem: Each knot with at least one worker contains a bottleneck.  A knot is a strongly connected component with no outgoing edges.  Optimizing events outside of knot cannot improve worker in the knot.</p>
+  </div>
+  <div class="page">
+    <p>Theory vs Practice</p>
+    <p>Theory Practice</p>
+  </div>
+  <div class="page">
+    <p>Solution: trim unimportant edges</p>
+    <p>wPerf trims edges with little impact on throughput.  However, computing global impact is a challenging problem in the first place.</p>
+    <p>Solution: use the waiting time spent on an edge to estimate the upper bound of the benefit of optimizing the edge.</p>
+    <p>Challenge: nested waiting</p>
+  </div>
+  <div class="page">
+    <p>An example of nested waiting WaitingRunning</p>
+    <p>t0 t1 t2 Time</p>
+    <p>A</p>
+    <p>B</p>
+    <p>C</p>
+    <p>Wake up</p>
+  </div>
+  <div class="page">
+    <p>Nave approach to compute waiting time WaitingRunning</p>
+    <p>t0 t1 t2 Time</p>
+    <p>A</p>
+    <p>B</p>
+    <p>C</p>
+    <p>Wake up</p>
+    <p>Nave approach: A waits for B from t0 to t2, add (t2-t0) to A-&gt;B. B waits for C from t0 to t1, add (t1-t0) to B-&gt;C.</p>
+    <p>Problem: underestimate B-&gt;C</p>
+    <p>Wait-for graph A</p>
+    <p>B</p>
+    <p>C</p>
+    <p>(t2-t0)</p>
+    <p>(t1-t0)</p>
+  </div>
+  <div class="page">
+    <p>wPerfs solution WaitingRunning</p>
+    <p>t0 t1 t2 Time</p>
+    <p>A</p>
+    <p>B</p>
+    <p>C</p>
+    <p>Wake up</p>
+    <p>Detailed algorithm: cascaded re-distribution</p>
+    <p>Wait-for graph A</p>
+    <p>B</p>
+    <p>C</p>
+    <p>(t2-t0)</p>
+  </div>
+  <div class="page">
+    <p>wPerfs overall algorithm</p>
+    <p>Termination condition: smallest weight in the knot is larger than a threshold -Threshold value depends on how much improvement the user expects.</p>
+  </div>
+  <div class="page">
+    <p>Overall procedure of using wPerf</p>
+    <p>This step requires users effort</p>
+    <p>Annotation if necessary</p>
+    <p>Run the application with wPerf</p>
+    <p>Run wPerf analyzer</p>
+    <p>Investigate the source code of bottleneckOptimize</p>
+    <p>Automatic</p>
+  </div>
+  <div class="page">
+    <p>Evaluation</p>
+    <p>Case studies: Can wPerf identify bottlenecks in real applications?  We apply wPerf to seven open-source applications.  To confirm wPerfs accuracy, we tried to investigate and optimize the</p>
+    <p>bottlenecks reported by wPerf.</p>
+    <p>Overhead:  How much does recording slow down the application?  Required users effort?</p>
+  </div>
+  <div class="page">
+    <p>Summary of case studies</p>
+    <p>Application Problem Speedup after Optimization</p>
+    <p>Recording Overhead</p>
+    <p>Known fixes?</p>
+    <p>HBase 0.92 Blocking write 2.74x 3.37% Yes ZooKeeper 3.4.11 Blocking write 4.83x 2.84% No HDFS 2.70 Blocking write 2.56x 3.40% Yes grep over NFS Blocking read 3.9x 0.77% No BlockGrace Load imbalance 1.44x 8.04% No Memcached Lock contention 1.64x 2.43% Partially MySQL Lock contention 1.42x 14.64% Yes</p>
+  </div>
+  <div class="page">
+    <p>Case study: HBase</p>
+    <p>Workload: write workload with 1KB KV pairs.</p>
+    <p>Our solution: reducing blocking between Handler and RespProc</p>
+    <p>HBase uses parallel flushing to alleviate this problem, but the default setting of 10 handler threads is not enough.</p>
+    <p>Wait-for graph of original RegionServer</p>
+    <p>Bottleneck</p>
+  </div>
+  <div class="page">
+    <p>Case study: HBase</p>
+    <p>Workload: write workload with 1KB KV pairs.</p>
+    <p>Our solution: reducing blocking between Handler and RespProc</p>
+    <p>HBase uses parallel flushing to alleviate this problem, but the default setting of 10 handler threads is not enough.</p>
+    <p>Wait-for graph of original RegionServer</p>
+    <p>Use fast networks</p>
+  </div>
+  <div class="page">
+    <p>Case study: HBase</p>
+    <p>Workload: write workload with 1KB KV pairs.</p>
+    <p>Our solution: reducing blocking between Handler and RespProc</p>
+    <p>HBase uses parallel flushing to alleviate this problem, but the default setting of 10 handler threads is not enough.</p>
+    <p>Wait-for graph of original RegionServer</p>
+    <p>Reduce blocking</p>
+  </div>
+  <div class="page">
+    <p>Case study: HBase</p>
+    <p>Increasing handler count to 60 can improve throughput by 41%.</p>
+    <p>Comparing to the previous one, the weight of Handler-&gt;RespProc is much smaller (87.42 -&gt; 16.54).</p>
+    <p>Optimize Handlers can further improve throughput.</p>
+    <p>New wait-for graph of RegionServer after optimization</p>
+    <p>Bottleneck</p>
+  </div>
+  <div class="page">
+    <p>Users efforts when using wPerf</p>
+    <p>This step requires users effort</p>
+    <p>Annotation if necessary</p>
+    <p>Run the application with wPerf</p>
+    <p>Run wPerf analyzer</p>
+    <p>Investigate the source code of bottleneckOptimize</p>
+    <p>Usually a few hoursA few minutes to a week</p>
+  </div>
+  <div class="page">
+    <p>Summary and future work</p>
+    <p>wPerf identifies events with large impacts on all worker threads.</p>
+    <p>wPerf can find bottlenecks others cannot find.</p>
+    <p>In the future, we plan to extend wPerf to distributed systems.</p>
+    <p>You can find the source code of wPerf in github. https://github.com/OSUSysLab/wPerf</p>
+    <p>Poster number: 12 wPerf</p>
+  </div>
+</Presentation>

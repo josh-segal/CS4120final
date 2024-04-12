@@ -1,0 +1,192 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>Enabling MAC Protocol Implementations on Software-defined Radios</p>
+    <p>George Nychis, Thibaud Hottelier, Zhuochen Yang, Srinivasan Seshan, and Peter Steenkiste</p>
+    <p>Carnegie Mellon University</p>
+  </div>
+  <div class="page">
+    <p>Wireless Media Access Control Protocols</p>
+    <p>No single one-size-fits-all MAC  definition of performance, and how to achieve</p>
+    <p>it, varies greatly</p>
+    <p>Wireless MACs: extremely diverse  long-haul, mesh, lossy, dense, mobile</p>
+    <p>Novel fundamental wireless optimizations:  MIXIT, PPR, Successive IC, ZigZag,</p>
+    <p>How can we easily implement diverse MAC protocols and optimizations?</p>
+  </div>
+  <div class="page">
+    <p>+ High Performance (DSP)</p>
+    <p>+ Low cost ($30)</p>
+    <p>- Closed source  most of the MAC</p>
+    <p>- Fixed functionality:  Physical layer, 2.4GHz</p>
+    <p>Wireless NICs Software Radios + Various open source</p>
+    <p>platforms</p>
+    <p>+ Fully reprogrammable  and various frequencies!</p>
+    <p>- Higher cost ($700-$10K)</p>
+    <p>- Lower performance (GPP)  large delays</p>
+    <p>Current MAC Protocol Development</p>
+  </div>
+  <div class="page">
+    <p>Implementing MACs on SDRs</p>
+    <p>Various projects using SDRs for evaluation:  MIXIT, PPR, Successive IC, ZigZag</p>
+    <p>The above all use GNU Radio + USRP:  extreme SDR all processing in userspace  great as a research platform (PHY+MAC)</p>
+    <p>No high-performance MAC protocol implemented on GNU Radio &amp; USRP</p>
+  </div>
+  <div class="page">
+    <p>Outline of the Talk</p>
+    <p>Why MAC implementation on SDRs is challenging</p>
+    <p>How to overcome SDR limitations, enabling highperformance and flexible MAC implementations  A novel approach: Split-functionality API</p>
+    <p>Present evaluation of the first high-performance MACs on an extreme architecture</p>
+    <p>Implications and Conclusions</p>
+  </div>
+  <div class="page">
+    <p>Extreme SDR Architecture</p>
+    <p>+</p>
+    <p>Medium</p>
+    <p>ADC</p>
+    <p>DAC Antenna</p>
+    <p>FPGA</p>
+    <p>F ro</p>
+    <p>n t</p>
+    <p>E n</p>
+    <p>d</p>
+    <p>Bus (USB) +</p>
+    <p>K er</p>
+    <p>n el</p>
+    <p>Userspace</p>
+    <p>Modulation, Framing</p>
+    <p>negligible 15ns 25s 120s</p>
+    <p>SIFS DIFS ACK-TO CS</p>
+    <p>&lt;10s 10s 28s 22s</p>
+    <p>Simply packing the samples takes too long for an ACK!</p>
+  </div>
+  <div class="page">
+    <p>Solutions to Bypass Delay</p>
+    <p>Common: move the layers closer to the frontend  WARP: PHY+MAC on the radio hardware  SORA: PHY+MAC in kernel, core ded., SIMD, LUT</p>
+    <p>Completely viable solutions, but:  costly (hardware is more complex, WARP: $10K+)  can require special toolkits (e.g., XPS)  requires embedded architecture knowledge  portability and interface (SIMD, PCI-E)</p>
+  </div>
+  <div class="page">
+    <p>An Alternate Solution  Split-functionality approach, break all core MAC</p>
+    <p>functions (e.g., carrier sense) in to 2 pieces:  1 small piece on the radio hardware (performance)  1 piece on the host (flexibility)</p>
+    <p>Then, develop an API for the core functions  logical control channel and per-block metadata  per-packet control of the functions &amp; hardware  applicable to other SDR architectures</p>
+  </div>
+  <div class="page">
+    <p>Indentifying the Core MAC Functions</p>
+    <p>Building blocks of MAC protocols:  carrier sense  precision scheduling  backoff  fast-packet detection  dependent packet generation  fine-grained radio control</p>
+    <p>Difficult to claim that any list is correct and complete  reasonable first toolbox</p>
+    <p>Random Backoff</p>
+    <p>Guard Periods</p>
+    <p>SIFS/DIFS ACK</p>
+    <p>Synchronization MIMO</p>
+    <p>Frequency Hop</p>
+    <p>Power Control</p>
+    <p>Slot Times Rate Adaptation</p>
+    <p>Beacons Carrier Sense</p>
+    <p>MIMO Synchronization</p>
+    <p>Beacons</p>
+    <p>SIFS/DIFS</p>
+  </div>
+  <div class="page">
+    <p>Precision Scheduling  Split-functionality API approach:  Scheduling on the host (flexibility)  Triggering on the hardware (performance)  requires a lead time that varies based on architecture</p>
+    <p>+</p>
+    <p>Bus (USB)</p>
+    <p>H os</p>
+    <p>t M</p>
+    <p>ac h</p>
+    <p>in e</p>
+    <p>Radio Hardware</p>
+    <p>Data</p>
+    <p>FPGA</p>
+    <p>Timestamp =?</p>
+    <p>clock</p>
+    <p>clock samples/bits/packet</p>
+  </div>
+  <div class="page">
+    <p>Precision Scheduling  Split-functionality API approach:  Scheduling on the host (flexibility)  Triggering on the hardware (performance)  requires a lead time that varies based on architecture</p>
+    <p>Average measured error in TX scheduling using GNU Radio and USRP:</p>
+    <p>Precision Host 1ms</p>
+  </div>
+  <div class="page">
+    <p>Revisiting the Core MAC Functions</p>
+    <p>Building blocks of MAC protocols:  carrier sense  precision scheduling  backoff  fast-packet detection  dependent packet generation  fine-grained radio control</p>
+    <p>Difficult to claim that any list is correct and complete  reasonable first toolbox</p>
+  </div>
+  <div class="page">
+    <p>Fast-Packet Detection  Goal: accurately detect packets in the hardware</p>
+    <p>The longer it takes to detect a packet, the longer a response packet takes (dependent packet)  Can be used to trigger pre-modulated DPs (ACKs)</p>
+    <p>Demodulate only when necessary (CPU intensive)  provides host confidence of a packet in the stream  not only detect a packet, but that it is for this radio</p>
+    <p>Can be used in other architectures:  SORA: used to trigger core dedication  Kansas SDR: battery powered, reduces consumption</p>
+  </div>
+  <div class="page">
+    <p>Fast-Packet Detection in Hardware</p>
+    <p>Perform signal detection using a matched filter  optimal linear filter for maximizing SNR  widely used technique in communications  flexible to all modulation schemes  cross-correlation of unknown &amp; known signals</p>
+    <p>Incoming sample stream</p>
+    <p>Modulated framing bits</p>
+  </div>
+  <div class="page">
+    <p>Packet Detection Host Setup</p>
+    <p>+</p>
+    <p>Host</p>
+    <p>Modulator (GMSK)</p>
+    <p>t</p>
+    <p>x[t]</p>
+    <p>known signal</p>
+  </div>
+  <div class="page">
+    <p>Packet Detection in Hardware</p>
+    <p>+</p>
+    <p>Radio Hardware (RX)</p>
+    <p>FPGA</p>
+    <p>Matched Filter</p>
+    <p>unknown</p>
+    <p>known</p>
+    <p>Trigger</p>
+    <p>+ Host</p>
+    <p>smpls</p>
+    <p>corr. No Yes</p>
+  </div>
+  <div class="page">
+    <p>Fast Packet Detection Accuracy  Simulation: detect 1000 data packets destined to the</p>
+    <p>host in varying noise using GMSK and the mfilter</p>
+    <p>Confirmed in real world (in paper)</p>
+    <p>100% accuracy detecting frames</p>
+    <p>&lt;.5% false detections (i.e., falsely claiming an incoming packet)</p>
+  </div>
+  <div class="page">
+    <p>Revisiting the Core MAC Functions</p>
+    <p>Building blocks of MAC protocols:  carrier sense  precision scheduling  backoff  fast-packet detection  dependent packet generation  fine-grained radio control</p>
+    <p>details in the paper!</p>
+  </div>
+  <div class="page">
+    <p>Putting it all together</p>
+    <p>Core MAC functions and the split-functionality API implemented on GNU Radio &amp; USRP</p>
+    <p>The proof is in the pudding  we implement two popular MACs  802.11-like and Bluetooth-like protocols  shows ability in keeping flexibility  used to evaluate total performance gain</p>
+  </div>
+  <div class="page">
+    <p>CSMA 802.11-like Protocol  Uses the following core functions:  Carrier sense, backoff, fast-packet recognition, and</p>
+    <p>dependent packets</p>
+    <p>Compare host based-implementation to splitfunctionality implementation  host implements everything in GNU Radio (GPP)</p>
+    <p>Cannot interoperate with 802.11 due to limitations of the USRP, but possible with USRP2</p>
+  </div>
+  <div class="page">
+    <p>USRP (SDR board) configuration:  Target bitrate of 500Kbps  Use 2.485GHz, avoid 802.11 interference  Ten transfers of 1MB files between pairs of nodes</p>
+  </div>
+  <div class="page">
+    <p>TDMA Bluetooth-like Protocol Design</p>
+    <p>TDMA-based protocol like Bluetooth:  Construct piconet consisting of a master &amp; slaves  Slaves synchronize to a masters beacon frame  650s slot times</p>
+    <p>Compare split-functionality to host-based again</p>
+    <p>Bluetooth-like since the USRP cannot frequency hop at Bluetooths rate</p>
+  </div>
+  <div class="page">
+    <p>USRP: target bitrate of 500Kbps</p>
+    <p>Perform ten 100KB file xfers</p>
+    <p>Vary number of slaves</p>
+    <p>Vary guard time (needed to account for scheduling error)</p>
+    <p>Bluetooth-like Protocol Evaluation</p>
+  </div>
+  <div class="page">
+    <p>Conclusions  The API developed enables a split-functionality</p>
+    <p>approach:  maintains flexibility &amp; performance  aspects applicable to other architectures</p>
+    <p>Identified core MAC functions suitable as a first toolbox that can be extended</p>
+    <p>First to implement high-performance MACs on an extreme SDR such as GNU Radio &amp; USRP</p>
+  </div>
+</Presentation>

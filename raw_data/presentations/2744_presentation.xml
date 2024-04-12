@@ -1,0 +1,250 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>LHD: IMPROVING CACHE HIT RATE BY MAXIMIZING</p>
+    <p>HIT DENSITY</p>
+    <p>USENIX NSDI 2018</p>
+    <p>Nathan Beckmann</p>
+    <p>CMU</p>
+    <p>Haoxian Chen</p>
+    <p>U. Penn</p>
+    <p>Asaf Cidon</p>
+    <p>Stanford &amp; Barracuda Networks</p>
+  </div>
+  <div class="page">
+    <p>Key-value cache is 100X faster than database</p>
+    <p>Web Server</p>
+  </div>
+  <div class="page">
+    <p>Key-value cache hit rate determines web application performance  At 98% cache hit rate:</p>
+    <p>+1% hit rate  35% speedup  Old latency: 374 s  New latency: 278 s  Facebook study [Atikoglu, Sigmetrics 12]</p>
+    <p>Even small hit rate improvements cause significant speedup</p>
+  </div>
+  <div class="page">
+    <p>Choosing the right eviction policy is hard</p>
+    <p>Key-value caches have unique challenges  Variable object sizes  Variable workloads</p>
+    <p>Prior policies are heuristics that combine recency and frequency  No theoretical foundation  Require hand-tuning  fragile to workload changes</p>
+    <p>No policy works for all workloads  Prior system simulates many cache policy configurations to find right one per workload</p>
+    <p>[Waldspurger, ATC 17]</p>
+  </div>
+  <div class="page">
+    <p>GOAL: AUTO-TUNING</p>
+    <p>EVICTION POLICY ACROSS WORKLOADS</p>
+  </div>
+  <div class="page">
+    <p>The big picture of key-value caching</p>
+    <p>Goal: Maximize cache hit rate</p>
+    <p>Constraint: Limited cache space</p>
+    <p>Uncertainty: In practice, dont know what is accessed when</p>
+    <p>Difficulty: Objects have variable sizes</p>
+  </div>
+  <div class="page">
+    <p>Where does cache space go?</p>
+    <p>Lets see what happens on a short trace  A B B A C B A B D A B C D A B C B</p>
+    <p>S pa</p>
+    <p>ce</p>
+    <p>Time</p>
+    <p>X</p>
+    <p>B</p>
+    <p>Y</p>
+    <p>A</p>
+    <p>B BB</p>
+    <p>A</p>
+    <p>Y</p>
+    <p>X</p>
+    <p>B</p>
+    <p>A</p>
+    <p>Y</p>
+    <p>X</p>
+    <p>A A</p>
+    <p>B</p>
+    <p>Y</p>
+    <p>X</p>
+    <p>B</p>
+    <p>Y</p>
+    <p>Hit! J</p>
+    <p>C</p>
+    <p>A</p>
+    <p>X</p>
+    <p>Eviction! L</p>
+  </div>
+  <div class="page">
+    <p>Where does cache space go?</p>
+    <p>Green box = 1 hit</p>
+    <p>Red box = 0 hits</p>
+    <p>Want to fit as many green boxes as possible</p>
+    <p>Each box costs resources = area</p>
+    <p>Cost proportional to size &amp; time spent in cache</p>
+    <p>A A</p>
+    <p>A B B A C B A B D A B C D A B C B</p>
+    <p>A</p>
+    <p>A</p>
+    <p>B B B C</p>
+    <p>B</p>
+    <p>D D B B</p>
+    <p>C C</p>
+    <p>X</p>
+    <p>B</p>
+    <p>Y</p>
+    <p>B</p>
+    <p>A</p>
+    <p>S pa</p>
+    <p>ce</p>
+    <p>Time</p>
+    <p>Hit! J</p>
+    <p>Eviction! L</p>
+  </div>
+  <div class="page">
+    <p>THE KEY IDEA: HIT DENSITY</p>
+  </div>
+  <div class="page">
+    <p>Our metric: Hit density (HD)</p>
+    <p>Hit density combines hit probability and expected cost</p>
+    <p>Least hit density (LHD) policy: Evict object with smallest hit density</p>
+    <p>But how do we predict these quantities?</p>
+    <p>Hit density = 2</p>
+    <p>2 size2</p>
+  </div>
+  <div class="page">
+    <p>Estimating hit density (HD)</p>
+    <p>Age  # accesses since object was last requested</p>
+    <p>Random variables    hit age (e.g., P[ = 100] is probability an object hits after 100 accesses)    lifetime (e.g., P[L = 100] is probability an object hits or is evicted after 100 accesses)</p>
+    <p>Easy to estimate HD from these quantities:</p>
+    <p>=  P[ = ]XYZ[</p>
+    <p>P[ = ]XYZ[</p>
+  </div>
+  <div class="page">
+    <p>Example: Estimating HD from object age</p>
+    <p>Estimate HD using conditional probability</p>
+    <p>Monitor distribution of  &amp;  online</p>
+    <p>By definition, object of age  wasnt requested at age     Ignore all events before</p>
+    <p>Hit probability = P hit age ] =  i jZklmno  i pZklmno</p>
+    <p>Expected remaining lifetime = E    age ] =  (kxY) i pZklmno</p>
+    <p>i pZklmno</p>
+    <p>Candidate age</p>
+    <p>Age</p>
+    <p>H it</p>
+    <p>p ro</p>
+    <p>ba bi</p>
+    <p>lit y</p>
+  </div>
+  <div class="page">
+    <p>LHD by example</p>
+    <p>Users ask repeatedly for common objects and some user-specific objects</p>
+    <p>Common User-specific</p>
+    <p>Best hand-tuned policy for this app: Cache common media + as much user-specific as fits</p>
+    <p>More popular Less popular</p>
+  </div>
+  <div class="page">
+    <p>Probability of referencing object again</p>
+    <p>Common object modeled as scan, user-specific object modeled as Zipf</p>
+  </div>
+  <div class="page">
+    <p>LHD by example: whats the hit density?</p>
+    <p>High hit probability</p>
+    <p>Older objs closer to peak  expected lifetime decreases with age</p>
+    <p>Hit density large &amp; increasing</p>
+    <p>Low hit probability</p>
+    <p>Older objects are probably unpopular  expected lifetime increases with age</p>
+    <p>Hit density small &amp; decreasing</p>
+  </div>
+  <div class="page">
+    <p>LHD by example: policy summary</p>
+    <p>LHD automatically implements the best hand-tuned policy:</p>
+    <p>First, protect the common media, then cache most popular user content</p>
+    <p>Hit density large &amp; increasing Hit density small &amp; decreasing</p>
+  </div>
+  <div class="page">
+    <p>Improving LHD using additional object features</p>
+    <p>Conditional probability lets us easily add information!</p>
+    <p>Condition  &amp;  upon additional informative object features, e.g.,</p>
+    <p>Which app requested this object?</p>
+    <p>How long has this object taken to hit in the past?</p>
+    <p>Features inform decisions  LHD learns the right policy  No hard-coded heuristics!</p>
+  </div>
+  <div class="page">
+    <p>LHD gets more hits than prior policies</p>
+    <p>Lower is better!</p>
+  </div>
+  <div class="page">
+    <p>LHD gets more hits across many traces</p>
+  </div>
+  <div class="page">
+    <p>LHD needs much less space</p>
+  </div>
+  <div class="page">
+    <p>Why does LHD do better?</p>
+    <p>Case study vs. AdaptSize [Berger et al, NSDI17]  AdaptSize improves LRU by bypassing most large objects</p>
+    <p>LHD admits all objects  more hits from big objects</p>
+    <p>LHD evicts big objects quickly  small objects survive longer  more hits Smallest objects</p>
+    <p>Biggest objects</p>
+  </div>
+  <div class="page">
+    <p>RANKCACHE: TRANSLATING THEORY</p>
+    <p>TO PRACTICE</p>
+  </div>
+  <div class="page">
+    <p>The problem</p>
+    <p>Prior complex policies require complex data structures</p>
+    <p>Synchronization  poor scalability  unacceptable request throughput</p>
+    <p>Policies like GDSF require (log) heaps  Even  1 LRU is sometimes too slow because of synchronization  Many key-value systems approximate LRU with CLOCK / FIFO</p>
+    <p>MemC3 [Fan, NSDI 13], MICA [Lim, NSDI 14]</p>
+    <p>Can LHD achieve similar request throughput to production systems?</p>
+  </div>
+  <div class="page">
+    <p>RankCache makes LHD fast</p>
+  </div>
+  <div class="page">
+    <p>Making hits fast</p>
+    <p>Metadata updated locally  no global data structure</p>
+    <p>Same scalability benefits as CLOCK, FIFO vs. LRU</p>
+  </div>
+  <div class="page">
+    <p>Making evictions fast</p>
+    <p>No global synchronization  Great scalability! (Even better than CLOCK/FIFO!)</p>
+    <p>A</p>
+    <p>B</p>
+    <p>C</p>
+    <p>D</p>
+    <p>E</p>
+    <p>F</p>
+    <p>G</p>
+    <p>Miss!</p>
+    <p>Sample objects</p>
+    <p>A CF</p>
+    <p>E</p>
+    <p>Lookup hit density (pre-computed)</p>
+    <p>Evict E</p>
+  </div>
+  <div class="page">
+    <p>Memory management</p>
+    <p>Many key-value caches use slab allocators (eg, memcached)</p>
+    <p>Bounded fragmentation &amp; fast</p>
+    <p>But no global eviction policy  poor hit ratio</p>
+    <p>Strategy: balance victim hit density across slab classes  Similar to Cliffhanger [Cidon, NSDI16] and GD</p>
+    <p>Wheel [Li, EuroSys15]</p>
+    <p>Slab classes incur negligible impact on hit rate</p>
+  </div>
+  <div class="page">
+    <p>CLOCK doesnt scale when there are even a few misses! RankCache scales well with or without misses!</p>
+    <p>GDSF &amp; LRU dont scale!</p>
+    <p>Optimization we dont have time to talk about!</p>
+    <p>Serial bottlenecks dominate  LHD best throughput</p>
+  </div>
+  <div class="page">
+    <p>Related Work</p>
+    <p>Using conditional probabilities for eviction policies in CPU caches  EVA [Beckmann, HPCA 16, 17]  Fixed object sizes  Different ranking function</p>
+    <p>Prior replacement policies  Key-value: Hyperbolic [Blankstein, ATC 17], Simulations [Waldspurger, ATC 17],</p>
+    <p>AdaptSize [Berger, NSDI 17], Cliffhanger [Cidon, NSDI 16]  Non key-value: ARC [Megiddo, FAST 03], SLRU [Karedla, Computer 94], LRU-K [ONeil,</p>
+    <p>Sigmod 93]  Heuristic based  Require tuning or simulation</p>
+  </div>
+  <div class="page">
+    <p>Future directions</p>
+    <p>Dynamic latency / bandwidth optimization  Smoothly and dynamically switch between optimized hit ratio and byte-hit ratio</p>
+    <p>Optimizing end-to-end response latency  App touches multiple objects per request  One such object evicted  others should be evicted too</p>
+    <p>Modeling cost, e.g., to maximize write endurance in FLASH / NVM  Predict which objects are worth writing to 2nd tier storage from memory</p>
+  </div>
+  <div class="page">
+    <p>THANK YOU!</p>
+  </div>
+</Presentation>

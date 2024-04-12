@@ -1,0 +1,271 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>AccelTCP: Accelerating Network Applications with Stateful TCP Offloading</p>
+    <p>YoungGyoun Moon, Seungeon Lee, Muhammad Asim Jamshed*, KyoungSoo Park</p>
+    <p>School of Electrical Engineering, KAIST * Intel Labs</p>
+  </div>
+  <div class="page">
+    <p>TCP is widely adopted in modern networks</p>
+    <p>Used by 95+% of WAN traffic and 50+% of datacenter traffic [1][2]</p>
+    <p>The gap between network bandwidth and CPU capacity widens</p>
+    <p>CPU efficiency of TCP stack becoming increasingly important</p>
+  </div>
+  <div class="page">
+    <p>Recent TCP stacks adopt numerous optimization techniques</p>
+    <p>e.g., optimized packet I/O, kernel-bypassing, zero-copying</p>
+    <p>Unfortunately, fundamentally limited by TCP conformance overhead</p>
+    <p>Suboptimal CPU efficiency in TCP stacks</p>
+    <p>Reliable data transfer</p>
+    <p>Buffer management</p>
+    <p>Congestion/flow control</p>
+    <p>Connection management</p>
+    <p>Host CPU</p>
+  </div>
+  <div class="page">
+    <p>TCP overhead in short-lived connections</p>
+    <p>Short TCP flows dominates the Internet</p>
+    <p>80% of cellular network traffic is smaller than 8KB [1]</p>
+    <p>Connection management overhead in short TCP flows</p>
+    <p>DataplaneHost</p>
+    <p>Network</p>
+    <p>Connection setup Connection teardown</p>
+    <p>SYN FIN Handling control packets</p>
+    <p>Managing flow states</p>
+    <p>Overheads</p>
+    <p>[1] Comparison of Caching Strategies in Modern Cellular Backhaul Networks (MobiSys 13)</p>
+    <p>&gt;60%</p>
+    <p>Connection management</p>
+    <p>CPU breakdown of mTCP + Redis</p>
+    <p>A single key-value lookup per connection</p>
+  </div>
+  <div class="page">
+    <p>TCP overhead in Layer-7 (L7) proxying</p>
+    <p>L7 proxies are widely adopted (e.g., load balancer, API gateway)</p>
+    <p>Payload relaying overhead in L7 proxies</p>
+    <p>DMA overhead</p>
+    <p>TCP processing</p>
+    <p>Overheads</p>
+    <p>TCP</p>
+    <p>NIC</p>
+    <p>App Memcpy from/to app</p>
+    <p>Connection 2Connection 1</p>
+    <p>L7 load balancer 48 cores48 cores100GbE =</p>
+    <p>DMA overhead</p>
+    <p>TCP processingTCP</p>
+    <p>NIC</p>
+    <p>App Memcpy from/to appMemcpy from/to app</p>
+    <p>Connection 2Connection 1</p>
+    <p>L7 load balancer 48 cores44 cores100GbE =</p>
+    <p>splice()</p>
+    <p>connection splicing</p>
+  </div>
+  <div class="page">
+    <p>Our work: AccelTCP</p>
+    <p>Connection 2Connection 1</p>
+    <p>splice()</p>
+    <p>Dataplane</p>
+    <p>Connection setup Connection teardown</p>
+    <p>SYN FINConnection management</p>
+    <p>Connection splicing</p>
+    <p>NIC offload of mechanical operations for TCP conformance</p>
+  </div>
+  <div class="page">
+    <p>Existing TCP NIC offloads</p>
+    <p>Full-stack TCP offload engine (TOE)</p>
+    <p>Poor connection scalability</p>
+    <p>Difficult to extend (e.g., adding a new congestion control algorithm)</p>
+    <p>TCP Segmentation Offload (TSO) and Large Receive Offload (LRO)</p>
+    <p>Saves significant CPU cycles for processing large messages</p>
+  </div>
+  <div class="page">
+    <p>Our work: AccelTCP</p>
+    <p>Extend the benefit of NIC offload to general TCP applications</p>
+    <p>?</p>
+    <p>? ?</p>
+    <p>Small-message connections Large-message connections</p>
+    <p>Server/clients</p>
+    <p>Proxies</p>
+    <p>Typical TCP offloads (e.g., TSO, LRO)</p>
+    <p>AccelTCP</p>
+  </div>
+  <div class="page">
+    <p>A dual-stack TCP architecture with stateful TCP offloading</p>
+    <p>Selectively offloads peripheral TCP operations to NICs</p>
+    <p>AccelTCP design overview</p>
+    <p>Host stack Central TCP operations</p>
+    <p>Peripheral TCP operations NIC stack</p>
+    <p>Required for data transfer</p>
+    <p>Required for protocol conformance</p>
+    <p>Reliable data transfer</p>
+    <p>Buffer management</p>
+    <p>Congestion/flow control</p>
+    <p>Segmentation/checksum</p>
+    <p>Connection setup/teardown</p>
+    <p>Connection splicing</p>
+  </div>
+  <div class="page">
+    <p>A dual-stack TCP architecture with stateful TCP offloading</p>
+    <p>Selectively offloads peripheral TCP operations to NICs</p>
+    <p>AccelTCP design overview</p>
+    <p>Host stack</p>
+    <p>Reliable data transfer</p>
+    <p>Buffer management</p>
+    <p>Congestion/flow control</p>
+    <p>Segmentation/checksum</p>
+    <p>Connection setup/teardown</p>
+    <p>Connection splicing</p>
+    <p>NIC stack</p>
+    <p>Synchronizing flow states</p>
+    <p>Limited NIC resources</p>
+    <p>Challenges</p>
+  </div>
+  <div class="page">
+    <p>Challenge #1. Synchronizing flow states</p>
+    <p>Connection management and splicing are stateful TCP operations</p>
+    <p>Transmission control block (TCB) needs to be updated</p>
+    <p>Challenging to maintain flow state consistency across two stacks</p>
+    <p>Huge DMA cost to deliver sync messages</p>
+    <p>Dataplane</p>
+    <p>DataplaneHost</p>
+    <p>NIC</p>
+    <p>TCB</p>
+    <p>TCB</p>
+    <p>TCB syncs</p>
+  </div>
+  <div class="page">
+    <p>Challenge #1. Synchronizing flow states</p>
+    <p>Our approach: Single ownership of a TCP flow and its TCB</p>
+    <p>Key ideas:</p>
+    <p>TCB sync occurs only in between the different phases</p>
+    <p>TCB sync messages are piggybacked with payload packets</p>
+    <p>Dataplane</p>
+    <p>Dataplane</p>
+    <p>Dataplane</p>
+    <p>Host</p>
+    <p>NIC</p>
+    <p>Connection setup Data transfer Connection teardown time</p>
+    <p>TCB TCBTCB Payload TCB Payload</p>
+  </div>
+  <div class="page">
+    <p>Challenge #2. Limited NIC resources</p>
+    <p>Limited fast memory size</p>
+    <p>For holding program instructions and connection states</p>
+    <p>e.g., 8MB SRAM in Netronome Agilio LX</p>
+    <p>Limited compute capacity</p>
+    <p>Typical TCP stacks: 1000 - 3000 cycles/packet</p>
+    <p>Performance drop by 30 - 80% in Agilio LX</p>
+  </div>
+  <div class="page">
+    <p>Our approach: Minimize NIC dataplane complexity</p>
+    <p>Challenge #2. Limited NIC resources</p>
+    <p>Limited memory</p>
+    <p>Connection setup Use SYN cookie</p>
+    <p>stateless operation</p>
+    <p>Limited CPU capacity</p>
+    <p>Minimize TCB on NIC</p>
+    <p># of concurrent flows:</p>
+    <p>Use fast hashing (in hardware)</p>
+    <p>Connection teardown</p>
+    <p>Connection splicing Differential</p>
+    <p>checksum update</p>
+    <p>Timer bitmap wheel</p>
+    <p>this talk</p>
+  </div>
+  <div class="page">
+    <p>Tracking timeouts on NIC</p>
+    <p>Required for TCP retransmission or last ACK timeout, TIME_WAIT</p>
+    <p>No flow-to-core affinity  A global data structure for tracking timeout</p>
+    <p>Frequent timer registration incurs a huge lock contention</p>
+    <p>On-chip SRAM</p>
+    <p>Core 1</p>
+    <p>Core 2</p>
+    <p>Core 3</p>
+    <p>Core 120</p>
+    <p>Gloabal flow list/table</p>
+  </div>
+  <div class="page">
+    <p>Timer bitmap wheel</p>
+    <p>timeout</p>
+    <p>core 1</p>
+    <p>core 2</p>
+    <p>core 3</p>
+    <p>core 4</p>
+    <p>core N</p>
+    <p>T =1ms</p>
+    <p>T=2ms</p>
+    <p>T=3ms</p>
+    <p>T=4ms</p>
+    <p>T=5ms T=6ms</p>
+    <p>T=7ms</p>
+    <p>T=9ms</p>
+    <p>T=8ms</p>
+    <p>T=0ms</p>
+    <p>(core A)</p>
+    <p>(core B)</p>
+    <p>(core C)</p>
+    <p>scanned by</p>
+    <p>B1</p>
+    <p>Efficient timer registration &amp; invocation in NIC dataplane</p>
+    <p>flow bitmap (indexed by flow ID)</p>
+  </div>
+  <div class="page">
+    <p>Host stack optimizations</p>
+    <p>Avoid heavy context switching overhead between TCP stack and app</p>
+    <p>Avoid socket buffer copy if packets can be delivered directly from/to app</p>
+    <p>Many fields of TCB (up to 700 bytes) are unused in single transaction case</p>
+    <p>Our approach: Create a quasi-TCB (40 bytes) for a new connection</p>
+    <p>Check out our paper for more details</p>
+  </div>
+  <div class="page">
+    <p>Implementation and experiment setup</p>
+    <p>NIC stack: running on Netronome Agilio NICs</p>
+    <p>1,501 lines of C code and 195 lines of P4 code</p>
+    <p>Host stack: extended mTCP to support NIC offloads</p>
+    <p>Easy to port existing apps (connect()  mtcp_connect())</p>
+    <p>Experiment setup</p>
+    <p>CPU: Xeon Gold 6142 (16-cores @ 2.6GHz)</p>
+    <p>NIC: Netronome Agilio LX 40GbE x2</p>
+    <p>Memory: 128GB DDR4 RAM</p>
+    <p>Use up to 8 client machines (Xeon E5-2640 v3) to generate workload</p>
+  </div>
+  <div class="page">
+    <p>Does AccelTCP support high connection rate?</p>
+    <p>Throughput performance of a TCP server</p>
+    <p>A single 64B packet transaction per connection</p>
+    <p>Tr a</p>
+    <p>n sa</p>
+    <p>ct io</p>
+    <p>n s/</p>
+    <p>se c</p>
+    <p>(x 10</p>
+    <p>Number of CPU cores</p>
+    <p>NIC bottleneck</p>
+  </div>
+  <div class="page">
+    <p>Do applications benefit from AccelTCP?</p>
+    <p>(M tp</p>
+    <p>s)</p>
+    <p># CPU cores</p>
+    <p>mTCP AccelTCP</p>
+    <p>mTCP AccelTCP</p>
+    <p>TCP/IP Redis app</p>
+    <p>Redis under Facebook USR workload (flow size: &lt; 20B)</p>
+    <p>Throughput CPU utilization</p>
+  </div>
+  <div class="page">
+    <p>Do applications benefit from AccelTCP?</p>
+    <p>mTCP (8-core)</p>
+    <p>AccelTCP</p>
+    <p>HAProxy under SpecWeb2009-like workload</p>
+  </div>
+  <div class="page">
+    <p>Summary</p>
+    <p>github.com/acceltcp</p>
+    <p>shader.kaist.edu/acceltcp</p>
+    <p>TCP performance limited by protocol conformance overhead  Short-lived flows and L7 proxies cannot benefit from existing TCP offloads</p>
+    <p>AccelTCP explores a new design space of NIC-assisted TCP stack  Connection management and splicing can be offloaded to NIC</p>
+    <p>AccelTCP significantly improves CPU efficiency of real-world apps  2.3x improvement with Redis, 12x improvement with HAproxy</p>
+    <p>Source code available:</p>
+  </div>
+</Presentation>

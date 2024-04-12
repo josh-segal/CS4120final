@@ -1,0 +1,420 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>Can Applications Recover from fsync Failures?</p>
+    <p>Anthony Rebello, Yuvraj Patel, Ramnatthan Alagappan, Andrea C. Arpaci-Dusseau and Remzi H. Arpaci-Dusseau</p>
+    <p>University of Wisconsin-Madison</p>
+  </div>
+  <div class="page">
+    <p>How does data reach the disk?  Applications use the file system  System calls  open( ), read( ), write( )</p>
+    <p>For Performance  Data buffered in the page cache  Modified pages are marked dirty  Periodically flushed to disk</p>
+    <p>Vulnerable to data loss while in RAM</p>
+    <p>For Correctness  Dirty pages can be flushed immediately</p>
+    <p>using fsync( ) 2</p>
+    <p>Applications</p>
+    <p>Disk</p>
+    <p>File System</p>
+    <p>Clean pages: same content as disk</p>
+    <p>Dirty Pages: New data to write to disk</p>
+    <p>Periodically or on fsync( )</p>
+  </div>
+  <div class="page">
+    <p>fsync is really important  Many applications care about durability  Ensure data on non-volatile storage before acknowledging client</p>
+    <p>Devices have volatile storage  Direct IO: fsync can issue a FLUSH command</p>
+    <p>Ordering of writes is important  Force to disk with fsync before writing the next  Optimistic Crash Consistency Chidambaram et al. [SOSP13]</p>
+    <p>Decouples ordering from durability</p>
+  </div>
+  <div class="page">
+    <p>Its hard to get durability correct  Applications find it difficult  Even when fsync works correctly</p>
+    <p>Example: persisting a newly created file  creat(/d/foo)  write(/d/foo, abcd)  fsync(/d/foo)  fsync(/d)  Ensure that directory entry is persisted</p>
+    <p>All File Systems Are Not Created Equal Pillai et al. [OSDI14]  Studied 11 applications  Update protocols are tricky  More than 30 vulnerabilities under ext3, ext4, btrfs</p>
+  </div>
+  <div class="page">
+    <p>fsync can fail  Durability gets harder to get right  Failures before interacting with disk  Invalid arguments, insufficient space  Easy to handle</p>
+    <p>Failures while interacting with disk  EIO: An error occurred during synchronization  Transient disk errors, network disconnects  In-memory data structures may need to be reverted</p>
+  </div>
+  <div class="page">
+    <p>Why care about fsync failures? About a year ago the PostgreSQL community discovered that fsync (on Linux and some BSD systems) may not work the way we always thought it is [sic], with possibly disastrous consequences for data durability/consistency (which is something the PostgreSQL community really values).</p>
+    <p>- Tomas Vondra, FOSDEM 2019</p>
+  </div>
+  <div class="page">
+    <p>Our work  Systematically understand fsync failures</p>
+    <p>Applications</p>
+    <p>Disk</p>
+    <p>File System</p>
+  </div>
+  <div class="page">
+    <p>File System Results  All file systems mark dirty pages clean on fsync failure</p>
+    <p>Retries are ineffective</p>
+    <p>File systems do not handle errors during fsync uniformly  Content in pages is different</p>
+    <p>Latest data (ext4, XFS), Old data (Btrfs)  Failure notifications not always immediate</p>
+    <p>Ext4 data mode reports errors later</p>
+    <p>In-memory data structures are not entirely reverted after fsync failure  Garbage/Zeroes in the files</p>
+    <p>Free space and block allocation unaltered (ext4, XFS)  User-space file descriptor offset unaltered (Btrfs)</p>
+  </div>
+  <div class="page">
+    <p>Application Results  Simple strategies fail</p>
+    <p>Retries are ineffective  Crash/Restart can be incorrect</p>
+    <p>False Failures: Indicate failure but actually succeed  Incorrect recovery from WAL using the page cache</p>
+    <p>Defenseless against late error reporting  Ext4 data mode</p>
+    <p>Every application faced data loss  Most faced corruption (all except PostgreSQL)</p>
+    <p>Copy-on-write is good, but not invincible  Btrfs is bad for rollback strategies</p>
+    <p>But seems good for WAL recovery</p>
+  </div>
+  <div class="page">
+    <p>Outline  Introduction  File Systems  Methodology (dm-loki, workloads)  Results</p>
+    <p>Applications  Methodology (CuttleFS)  Results</p>
+    <p>Challenges and Directions  Summary</p>
+  </div>
+  <div class="page">
+    <p>File System | Methodology: Fault Injection  Goal: Understand file system reactions to fsync failures without modifying the kernel</p>
+    <p>Applications</p>
+    <p>Disk</p>
+    <p>File System</p>
+    <p>dm-loki: intercepts bio requests</p>
+    <p>Intercept all block requests that go to disk  Custom device mapper target  dm-loki</p>
+    <p>Trace bio requests  Fail ith write to sector/block</p>
+  </div>
+  <div class="page">
+    <p>File System | Methodology: Workloads  Common write patterns in applications  Reduced to simplest form</p>
+    <p>Single Block Update  Modify a single block in a file  Examples:</p>
+    <p>LMDB, PostgreSQL, SQLite</p>
+    <p>Multi Block Append  Add new blocks to the end of a file  Examples:</p>
+    <p>Redis append-only file  Write-ahead logs</p>
+    <p>PostgreSQL, LevelDB, SQLite 12</p>
+    <p>A</p>
+    <p>A B</p>
+    <p>B</p>
+    <p>C</p>
+    <p>C A</p>
+    <p>A X</p>
+    <p>X</p>
+    <p>C</p>
+    <p>C</p>
+    <p>A</p>
+    <p>A</p>
+    <p>A</p>
+    <p>A B</p>
+    <p>B</p>
+    <p>C</p>
+    <p>C</p>
+  </div>
+  <div class="page">
+    <p>File System | Result #1: Clean Pages  Dirty page is marked clean after fsync failure on all three file systems</p>
+    <p>Feature, not bug  Avoids memory leaks when user removes USB stick</p>
+    <p>Retries are ineffective  No more dirty pages on the next fsync</p>
+    <p>A</p>
+    <p>A B</p>
+    <p>B</p>
+    <p>C</p>
+    <p>C</p>
+    <p>A</p>
+    <p>A *</p>
+    <p>B</p>
+    <p>C</p>
+    <p>C</p>
+    <p>A</p>
+    <p>A *</p>
+    <p>B</p>
+    <p>C</p>
+    <p>C</p>
+  </div>
+  <div class="page">
+    <p>File System | Result #2a: Page Content  File systems do not handle fsync errors uniformly  Page content depends on file system</p>
+    <p>Cannot reliably depend on page cache content after an fsync failure 14</p>
+    <p>A</p>
+    <p>A X</p>
+    <p>B</p>
+    <p>C</p>
+    <p>C</p>
+    <p>A</p>
+    <p>A X</p>
+    <p>B</p>
+    <p>C</p>
+    <p>C</p>
+    <p>A</p>
+    <p>A B</p>
+    <p>B</p>
+    <p>C</p>
+    <p>C</p>
+    <p>A</p>
+    <p>A ?</p>
+    <p>B</p>
+    <p>C</p>
+    <p>C</p>
+  </div>
+  <div class="page">
+    <p>Ext4 data mode reports success too early  Two fsyncs can solve the problem</p>
+    <p>Journal</p>
+    <p>A</p>
+    <p>A X</p>
+    <p>B</p>
+    <p>C</p>
+    <p>C</p>
+    <p>fsync( ) succeeds Data written to journal</p>
+    <p>Failure when writing journal to disk</p>
+    <p>Fails next fsync( )</p>
+    <p>File System | Result #2b: Notifications  File systems do not report fsync failures uniformly  Ext4 data mode reports failures later  Ext4 ordered mode, XFS, Btrfs report immediately</p>
+    <p>A</p>
+    <p>A X</p>
+    <p>B</p>
+    <p>C</p>
+    <p>C</p>
+    <p>Journal</p>
+    <p>A</p>
+    <p>A X</p>
+    <p>B</p>
+    <p>C</p>
+    <p>C</p>
+    <p>X</p>
+  </div>
+  <div class="page">
+    <p>File System | Result #3: In-memory state  In-memory data structures are not entirely reverted  Free space and block allocation unaltered in ext4, XFS</p>
+    <p>On EXT4 and XFS  Applications read blocks old contents - corruption</p>
+    <p>A</p>
+    <p>A B</p>
+    <p>No block allocated</p>
+    <p>A</p>
+    <p>A B</p>
+    <p>?</p>
+    <p>Block allocated Link only in memory</p>
+    <p>A</p>
+    <p>A B</p>
+    <p>?</p>
+    <p>C</p>
+    <p>C</p>
+    <p>A</p>
+    <p>A B</p>
+    <p>?</p>
+    <p>Non-overwritten block</p>
+  </div>
+  <div class="page">
+    <p>File System | Result #3: In-memory state  In-memory data structures are not entirely reverted  Holes in Btrfs as file descriptor offset is not reverted</p>
+    <p>On Btrfs  Application reads zeroes at the hole offset - corruption</p>
+    <p>A</p>
+    <p>A B</p>
+    <p>No block allocated</p>
+    <p>A</p>
+    <p>A</p>
+    <p>A</p>
+    <p>A</p>
+    <p>?</p>
+    <p>C</p>
+    <p>Next write is at updated offset</p>
+    <p>A</p>
+    <p>A C</p>
+    <p>C</p>
+    <p>Hole in place of B</p>
+  </div>
+  <div class="page">
+    <p>File System | Results Summary</p>
+    <p>Dirty pages are marked clean  Retries are ineffective</p>
+    <p>Errors are not handled uniformly  Page content varies across file systems  Notifications are not always immediate</p>
+    <p>In-memory data structures are not correct  Future operations cause non-overwritten blocks (ext4, XFS), holes (Btrfs)  Both are corruptions to the application</p>
+    <p>After fsync failure</p>
+  </div>
+  <div class="page">
+    <p>Applications</p>
+  </div>
+  <div class="page">
+    <p>Applications  Five widely used applications</p>
+    <p>Key Value Store Relational Database</p>
+    <p>Embedded</p>
+    <p>Server</p>
+    <p>LMDB v0.9.24</p>
+    <p>v5.0.7</p>
+    <p>v1.22</p>
+    <p>v12.0</p>
+    <p>v3.30.1</p>
+  </div>
+  <div class="page">
+    <p>Applications | Methodology  Goal: Are application strategies effective when fsync fails  Simple workload  Insert/Update a key-value pair  Use two-column table for RDBMS</p>
+    <p>Make fsync fail  Dump all key-value pairs  When running  On application restart  On page eviction  On machine restart</p>
+  </div>
+  <div class="page">
+    <p>Applications | Methodology: CuttleFS</p>
+    <p>Deterministic fault injection with configurable post-failure reactions  Fail file offsets, not block numbers</p>
+    <p>User-space page cache  Easy to simulate different post-failure</p>
+    <p>reactions  Dirty or clean pages  New or old content  Immediate or late error reporting</p>
+    <p>Fine grained control over page eviction</p>
+    <p>Applications</p>
+    <p>Disk</p>
+    <p>File System</p>
+    <p>CuttleFS (FUSE) Intercepts file system requests</p>
+  </div>
+  <div class="page">
+    <p>Applications | Results: Overview</p>
+    <p>Redis</p>
+    <p>LMDB LevelDB</p>
+    <p>SQLite Rollback</p>
+    <p>WAL PostgreSQL</p>
+    <p>Default DirectIO</p>
+    <p>False Failures</p>
+    <p>Ext4 Ordered Mode</p>
+    <p>Corruption Data Loss</p>
+    <p>Ext4 Data Mode</p>
+    <p>Data Loss</p>
+    <p>Corruption</p>
+    <p>Data Loss</p>
+    <p>Btrfs</p>
+    <p>False Failures</p>
+    <p>XFS</p>
+    <p>Corruption Data Loss</p>
+    <p>False FailuresCorruption Corruption</p>
+    <p>False Failures</p>
+    <p>(Same as ext4 ordered)</p>
+  </div>
+  <div class="page">
+    <p>Applications | Results #1: Crash/Restart  Simple strategies fail  Crash/restart is incorrect: recovers wrong data from page cache  Example: PostgreSQL</p>
+    <p>Key Val</p>
+    <p>A 1</p>
+    <p>WAL</p>
+    <p>A 1</p>
+    <p>A 1A = 0</p>
+    <p>A = 0</p>
+    <p>Table</p>
+    <p>Key Val</p>
+    <p>A 1</p>
+    <p>A = 0</p>
+    <p>A = 0</p>
+    <p>Table WAL</p>
+    <p>A 1</p>
+    <p>A 1</p>
+    <p>A 2</p>
+    <p>WAL</p>
+    <p>A 1</p>
+    <p>A 1</p>
+    <p>A 2</p>
+    <p>App Crash</p>
+    <p>+ Restart</p>
+    <p>A = 0</p>
+    <p>A = 0</p>
+    <p>Table WAL</p>
+    <p>A 1</p>
+    <p>A 1</p>
+    <p>A 2</p>
+    <p>Key Val</p>
+    <p>A 2</p>
+    <p>fsync( ) fails False Failure</p>
+  </div>
+  <div class="page">
+    <p>Applications | Results #1: False Failures  False Failures: Indicate failure but actually succeed</p>
+    <p>PostgreSQL, SQLite, LevelDB WAL are affected 25</p>
+    <p>Expected State Actual State Initially A=100 A=100</p>
+    <p>UPDATE Table SET A = A - 1 Reports failure A=100 A=99</p>
+    <p>False FailureRetry UPDATE Table SET A = A - 1</p>
+    <p>A=99 A=98 Double Decrement</p>
+  </div>
+  <div class="page">
+    <p>Applications | Results #2: Late Error Reporting  All applications susceptible to data loss on ext4 data mode</p>
+    <p>Late error reporting  Example:</p>
+    <p>PostgreSQL WAL</p>
+    <p>Key Val</p>
+    <p>A 1</p>
+    <p>Key Val</p>
+    <p>A 2</p>
+    <p>A = 0</p>
+    <p>A = 0</p>
+    <p>Table WAL</p>
+    <p>A 1</p>
+    <p>A 1</p>
+    <p>A 2</p>
+    <p>WAL</p>
+    <p>A 1</p>
+    <p>A 1A = 0</p>
+    <p>A = 0</p>
+    <p>Table</p>
+    <p>fsync( ) succeeds</p>
+    <p>WAL</p>
+    <p>A 1</p>
+    <p>A 1</p>
+    <p>A 2</p>
+    <p>Journal</p>
+    <p>A 1 A 2</p>
+    <p>Ext4 checkpointing fails</p>
+    <p>WAL</p>
+    <p>A 1</p>
+    <p>A 1</p>
+    <p>A 2</p>
+    <p>Journal</p>
+    <p>Key Val</p>
+    <p>A 1</p>
+    <p>WAL</p>
+    <p>A 1</p>
+    <p>A 1A = 0</p>
+    <p>A = 0</p>
+    <p>Table</p>
+    <p>Machine Restart</p>
+    <p>Data Loss</p>
+  </div>
+  <div class="page">
+    <p>Applications | Results #3: Btrfs winning?  Btrfs copy-on-write strategy is good, but not entirely  Reverts page cache to match disk</p>
+    <p>Works well for recovery from WAL  Bad for rollback techniques  Example: SQLite rollback mode</p>
+  </div>
+  <div class="page">
+    <p>Applications | Results #3: Btrfs winning?</p>
+    <p>A</p>
+    <p>A B</p>
+    <p>B</p>
+    <p>C</p>
+    <p>C</p>
+    <p>SQLite DB</p>
+    <p>Rollback Journal</p>
+    <p>A</p>
+    <p>A B</p>
+    <p>B</p>
+    <p>C</p>
+    <p>C</p>
+    <p>SQLite DB</p>
+    <p>Rollback Journal</p>
+    <p>B</p>
+    <p>A</p>
+    <p>A X</p>
+    <p>B</p>
+    <p>C</p>
+    <p>C</p>
+    <p>SQLite DB</p>
+    <p>Rollback Journal</p>
+    <p>B</p>
+    <p>A</p>
+    <p>A X</p>
+    <p>B</p>
+    <p>C</p>
+    <p>C</p>
+    <p>SQLite DB</p>
+    <p>Rollback Journal</p>
+    <p>Query: Updates B First write B to rollback Update B in main db</p>
+    <p>fsync( ) on rollback fails Btrfs reverts contents Nothing to rollback anymore</p>
+    <p>False FailureRollback should not assume page-cache contents Corruptions in ext4 ordered mode / XFS.</p>
+  </div>
+  <div class="page">
+    <p>Applications | Results Summary  Simple strategies fail</p>
+    <p>Applications have moved away from retries  Crash/Restart not entirely correct</p>
+    <p>Dont trust the page cache while recovering</p>
+    <p>Defenseless against late error reporting  Ext4 Data Mode</p>
+    <p>Data loss in all applications  Corruptions in some  Double fsync should help</p>
+    <p>Copy-on-write file systems look promising  Btrfs</p>
+    <p>Works well with write-ahead logs  Problematic with rollback journals</p>
+  </div>
+  <div class="page">
+    <p>Wrapping Up  Can applications recover from fsync failures?  Maybe, if</p>
+    <p>Developers write file-system specific code</p>
+    <p>Need to standardize file-system behavior for fsync failures</p>
+  </div>
+  <div class="page">
+    <p>Challenges and Directions  How should post-failure behavior be standardized?  FreeBSD re-dirties pages</p>
+    <p>Should applications code for specific file systems?  Currently, OS-specific</p>
+    <p>We need a stronger contract for failed intentions (ext4 data mode)  Fault injection  Dont mock system calls</p>
+    <p>Exercise file-system error handling  dm-loki: https://github.com/WiscADSL/dm-loki</p>
+    <p>Mock the file-system error handling  CuttleFS: https://github.com/WiscADSL/cuttlefs</p>
+  </div>
+  <div class="page">
+    <p>Summary  Durability is important  Hard to get right  fsync is essential</p>
+    <p>Failures are inevitable  We dont handle them uniformly</p>
+    <p>Applications have different strategies to achieve durability  No single strategy works well on all file systems</p>
+  </div>
+  <div class="page">
+    <p>Questions?  Anthony Rebello  arebello@wisc.edu  https://github.com/WiscADSL/cuttlefs  https://github.com/WiscADSL/dm-loki</p>
+    <p>Thank You</p>
+  </div>
+</Presentation>

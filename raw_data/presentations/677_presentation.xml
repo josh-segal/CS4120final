@@ -1,0 +1,226 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>Moving from Logical Sharing of Guest OS to Physical Sharing of Deduplication on Virtual Machine</p>
+    <p>K i S ki T hiki Y i K Iiji N A h Q h C ill A thKuniyasu Suzaki, Toshiki Yagi, Kengo Iijima, Nguyen Anh Quynh, Cyrille Artho</p>
+    <p>Research Center of Information Security</p>
+    <p>National Institute of Advanced Industrial Science and Technology</p>
+    <p>&amp;</p>
+    <p>Yoshihito Watanebe</p>
+    <p>Alpha Systems Inc.</p>
+  </div>
+  <div class="page">
+    <p>Contents  Vulnerability of logical sharing (Dynamic-Link Shared</p>
+    <p>Library and Symbolic Link)  Propose replacement of logical sharing by physical sharing</p>
+    <p>Physical sharing  Deduplication on Memory and Storage</p>
+    <p>Self-contained binary  It is NOT static-Link binary.</p>
+    <p>Experimental results  Conclusions with discussing topics</p>
+  </div>
+  <div class="page">
+    <p>Logical Sharing  Logical sharing is OS technique to reduce consumption</p>
+    <p>of memory and storage.  Dynamic-Link Shared Library for memory and storage  Symbolic Link for storage</p>
+    <p>Unfortunately, they include vulnerability caused by d i tdynamic management.  Search Path Replacement Attack  GOT (Global Offset Table) overwrite attack  Dependency Hell  Etc.</p>
+  </div>
+  <div class="page">
+    <p>Search Path Replacement Attack</p>
+    <p>Dynamic-link searches a shared library at run time using a search path.  Search path is defined by environment variables.</p>
+    <p>Example: LD_LIBRARY_PATH  It allows us to change shared libraries in any directories.</p>
+    <p>Unfortunately, the search path is easily replaced by an attacker and leads to malicious shared libraries.  Caller program has no methods to certify libraries.</p>
+    <p>Static-link solves this problem but it wastes memory and storage.</p>
+  </div>
+  <div class="page">
+    <p>GOT Overwrite Attack</p>
+    <p>ELF format has GOT (Global Offset Table) to locate position-independent function address of shared library. The value of GOT is assigned at run time.  GOT is created on Data Segment and vulnerable for overwrite</p>
+    <p>attack.</p>
+    <p>Static link solves this problem but it wastes memory and LibraryProgram</p>
+    <p>Call</p>
+    <p>PLT</p>
+    <p>GOT</p>
+    <p>Code Segment</p>
+    <p>Data Segment</p>
+    <p>Routine</p>
+    <p>PLT</p>
+    <p>GOT</p>
+    <p>Code Segment</p>
+    <p>Data Segment</p>
+    <p>Attack</p>
+    <p>Static link solves this problem but it wastes memory and storage.</p>
+  </div>
+  <div class="page">
+    <p>Dependency Hell (DLL Hell in Windows)  Dependency Hell is a management problem of shared</p>
+    <p>libraries.  Package manager maintains versions of libraries. However, the</p>
+    <p>version mismatch may occur, when a user updates a library without package manager.</p>
+    <p>Caller program has no methods to certify libraries Caller program has no methods to certify libraries.</p>
+    <p>Dependency Hell is escalated by symbolic-link, because most shared libraries use symbolic-link to manage minor updates.  /lib/libc.so.6 -&gt; libc-2.10.1.so  # ln s libc-2.11.1.so libc.so.6</p>
+    <p>Static link solves this problem but it wastes memory and storage.</p>
+  </div>
+  <div class="page">
+    <p>Solution, and further problems  The problems are solved by static-link, but it increase</p>
+    <p>consumption of memory and storage.  Fortunately, the increased consumption is mitigated by new</p>
+    <p>technique, deduplication.</p>
+    <p>SLINY[USENIX05] developed deduplication in Linux kernel.  It looks the problems are solved</p>
+    <p>Two trends  Current applications assume dynamic-link and are not re-compiled</p>
+    <p>as static-link easily .</p>
+    <p>Current virtualization offers us deduplication.  SLINKY uses special Linux kernel. It is not applied on any OSes.  Using virtualization, guest OS only has to consider the solution</p>
+    <p>without regard to physical consumption.</p>
+  </div>
+  <div class="page">
+    <p>Static-Link is not easy  Current applications deeply depend on dynamic-link shared</p>
+    <p>libraries for flexibility and for avoiding license contamination problems.</p>
+    <p>We tried to re-compile /bin, /sbin, /usr/bin, and /usr/sbin dynamic-linked binaries (1,162) with static-link on Gentoo.  185 (15.9%) binaries are re-compiled with static-link.</p>
+    <p>Binary packages make it difficult to re-compile, because they are not easy to get all source code.  Commercial applications make problem more difficult.</p>
+  </div>
+  <div class="page">
+    <p>Self-Contained Binaries  Self-contained binary translator</p>
+    <p>It is developed to bring a binary to another machine.  It integrates shared libraries into an ELF binary file.</p>
+    <p>Advantage  Prevent Search Path Replacement Attack and Dependency</p>
+    <p>Hell because it integrates all librariesHell, because it integrates all libraries.</p>
+    <p>Mitigate GOT Overwrite Attack, because the addresses are prefixed for each execution.</p>
+    <p>Disadvantage  Consume more memory and storage than static-link</p>
+    <p>Tools  Statifier, Autopacage, Ermine for Linux  VMWare ThinApps(was Thinstall) for Windows</p>
+  </div>
+  <div class="page">
+    <p>Statifier (1/2)  Statifier includes shared library into an ELF binary.  On Normal binary</p>
+    <p>_dl_start() of ld-linux.so  Reallocate dynamic link libraries and map them</p>
+    <p>_dl_start_user() of ld-linux.so  Call initialization functions in libraries</p>
+    <p>Statifier creates self-contained binary  Take snapshot before _dl_start_user() and analyze relocation</p>
+    <p>information of functions of libraries from /proc/PID/maps.  The libraries and relocation information are embedded into the</p>
+    <p>binary.</p>
+  </div>
+  <div class="page">
+    <p>Statifier (2/2)  Self-Contained Binary</p>
+    <p>Relocation information and shared libraries are loaded by the starter of statifier.</p>
+    <p>Includes special libraries: linux-gate.so, ld-linux.so  The ELF binary has no INTERP segment to call ld-linux.so  ldd command shows no dynamic-link shared libraries</p>
+    <p>However, Statifier makes a larger binary than static link.</p>
+  </div>
+  <div class="page">
+    <p>Deduplication  Technique to share same-content chunks at block level</p>
+    <p>(memory and storage).</p>
+    <p>Same-content chunks are shared by indirect link.  It is easy to implement when a virtual layer exists to access a</p>
+    <p>block deviceblock device.</p>
+    <p>Some virtualizations include deduplication mechanism.</p>
+  </div>
+  <div class="page">
+    <p>Storage Deduplication  Used by CAS (Content addressable Storage)</p>
+    <p>data is not addressed by its physical location. Data is addressed by a unique name derived from the content (a secure hash is used as a unique name usually)</p>
+    <p>Same contents are expressed by one original content (same hash) and addressed by indirected link.</p>
+    <p>Plan9 has Venti [USENIX FAST02]  NetApp Deduplication (Data Domain) [USENIX FAST08]</p>
+    <p>Address SHA-1 0000000-0003FFF 4ad36ffe8 0004000-0007FFF 974daf34a 0008000-000BFFF 2d34ff3e1 000C000-000FFFF 974daf34a</p>
+    <p>CAS Storage Archive Indexing</p>
+    <p>sharing</p>
+    <p>New block is created with new SHA-1</p>
+    <p>Virtual Disk</p>
+    <p>Deduplication</p>
+    <p>NetApp Deduplication (Data Domain) [USENIX FAST08]  LBCAS (Loopback Content Addressable Storage) [LinuxSymp09]</p>
+  </div>
+  <div class="page">
+    <p>Memory Deduplication  Memory deduplication is mainly used for virtual machines.  Very effective when same guest OS runs on several virtual machines.  On Virtual Machine Monitor</p>
+    <p>Disco[OSDI97] has Transparent Page Sharing  VMWare ESX has Content-Based Page Sharing [SOSP02]  Xen has Satori[USENIX09] and Differential Engine[OSDI08]</p>
+    <p>VM1 VM2 VM(n)</p>
+    <p>Real Physical Memory</p>
+    <p>Guest Physical Memory</p>
+    <p>On Kernel  Linux has KSM (Kernel Samepage Merging)</p>
+    <p>from 2.6.32 [LinuxSymp09]  Memory of Process(es) are deduplicated  KVM uses this mechanism</p>
+    <p>These targets are virtual machines, but our proposal uses memory deduplication on a single OS image, which increase same pages with copy of libraries (self-contained binary).</p>
+  </div>
+  <div class="page">
+    <p>Evaluation  Evaluate the effect of moving form logical sharing to</p>
+    <p>physical sharing.  Effect of Statifier</p>
+    <p>Applied on binaries under /bin,/sbin,/usr/bin,/usr/sbin of Gentoo (installed on 32GB virtual disk for KVM virtual ( machine)</p>
+    <p>Memory Deduplication  KSM (Kernel Samepage merging) of Linux with KVM virtual</p>
+    <p>machine (758MB).</p>
+    <p>Storage Deduplication  LBCAS (Loopback Content Addressable Storage)</p>
+  </div>
+  <div class="page">
+    <p>Static Analysis of Statifier</p>
+    <p>Gentoo was customized by statifier.  The ELF (1,162) binaries under /bin (82 files), /sbin (74),</p>
+    <p>/usr/bin (912), /usr/sbin (94) were customized by statifier.</p>
+    <p>Original (Dynamic-link) Statifier Increase</p>
+    <p>Total 87,865,480 3,572,936,704 40.66</p>
+    <p>Average 75,615 3,074,816 40.66</p>
+    <p>The disk image (includes non-statifiered files) was expnaded from 3.75GB to 7.08GB (1.88 times).</p>
+    <p>Average 75,615 3,074,816 40.66</p>
+    <p>Max (gnome-open) 5,400 8,732,672 1617.16</p>
+    <p>Min (qmake) 3,426,340 6,094,848 1.78</p>
+  </div>
+  <div class="page">
+    <p>Effect of Memory Deduplication  Memory usage at the end of login  Statifier expanded memory consumption from the view of</p>
+    <p>GuestOS,</p>
+    <p>but Deduplication reduced physical memory consumption. 80000 34.4% GuestOS</p>
+    <p>View 4KB page</p>
+    <p>Duplicated</p>
+    <p>Deduplicate</p>
+    <p>Unique</p>
+    <p>GuestOS View</p>
+    <p>physical memory</p>
+    <p>Normal Gentoo Statifier Gentoo</p>
+    <p>View</p>
+    <p>physical memory32706 30410</p>
+    <p>page</p>
+  </div>
+  <div class="page">
+    <p>Effect of Storage Deduplication</p>
+    <p>( )</p>
+    <p>Storage usage (static) and total read data at boot (dynamic) .  Statifier expanded storage consumption from the view of</p>
+    <p>GuestOS on both cases, but Deduplication reduced physical storage consumption in static and dynamic.</p>
+    <p>Smaller chunk is easy to be deduplicated but time overhead is large.</p>
+    <p>Static Dynamic (boot) normal statifier normal statifier</p>
+    <p>On Loopback (Guest OS View)</p>
+    <p>LBCAS 16KB 268,454[4195MB] 4352MB</p>
+    <p>[278,499] (1.04)</p>
+    <p>--- ---</p>
+    <p>LBCAS 64KB 74,679[4667MB] 83,863</p>
+    <p>[5241MB] (1.12)</p>
+    <p>LBCAS 256KB 22,806[5701MB] 6723MB [26,892]</p>
+    <p>(1.18) 390MB [1,560 ]</p>
+  </div>
+  <div class="page">
+    <p>Statifer GentooNormal Gentoo</p>
+    <p>Lo o</p>
+    <p>p b</p>
+    <p>ac k</p>
+    <p>Auto Auto</p>
+    <p>GuestOS View Physical</p>
+    <p>Mem View GuestOS View</p>
+    <p>Physical Mem View</p>
+    <p>Trace of memory consumption LB</p>
+    <p>C A</p>
+    <p>S (2</p>
+    <p>B )</p>
+    <p>Auto login</p>
+    <p>Auto login</p>
+    <p>Auto login</p>
+    <p>Auto login</p>
+    <p>Physical Mem View</p>
+    <p>GuestOS View</p>
+    <p>GuestOS View</p>
+    <p>Physical Mem View</p>
+  </div>
+  <div class="page">
+    <p>Time overhead at boot</p>
+    <p>Statifier reduced the boot time, because it eliminated dynamic reallocation overhead.</p>
+    <p>Deduplication increased the boot time. The overhead of KSM and LBCAS was less than 37%.  The overhead is a penalty to remove the vulnerabilities of</p>
+    <p>Without KSM With KSM</p>
+    <p>Normal Statifier Normal Statifier</p>
+    <p>Loopback 95s 84s 95s 105s</p>
+    <p>LBCAS (256KB) 107s 108s 115s 130s</p>
+    <p>Reduced</p>
+    <p>The overhead is a penalty to remove the vulnerabilities of logical sharing.</p>
+  </div>
+  <div class="page">
+    <p>Conclusion &amp; Discussion (1/2)</p>
+    <p>Self-Contained binaries strengthen OS security.  Prevent Search Path Replacement Attack, GOT (Global Offset</p>
+    <p>Table) overwrite attack, Dependency Hell  Easy to apply on normal OS. It does not require source code</p>
+    <p>and re-compile.  Increase consumption of memory and storage.</p>
+    <p>Deduplication mitigates the consumption of memory and storage caused by self-contained binary.  Encourage moving from Logical sharing to Physical Sharing</p>
+    <p>Deduplication is utilized to increase security on single OS.</p>
+  </div>
+  <div class="page">
+    <p>Conclusion &amp; Discussion (2/2)</p>
+    <p>Deduplication will be mainly used on IaaS type (multi-tenants) Cloud Computing.</p>
+    <p>Two directions of research  Increase code sharing</p>
+    <p>R t O i t d P i  t l b l ? Return-Oriented Programming style becomes popular?  Tools: Return Oriented Rootkit [USENIX Security 09]</p>
+    <p>Keep security  Code sharing will increase a chance to attack  Attack for deduplication will be presented in Rump Session of USENIX</p>
+    <p>Security.</p>
+  </div>
+</Presentation>

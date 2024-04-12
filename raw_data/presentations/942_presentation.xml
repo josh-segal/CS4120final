@@ -1,0 +1,226 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>LSM-trie: An LSM-tree-based Ultra-Large</p>
+    <p>Key-Value Store for Small Data</p>
+    <p>Xingbo Wu</p>
+    <p>Yuehai Xu</p>
+    <p>Song Jiang</p>
+    <p>Zili Shao</p>
+    <p>The Hong Kong</p>
+    <p>Polytechnic University</p>
+  </div>
+  <div class="page">
+    <p>The Challenge on Todays Key-Value Store</p>
+    <p>Trends on workloads</p>
+    <p>Larger single-store capacity</p>
+    <p>Multi-TB SSD</p>
+    <p>Flash array of over 100 TB</p>
+    <p>Smaller key-value items</p>
+    <p>In a Facebook KV pool 99% of the items are  68B.</p>
+    <p>Large metadata set on a single node</p>
+  </div>
+  <div class="page">
+    <p>Consequences of a Large Metadata Set</p>
+    <p>Less caching space for hot KV items.</p>
+    <p>Low hit ratio compromises system throughput.</p>
+    <p>Long warm-up time.</p>
+    <p>It may take tens of minutes to read all metadata into memory.</p>
+    <p>High read cost for out-of-core metadata.</p>
+    <p>Its expensive to read multiple pages to serve a single GET.</p>
+    <p>LevelDB has managed to reduce the metadata size.</p>
+  </div>
+  <div class="page">
+    <p>LevelDB Reduces Metadata Size with SSTable</p>
+    <p>To construct an SSTable:</p>
+    <p>Sort data into a list.</p>
+    <p>Build memory-efficient block-index.</p>
+    <p>Generate Bloom filters to avoid unnecessary reads.</p>
+    <p>How to support insertions on SSTable?</p>
+    <p>[1,2,3,5,8,9] [10,11,13,15,16,18] [19,20,23,24,25]</p>
+    <p>Bloom filter</p>
+    <p>Get 20 Get 22</p>
+  </div>
+  <div class="page">
+    <p>MemTable</p>
+    <p>Reorganizing Data Across Levels</p>
+    <p>LSM-tree (Log-Structured Merge-tree)</p>
+    <p>New items are first accumulated in MemTable.</p>
+    <p>Each filled MemTable is converted to an SSTable at Level 0.</p>
+    <p>LevelDB conducts compaction to merge the SSTables.</p>
+    <p>A store can exponentially grow to several TBs with a</p>
+    <p>few levels.</p>
+    <p>Level 0</p>
+    <p>Level 1 Compaction</p>
+    <p>Very Expensive!</p>
+  </div>
+  <div class="page">
+    <p>In one compaction (1:10 size ratio):</p>
+    <p>Read 11 tables</p>
+    <p>Write 11 tables</p>
+    <p>Add only 1 table to the lower level</p>
+    <p>(WA: write amplification)</p>
+    <p>A Closer Look at Compaction</p>
+    <p>Steps in compaction:</p>
+    <p>Memory</p>
+    <p>Disk</p>
+    <p>Level N+1</p>
+    <p>Level N</p>
+  </div>
+  <div class="page">
+    <p>Compaction can be very Expensive</p>
+    <p>The workload:</p>
+    <p>PUT 2 billion items of random keys (~250GB).</p>
+    <p>16-byte key and 100-byte value.</p>
+    <p>PUT throughput reduces to 18K QPS (2MB/s).</p>
+  </div>
+  <div class="page">
+    <p>Metadata I/O is Inefficient</p>
+    <p>Facts about LevelDBs metadata:</p>
+    <p>Block Index: ~12 bytes per block.</p>
+    <p>Bloom filter: ~10 bits per key.</p>
+    <p>How large is it in a 10-TB store of 100-byte KV items?</p>
+    <p>155GB metadata: 30 GB block index + 125 GB Bloom filter.</p>
+    <p>~10% raw SSD IOPS</p>
+    <p>metadata for a 1-TB store.</p>
+    <p>~50% raw SSD IOPS</p>
+  </div>
+  <div class="page">
+    <p>Our solution: LSM-trie</p>
+    <p>Build an ultra-large KV store for small data.</p>
+    <p>Using a trie structure to improve compaction</p>
+    <p>efficiency.</p>
+    <p>Clustering Bloom filters for efficiently reading out</p>
+    <p>of-core metadata.</p>
+  </div>
+  <div class="page">
+    <p>Organizing Tables in a Trie (Prefix Tree)</p>
+    <p>KV items are located in the trie according to their hashed key.</p>
+    <p>Each trie node contains a pile of immutable tables.</p>
+    <p>The nodes at the same depth form a conceptual level.</p>
+    <p>How does LSM-trie help with efficient compaction?</p>
+    <p>Level 0</p>
+    <p>Level 1</p>
+    <p>Hash prefix: 00 10 11</p>
+  </div>
+  <div class="page">
+    <p>For one compaction:</p>
+    <p>Read 8 tables (1:8 fan-out)</p>
+    <p>Write 8 tables</p>
+    <p>Add 8 tables to the lower level</p>
+    <p>Only 5x WA for a 5-level LSM-trie</p>
+    <p>Efficient Compaction in LSM-trie</p>
+    <p>Compaction steps:</p>
+    <p>Memory</p>
+    <p>#00 #01 #10</p>
+    <p>Tables linearly</p>
+    <p>grow at each node 10</p>
+    <p>#11</p>
+  </div>
+  <div class="page">
+    <p>Introducing HTable*</p>
+    <p>HTable: Immutable hash-table of key-value items</p>
+    <p>Each bucket has 4KB space by default.</p>
+    <p>Some buckets have overflowed items.</p>
+    <p>Migrating the overflowed items.</p>
+    <p>KV KV KV KV</p>
+    <p>KV KV KV</p>
+    <p>KV KV KV KV</p>
+    <p>KV KV KV</p>
+    <p>KV</p>
+    <p>Bucket ID: 0 to 3 0 1 2 3</p>
+  </div>
+  <div class="page">
+    <p>Selecting Items for Migration</p>
+    <p>Sorting items in a bucket according to their keys hash.</p>
+    <p>Migrating the items above the watermark (HashMark).</p>
+    <p>Recording the HashMark and the corresponding IDs.</p>
+    <p>2B Source ID, 2B Target ID, 4B HashMark</p>
+    <p>HashMark: 0xa0</p>
+    <p>Move to another bucket</p>
+  </div>
+  <div class="page">
+    <p>Caching HashMarks for Efficient GETs</p>
+    <p>Only cache HashMark for most overloaded buckets.</p>
+    <p>1.01 amortized reads per GET.</p>
+    <p>A 1-TB store only needs ~400MB in-memory HashMark.</p>
+    <p>Metadata in bucket 1</p>
+    <p>Bucket ID: 1</p>
+    <p>HashMark: 0x95</p>
+    <p>Target ID: 7 KV Item owned by Bucket 1</p>
+    <p>KV Item owned by Bucket 7</p>
+    <p>The only item that</p>
+    <p>triggers a 2nd read.</p>
+  </div>
+  <div class="page">
+    <p>Most Metadata is in the Last Level</p>
+    <p>The first four levels contain 1.9 GB Bloom filters (BF).</p>
+    <p>The last level may contain over one hundred GB BFs.</p>
+    <p>We explicitly cache the BFs for Level 0 to Level 3.</p>
+    <p>The BFs at the last level are managed differently.</p>
+    <p>N TB</p>
+    <p>Data size distribution</p>
+    <p>across the levels:</p>
+  </div>
+  <div class="page">
+    <p>Clustering Bloom Filter for Efficient Read</p>
+    <p>Each hash(key) indicates a column of 4-KB buckets.</p>
+    <p>We collect all the BFs in a column to form a BloomCluster.</p>
+    <p>Each GET requires one SSD read for all the out-of-core BFs.</p>
+  </div>
+  <div class="page">
+    <p>Exploiting Full SSD Performance</p>
+    <p>Using an additional small SSD to host BloomClusters.</p>
+    <p>e.g., a 10-TB SSD for data + a 128-GB SSD for metadata.</p>
+    <p>Plenty of memory space is left for your data cache!</p>
+    <p>Bloom-Cluster KV items</p>
+    <p>In-memory</p>
+    <p>Metadata GET</p>
+    <p>IOPS</p>
+    <p>A few GBs</p>
+  </div>
+  <div class="page">
+    <p>Performance Evaluation of PUT</p>
+    <p>Consistent</p>
+    <p>Throughput (TP)</p>
+    <p>on HDD:</p>
+    <p>than the others</p>
+    <p>Expected high</p>
+    <p>TP on SSD</p>
+    <p>TP dropped due to static</p>
+    <p>wear-leveling in SSD</p>
+    <p>High TP lasts</p>
+    <p>longer on two SSDs</p>
+  </div>
+  <div class="page">
+    <p>Write Amplification Comparison</p>
+    <p>Consistent 5x WA ratio</p>
+  </div>
+  <div class="page">
+    <p>Read Performance with 4GB Memory</p>
+    <p>~50% raw</p>
+    <p>SSD IOPS</p>
+    <p>Only one SSD is used.</p>
+    <p>SSD IOPS</p>
+    <p>*No data cache for LSM-trie</p>
+  </div>
+  <div class="page">
+    <p>Read Performance with 4GB Memory</p>
+    <p>Gains 96% raw</p>
+    <p>SSD IOPS with</p>
+    <p>an additional</p>
+    <p>SSD.</p>
+  </div>
+  <div class="page">
+    <p>Summary</p>
+    <p>LSM-trie is designed to manage a large set of small data.</p>
+    <p>It reduces the write-amplification by an order of magnitude.</p>
+    <p>It delivers high throughput even with out-of-core metadata.</p>
+    <p>The LSM-trie source code can be downloaded at:</p>
+    <p>https://github.com/wuxb45/lsm-trie-release</p>
+  </div>
+  <div class="page">
+    <p>Thank you!</p>
+    <p>Q &amp; A</p>
+  </div>
+</Presentation>

@@ -1,0 +1,291 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>Minimizing MPI Resource Contention in Multithreaded Multicore Environments</p>
+    <p>Dave Goodell,1 Pavan Balaji,1 Darius Buntinas,1</p>
+    <p>Gabor Dozsa,2 William Gropp,3 Sameer Kumar,2</p>
+    <p>Bronis R. de Supinski,4 Rajeev Thakur,1</p>
+    <p>goodell@mcs.anl.gov</p>
+    <p>ANL,1 IBM,2 UIUC/NCSA,3 LLNL4</p>
+    <p>September 21, 2010</p>
+  </div>
+  <div class="page">
+    <p>Overview</p>
+    <p>MPI Background MPI Objects MPI &amp; Threads</p>
+    <p>Nave Reference Counting Basic Approach An Improvement</p>
+    <p>Hybrid Garbage Collection Algorithm Analysis</p>
+    <p>Results Benchmark and Platform The Numbers</p>
+  </div>
+  <div class="page">
+    <p>MPI Objects</p>
+    <p>Most MPI objects are opaque objects</p>
+    <p>Created, manipulated, and destroyed via handles and functions</p>
+    <p>Object handle examples: MPI_Request, MPI_Datatype, MPI_Comm</p>
+    <p>MPI types such as MPI_Status are not opaque (direct access to status.MPI_ERROR is valid)</p>
+    <p>In this talk, object always means an opaque object</p>
+  </div>
+  <div class="page">
+    <p>The Premature Release Problem</p>
+    <p>Example</p>
+    <p>MPI_Datatype tv;</p>
+    <p>MPI_Comm comm;</p>
+    <p>MPI_Request req;</p>
+    <p>MPI_Comm_dup(MPI_COMM_WORLD, &amp;comm);</p>
+    <p>MPI_Type_vector(..., &amp;tv);</p>
+    <p>MPI_Type_commit(&amp;tv);</p>
+    <p>MPI_Irecv(buf, 1, tv, 0, 1, comm, req);</p>
+    <p>MPI_Comm_free(&amp;comm);</p>
+    <p>MPI_Type_free(&amp;tv);</p>
+    <p>... arbitrarily long computation ...</p>
+    <p>MPI_Wait(&amp;req);</p>
+    <p>This is a premature release. comm and tv are still in use at user-release time</p>
+  </div>
+  <div class="page">
+    <p>The Premature Release Problem</p>
+    <p>Example</p>
+    <p>MPI_Datatype tv;</p>
+    <p>MPI_Comm comm;</p>
+    <p>MPI_Request req;</p>
+    <p>MPI_Comm_dup(MPI_COMM_WORLD, &amp;comm);</p>
+    <p>MPI_Type_vector(..., &amp;tv);</p>
+    <p>MPI_Type_commit(&amp;tv);</p>
+    <p>MPI_Irecv(buf, 1, tv, 0, 1, comm, req);</p>
+    <p>MPI_Comm_free(&amp;comm);</p>
+    <p>MPI_Type_free(&amp;tv);</p>
+    <p>... arbitrarily long computation ...</p>
+    <p>MPI_Wait(&amp;req);</p>
+    <p>This is a premature release. comm and tv are still in use at user-release time</p>
+  </div>
+  <div class="page">
+    <p>The Premature Release Problem</p>
+    <p>Example</p>
+    <p>MPI_Datatype tv;</p>
+    <p>MPI_Comm comm;</p>
+    <p>MPI_Request req;</p>
+    <p>MPI_Comm_dup(MPI_COMM_WORLD, &amp;comm);</p>
+    <p>MPI_Type_vector(..., &amp;tv);</p>
+    <p>MPI_Type_commit(&amp;tv);</p>
+    <p>MPI_Irecv(buf, 1, tv, 0, 1, comm, req);</p>
+    <p>MPI_Comm_free(&amp;comm);</p>
+    <p>MPI_Type_free(&amp;tv);</p>
+    <p>... arbitrarily long computation ...</p>
+    <p>MPI_Wait(&amp;req);</p>
+    <p>This is a premature release. comm and tv are still in use at user-release time</p>
+  </div>
+  <div class="page">
+    <p>User Convenience, Implementer Pain</p>
+    <p>Supporting the simple case is trivial:</p>
+    <p>MPI_Type_vector 7 malloc  MPI_Type_free 7 free</p>
+    <p>The more complicated premature release case requires more effort, typically reference counting.</p>
+  </div>
+  <div class="page">
+    <p>Terminology Note</p>
+    <p>To minimize confusion, let us refer to functions like MPI_Type_free as user-release functions and their invocation as user-releases.</p>
+    <p>ref means reference</p>
+  </div>
+  <div class="page">
+    <p>MPI Reference Counting Semantics</p>
+    <p>MPI objects must stay alive as long as logical references to them exist. Usually corresponds to a pointer under the hood.</p>
+    <p>Objects are born with only the users ref.</p>
+    <p>The user can release that ref with a user-release (e.g. MPI_Comm_free)</p>
+    <p>MPI operations logically using an object may acquire a reference to that object, which is then released when finished.</p>
+    <p>An MPI object is no longer in use and eligible for destruction when there are no more references to the object.</p>
+  </div>
+  <div class="page">
+    <p>MPICH2 Objects</p>
+    <p>All MPICH2 objects are allocated by a custom allocator (not directly by malloc/free).</p>
+    <p>All objects have a common set of header fields.</p>
+    <p>We place an atomically-accessible, reference count (refcount) integer field here.</p>
+    <p>This field is initialized to 1 on object allocation.</p>
+  </div>
+  <div class="page">
+    <p>The Nave Algorithm</p>
+    <p>(A, B, and C are opaque MPI objects)</p>
+  </div>
+  <div class="page">
+    <p>Reference Counting Example</p>
+    <p>Example</p>
+    <p>refcount tv comm</p>
+    <p>- - MPI_Datatype tv; - - MPI_Comm comm; - - MPI_Request req; - 1 MPI_Comm_dup(MPI_COMM_WORLD, &amp;comm); 1 1 MPI_Type_vector(..., &amp;tv); 1 1 MPI_Type_commit(&amp;tv); 2 2 MPI_Irecv(buf, 1, tv, 0, 1, comm, req); 2 1 MPI_Comm_free(&amp;comm); 1 1 MPI_Type_free(&amp;tv); 1 1 ... arbitrarily long computation ... 0 0 MPI_Wait(&amp;req);</p>
+  </div>
+  <div class="page">
+    <p>Downsides</p>
+    <p>Example</p>
+    <p>MPI_Request req[NUM_RECV];</p>
+    <p>for (i = 0; i &lt; NUM_RECV; ++i)</p>
+    <p>MPI_Irecv(..., &amp;req[i]); // ATOMIC{++(c-&gt;ref_cnt)}</p>
+    <p>MPI_Waitall(req); // for NUM_RECV: ATOMIC{--(c-&gt;ref_cnt)}</p>
+    <p>Different threads running on different cores/processors will fight over the cache line containing the ref count for the communicator and datatype.</p>
+    <p>Even the waitall will result in NUM_RECV atomic decrements for each shared objects.</p>
+  </div>
+  <div class="page">
+    <p>An Improvement</p>
+    <p>Many codes (and benchmarks) dont use user-derived objects.</p>
+    <p>Predefined objects (MPI_COMM_WORLD, MPI_INT, etc) are not explicitly created in the usual fashion.</p>
+    <p>Their lifetimes are bounded by MPI_Init and MPI_Finalize and cannot be freed.</p>
+    <p>Upshot: simply dont maintain reference counts for predefined objects.</p>
+    <p>Easy to implement in MPICH2; completely removes contention in the critical path.</p>
+    <p>Doesnt help us at all for user-derived. . .</p>
+  </div>
+  <div class="page">
+    <p>An Improvement</p>
+    <p>Many codes (and benchmarks) dont use user-derived objects.</p>
+    <p>Predefined objects (MPI_COMM_WORLD, MPI_INT, etc) are not explicitly created in the usual fashion.</p>
+    <p>Their lifetimes are bounded by MPI_Init and MPI_Finalize and cannot be freed.</p>
+    <p>Upshot: simply dont maintain reference counts for predefined objects.</p>
+    <p>Easy to implement in MPICH2; completely removes contention in the critical path.</p>
+    <p>Doesnt help us at all for user-derived. . .</p>
+  </div>
+  <div class="page">
+    <p>An Improvement</p>
+    <p>Many codes (and benchmarks) dont use user-derived objects.</p>
+    <p>Predefined objects (MPI_COMM_WORLD, MPI_INT, etc) are not explicitly created in the usual fashion.</p>
+    <p>Their lifetimes are bounded by MPI_Init and MPI_Finalize and cannot be freed.</p>
+    <p>Upshot: simply dont maintain reference counts for predefined objects.</p>
+    <p>Easy to implement in MPICH2; completely removes contention in the critical path.</p>
+    <p>Doesnt help us at all for user-derived. . .</p>
+  </div>
+  <div class="page">
+    <p>One Mans Trash. . .</p>
+    <p>Problem: MPI_Comm and MPI_Datatype refcount contention (possibly others too, MPI_Win)</p>
+    <p>Communicators/datatypes/etc are usually long(ish) lived.</p>
+    <p>MPI_Requests are frequently created and destroyed.</p>
+    <p>Suggests a garbage collection approach to manage communicators, etc.</p>
+  </div>
+  <div class="page">
+    <p>Definitions</p>
+    <p>GCMO Garbage Collection Managed Object. These are long-lived, contended objects: communicators, datatypes, etc.</p>
+    <p>Transient Short-lived, rarely contended objects: requests</p>
+    <p>G` The set of live GCMOs, must not be deallocated</p>
+    <p>Ge The set of GCMOs eligible for deallocation</p>
+    <p>T The set of transient objects</p>
+  </div>
+  <div class="page">
+    <p>High Level Approach</p>
+    <p>Disable reference counting on GCMO objects due to transient objects. Other refcounts remain!</p>
+    <p>Add a live/not-live boolean in the header of all GCMOs.</p>
+    <p>Maintain T , G`, and Ge somehow (we used lists)</p>
+    <p>At creation, GCMOs are added to G`. Refcount starts at 2 (user ref and garbage collector ref).</p>
+    <p>When a GCMOs refcount drops to 1, move it to Ge.</p>
+    <p>Periodically run a garbage collection cycle (next slide).</p>
+  </div>
+  <div class="page">
+    <p>Garbage Collection Cycle</p>
+    <p>or not) as live.</p>
+  </div>
+  <div class="page">
+    <p>Garbage Collection Example</p>
+    <p>refcount tv comm</p>
+    <p>- - MPI_Datatype tv; - - MPI_Comm comm; - - MPI_Request req; - 2 MPI_Comm_dup(MPI_COMM_WORLD, &amp;comm); 2 2 MPI_Type_vector(..., &amp;tv); 2 2 MPI_Type_commit(&amp;tv); 2 2 MPI_Irecv(buf, 1, tv, 0, 1, comm, req); 2 1 MPI_Comm_free(&amp;comm); 1 1 MPI_Type_free(&amp;tv); 1 1 ... arbitrarily long computation ... 1 1 MPI_Wait(&amp;req); 0 0 // something triggers GC cycle</p>
+  </div>
+  <div class="page">
+    <p>Analysis</p>
+    <p>When |Ge| &gt; 0, collection cycle cost bound, fixed # GCMO refs per transient object: O(|Ge| + |T|) When |Ge| &gt; 0, cycle cost bound, variable # GCMO refs per transient object: O(|Ge| + ravg|T|) |G`| is not present in bound = GC performance penalty only for prematurely freed GCMOs and outstanding requests.</p>
+  </div>
+  <div class="page">
+    <p>When to Collect?</p>
+    <p>MPI_Finalize, obviously</p>
+    <p>Collection at new GCMO allocation time makes sense.</p>
+    <p>Flexible here: could be probabilistic, could be a function of memory pressure, could be a timer.</p>
+    <p>GCMO creation is not usually expected to be lightning fast, wont be in most inner loops.</p>
+    <p>We already hold the allocators lock.</p>
+    <p>GCMO user-release time is an option, but makes less sense.</p>
+  </div>
+  <div class="page">
+    <p>Benchmark</p>
+    <p>node0</p>
+    <p>node1</p>
+    <p>node2</p>
+    <p>node3</p>
+    <p>node4</p>
+    <p>MPI_THREAD_MULTIPLE</p>
+    <p>benchmarks and applications are rare/nonexistent.</p>
+    <p>We wrote a benchmark based on the Sequoia Message Rate Benchmark (SQMR).</p>
+    <p>Each iteration posts 12 nonblocking sends and 12 nonblocking receives, then calls MPI_Waitall.</p>
+    <p>All are 0-byte messages.</p>
+  </div>
+  <div class="page">
+    <p>Test Platform</p>
+    <p>ALCFs Surveyor Blue Gene/P system.</p>
+    <p>multicore, but unimpressively so</p>
+    <p>network-level parallelism is the key here, a serialized network makes this work pointless</p>
+  </div>
+  <div class="page">
+    <p>Message Rate Results  Absolute</p>
+    <p>M e s s a g e R</p>
+    <p>a te</p>
+    <p>( m</p>
+    <p>il li o n s p</p>
+    <p>e r</p>
+    <p>s e c o n d )</p>
+    <p># threads</p>
+    <p>strategy / object-type naive / built-in</p>
+    <p>no-predef / built-in GC / built-in</p>
+    <p>no-predef / derived GC / derived</p>
+  </div>
+  <div class="page">
+    <p>M e s s a g e R</p>
+    <p>a te</p>
+    <p>( m</p>
+    <p>il li o n s p</p>
+    <p>e r</p>
+    <p>s e c o n d )</p>
+    <p># threads</p>
+    <p>strategy / object-type naive / built-in</p>
+    <p>no-predef / built-in GC / built-in</p>
+    <p>no-predef / derived GC / derived</p>
+    <p>L 2 C</p>
+    <p>a c h e M</p>
+    <p>is s e s P</p>
+    <p>e r</p>
+    <p>T h re</p>
+    <p>a d -O</p>
+    <p>p</p>
+    <p># threads</p>
+    <p>strategy / object-type naive / built-in</p>
+    <p>no-predef / built-in GC / built-in</p>
+    <p>no-predef / derived GC / derived</p>
+  </div>
+  <div class="page">
+    <p>Summary</p>
+    <p>MPI specifies clear semantics for opaque object lifetimes that map trivially to reference counting.</p>
+    <p>Reference counting with multithreading is usually expensive due to cache line contention.</p>
+    <p>Suppressing refcounts for predefined objects (MPI_COMM_WORLD) is cheap and safe. Doesnt help user-defined objects.</p>
+    <p>Hybrid refcount+GC can pull the performance bottleneck out of the critical path.</p>
+    <p>Hybrid scheme is fairly easy to retrofit into an existing refcount mechanism.</p>
+  </div>
+  <div class="page">
+    <p>Questions?</p>
+    <p>Questions?</p>
+  </div>
+  <div class="page">
+    <p>(backup slides)</p>
+  </div>
+  <div class="page">
+    <p>Memory Consistency Implementation Issues</p>
+    <p>PPC has a relaxed memory consistency model bad case (relaxed Store-Store ordering):</p>
+    <p>Example</p>
+    <p>Thread 0 Thread 1 1 req-&gt;comm=C 2</p>
+    <p>mem_barrier(lwsync)</p>
+    <p>BAD!SAFE</p>
+    <p>memory barrier seems unnecessary on x86/x86 64 (only Store-Load order violated, plus atomics are full barriers)</p>
+  </div>
+  <div class="page">
+    <p>Memory Consistency Implementation Issues</p>
+    <p>PPC has a relaxed memory consistency model bad case (relaxed Store-Store ordering):</p>
+    <p>Example</p>
+    <p>Thread 0 Thread 1 1 req-&gt;comm=C 2</p>
+    <p>mem_barrier(lwsync)</p>
+    <p>SAFE</p>
+    <p>memory barrier seems unnecessary on x86/x86 64 (only Store-Load order violated, plus atomics are full barriers)</p>
+  </div>
+  <div class="page">
+    <p>Memory Consistency Implementation Issues</p>
+    <p>PPC has a relaxed memory consistency model bad case (relaxed Store-Store ordering):</p>
+    <p>Example</p>
+    <p>Thread 0 Thread 1 1 req-&gt;comm=C 2 mem_barrier(lwsync) 3 MPI_Comm_free(C) 4 // (--ref)==0, now eligible 5 MPI_Comm_create(C) 6 // run GC cycle, free C 7 8 // use freed req-&gt;comm</p>
+    <p>BAD!</p>
+    <p>SAFE</p>
+    <p>memory barrier seems unnecessary on x86/x86 64 (only Store-Load order violated, plus atomics are full barriers)</p>
+  </div>
+</Presentation>

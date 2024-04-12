@@ -1,0 +1,262 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>Takeshi Yoshimura, Tatsuhiro Chiba, Hiroshi Horii</p>
+    <p>IBM Research  Tokyo</p>
+    <p>HotStorage 2019</p>
+    <p>EvFS: User-level, Event-Driven File System for Non-Volatile Memory</p>
+  </div>
+  <div class="page">
+    <p>Hard disk drives (HDD)</p>
+    <p>Non-volatile memory (NVM) is fast storage Enables low-latency data processing with persistency and high capacity</p>
+    <p>Extremely lower latency (1 - 100 us) than SATA SSD and HDD (-10 ms) Higher capacity than DRAM</p>
+    <p>Available as non-volatile main memory (NVMM) and NVM Express (NVMe) Apps can access both NVM types through file systems (FS) such as ext4</p>
+    <p>Capacity</p>
+    <p>Latency</p>
+    <p>SATA SSD</p>
+    <p>Non-volatile memory express (NVMe) SSD</p>
+    <p>Non-volatile main memory (NVMM)</p>
+    <p>DDR DRAM ~80 -100 ns</p>
+    <p>&lt;1 us</p>
+    <p>~10 ms</p>
+    <p>Modified figure of PMDK documentation (https://docs.pmem.io/getting-started-guide/introduction)</p>
+    <p>Our target is both NVM</p>
+  </div>
+  <div class="page">
+    <p>Kernel FS is a huge overhead for fast storage The major overheads are reported in [Peter 14], [Volos 14], etc.</p>
+    <p>User-kernel context switches Locks Memory copies around page cache Other complex FS features</p>
+    <p>In our experience, ext4 spent &gt;5 us for in-memory 64B write()* No fsync and persistent writes, but 500 % time for NVM latency</p>
+    <p>pread()Thread A</p>
+    <p>pwrite()Thread B</p>
+    <p>Context switches Memory copies</p>
+    <p>Page cache</p>
+    <p>Kernel FS LockKernel mode</p>
+    <p>Block/device driver</p>
+    <p>Page cache</p>
+    <p>Memory copies</p>
+    <p>User buffer</p>
+    <p>* experiments on IBM Power System AC922 1.1TB RAM 160 logical Power9 cores PCIe3 x8 6.4 TB NVMe https://www.ibm.com/support/ knowledgecenter/8335GTH/p9hcd/fcec5e.htm Ubuntu 18.04LTS, Linux 4.17 SPDK 19.0, DPDK 18.02 ext4: disabled journaling and readahead</p>
+  </div>
+  <div class="page">
+    <p>Existing approach: Direct-access (DAX) FS Enables direct mapping of NVM to userspace</p>
+    <p>Linux ext4-DAX, PMFS [Dulloor 14], Aerie [Volos 14], SPDK* BlobFS</p>
+    <p>Simplifies FS architecture e.g., remove page cache to avoid redundant memory copies</p>
+    <p>Provides POSIX APIs and DAX interfaces (e.g., mmap, get/put) to apps</p>
+    <p>*Storage performance development kit (https://spdk.io/)</p>
+    <p>loadThread A</p>
+    <p>storeThread B Page cache</p>
+    <p>Kernel FS</p>
+    <p>NVMM (mmap()ed)</p>
+  </div>
+  <div class="page">
+    <p>Limitations of existing DAX FS DAX interfaces are non-portable</p>
+    <p>Many apps depend on POSIX file I/O, e.g., pread() Apps need difficult device management such as cache flushes</p>
+    <p>POSIX file I/O is suboptimal Page cache removal can slowdown apps due to high write latency of NVM [Ou 14] DAX FS running in the kernel requires context switches for POSIX file I/O BlobFS requires locks for page cache despite its limitation of access patterns</p>
+    <p>Direct-access FS DAX interface Running mode Page cache</p>
+    <p>Linux ext4-DAX mmap Kernel No</p>
+    <p>PMFS [Dulloor 14] mmap Kernel No*</p>
+    <p>Aerie [Volos 14] put/get User No</p>
+    <p>SPDK BlobFS No User No random accesses</p>
+    <p>*HiNFS [Ou 16] introduced Page cache in PMFS</p>
+  </div>
+  <div class="page">
+    <p>Our proposal: EvFS Optimizes POSIX file I/O for general Linux apps on NVM</p>
+    <p>Least user-kernel context switches with full user-level storage stack Lock-free page cache with event-driven architecture Dynamic link library exposing POSIX APIs</p>
+    <p>Provides direct I/O as a DAX interface Enable apps to selectively bypass page cache for file I/O</p>
+    <p>Built on top of SPDK block layer that supports both NVMM and NVMe Can be extended to RAID, logical volumes, and other extended storage features</p>
+    <p>Thread A</p>
+    <p>Thread B</p>
+    <p>pread() Page cache</p>
+    <p>pwrite()</p>
+    <p>LibEvFS</p>
+    <p>Page cache</p>
+    <p>Kernel FS</p>
+    <p>NVMeNVMM Block layer</p>
+  </div>
+  <div class="page">
+    <p>Contributions Show early design and implementation of user-level, event-driven FS for NVM</p>
+    <p>Not completed implementing all POSIX semantics yet Not implemented journaling yet</p>
+    <p>Report preliminary microbenchmark results with FIO and NVMe Other benchmarks and NVMM evaluation are future work</p>
+    <p>Direct-access FS DAX interface Running mode Page cache</p>
+    <p>Linux ext4-DAX mmap Kernel No</p>
+    <p>PMFS [Dulloor 14] mmap Kernel No</p>
+    <p>Aerie [Volos 14] put/get User No</p>
+    <p>SPDK BlobFS No User No random accesses</p>
+    <p>EvFS Direct I/O User Yes</p>
+  </div>
+  <div class="page">
+    <p>Key design of EvFS Event-driven architecture</p>
+    <p>A dynamic link library exposing POSIX APIs</p>
+    <p>User-level storage stack</p>
+    <p>Thread A</p>
+    <p>Thread B</p>
+    <p>pread() Page cache</p>
+    <p>pwrite()</p>
+    <p>LibEvFS</p>
+    <p>Page cache</p>
+    <p>Kernel FS</p>
+    <p>NVMeNVMM Block layer</p>
+  </div>
+  <div class="page">
+    <p>NVMeNVMM Block layer</p>
+    <p>Event-driven architecture Execute all FS operations including page cache as asynchronous events</p>
+    <p>Create lock-free ring buffers to manage event descriptors Run poller threads that atomically execute events, i.e., without locks</p>
+    <p>Eventually convert events into low-level requests to NVM  Execute I/O polling and notify its completion through callbacks</p>
+    <p>Minimize the latency of POSIX file I/O For blocking I/O, FS can reduce locks and coalesce I/O For non-blocking I/O, apps can return immediately after submitting an event</p>
+    <p>Thread A</p>
+    <p>Thread B</p>
+    <p>pread() Page cache</p>
+    <p>pwrite()</p>
+    <p>LibEvFS</p>
+    <p>Page cache</p>
+    <p>Kernel FS</p>
+    <p>Lock-free ring buffer</p>
+  </div>
+  <div class="page">
+    <p>Example execution flow</p>
+    <p>(1)pread() called by apps enqueues file I/O and sleeps</p>
+    <p>(2)Page cache parses file I/O and submit a block I/O event</p>
+    <p>(3)Block layer parses and submits the I/O to NVM and executes I/O polling</p>
+    <p>(4)If I/O is completed, the block layer calls the callback for page cache</p>
+    <p>(5)The callback notifies the I/O completion to the sleeping context 2019/7/8 EvFS: User-level, Event-Driven File System for Non-Volatile Memory10</p>
+    <p>pread()</p>
+    <p>Page cache</p>
+    <p>Thread A (1)</p>
+    <p>(2)</p>
+    <p>(3)</p>
+    <p>Execution flow of blocking I/O</p>
+    <p>(5) (4)</p>
+    <p>NVMeNVMM Block layer</p>
+  </div>
+  <div class="page">
+    <p>Dynamic link library exposing POSIX APIs EvFS exposes POSIX functions (e.g., pread) with its dynamic link library</p>
+    <p>Apps have to load libEvFS before LIBC and define device configs and mounted path</p>
+    <p>The POSIX functions invoke EvFS for file I/O under the mounted path Non-file I/O or accesses outside of the mounted path are redirected to LIBC The EvFS library creates a private mount point for an app</p>
+    <p>Hook thread-creation APIs in LIBC to minimize the latency Create per-thread I/O channel and memory pool</p>
+    <p>Avoid thread contentions and system calls for memory allocations for event descriptors</p>
+    <p>Thread A</p>
+    <p>Thread B</p>
+    <p>pread() Page cache</p>
+    <p>pwrite()</p>
+    <p>LibEvFS</p>
+    <p>Page cache</p>
+    <p>Kernel FS</p>
+    <p>NVMeNVMM Block layer</p>
+  </div>
+  <div class="page">
+    <p>User-level storage stack EvFS is built on top of SPDK Blobstore to manage NVM data</p>
+    <p>Regard BLOB, a management unit of NVM data in Blobstore, as inode as done by BlobFS Emulate a directory structure with special BLOBs that have pointers to other BLOBs Support user-level block drivers of SPDK NVMe and PMDK NVMM</p>
+    <p>Can also run with various advanced block drivers (e.g., RAID) in SPDK</p>
+    <p>EvFS introduces Linux-like page cache at userspace Cache NVM data in device page-granularity with offset as a key Allow bypassing page cache with O_DIRECT in open() flags</p>
+    <p>Thread A</p>
+    <p>Thread B</p>
+    <p>pread() Page cache</p>
+    <p>pwrite()</p>
+    <p>LibEvFS</p>
+    <p>Page cache</p>
+    <p>Kernel FS</p>
+    <p>NVMeNVMM Block layer</p>
+  </div>
+  <div class="page">
+    <p>Preliminary evaluation Compare EvFS and ext4 performance with FIO</p>
+    <p>Evaluate random access latency and throughput with a single thread Measure non-blocking writes and blocking reads/writes with/without direct I/O Disable the journaling of ext4 and readahead Suppose that we have enough memory</p>
+    <p>Environment: IBM Power System AC922 2 sockets x 20 cores x 4 SMT (POWER9 3.8 GHz), 1 TB RAM Ubuntu 18.04 LTS, Linux 4.17 NVMe: PCIe3 x8 6.4 TB https://www.ibm.com/support/knowledgecenter/8335-GTH/p9hcd/fcec5e.htm</p>
+  </div>
+  <div class="page">
+    <p>Result 1/3: Non-blocking writes EvFS reached ~0.7 us at 64 and 128 B writes</p>
+    <p>ext4 showed 5 - 20 us</p>
+    <p>EvFS showed up to 2.5 GB/s with a single thread Both EvFS and ext4 write only page cache Minimized latency by context switch elimination and event-driven architecture</p>
+    <p>B</p>
+    <p>B</p>
+    <p>B</p>
+    <p>Th ro</p>
+    <p>ug hp</p>
+    <p>ut (G</p>
+    <p>B /s</p>
+    <p>)</p>
+    <p>Block size</p>
+    <p>ext4 EvFS</p>
+    <p>B</p>
+    <p>B</p>
+    <p>B</p>
+    <p>w rit</p>
+    <p>e( ) L</p>
+    <p>at en</p>
+    <p>cy (</p>
+    <p>s )</p>
+    <p>Block size</p>
+    <p>ext4 EvFS</p>
+    <p>Lo w</p>
+    <p>er is</p>
+    <p>b et</p>
+    <p>te r</p>
+    <p>H ig</p>
+    <p>he r i</p>
+    <p>s be</p>
+    <p>tte r</p>
+    <p>IBM Power System AC922 1.1TB RAM 160 logical Power9 cores PCIe3 x8 6.4 TB NVMe https://www.ibm.com/support/ knowledgecenter/8335GTH/p9hcd/fcec5e.htm Ubuntu 18.04LTS, Linux 4.17 SPDK 19.0, DPDK 18.02 ext4: disabled journaling and readahead</p>
+  </div>
+  <div class="page">
+    <p>Result 2/3: Blocking writes EvFS reduced the latency of direct I/O by 20 us</p>
+    <p>Direct I/O showed better throughput than buffered I/O Buffered I/O is measured by a pair of write() and fsync() Direct I/O can accelerate apps with self-managed cache</p>
+    <p>Buffered I/O Direct I/OT hr</p>
+    <p>ou gh</p>
+    <p>pu t (</p>
+    <p>M B</p>
+    <p>/s )</p>
+    <p>ext4 EvFS</p>
+    <p>Buffered I/O Direct I/Ow rit</p>
+    <p>e( ) L</p>
+    <p>at en</p>
+    <p>cy (</p>
+    <p>s )</p>
+    <p>ext4 EvFS</p>
+    <p>Lo w</p>
+    <p>er is</p>
+    <p>b et</p>
+    <p>te r</p>
+    <p>H ig</p>
+    <p>he r i</p>
+    <p>s be</p>
+    <p>tte r</p>
+    <p>IBM Power System AC922 1.1TB RAM 160 logical Power9 cores PCIe3 x8 6.4 TB NVMe https://www.ibm.com/support/ knowledgecenter/8335GTH/p9hcd/fcec5e.htm Ubuntu 18.04LTS, Linux 4.17 SPDK 19.0, DPDK 18.02 ext4: disabled journaling and readahead Blocksize: 4 KB</p>
+  </div>
+  <div class="page">
+    <p>Result 3/3: Blocking reads EvFS reduced latency for both buffered and direct I/O by 20 us</p>
+    <p>Buffered I/O Direct I/OT hr</p>
+    <p>ou gh</p>
+    <p>pu t (</p>
+    <p>M B</p>
+    <p>/s )</p>
+    <p>ext4 EvFS</p>
+    <p>Buffered I/O Direct I/Ore ad</p>
+    <p>() L</p>
+    <p>at en</p>
+    <p>cy (</p>
+    <p>s)</p>
+    <p>ext4 EvFS</p>
+    <p>Lo w</p>
+    <p>er is</p>
+    <p>b et</p>
+    <p>te r</p>
+    <p>H ig</p>
+    <p>he r i</p>
+    <p>s be</p>
+    <p>tte r</p>
+    <p>IBM Power System AC922 1.1TB RAM 160 logical Power9 cores PCIe3 x8 6.4 TB NVMe https://www.ibm.com/support/ knowledgecenter/8335GTH/p9hcd/fcec5e.htm Ubuntu 18.04LTS, Linux 4.17 SPDK 19.0, DPDK 18.02 ext4: disabled journaling and readahead Blocksize: 4 KB</p>
+  </div>
+  <div class="page">
+    <p>Summary Showed early design and implementation of EvFS for NVM</p>
+    <p>EvFS minimizes the latency of file I/O with full user-level storage stack, event-driven architecture, and direct I/O</p>
+    <p>FIO showed 700 ns latency for non-blocking writes EvFS reduced the latency for blocking I/O by 20 usec</p>
+    <p>Future work: Implementation of missing POSIX semantics, journaling, etc. Evaluation with NVMM and other benchmarks</p>
+    <p>Thread A</p>
+    <p>Thread B</p>
+    <p>pread() Page cache</p>
+    <p>pwrite()</p>
+    <p>LibEvFS</p>
+    <p>Page cache</p>
+    <p>Kernel FS</p>
+    <p>NVMeNVMM Block layer</p>
+  </div>
+</Presentation>

@@ -1,0 +1,187 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>TidyFS: A Simple and Small Distributed Filesystem</p>
+    <p>Dennis Fe6erly1, Maya Haridasan1, Michael Isard1, and Swaminathan Sundararaman2</p>
+  </div>
+  <div class="page">
+    <p>IntroducHon</p>
+    <p>Increased use of shared nothing clusters for Data Intensive Scalable CompuHng (DISC)</p>
+    <p>Programs use a data-parallel framework  MapReduce, Hadoop, Dryad  PIG, HIVE, or DryadLINQ</p>
+  </div>
+  <div class="page">
+    <p>DISC Storage Workload ProperHes</p>
+    <p>Data stored in streams striped across cluster machines</p>
+    <p>ComputaHons parallelized so each part of a stream is read sequenHally by a single process</p>
+    <p>Each stream is wri6en in parallel  each part is wri6en sequenHally by a single writer</p>
+    <p>Frameworks re-execute sub-computaHons when machines or disks are unavailable</p>
+  </div>
+  <div class="page">
+    <p>TidyFS Design Goals</p>
+    <p>Targeted only to DISC storage workload  Exploit this for simplicity  Data invisible unHl commi6ed, then immutable</p>
+    <p>Rely on fault-tolerance of the framework  Enables lazy replicaHon</p>
+  </div>
+  <div class="page">
+    <p>TidyFS Data Model</p>
+    <p>Data  Stored as blobs on compute nodes  Immutable once wri6en</p>
+    <p>Metadata  Stored in centralized, reliable component  Describe how datasets are formed from data blobs  Mutable</p>
+  </div>
+  <div class="page">
+    <p>Client Visible Objects</p>
+    <p>Stream: a sequence of parts  i.e. Hdyfs://dryadlinqusers/fe6erly/clueweb09-English  Names imply directory structure</p>
+    <p>Part:  Immutable  64 bit unique idenHfier  Can be a member of mulHple streams  Stored on cluster machines  MulHple replicas of each part can be stored</p>
+    <p>Stream-1 Part 1 Part 2 Part 3 Part 4</p>
+  </div>
+  <div class="page">
+    <p>Part and Stream Metadata</p>
+    <p>System defined  Part: length, type, and fingerprint  Stream: name, total length, replicaHon factor, and fingerprint</p>
+    <p>User defined  Key-value store for arbitrary named blobs  Can describe stream compression or parHHoning scheme</p>
+  </div>
+  <div class="page">
+    <p>TidyFS System Architecture</p>
+    <p>Metadata server  Node Service  TidyFS Explorer</p>
+  </div>
+  <div class="page">
+    <p>Metadata Server</p>
+    <p>Maintains metadata for the system  Maps streams to parts  Maps parts to storage machine and data path</p>
+    <p>NTFS file, SQL table  Contains stream and part metadata  Maintains machine state  Schedules part replicaHon and load balancing</p>
+    <p>Replicated for scalability and fault tolerance</p>
+  </div>
+  <div class="page">
+    <p>Node Service</p>
+    <p>Runs on each storage machine  Garbage CollecHon  Delete parts that have been removed from TidyFS server (i.e. parts from deleted streams)</p>
+    <p>Verify machine has all parts expected by TidyFS server to ensure correct replica count</p>
+    <p>ReplicaHon  TidyFS server provides list of part ids to replicate  Machine replicates parHHon to local filesystem</p>
+    <p>ValidaHon  Validate checksum of stored parts</p>
+  </div>
+  <div class="page">
+    <p>Primary mechanism for users and administrators to interact with TidyFS</p>
+    <p>Users can operate on streams  Rename, delete, re-order parts,</p>
+    <p>Administrators can monitor system state  Healthy nodes, free storage space,</p>
+    <p>TidyFS Explorer</p>
+  </div>
+  <div class="page">
+    <p>Client Read Access Pa6erns</p>
+    <p>To read data in stream, a client will:  Obtain sequence of part ids that comprise stream  Request path to directly access part data</p>
+    <p>Read only file in local file system  CIFS path if remote file  Paths to DB and log file for DB part  Metadata server uses network topology to return the part replica closest to reader</p>
+  </div>
+  <div class="page">
+    <p>How a Dryad job reads from TidyFS</p>
+    <p>TidyFS Service</p>
+    <p>Cluster Machines</p>
+    <p>Job Manager List Parts in Stream Part 1, Machine 1</p>
+    <p>Part 2, Machine 2</p>
+    <p>Schedule Vertex Part 1</p>
+    <p>Schedule Vertex Part 2</p>
+    <p>Machine 1</p>
+    <p>Machine 2</p>
+    <p>Get Read Path Machine 1, Part 1</p>
+    <p>Get Read Path Machine 2, Part 2</p>
+    <p>D:\Hdyfs\0001.data</p>
+    <p>D:\Hdyfs\0002.data</p>
+  </div>
+  <div class="page">
+    <p>Client Write Access Pa6erns</p>
+    <p>To write data to a stream, a client will:  Determine a desHnaHon stream  Request Metadata server to allocate part ids assigned to desHnaHon stream</p>
+    <p>To write to a given part id, the  Request write path for that part id  Write data, using naHve interface  Close file, supply size and fingerprint to server</p>
+    <p>Data becomes visible to readers</p>
+  </div>
+  <div class="page">
+    <p>Write ReplicaHon</p>
+    <p>Default is lazy replicaHon  Client can request mulHple write paths  Write data to each path provides fault tolerance</p>
+    <p>Client library also provides byte-oriented interface  Used for data ingress/egress  Will opHonally perform eager replicaHon</p>
+  </div>
+  <div class="page">
+    <p>Design Points  Direct Access to Parts</p>
+    <p>Enables applicaHon choice of I/O pa6ern  Avoids extra layer of indirecHon  Simplifies legacy applicaHons  Enables use of naHve ACL mechanisms  Fine grained control over part sizes</p>
+  </div>
+  <div class="page">
+    <p>OperaHonal Experiences</p>
+    <p>18 month deployment and acHve use  256 node research cluster  Exclusively for programs run using DryadLINQ  DryadLINQ programs are executed by Dryad  Dryad is a dataflow execuHon engine</p>
+    <p>Dryad uses TidyFS for input and output  Dryad processes are scheduled by Quincy</p>
+    <p>A6empts to maintain data-locality and fair sharing</p>
+  </div>
+  <div class="page">
+    <p>DistribuHon of Part Sizes</p>
+  </div>
+  <div class="page">
+    <p>Data Volume</p>
+  </div>
+  <div class="page">
+    <p>Access Pa6erns</p>
+  </div>
+  <div class="page">
+    <p>Data Locality</p>
+  </div>
+  <div class="page">
+    <p>Part Read Histogram</p>
+  </div>
+  <div class="page">
+    <p>DistribuHon of Last Read Time</p>
+  </div>
+  <div class="page">
+    <p>EvaluaHon of Lazy replicaHon</p>
+    <p>Mean &amp;me to replica&amp;on (s) Percent</p>
+    <p>Part replicaHon Hmes over a 3 month window</p>
+  </div>
+  <div class="page">
+    <p>Conclusion</p>
+    <p>Design tradeoffs have worked well  Pleased with simplicity and performance</p>
+    <p>TidyFS gives clients direct access to part data  Performance  Easy to add support for addiHonal part types such as SQL databases</p>
+    <p>Prevents providing automaHc eager replicaHon  Lack of control over part sizes</p>
+    <p>Considering Hghter integraHon with other cluster services</p>
+  </div>
+  <div class="page">
+    <p>Backup Slides</p>
+  </div>
+  <div class="page">
+    <p>Replica Placement</p>
+    <p>IniHally had a space based assignment policy  Stream balance affects performance  Moved to best of 3 random choices  Evaluate balance using L2 norm</p>
+  </div>
+  <div class="page">
+    <p>Replica Placement EvaluaHon</p>
+  </div>
+  <div class="page">
+    <p>Cluster ConfiguraHon</p>
+    <p>Head Node</p>
+    <p>TidyFS Servers Cluster machines running tasks and TidyFS storage service</p>
+  </div>
+  <div class="page">
+    <p>How a Dryad job writes to TidyFS</p>
+    <p>TidyFS Service Cluster Machines</p>
+    <p>Job Manager</p>
+    <p>Machine 1</p>
+    <p>Machine 2</p>
+    <p>Schedule Vertex 1</p>
+    <p>Schedule Vertex 2</p>
+    <p>create Str1_v1</p>
+    <p>create Str1_v2</p>
+    <p>Part 1</p>
+    <p>Part 2</p>
+    <p>Str1_v1</p>
+    <p>Str1_v2</p>
+    <p>Part1</p>
+    <p>Part 2</p>
+  </div>
+  <div class="page">
+    <p>How a Dryad job writes to TidyFS</p>
+    <p>TidyFS Service Cluster Machines</p>
+    <p>Job Manager</p>
+    <p>Machine 1 GetWritePath Machine 1, Part 1</p>
+    <p>GetWritePath Machine2, Part 2</p>
+    <p>D:\Hdyfs\0001.data</p>
+    <p>D:\Hdyfs\0002.data Machine 2</p>
+    <p>Str1_v1</p>
+    <p>Str1_v2</p>
+    <p>Part1</p>
+    <p>Part 2</p>
+    <p>Completed</p>
+    <p>Completed</p>
+    <p>Create Str1</p>
+    <p>Str1</p>
+    <p>ConcatenateStreams (str1, str1_v1, str1_v2)</p>
+    <p>Delete Streams str1_v1, str1_v2</p>
+    <p>AddParHHonInfo (Part 1, Machine 1, Size, Fingerprint, )</p>
+    <p>AddParHHonInfo (Part 2, Machine 2, Size, Fingerprint, )</p>
+  </div>
+</Presentation>

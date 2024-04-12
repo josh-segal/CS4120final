@@ -1,0 +1,476 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<TEI xmlns="http://www.tei-c.org/ns/1.0" 
+xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+xsi:schemaLocation="http://www.tei-c.org/ns/1.0 /Users/atharsefid/Desktop/grobid-0.5.3/grobid-home/schemas/xsd/Grobid.xsd"
+ xmlns:xlink="http://www.w3.org/1999/xlink">
+	<teiHeader xml:lang="en">
+		<encodingDesc>
+			<appInfo>
+				<application version="0.5.3" ident="GROBID" when="2019-03-26T16:55+0000">
+					<ref target="https://github.com/kermitt2/grobid">GROBID - A machine learning software for extracting information from scholarly documents</ref>
+				</application>
+			</appInfo>
+		</encodingDesc>
+		<fileDesc>
+			<titleStmt>
+				<title level="a" type="main">Text Extraction from the Web via Text-to-Tag Ratio</title>
+			</titleStmt>
+			<publicationStmt>
+				<publisher/>
+				<availability status="unknown"><licence/></availability>
+			</publicationStmt>
+			<sourceDesc>
+				<biblStruct>
+					<analytic>
+						<author>
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Tim</forename><surname>Weninger</surname></persName>
+							<email>weninger@ksu.edu</email>
+							<affiliation key="aff0">
+								<orgName type="department" key="dep1">Computing and Information Sciences</orgName>
+								<orgName type="department" key="dep2">Computing and Information Sciences</orgName>
+								<orgName type="institution" key="instit1">Kansas State University</orgName>
+								<orgName type="institution" key="instit2">Kansas State University</orgName>
+							</affiliation>
+						</author>
+						<author>
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">William</forename><forename type="middle">H</forename><surname>Hsu</surname></persName>
+							<email>bhsu@cis.ksu.edu</email>
+							<affiliation key="aff0">
+								<orgName type="department" key="dep1">Computing and Information Sciences</orgName>
+								<orgName type="department" key="dep2">Computing and Information Sciences</orgName>
+								<orgName type="institution" key="instit1">Kansas State University</orgName>
+								<orgName type="institution" key="instit2">Kansas State University</orgName>
+							</affiliation>
+						</author>
+						<title level="a" type="main">Text Extraction from the Web via Text-to-Tag Ratio</title>
+					</analytic>
+					<monogr>
+						<imprint>
+							<date/>
+						</imprint>
+					</monogr>
+				</biblStruct>
+			</sourceDesc>
+		</fileDesc>
+		<profileDesc>
+			<abstract>
+				<p>We describe a method to extract content text from diverse Web pages by using the HTML document&apos;s Text-To-Tag Ratio rather than specific HTML cues that may not be constant across various Web pages. We describe how to compute the Text-To-Tag Ratio on a line-by-line basis and then cluster the results into content and non-content areas. With this approach we then show surprisingly high levels of recall for all levels of precision, and a large space savings.</p>
+			</abstract>
+		</profileDesc>
+	</teiHeader>
+	<text xml:lang="en">
+		<body>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="1.">Introduction</head><p>The amount of information being gathered and stored on the Internet continues to increase. The artifacts of this growing market provide interesting new research opportunities that explore social interactions, language, art, mathematics, etc. Many of these new research opportunities require the content of the Internet to be gathered, processed and stored quickly and efficiently. This effort is often hampered by the use of structure tags in HTML and XML. These tags are meaningful only to the browser that renders the document, but bear little semantic meaning to the end user. Tags and other non-content related HTML characters -images not included -comprise the majority of each page's size <ref type="bibr" target="#b0">[1]</ref>, and yet, Internet researchers are forced to crawl, compute and store web content in its entirety.</p><p>Therefore, entire Web pages are needlessly downloaded and indexed. In order to save space and increase the accuracy of indexing, NLP techniques, etc. researchers have devised ways to extract only the content of a Web page while removing navigation links, advertisements and other miscellaneous text <ref type="bibr" target="#b1">[2,</ref><ref type="bibr" target="#b2">3]</ref>. These recent text extraction techniques attempt to glean content by looking for structural cues in the HTML document as described in Section 2. We contend that these techniques are not only limited in their ability to extract information, but that their performance will be further deprecated by the separation of form from content brought on by the increasing popularity of cascading style sheets (CSS) <ref type="bibr" target="#b3">[4,</ref><ref type="bibr" target="#b4">5]</ref>.</p><p>This work focuses on extracting content from web pages that are otherwise laden with structural data, links and advertisements, commonly called Text Extraction. This work is particularly challenging because of the difficulty in determining which part of a web page is meaningful and which part is not. Despite the importance of this topic, little research has been done so far and current methods make too many assumptions. In this paper, we propose an effective heuristic for extracting meaningful content from Web pages called the Text-To-Tag Ratio (TTR).</p><p>Our technique is based on the observation that all Web pages have some structure and that the structure of Web pages vary greatly. The essence of our technique can be seen viewing the HTML-source of any Web page. We observe that most Web pages contain a title banner on the top with a list of hyperlinks on the left or right side of the page with advertisements interspersed.</p><p>Most usually the meaningful content of the page is located in the middle. Of course, this layout is not standard among all Web pages, and this fact is the crux of our approach.</p><p>After reviewing the state of the art, this paper will introduce TTR and give examples of its use. Next, we smooth the TTR histogram and then cluster the results into content and non-content sections. Finally we test the results of our approach by comparing the computed content clusters to human-generated ground truth. Our main empirical objective is to maximize recall because we believe that the extraction of errant content is less detrimental than the exclusion of actual content. Space savings will also be shown as a result of the text extraction.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="2.">Related Work</head><p>Internet text extraction is an important problem and yet little research has been done in this area.</p><p>A naive solution is to simply remove all HTML tags. However this approach allows structural and noncontent related text such as site-links, advertisements, copyright information, etc. to remain.</p><p>In <ref type="bibr" target="#b5">[6]</ref>, a method is proposed to discover informative contents from pages of a Web site. Their use of entropy is similar to our use of the text-to-tag ratio, but their approach is limited by the following assumptions as documented in <ref type="bibr" target="#b6">[7]</ref>: (1) the system knows a priori how a particular Web page is formatted; and (2) the system assumes that all content appears within the table tag. As we shall see, these two assumptions are difficult to make especially given the trend that Web page developers are moving away from table tags and towards div tags with the use of CSS as documented in <ref type="bibr" target="#b7">[8]</ref>. Our approach does not rely on the use of any particular HTML tag(s).</p><p>In <ref type="bibr" target="#b6">[7]</ref>, Web page cleaning is defined as a frequent template detection problem. They propose that by counting frequent item sets they can discover web templates and extract data content from a Web page by applying a template, and then by finding the particular pagelet that the page-content can be extracted from. This approach assumes that all Web pages can be categorized to fit a particular template, and furthermore, that the pagelet that was selected from the template contains all of the content from the page. Our approach makes no assumptions on the particular style or structure of a web page, our only assumption is that the Web page in question has some structure.</p><p>In <ref type="bibr" target="#b7">[8]</ref> the authors describe a method based on the analysis of both the structure and the content of the Web pages in a given Web site. Again some assumptions are made with this approach: (1) the system must process one contiguous Web site at a time in order to describe the common structure of a set of Web pages; and (2) the system assumes that all Web pages in a Web site are similar. However, while this is often the case it is not a mandatory condition. For instance, the various departments and offices at Kansas State University 1 each have their own style and structure. Furthermore, student Web pages share little in common with the university or department structure although they technically remain part of the university's domain. Our approach does not assume a particular structure is shared among Web pages of the same Web site.</p><p>The common problem with the related work is that too many assumptions are made. This is true especially for the structures of the Web pages in question. <ref type="bibr" target="#b0">1</ref> The Kansas State University Web site is available at http://kstate.edu</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.">The Text-To-Tag Ratio</head><p>The Text-To-Tag Ratio (TTR) is the basis by which we analyze a Web page in preparation for clustering. It, essentially, is the ratio of the count of non-HTML-tag characters to the count of HTML-tags per line. In the likely event that the count of HTML-tags on a particular line is 0 the ratio is set to the length of the line. The TTR algorithm is described in Alg. 1.</p><formula xml:id="formula_0">Algorithm 1: Text-To-Tag Ratio pseudocode input h ← HTML source code begin</formula><p>Remove all script, remark tags and empty lines for each line k to numLines( h ) do</p><formula xml:id="formula_1">x ← number of non-tag ASCII characters in h[k] y ← number of tags in h[k] if y = 0 then TTRArray[i] ← x else TTRArray[i] ← x / y end if end for return TTRArray end</formula><p>Before TTRs are computed, script and remark tags are removed from the HTML document because this information would be treated as non-tag text by the algorithm and thus skew the results. Empty lines are also removed because their inclusion would potentially skew the performance of the clustering algorithms that are described in Section IV. As an example, consider the news article from The Hutchinson News 2 that appeared on Wednesday, <ref type="bibr">March 19, 2008</ref>  </p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="4.">Computing Clusters</head><p>Now that the Text-To-Tag Ratio (TTR) has been computed for each line we turn our attention to the task of clustering the resulting TTRArray in order to determine the content lines of the Web page. For this purpose the TTR Heuristic is considered TTR Heuristic: For each k in TTRArray, the higher the TTR is for an element k relative to the mean TTR of the entire array the more likely that k represents a line of content-text within the HTML-page. In this section we describe four clustering techniques based on the above heuristic, namely, KMeans, Expectation Maximization (EM), Farthest First, and two thresholding techniques that were developed specifically for this problem.</p><p>The standard deviation is used as the clustering threshold because it best represents the variance of the array while the mean is more likely to be skewed by large outliers and the median is more likely to pick a point that is too low because of the preponderance of low TTR scores among the lines of most Web pages.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="4.1.">Pre-processing</head><p>Before any clustering techniques are applied to the array a smoothing pass is made on the array. This is done because without smoothing many important content lines might be lost including the article title, by-line, short or one sentence paragraphs, etc. that would otherwise fall below the clustering threshold.</p><p>As a pathological example, consider the American Declaration of Independence 3 . As an HTML document the TTR would heavily favour the preamble and proclamation sections but would lose some of the abuses of King George III because the abuses are listed in a short, concise manner, and relative to the rest of the document their TTRs lie below the threshold as shown in <ref type="figure">Fig. 2</ref>. To resolve this problem we smooth the TTR array by computing the mean TTR (e) for a given radius (r) for each element (k) for all lines (n) as shown in Eq. 1.</p><formula xml:id="formula_2">񮽙 񮽙 񮽙 ∑ 񮽙񮽙񮽙񮽙񮽙񮽙񮽙񮽙 񮽙 22 1<label>(1)</label></formula><p>For all experiments included in this paper we use a radius of size 2 excluding k.</p><p>The resulting array, shown in <ref type="figure">Fig. 3</ref>, is better suited for clustering because of the increased cohesiveness within sections and strict differences between sections. Furthermore, the resulting array has a lower standard deviation of 40.55 TTR because outlying peaks and valleys are normalized. Also, outliers, such as advertisements, that may occupy one line among many low-TTR lines are smoothed out and not counted.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="4.2.">K-Means, EM, Farthest First</head><p>To cluster the smoothed array into content and noncontent clusters we consider three well documented K-Means, Expectation Maximization (EM), and Farthest-First. For the purposes of our study we will be using the implementations as provided as part of Weka.</p><p>K-Means is a well known iterative distance-based clustering algorithm; it also is one of the oldest, simplest and most widely used clustering algorithms <ref type="bibr" target="#b8">[9]</ref>. EM is a statistical model that makes use of the finite Gaussian mixture. Detailed descriptions and numerous references regarding this topic can be found in <ref type="bibr" target="#b9">[10]</ref>. Farthest-First is a clustering algorithm that combines hierarchical clustering and distance-based clustering. In particular, it uses the basic concept of agglomerative hierarchical clustering in combination with a distance measurement criterion that is similar to the one used by K-Means <ref type="bibr" target="#b10">[11]</ref>.</p><p>Because of the diversity of Web pages, the number of clusters to compute could not remain constant. With this in mind, we executed each clustering algorithm 3 times for each Web page -one execution for 1 through 3 clusters 4 . For each execution we recorded the number of clusters that had a mean above the standard deviation of the entire array. The lines that are included in those clusters are deemed to be content.</p><p>For example, consider the news article from Section III. After smoothing the standard deviation is 20.35. For a single cluster the K-Means algorithm returns in zero hits as shown in <ref type="table" target="#tab_1">Table 1</ref>. For two clusters the KMeans algorithm returns a single cluster because the mean of that cluster is 53.40, which is greater than the standard deviation threshold of the array. Finally, for three clusters the K-Means algorithm again returns a single cluster. Because there is a tie between choosing 2 and 3 clusters an arbitrary decision is made. The default decision goes to the lower cluster number. After the cluster(s) are selected the corresponding lines are selected from the HTML document. Each line is then stripped of all remaining HTML tags -usually paragraph and anchor tags. Finally, the cleaned lines are combined and output to a file for storage. <ref type="bibr" target="#b3">4</ref> We chose a maximum of 3 clusters arbitrarily.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="4.3.">Threshold Clustering</head><p>Another approach we use to cluster a smoothed TTR array into content and non-content sections is to apply a threshold of one standard deviation to a smoothed TTR array. Array elements with a TTR that lies equal to or above the standard deviation shall be deemed content, and those which are less than the standard deviation are considered non-content elements.</p><p>Consider the example from The Hutchinson News. The article's unsmoothed TTR array is shown in <ref type="figure" target="#fig_0">Fig.  1</ref>. After smoothing, a threshold is applied at 1 standard deviation above the base line. This results in an easy distinction between content and non-content lines as shown in <ref type="figure">Fig. 4</ref>. </p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="4.3.">Prediction Clustering</head><p>Our final clustering approach is very similar to the threshold clustering discussed in the previous subsection, in that, prediction clustering operates on the assumption that the TTR of the content lines of Web pages appear in stark contrast to the TTR of noncontent lines. By operating under this observation we iterate through a non-smoothed TTR array and attempt to "predict" whether or not the movement from one line to another constitutes a "jump" from a non-content section to a content section of the Web page and vice versa.</p><p>Specifically our prediction algorithm looks for jumps of 1 standard deviation over the moving average of the previous 3 TTRs as an indication to the detection of a content section. Inversely, to exit a content section the algorithm looks for a reduction in the mean of the next 3 TTRs of at least 1 standard deviation from the current, in-content, TTR.</p><p>We believe that this approach is potentially the most effective at maximizing recall because the short content lines that lie beneath the threshold -as described in Section 4 -have a smaller chance of being ignored. Line Number</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="5.">Experimental Results</head><p>In this section we demonstrate the results of applying the TTR technique from Section IV and the various clustering techniques from V.</p><p>To test the accuracy of the Text-To-Tag Ratio techniques documented in the above sections, 176 complete Web pages were downloaded. These pages were selected by searching for the keyword "the" from Yahoo's search engine and harvesting the results. Note that while a total of 200 Web pages were retrieved, 34 had to be discarded because they were either incompatible files, such as PDFs, etc. (31 occurrences), or they were blank (3 occurrences). No linked or referenced files including style sheets, images, etc. were included in the test corpus.</p><p>The goal of our experiments was to determine the content data of the Web pages and filter out all extraneous advertisements and site links. We determined the actual content of each Web page by opening each downloaded file in a browser and manually selecting the content text. The text was copied into a new file and is used for comparison evaluation later.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="5.1.">Evaluation Metrics</head><p>To test the TTR and clustering techniques methods had to be devised to compare the algorithm-results to the manually determined ground truth.</p><p>The first test metric is the Longest Common Subsequence algorithm (LCS) <ref type="bibr" target="#b11">[12]</ref>. The LCS determines how much of the ground truth was obtained by our algorithm by comparing the longest common subsequence of both files. Before the comparisons are made all line breaks, special HTML characters, and extra white spaces are removed from both files because a single errant character can have disastrous effects on the LCS score. The results of this metric are recorded as the percent of the algorithm output that matches the longest common subsequence of the manual file to the total length of the manual file. For the purposes of these experiments we consider LCS to be recall, and the mean LCS for all pages is reported in the next subsection.</p><p>The second and final test metric is the edit distance ratio (EDR). The edit distance measures how many key strokes are necessary to transform the algorithm output into the manual file <ref type="bibr" target="#b12">[13]</ref>. Like in the LCS metric, all line breaks, whitespace, etc. is removed. For our purposes, EDR is the ratio of edits needed to transform the algorithm output (o) into the manual file (m) to the total length of the longest file as shown in Eq. 2.</p><formula xml:id="formula_3">1 1 edtDist񮽙, 񮽙 maxxlen񮽙񮽙񮽙, len񮽙񮽙񮽙񮽙 (2)</formula><p>Because of this ratio we actually wish to maximize EDR, and for the purposes of these experiments we consider EDR to be precision, and the mean EDR for all pages is reported in the next subsection.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="5.2.">Results and Interpretation</head><p>The chart in <ref type="table" target="#tab_2">Table 2</ref> show the LCS results for each clustering method. The threshold clustering method received the best results with a mean of 94.19% and a competitive median. Aside from that there were several perfect matches, with EM finding the most with 43 total matches out of 176. The chart in <ref type="table" target="#tab_3">Table 3</ref> shows the EDR results for each clustering method. The farthest first clustering method received the best results with a median and mean of 77.03% and 62.53% respectively. There were no perfect EDR matches. As discussed in Section V, the threshold clustering technique from <ref type="table" target="#tab_2">Tables 2 and 3</ref> have a threshold that is set to 1 standard deviation above the base line. <ref type="figure" target="#fig_7">Fig. 5</ref> shows that as the threshold increases from a standard deviation coefficient of 0.0 to 2.0 the LCS (recall) decreases and the EDR (precision) increases. We are also able to show a mean space savings of 95% when the extracted text is compared to the original HTML. We are also able to show an 88% space savings when compressed HTML is compared to compressed text. <ref type="table" target="#tab_4">Table 4</ref> shows the mean results. </p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="6.">Conclusions</head><p>In this paper we discussed the problem of extracting the content text from diverse Web pages without the use of specific tags or other specific HTML cues. We showed that current approaches are too specific and do not account for the variety of Web presentation styles especially with the increased use of CSS. We proposed a new method of text extraction using the Text-To-Tag Ratio of each line of the HTML document and then using various clustering techniques to identify the content sections of the document. We then showed empirical results that indicated EM and threshold clustering techniques were best able to correctly identify content sections of an HTML document. Finally we were able to show that by extracting the content text from the original HTML document we can clean miscellaneous hyperlinks, advertisements, etc. with high recall and a large space savings.</p><p>We believe that further iterations of the prediction clustering algorithm will yield better results. In the future we wish to refine our prediction clustering algorithm to more accurately predict changes between content and non-content sections of HTML documents. Furthermore, we wish to explore this approach in conjunction with other smoothing techniques, and we also wish to use this text extraction technique to augment existing text summary, sentiment analysis, and classification methods. </p></div><figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_0"><head>Figure 1 .</head><label>1</label><figDesc>Figure 1. Text to Tag Ratio Web page from The Hutchinson News</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_1"><head>Text</head><label></label><figDesc>To Tag Ratio Line Number advertisements take up most of the space on the webpage while the content of the page is confined to a relatively small space in the middle. At the bottom of the page more advertisements and images are displayed along with links to copyrights and other information. When this page's source is analyzed with the TTR algorithm, our initial estimation becomes evident because a large cluster of high TTR lines is seen between lines 225 and 262 as shown in Fig 1. This area of high TTRs denotes the content section of a page</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_2"><head>Figure 2 . Text to Tag Ratio for an American Declaration of Independence Web page 3 . Horizontal line denotes the standard deviation at 64. 49 TTR</head><label>249</label><figDesc>Figure 2. Text to Tag Ratio for an American Declaration of Independence Web page 3 . Horizontal line denotes the standard deviation at 64.49 TTR</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_3"><head>Figure 3 . Smoothed Text to Tag Ratio for an American Declaration of Independence Web page 3 . Horizontal line denotes the standard deviation threshold at 40. 55</head><label>355</label><figDesc>Figure 3. Smoothed Text to Tag Ratio for an American Declaration of Independence Web page 3 . Horizontal line denotes the standard deviation threshold at 40.55</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_5"><head>Figure 4 : Smoothed TTR array of Hutchinson News article with a threshold at 1 standard deviation ( 20 . 30 ) above the base line.</head><label>42030</label><figDesc>Figure 4: Smoothed TTR array of Hutchinson News article with a threshold at 1 standard deviation (20.30) above the base line.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_7"><head>Figure 5 . LCS and EDR metrics for increasing coefficients on the standard deviation for the Threshold of the TTR array.</head><label>5</label><figDesc>Figure 5. LCS and EDR metrics for increasing coefficients on the standard deviation for the Threshold of the TTR array.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_0" validated="false"><head>.</head><label></label><figDesc></figDesc><table>This Web page is similar to many 
+pages on the Web. The title banner, hyperlinks and 
+
+2 The 
+Hutchinson 
+News 
+is 
+available 
+online 
+at 
+http://hutchnews.com. The specific article is not permanently linked. 
+
+</table></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_1" validated="false"><head>Table 1 .</head><label>1</label><figDesc></figDesc><table>Means of clusters for K-Means on an article 
+from Hutchinson News. Bold denotes means above 
+the standard deviation. 2 clusters are selected. 
+
+Cluster 
+1 cluster 
+2 clusters 
+3 clusters 
+
+1 
+6.85 
+0.56 
+10.12 
+
+2 
+-
+53.40 
+70.42 
+
+3 
+-
+-
+0.59 
+
+</table></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_2" validated="false"><head>Table 2 :</head><label>2</label><figDesc></figDesc><table>Mean LCSs for clustering methods, where 
+higher is better for LCS and matches, and lower 
+standard deviation is better. Winners are in bold. 
+
+Thrshld 
+EM 
+K-Mns Far. First Predctn 
+
+Mean (%) 
+
+94.19 92.62 92.47 
+85.88 
+81.14 
+
+Median (%) 
+
+98.65 99.34 98.68 
+94.18 
+94.42 
+
+Std Dev. 
+
+14.03 17.60 16.57 
+21.32 
+24.85 
+
+Matches 
+
+34 
+43 
+35 
+25 
+22 
+
+</table></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_3" validated="false"><head>Table 3 :</head><label>3</label><figDesc></figDesc><table>Mean EDRs for clustering methods, where 
+higher is better for EDR, and lower standard 
+deviation is better. Winners are in bold. 
+
+Thrshld 
+EM 
+K-Mns 
+Far. First Predctn 
+
+Mean (%) 
+
+56.21 48.77 
+57.44 
+62.53 
+52.40 
+
+Median (%) 
+
+61.63 48.98 61.17% 
+77.03 
+55.30 
+
+Std Dev. 
+
+31.89 30.66 
+32.96 
+33.75 
+30.01 
+
+</table></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_4" validated="false"><head>Table 4 .</head><label>4</label><figDesc></figDesc><table>Mean file sizes for 176 original HTML files 
+compared to the mean sizes for the extracted text. 
+
+HTML 
+Extracted 
+Text 
+
+GZip 
+HTML 
+GZip Text 
+
+File Size 
+(Kb) 
+
+9,630.34 
+497.70 
+2,234.77 
+275.53 
+
+</table></figure>
+
+			<note place="foot" n="3"> The copy of the American Declaration of Independence used in this paper is available online at http://www.ushistory.org/ declaration/document/index.htm</note>
+		</body>
+		<back>
+
+			<div type="acknowledgement">
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="7.">Acknowledgements</head><p>This research was supported in part by the Defense Intelligence Agency. We thank Dr. Dan Andresen and Dr. Doina Caragea for their insight and useful comments, and Daniel Jones, John Drouhard, Imran Hameed and Jack Hart for their help with this project.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="8.">References</head></div>
+			</div>
+
+			<div type="references">
+
+				<listBibl>
+
+<biblStruct xml:id="b0">
+	<analytic>
+		<title level="a" type="main">Anchor text mining for translation of Web queries: A transitive translation approach</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">W</forename><surname>Lu</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">L</forename><surname>Chien</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">H</forename><surname>Lee</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">ACM Transactions on Information Systems (TOIS)</title>
+		<imprint>
+			<biblScope unit="volume">22</biblScope>
+			<biblScope unit="issue">2</biblScope>
+			<biblScope unit="page" from="242" to="269" />
+			<date type="published" when="2004-04" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b1">
+	<analytic>
+		<title level="a" type="main">Learning to Extract Text-based Information from the World Wide Web</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Soderland</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. Of KDD</title>
+		<meeting>Of KDD<address><addrLine>Newport Beach, California, USA</addrLine></address></meeting>
+		<imprint>
+			<date type="published" when="1997" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b2">
+	<analytic>
+		<title level="a" type="main">Mining Knowledge from Text Using Information Extraction</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><forename type="middle">J</forename><surname>Mooney</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Bunescu</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of SIGKDD 2005</title>
+		<meeting>of SIGKDD 2005<address><addrLine>Chicago, Illinois, USA</addrLine></address></meeting>
+		<imprint>
+			<date type="published" when="2005-08" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b3">
+	<analytic>
+		<title level="a" type="main">Evolution of web site design patterns</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><forename type="middle">Y</forename><surname>Ivory</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Megraw</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">ACM Transactions on Information Systems (TOIS)</title>
+		<imprint>
+			<biblScope unit="volume">23</biblScope>
+			<biblScope unit="issue">4</biblScope>
+			<biblScope unit="page" from="463" to="497" />
+			<date type="published" when="2005-10" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b4">
+	<analytic>
+		<title level="a" type="main">A Need-Oriented Assessment of Technological Trends in Web Engineering</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><forename type="middle">C</forename><surname>Rajapaske</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Jarzabek</forename></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of ICWE 2005</title>
+		<meeting>of ICWE 2005<address><addrLine>Sydney, Australia</addrLine></address></meeting>
+		<imprint>
+			<date type="published" when="2005-07" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b5">
+	<analytic>
+		<title level="a" type="main">Discovering informative content blocks from Web documents</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><forename type="middle">H</forename><surname>Lin</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><forename type="middle">M</forename><surname>Ho</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of SIGKDD</title>
+		<meeting>of SIGKDD<address><addrLine>Edmonton, Canada</addrLine></address></meeting>
+		<imprint>
+			<date type="published" when="2002" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b6">
+	<analytic>
+		<title level="a" type="main">Learning to classify text using positive and unlabeled data</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Xiaoli</forename><surname>Li</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Bing</forename><surname>Liu</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of IJCAI</title>
+		<meeting>of IJCAI<address><addrLine>Acapulco, Mexico</addrLine></address></meeting>
+		<imprint>
+			<date type="published" when="2003" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b7">
+	<analytic>
+		<title level="a" type="main">Using visual cues for extraction of tabular data from arbitrary HTML documents</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">B</forename><surname>Krüpl</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Herzog</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">W</forename><surname>Gatterbauer</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of WWW 2005</title>
+		<meeting>of WWW 2005<address><addrLine>Chiba, Japan</addrLine></address></meeting>
+		<imprint>
+			<date type="published" when="2005" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b8">
+	<analytic>
+		<title level="a" type="main">Some Methods for classification and Analysis of Multivariate Observations</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><forename type="middle">B</forename><surname>Macqueen</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of 5 th Berkeley Symposium on Mathematical Statistics and Probability</title>
+		<meeting>of 5 th Berkeley Symposium on Mathematical Statistics and Probability<address><addrLine>Berkeley, CA</addrLine></address></meeting>
+		<imprint>
+			<date type="published" when="1967" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b9">
+	<analytic>
+		<title level="a" type="main">Maximum likelihood from incomplete data via the EM algorithm</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Dempster</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">N</forename><surname>Laird</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Rubin</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Journal of the Royal Statistical Society, Series B</title>
+		<imprint>
+			<biblScope unit="volume">39</biblScope>
+			<biblScope unit="issue">1</biblScope>
+			<biblScope unit="page" from="1" to="38" />
+			<date type="published" when="1977" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b10">
+	<analytic>
+		<title level="a" type="main">A Best Possible Heuristic for the KCenter Problem</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><forename type="middle">D</forename><surname>Hochbaum</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">B</forename><forename type="middle">D</forename><surname>Shmoys</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Mathematics of Operational Research</title>
+		<imprint>
+			<biblScope unit="volume">10</biblScope>
+			<biblScope unit="issue">2</biblScope>
+			<biblScope unit="page" from="180" to="184" />
+			<date type="published" when="1985-05" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b11">
+	<analytic>
+		<title level="a" type="main">Algorithms for the Longest Common Subsequence Problem</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><forename type="middle">S</forename><surname>Hirschberg</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Journal of ACM</title>
+		<imprint>
+			<biblScope unit="volume">24</biblScope>
+			<biblScope unit="issue">4</biblScope>
+			<biblScope unit="page" from="664" to="675" />
+			<date type="published" when="1977" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b12">
+	<analytic>
+		<title level="a" type="main">Binary Codes Capable of Correcting Deletions, Insertions, and Reversals</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">V</forename><surname>Levenshtein</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Soviet PhysicsDoklady</title>
+		<imprint>
+			<biblScope unit="volume">10</biblScope>
+			<biblScope unit="page" from="707" to="710" />
+			<date type="published" when="1966" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+				</listBibl>
+			</div>
+		</back>
+	</text>
+</TEI>

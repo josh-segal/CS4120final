@@ -1,0 +1,251 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>Bistro: Scheduling Data-Parallel Batch Jobs against Live Produc:on Systems</p>
+    <p>h=p://bistro.io</p>
+    <p>Andrey Goder, Alexey Spiridonov, Yin Wang (Facebook)</p>
+  </div>
+  <div class="page">
+    <p>Big Data and Hadoop</p>
+  </div>
+  <div class="page">
+    <p>Facebook Data Store</p>
+    <p>MySQL HBase</p>
+    <p>Haystack/F4</p>
+  </div>
+  <div class="page">
+    <p>Facebook Data Store (contd)</p>
+    <p>RocksDB</p>
+  </div>
+  <div class="page">
+    <p>Online vs. Offline</p>
+    <p>RocksDB Haystack/F4</p>
+  </div>
+  <div class="page">
+    <p>Bistro</p>
+    <p>Haystack/F4</p>
+    <p>Bistro: Scheduling against a Variety of Online Systems</p>
+  </div>
+  <div class="page">
+    <p>Outline</p>
+    <p>Background  The scheduling problem  Bistro implementa:on  Case studies</p>
+  </div>
+  <div class="page">
+    <p>Data-Parallel Jobs  Task-Parallel vs. Data-Parallel</p>
+    <p>Map-only jobs</p>
+    <p>Data</p>
+    <p>Task a</p>
+    <p>Task b</p>
+    <p>Task c</p>
+    <p>Task d</p>
+    <p>Task e</p>
+    <p>Task f</p>
+    <p>Data a</p>
+    <p>Data b</p>
+    <p>Data c</p>
+    <p>Data d</p>
+    <p>Data e</p>
+    <p>Data f</p>
+    <p>Data g</p>
+    <p>Task Task Task Task Task Task Task</p>
+    <p>Job</p>
+    <p>Job</p>
+  </div>
+  <div class="page">
+    <p>The Scheduling Problem</p>
+    <p>Vol A Vol B Vol C Vol D Vol E Vol F Vol G</p>
+    <p>Task Task Task Task Task Task Task</p>
+    <p>Job 1</p>
+    <p>Task Task Task Task Task Task Task</p>
+    <p>Job 2</p>
+    <p>Host 1 Host 2 Host 3</p>
+    <p>Rack I Rack II 2/40 Gbps 1/40 Gbps</p>
+    <p>./photo_process 1 lock, 100 IOPS, 1 Gbps</p>
+    <p>./volume_compact 1 lock, 200 IOPS, 0 Gbps</p>
+    <p>Goal: maximize resource u:liza:on (high throughput)</p>
+    <p>Challenge: minimize scheduling overhead at scale</p>
+  </div>
+  <div class="page">
+    <p>Exis:ng Schedulers  Online schedulers</p>
+    <p>E.g., load balancing, low latency, quality of service  Not designed for data-parallel batch jobs</p>
+    <p>Offline schedulers  Can easily overload a data host</p>
+    <p>Focus on computa:on resources on worker hosts, ignoring resource constraints on data hosts</p>
+    <p>Li=le support for mutable data  Tightly integrated with a specific offline system</p>
+    <p>Fundamental problem: queue-based scheduling!</p>
+  </div>
+  <div class="page">
+    <p>Head-of-Queue Blocking Vol C Vol B Vol A</p>
+    <p>FIFO task queue</p>
+    <p>Global queue? Worker</p>
+    <p>pool</p>
+    <p>One queue per shard?</p>
+    <p>Vol A Vol B Vol C</p>
+    <p>Host</p>
+    <p>T1 T4</p>
+    <p>blocked by Host. Can run once T1 finishes</p>
+    <p>T2</p>
+    <p>T1 T2 T3 T4</p>
+    <p>T3 blocks the rest of the queue!</p>
+  </div>
+  <div class="page">
+    <p>How to Track Changes</p>
+    <p>Vol C Vol B Vol A</p>
+    <p>FIFO task queue</p>
+    <p>Worker pool T1 T2 T3 T4</p>
+    <p>New Vol</p>
+  </div>
+  <div class="page">
+    <p>Scheduling Algorithm  Brute-force</p>
+    <p>while true: for j in jobs: for n in leaf nodes: if t has not finished and there are enough resources for j along the path to root: run(t)</p>
+  </div>
+  <div class="page">
+    <p>Scheduling Algorithm  Subtree</p>
+    <p>when a task t finishes at leaf node n, run: p = the highest ancestor node of n where t consumes resources run brute-force algorithm on the subtree at p</p>
+    <p>Enables parallel scheduling!</p>
+  </div>
+  <div class="page">
+    <p>Micro-benchmark</p>
+  </div>
+  <div class="page">
+    <p>Outline</p>
+    <p>Background  The scheduling problem  Bistro implementa:on  Case studies</p>
+  </div>
+  <div class="page">
+    <p>Architecture fileZookeeper</p>
+    <p>url</p>
+    <p>thrift servers</p>
+    <p>scriptlistdir</p>
+    <p>Task Runner</p>
+    <p>MySQL SQLiteScuba</p>
+    <p>updates finished tasks</p>
+    <p>Node Fetcher</p>
+    <p>Config Loader Scheduler</p>
+    <p>Monitor</p>
+    <p>start process locally</p>
+    <p>dispatch to remote worker</p>
+    <p>browser</p>
+    <p>Bistro</p>
+    <p>Status Store</p>
+    <p>Phabricator</p>
+  </div>
+  <div class="page">
+    <p>Scheduling Modes</p>
+  </div>
+  <div class="page">
+    <p>Scheduling Modes (contd)</p>
+  </div>
+  <div class="page">
+    <p>Configura:on nodes: { levels: [rack, host, volume], node_fetchers: [ {source: haystack_racks}, {source: haystack_hosts}, {source: haystack_volumes, prefs : { volume_type : PHOTO } } ] }, resources: { rack: {capacity: 20, default: 1} host: {capacity: 200, default: 100} }</p>
+    <p>job-&gt;photo_process: { cmd: ./photo_process, args: { model: deep_face, } enabled: true, filters: { host: { blacklist_regex: ^haystack(\d+)\.prn } }, }, job-&gt;volume_compact: {  }</p>
+    <p>Resource config Job config</p>
+  </div>
+  <div class="page">
+    <p>Scheduling Policies</p>
+    <p>Round robin  Randomized priority</p>
+    <p>Ranked priority</p>
+    <p>Long tail</p>
+    <p>while true: for j in jobs: for n in leaf nodes: if t has enough resources along the path to root: start(t)</p>
+  </div>
+  <div class="page">
+    <p>Handle Model Updates</p>
+    <p>Resource and job updates are common</p>
+    <p>Periodically reload configura:on, and update nodes</p>
+    <p>Propagate changes to descendants</p>
+    <p>Asynchronous model updates, scheduling, monitoring etc.</p>
+    <p>Vol A Vol B Vol C Vol D Vol E Vol F Vol G</p>
+    <p>Host 1 Host 2 Host 3</p>
+    <p>Rack I Rack II</p>
+    <p>propagate changes</p>
+  </div>
+  <div class="page">
+    <p>Worker Resource Management</p>
+    <p>Vol A Vol B Vol C Vol D Vol E Vol F Vol G</p>
+    <p>Host 1 Host 2 Host 3</p>
+    <p>Rack I Rack II</p>
+    <p>worker pool</p>
+    <p>run(t): for w in workers: if w has enough</p>
+    <p>resources for t: run(t, w) return</p>
+    <p>Just another layer of nodes in resource model  Allows both resource constraints and placement constraints  Can use randomized algorithms for scalability</p>
+  </div>
+  <div class="page">
+    <p>Model Extensions</p>
+    <p>Mul:ple resources per node  Execute jobs on different levels</p>
+    <p>Time-based jobs  Time nodes</p>
+    <p>Different model par::oning schemes</p>
+    <p>DAG model  Model replicas Vol D Vol E Vol G</p>
+    <p>Host 2 Host 3</p>
+  </div>
+  <div class="page">
+    <p>Reduce Support Data a</p>
+    <p>Data b</p>
+    <p>Data c</p>
+    <p>Data d</p>
+    <p>Data e</p>
+    <p>Data f</p>
+    <p>Data g</p>
+    <p>Task Task Task Task Task Task Task</p>
+    <p>map job</p>
+    <p>Data 1</p>
+    <p>Task Task Task Task Task</p>
+    <p>reduce</p>
+    <p>job</p>
+    <p>Data 2</p>
+    <p>Bistro Y</p>
+    <p>Bistro X</p>
+    <p>Data 3</p>
+    <p>Data 3</p>
+    <p>Data 3</p>
+    <p>High performance intermediate data store, e.g., RocksDB</p>
+  </div>
+  <div class="page">
+    <p>Adapta:on to Live Traffic?</p>
+    <p>Resource monitoring + Bistro model update  What about spikey live workload?</p>
+    <p>Aggressive task preemp:on  Rapid cleanup  Making progress under frequent preemp:on?</p>
+    <p>Conserva:ve or simple scheduling policy wins  Overprovisioning  Day/night resource capacity adjustment</p>
+  </div>
+  <div class="page">
+    <p>Model Limita:ons</p>
+    <p>More complex resource constraints  Source des:na:on</p>
+    <p>Break into two jobs  Network</p>
+  </div>
+  <div class="page">
+    <p>Outline</p>
+    <p>Background  The scheduling problem  Bistro implementa:on  Use cases</p>
+  </div>
+  <div class="page">
+    <p>Use Cases Online system Example Job Resource hierarchy Replacing</p>
+    <p>MySQL DB Iterator root-&gt;host-&gt;db</p>
+    <p>Proprietary scheduler</p>
+    <p>PostgresSQL Migra:on host-&gt;shard Proprietary scheduler</p>
+    <p>BLOB storage Photo/video processing</p>
+    <p>Host-&gt;volume-&gt;file</p>
+    <p>HBase Data compression host-&gt;region Hadoop</p>
+    <p>Our only general-purpose scheduler for non- HDFS systems</p>
+    <p>Replacing Hadoop for many online HDFS systems</p>
+  </div>
+  <div class="page">
+    <p>Summary</p>
+  </div>
+  <div class="page">
+    <p>SQL Database</p>
+    <p>Database Iterator  Mo:va:ng use case  Largest user base</p>
+    <p>Database scraping  Shortest dura:on</p>
+  </div>
+  <div class="page">
+    <p>Brute-force vs. Tree scheduling for scraping workload</p>
+  </div>
+  <div class="page">
+    <p>Hbase: Problems with Hadoop</p>
+    <p>Designed for offline batch jobs, no protec:on for live traffic</p>
+    <p>Very li=le control over job execu:on  No canary, pause/resume, debug/re-execute checkpoint etc.</p>
+    <p>Rigid computa:on model  All or nothing  Barrier of each phase</p>
+  </div>
+  <div class="page">
+    <p>Hbase Compression (contd)</p>
+  </div>
+  <div class="page">
+    <p>Conclusions  Running jobs directly against produc:on systems is the trend</p>
+    <p>Tree-based scheduling allows  Hierarchical resource constraints  Efficient updates  Easy par::oning for flexible setup  Parallel scheduling</p>
+    <p>Open source at h=p://Bistro.io</p>
+  </div>
+</Presentation>

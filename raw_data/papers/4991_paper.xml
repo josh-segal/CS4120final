@@ -1,0 +1,1039 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<TEI xmlns="http://www.tei-c.org/ns/1.0" 
+xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+xsi:schemaLocation="http://www.tei-c.org/ns/1.0 /Users/atharsefid/Desktop/grobid-0.5.3/grobid-home/schemas/xsd/Grobid.xsd"
+ xmlns:xlink="http://www.w3.org/1999/xlink">
+	<teiHeader xml:lang="en">
+		<encodingDesc>
+			<appInfo>
+				<application version="0.5.3" ident="GROBID" when="2019-03-26T17:09+0000">
+					<ref target="https://github.com/kermitt2/grobid">GROBID - A machine learning software for extracting information from scholarly documents</ref>
+				</application>
+			</appInfo>
+		</encodingDesc>
+		<fileDesc>
+			<titleStmt>
+				<title level="a" type="main">Learning to Rank with Partially-Labeled Data</title>
+			</titleStmt>
+			<publicationStmt>
+				<publisher/>
+				<availability status="unknown"><licence/></availability>
+			</publicationStmt>
+			<sourceDesc>
+				<biblStruct>
+					<analytic>
+						<author>
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Kevin</forename><surname>Duh</surname></persName>
+							<email>kevinduh@u.washington.edu</email>
+							<affiliation key="aff0">
+								<orgName type="department" key="dep1">Dept. of Electrical Engineering</orgName>
+								<orgName type="department" key="dep2">Dept. of Electrical Engineering</orgName>
+								<orgName type="institution">University of Washington Seattle</orgName>
+								<address>
+									<region>WA</region>
+									<country key="US">USA</country>
+								</address>
+							</affiliation>
+						</author>
+						<author>
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Katrin</forename><surname>Kirchhoff</surname></persName>
+							<email>katrin@ee.washington.edu</email>
+							<affiliation key="aff1">
+								<orgName type="institution">University of Washington Seattle</orgName>
+								<address>
+									<region>WA</region>
+									<country key="US">USA</country>
+								</address>
+							</affiliation>
+						</author>
+						<title level="a" type="main">Learning to Rank with Partially-Labeled Data</title>
+					</analytic>
+					<monogr>
+						<imprint>
+							<date/>
+						</imprint>
+					</monogr>
+				</biblStruct>
+			</sourceDesc>
+		</fileDesc>
+		<profileDesc>
+			<textClass>
+				<keywords>
+					<term>H33 [Information Storage and Retrieval]: Informa- tion Search and Retrieval; H4m [Information Systems Applications]: Miscellaneous-machine learning General Terms Algorithms</term>
+					<term>Experimentation Keywords Information retrieval</term>
+					<term>Learning to rank</term>
+					<term>Transductive learn- ing</term>
+					<term>Boosting</term>
+					<term>Kernel principal components analysis</term>
+				</keywords>
+			</textClass>
+			<abstract>
+				<p>Ranking algorithms, whose goal is to appropriately order a set of objects/documents, are an important component of information retrieval systems. Previous work on ranking algorithms has focused on cases where only labeled data is available for training (i.e. supervised learning). In this paper, we consider the question whether unlabeled (test) data can be exploited to improve ranking performance. We present a framework for transductive learning of ranking functions and show that the answer is affirmative. Our framework is based on generating better features from the test data (via Ker-nelPCA) and incorporating such features via Boosting, thus learning different ranking functions adapted to the individual test queries. We evaluate this method on the LETOR (TREC, OHSUMED) dataset and demonstrate significant improvements.</p>
+			</abstract>
+		</profileDesc>
+	</teiHeader>
+	<text xml:lang="en">
+		<body>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="1.">INTRODUCTION</head><p>Ranking algorithms, whose goal is to appropriately order a set of objects/documents, are an important component of information retrieval (IR) systems. In applications such as web search, accurately presenting the most relevant documents to satisfy an information need is of utmost importance: a suboptimal ranking of search results may frustrate the entire user experience.</p><p>proposed transductive framework. Section 3 presents the main experimental results. Then, Section 4 raises several questions and delves into more detailed analyses of results. Finally, Section 5 draws connections to various related work and Section 6 ends with a discussion on future research.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="2.">TRANSDUCTIVE META-ALGORITHM</head></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="2.1">General Framework</head><p>When designing a machine learning solution to a problem, there are several commonly chosen strategies:</p><p>(a) Engineering better features to characterize the data. (b) Designing an objective function that more closely approximates the application-specific evaluation metric. (c) Developing a more effective algorithm for optimizing the objective.</p><p>In this work, we explore option (a). The key idea is to automatically derive better features using the unlabeled test data. In particular, an unsupervised learning method (i.e. a learning algorithm that does not require labels, e.g. clustering, principal components analysis) is applied to discover salient patterns (Pu) in each list of retrieved test documents du. The training data is projected on the directions of these patterns and the resulting numerical values are added as new features. The main assumption is that this new training set better characterizes the test data, and thus should outperform the original training set when learning rank functions.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>Algorithm 1 Transductive meta-algorithm</head><p>Input: Train set S = {(q l , d l , y l } l=1..L Input: Test set E = {(qu, du)}u=1..U Input: DISCOVER(), unsupervised algorithm for discovering salient patterns Input: LEARN(), a supervised ranking algorithm Output: Predicted rankings for test: {yu}u=1..U 1: for u = 1 to U do 2: Pu = DISCOVER(du) # find patterns on test data 3: ˆ du = Pu(du) # project test data along Pu 4:</p><p>for l = 1 to L do 5: ˆ d l = Pu(d l ) # project train data along Pu 6: end for 7:</p><p>Fu(· ) = LEARN({(q l , ˆ d l , y l )} l=1..L ) 8: yu = Fu( ˆ du) # predict test ranking 9: end for Algorithm 1 shows the pseudocode for this meta-algorithm. DISCOVER() is the generic unsupervised method. It is important to note that it is applied to each test document list du separately (line 2). This is because queries are formulated independently and that different du exhibit different salient patterns. 2 LEARN() is the generic supervised method for learning rank functions. Since the feature-based representations of the training documents ({d l } l=1..L ) are enriched with additional test-specific features (line 5), we learn a different ranking function Fu(· ) for each test query (line 7).</p><p>The usefulness of test-specific features and test-specific ranking functions is illustrated in Figures 1(a) and 1(b). <ref type="bibr" target="#b1">2</ref> One can imagine extensions where successive queries are dependent. See Section 6. Figure 1: Plots of documents for 2 different queries in TREC'04 (y-axis = BM25, x-axis = HITS score). Relevant documents are dots, irrelevant ones are crosses. Note that (a) varies on the y-axis whereas (b) varies on the x-axis, implying that query-specific rankers would be beneficial.</p><p>These are plots of documents from two TREC'04 queries. The x-axis shows the (normalized) HITS Hub score of a document, while the y-axis shows the (normalized) BM25 score of the extracted title (both are important features for learning). Irrelevant documents are plotted as small crosses whereas relevant documents are large dots. For the first query ( <ref type="figure" target="#fig_2">Fig. 1(a)</ref>), we see that the data varies mostly along the y-axis (BM25); for the second query <ref type="figure" target="#fig_2">(Fig 1(b)</ref>), the variation is on the x-axis (HITS). These 2 document lists would be better ranked by 2 different rankers, e.g. one which ranks documents with BM25 &gt; 2.5 as relevant, and the second which ranks documents with HITS &gt; 1.25 as relevant. A single ranker would find it difficult to simultaneosly rank both lists with high accuracy.</p><p>In this paper, we use kernel principal components analysis (Kernel PCA) <ref type="bibr" target="#b23">[24]</ref> as the unsupervised method and RankBoost <ref type="bibr" target="#b7">[8]</ref> as the supervised ranker. In theory, any algorithm can be plugged in for DISCOVER() and LEARN(). In practice, it is important to consider the interaction between feature and learning, and to ensure that DISCOVER() generates features that LEARN() is able to exploit. We will argue here that Kernel PCA and RankBoost is one such good pair, but there may well be others.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="2.2">Kernel PCA</head><p>Principal components analysis (PCA) is a classical technique for extracting patterns and performing dimensionality reduction from unlabeled data. It computes a linear combination of features, which forms the direction that captures the most variance in the data set. This direction is called the principal axis, and projection of a data point on it is called the principal component. The magnitude of the principal component values indicates how close a data point is to the main directions of variation.</p><p>Kernel PCA <ref type="bibr" target="#b23">[24]</ref> is a powerful extension to PCA that computes arbitrary non-linear combinations of features. As such, it is able to discover patterns arising from higher-order correlations between features. We can imagine Kernel PCA as a procedure that first maps each data point into a (possibly) non-linear and higher-dimensional space, then performs PCA in that space. More precisely, let d be a list of m documents and d j be the original feature vector of document j. <ref type="bibr" target="#b2">3</ref> Then Kernel PCA can be seen as the following procedure: In practice, Kernel PCA uses the dual formulation to avoid solving the above eigen-problem in high dimensional space (this is known as the kernel trick). See <ref type="bibr" target="#b23">[24]</ref> for the derivation; here we only present the steps needed for this paper:</p><formula xml:id="formula_0">1. Map each doc d j to a new space d j → Φ(d j ),</formula><formula xml:id="formula_1">1. Define a kernel function k(· , · ) : (d j , d j</formula><p>) → R which maps two document vectors to a real number indicating the similarity between the two documents. 2. There exist kernels of the form</p><formula xml:id="formula_2">k(d j , d j ) = Φ(d j ), Φ(d j ), (i.</formula><p>e. dot product of the document mappings in high-dimensional space) such that the mapping does not need to be computed explicitly to get the kernel value. 3. Let the m × m matrix K be the kernel values of all pairs of documents in the list. i.e.</p><formula xml:id="formula_3">K jj = k(d j , d j ) ∀j, j ∈ {1, 2, . . . , m}.</formula><p>4. Kernel PCA reduces to solving the eigen-problem mλα = Kα. We pick only the α with the largest eigenvalues. 5. For a new document d n , its principal component is computed as</p><formula xml:id="formula_4">P m j=1 αjk(d j , d n ).</formula><p>The kernel function defines the type of non-linear patterns to be extracted. In this work, we use the following kernels:</p><p>• Polynomial: Computes dot product of all monomials of order p,</p><formula xml:id="formula_5">k(d j , d j ) = d j , d j p .</formula><p>• Radial basis function:</p><formula xml:id="formula_6">k(d j , d j ) = exp (− ||d j −d j || 2σ</formula><p>). This is an isotropic kernel, with bandwidth σ adjusting for smoothness.</p><p>• Diffusion kernel <ref type="bibr" target="#b14">[15]</ref>: This is suitable for graph data.</p><p>We generate a k-nearest neighbor graph with documents as nodes and edges defined by the inverse Eu-</p><formula xml:id="formula_7">clidean distance 1/||d j − d j ||. k(d j , d j )</formula><p>is defined by running a lazy random walk from d j to d j . A time-constant parameter τ adjusts how long to run the random walk (e.g. larger τ leads to a more uniform distribution). Performing Kernel PCA with diffusion kernels is equivalent to running PCA on a non-linear manifold.</p><p>•</p><formula xml:id="formula_8">Linear: k(d j , d j ) = d j , d j . Equivalent to PCA.</formula><p>Kernel PCA scales as O(m 3 ), due to solving the eigenproblem on the m × m kernel matrix K. Nevertheless, extremely fast versions have been proposed; for instance, Sparse kernel feature analysis <ref type="bibr" target="#b25">[26]</ref> is based on sparsity constraints and can extract patterns in O(m).</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="2.3">Rankboost</head><p>RankBoost <ref type="bibr" target="#b7">[8]</ref> is an extension of the boosting philosophy <ref type="bibr" target="#b22">[23]</ref> for ranking. In each iteration, RankBoost searches for a weak learner that maximizes the (weighted) pairwise ranking accuracy (defined as the number of document pairs that receive the correct ranking). A weight distribution is maintained for all pairs of documents. If a document pair receives an incorrect ranking, its weight is increased, so that next iteration's weak learner will focus on correcting the mistake.</p><p>It is common to define the weak learner as a non-linear threshold function on the features (decision stump). For example, a weak learner h(· ) may be h(d j ) = 1 if "BM25 score &gt; 1" and h(d j ) = 0 otherwise. The final ranking function of RankBoost is a weighted combination of T weak learners:</p><formula xml:id="formula_9">F (d j ) = T X t=1 θtht(d j ),</formula><p>where T is the total number of iterations. θt is computed during the RankBoost algorithm and its magnitude indicates the relative importance of a given weak learner (feature). Finally, a ranking over a document list d is obtained by calculating y j = F (d j ) for each document and sorting the list by the value of y j .</p><p>There are several advantages to using RankBoost with Kernel PCA in our transductive framework: . This assumes that good ranking is directly correlated to the feature values (e.g. large BM25 implies more relevance). Kernel PCA, however, may generate features that have a non-linear relationship to ranking (e.g. large positive and negative deviation from the principal axes implies less relevance). Non-linear rankers can handle this possibility more robustly. 3. "Anytime" training: Boosting can be seen as gradient descent in function space <ref type="bibr" target="#b18">[19]</ref> and each iteration improves on the training accuracy. If training time is a concern (e.g. in practical deployment of the transductive framework), then RankBoost can be stopped before reaching T iterations. The resulting ranker may be less optimized, but it should still give reasonable predictions.</p><p>Finally, for clarity, we present a concrete walk-through of a search scenario using our transductive framework: 0. A training set is prepared and stored in memory/disk. 1. User submits a query qu 2. Initial IR engine returns possibly relevant documents du. 3. Run Algorithm 1, lines 2 to 8. Output yu. 4. Rank the documents du by yu. Return results to user.</p><p>In contrast to the supervised approach, the practical challenges here are: (a) scalable storage of the training set, (b) fast computation of Algorithm 1 (during user wait). We leave these computational issues as future work.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.">MAIN RESULTS</head></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.1">Data and Setup</head><p>We perform experiments on the LETOR dataset <ref type="bibr" target="#b17">[18]</ref>, which contains three sets of document retrieval data: TREC'03, TREC'04, and OHSUMED. This is a re-ranking (subset ranking) problem, where an initial set of documents have been retrieved and the goal is sort the set in an order most relevant to the query. The TREC data is a Web Track Topic Distillation task. The goal is to find webpages that are good entry points to the query topic in the .gov domain. The OHSUMED data consists of medical publications and the queries represent medical search needs. For TREC, documents are labeled {relevant,irrelevant}; an additional label {partially relevant} is provided for OHSUMED.</p><p>The LETOR dataset conveniently extracts many stateof-the-art features from documents, including BM25 <ref type="bibr" target="#b21">[22]</ref>, HITS <ref type="bibr" target="#b13">[14]</ref>, and Language Model <ref type="bibr" target="#b33">[34]</ref>. It is a good datasest for our experiments since we will be discovering patterns from features that have already been proven to work. <ref type="table" target="#tab_0">Table  1</ref> summarizes the data (e.g. in TREC'03, the ranker needs to sort on average 983 documents per query, with only 1 document in the set being relevant); see <ref type="bibr" target="#b17">[18]</ref> for details.</p><p>Our experimental setup compares three rankers. The baseline is a supervised RankBoost, trained on the original training data. This is compared with transductive, which is Algorithm 1 with LEARN() being RankBoost and DIS-COVER() being Kernel PCA run 5 times with different kernels:</p><p>-Polynomial kernel (poly), order=2 -Radial basis function kernel (rbf), bandwidth=1 -Diffusion kernel (diff), time constant=1, 10-nn graph -Diffusion kernel (diff), time constant=10, 10-nn graph -Linear kernel (linear) (corresponds to linear PCA)</p><p>We create 25 additional features representing the first 5 principal components from each of the above 5 kernels. The third ranker (combined) performs a simple system combination of baseline and transductive. For each test query, it first normalizes the outputs yu of baseline and transductive, then returns the averages of these normalized outputs. While more sophisticated combination methods have been proposed (c.f. <ref type="bibr" target="#b15">[16]</ref>), here we investigate whether a simple unweighted average is sufficient to give improvements.</p><p>Following LETOR convention, each dataset is divided into 5 folds with a 3:1:1 ratio for training, validation, and test set. We use the validation set to decide which kernels to use in the transductive system. The transductive system employs all 5 kernels (25 features) in TREC'04 and OHSUMED, but only poly and rbf kernels (10 features) in TREC'03. We decided not to use the validation set to pick features in a more fine-grained fashion (e.g. how many principal components, what kernel parameters) since we expect the optimal settings to vary for each test query, and relying on RankBoost's inherent feature selection ability is a more efficient and effective solution. For both transductive and baseline, RankBoost is run for a total of 150 iterations, determined from initial experiments. We conjecture that transductive may be improved by automatically tuning for the best number of boosting iterations for each test query, but we leave that to future work.</p><p>The evaluation metrics are mean averaged precision (MAP) and normalized discount cumulative gain (NDCG@n) <ref type="bibr" target="#b11">[12]</ref>. We report results from the average of 5-fold cross-validation and judge statistical significance using the dependent t-test. <ref type="figure" target="#fig_3">Figure 2</ref> compares the 3 systems on the 3 datasets. <ref type="table" target="#tab_2">Table 2</ref> shows the same results in numbers (boldfaced MAP/NDCG numbers indicate a statistically significant improvement (p&lt;0.05) over baseline.) <ref type="bibr" target="#b3">4</ref> The main observations are:</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.2">Overall Evaluation</head><p>1. Both transductive and combined outperform baseline on all datasets and all metrics. 2. For TREC'03, all improvements are statistically significant. For TREC'04 and OHSUMED, only combined gives a statistically significant improvement.   3. In TREC'04 and OHSUMED, combined improves on both transductive and baseline, implying that transductive and baseline make different kinds of errors and thus benefit from system combination. In TREC'03, combined is worse than transductive-a simple averaging is less likely to work if one system (baseline) is significantly worse in performance than the other.</p><p>We believe these are very promising results which demonstrate that transductive learning (and the framework we propose in Algorithm 1) has the potential to improve ranking.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="4.">DETAILED ANALYSIS</head><p>We ask several questions in order to examine the properties of the transductive framework in more detail. These questions seek to answer what is beneficial and not beneficial in the proposed framework.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="1.">How important is it to adapt to the test query?</head><p>Are we seeing gains in transductive simply because Kernel PCA extracts good features per se, or particulary because the features are extracted on the test set (i.e. the transductive aspect)? To answer this, we built a new system, KPCA on train, which runs Kernel PCA on each training list (as opposed to projecting the training lists to principal directions of the test lists). We then train RankBoost on this data, which is the same training data as baseline except for the additional Kernel PCA features. This new RankBoost is then evaluated on the test set. The results <ref type="table" target="#tab_3">(Table 3)</ref> show that KPCA on train is worse than transductive (e.g. .2534 vs. .3226 MAP for TREC'03), implying that transductive aspect of adapting to each test query is essential. </p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="2.">How can Kernel PCA features be interpreted?</head><p>Kernel PCA features are in general difficult to interpret because they involve non-linear combinations and the α generated from the eigen-problem represents weights on samples, not features. We can only get a rough answer by computing the correlation between the values of a Kernel PCA feature and an original feature. </p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.">What are the most useful features?</head><p>What weak learners h(· ) in transductive's multiple ranking functions (Fu(· ) = P T t=1 θtht(· )) achieve large |θt|? For instance, how often are Kernel PCA features chosen compared to the original features? To analyze this, we look at the 25 transductive ranking functions in TREC'04 that improve more than 20% over the baseline. For each ranking function, we look at the top 5 features and note their type: {original, polynomial, rbf, diffusion, linear}. 24 of 25 functions have both original and Kernel PCA features in  <ref type="formula">(1)</ref> orig+diff <ref type="formula">(7)</ref> orig+poly <ref type="formula">(4)</ref> orig+linear <ref type="formula">(3)</ref> orig+poly+diff <ref type="formula">(4)</ref> orig+diff +linear <ref type="formula">(1)</ref> orig+poly +linear <ref type="formula">(4)</ref> orig+rbf+diff <ref type="formula">(1)</ref> Diversity of boosted rankers the top 5, indicating that Kernel PCA features are quite useful. It is even more interesting to note the distribution of top 5 feature combinations <ref type="figure" target="#fig_4">(Figure 3</ref>): no single combination is more prevalent than others. This again supports the intuition that test-specific rankers are better than a single general ranker. . Thus, non-linearity is important in most cases, but one should not expect non-linear kernels to always outperform linear ones. The best strategy is to employ multiple kernels.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="4.">Linear vs. Non-linear PCA</head></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="5.">How does performance vary across queries?</head><p>In Section 3, we present overall results averaged over all test queries. A more detailed analysis would include perquery MAP and NDCG. <ref type="figure" target="#fig_7">Figure 4</ref> reports a histogram of queries that are improved vs. degraded by transductive. For each plot, the bars on the right side indicates the number of queries that improved more than 1%, 20%, and 50% over baseline. Bars on the left side indicate the number of queries that become more than 1%, 20%, and 50% worse than baseline.</p><p>One observes that our transductive approach does not give improvements across all queries. We are seeing gains in Section 3 because the proportion of improved queries is greater than that of degraded queries (especially for TREC'03).</p><p>It would be helpful to understand exactly the conditions where the transductive approach is beneficial vs. harmful. On TREC'03, there is slight evidence showing that transductive seems to benefit queries with poorer baselines (See <ref type="figure" target="#fig_6">Figure 5</ref>, scatterplot of baseline and transductive MAP scores). One hypothesis is that the original features of more difficult queries are not sufficiently discriminative, so Kernel PCA has more opportunity to show improvements. However, this trend is not observed in TREC'04.</p><p>We also attempted to see if differences at the query level correlates with e.g. (a) number of documents, (b) number of relevant documents, (c) pairwise ranking accuracy in training, but no single factor reliably predicts whether a query will be benefited by the transductive ranker.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="6.">What is the computation time?</head><p>Ideally, both DISCOVER() and LEARN() need to operate at real-time since they are called for each test query. In our experiments on a Intel x86-32 (3GHz CPU), KernelPCA (implemented in Matlab/C-MEX) took on average 23sec/query for TREC and 4.3sec/query for OHSUMED; Rankboost (implemented in C++) took 1.4sec/iteration for TREC and 0.7sec/iteration for OHSUMED. The total compute time per query (assuming 150 iterations) is around 233sec/query for TREC and 109sec/query for OHSUMED. It remains to be seen whether real-time computation can be achieved by better code optimization or novel distributed algorithms.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="5.">RELATED WORK</head><p>There are generally two types of problems in "learning to rank with partially-labeled data." In the problem we consider here, the document lists in our dataset are either fully labeled {d l } l=1..L , or not labeled whatsoever {du}u=1..U . The second type of problem is concerned with the case when a document list d is only partially-labeled, i.e. some docu- one uses a implicit feedback mechanism <ref type="bibr" target="#b12">[13]</ref> to generate labels and some documents simply cannot acquire labels with high confidence. So far the research community does not yet have precise terminology to differentiate the two problems. Here we will call Problem One "Semi-supervised Rank Learning" and Problem Two "Learning to Rank with Missing Labels". Several methods have been proposed for the Missing Labels problem, e.g. <ref type="bibr" target="#b35">[36,</ref><ref type="bibr" target="#b29">30,</ref><ref type="bibr" target="#b9">10,</ref><ref type="bibr" target="#b28">29]</ref>: the main idea there is to build a manifold/graph over documents and propagate the rank labels to unlabeled documents. One can use the propagated labels as the final values for ranking <ref type="bibr" target="#b35">[36]</ref> (transductive), or one can train a ranking function using these values as true labels <ref type="bibr" target="#b9">[10,</ref><ref type="bibr" target="#b28">29]</ref> (inductive). One important point about these label propagation methods is that they do not explicitly model the relationship that document d j is ranked above, say, d k . Instead it simply assumes that the label value for d j is higher than that of d k , and that this information will be preserved during propagation.</p><p>An alternative approach that explicitly includes pairwise ranking accuracy in the objective is proposed in <ref type="bibr" target="#b0">[1]</ref>. It also builds a graph over the unlabeled documents, which acts as a regularizer to ensure that the predicted values are similar for closely-connected documents. <ref type="bibr" target="#b5">[6]</ref> also proposes a graph-based regularization term, but in contrast to <ref type="bibr" target="#b0">[1]</ref>, it defines the graph nodes not as documents, but as document pairs. Just as the pairwise formulation allows one to extend Boosting to RankBoost, this formulation allows one to adopt any graph-based semi-supervised classification technique to ranking. However, generating all possible pairs of documents in a large unlabeled dataset quickly leads to intractable graphs.</p><p>Most prior work consist of graph-based approaches for the Missing Labels problem. However, they may be extended to address the Semi-supervised Rank Learning problem if one defines the graph across both d l and du. For instance, <ref type="bibr" target="#b28">[29]</ref> investigates label propagation across queries, but concluded that it is computationally prohibitive. Beyond the computational issue, however, how to construct a graph across different queries (whose features may be at different scales and not directly comparable) is an open research question.</p><p>To the best of our knowledge, <ref type="bibr" target="#b26">[27]</ref> 5 is the only work that tractably addresses the Semi-supervised Rank Learning problem. First, it uses a supervised ranker to label the documents in an unlabeled document list; next, it takes the most confident labels as seeds for label propagaton. A new supervised ranker is then trained to maximize accuracy on the labeled set while minimizing ranking difference to label propagation results. Thus this is a bootstrapping approach that relies on the initial ranker producing relatively accurate seeds.</p><p>Our feature-based approach differs from the above graphbased and bootstrapping approaches, and is more similar to work in feature extraction for domain adaptation <ref type="bibr" target="#b2">[3,</ref><ref type="bibr" target="#b20">21]</ref> or multi-task learning <ref type="bibr" target="#b1">[2]</ref>. In fact, one can consider transductive learning as an extreme form of domain adaptation, where one adapts only to the given test set.</p><p>Finally, we wish to note that various approaches incorporating similar semi-supervised ideas have been explored in the IR community. For instance, query expansion by pseudo-relevance feedback <ref type="bibr" target="#b30">[31]</ref> can be thought as a queryspecific transductive techniques that uses the bootstrapping assumption (i.e. top retrieved documents are relevant and can be exploited).</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="6.">CONCLUSIONS</head><p>We present a flexible transductive framework for learning ranking functions. The main intuition is based on extracting features from test documents and learning query-specific rankers. Our experiments using Kernel PCA with RankBoost demonstrate significant improvements on TREC and OHSUMED, and point to a promising area of further research. Possible extensions and future work include:</p><p>• Investigating different algorthim pairs for DISCOVER() and LEARN().</p><p>• Implementing kernels that directly capture semantic relationships between documents, as opposed to relying on a vectorial bag of features representation of documents.</p><p>• Automatic tuning of parameters (e.g. kernel parameters, number of features) on a per-query basis. One possibility is to employ stability analysis <ref type="bibr" target="#b24">[25]</ref> and calculate residual errors for tuning Kernel PCA.</p><p>• Explicitly incorporating a feature selection component (e.g. <ref type="bibr" target="#b8">[9]</ref>).</p><p>• Understanding the exact conditions in which test-specific ranking functions work well.</p><p>• Computational speed-ups for practical deployment: for instance, can we re-use previously-trained ranking functions? • Modeling dependent queries in an interactive search scenario: (1) user issues inital query, (2) transductive system returns ranked documents, (3) user reformulates query, (4) transductive system now learns from both previous and new document list.</p></div><figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_1"><head></head><label></label><figDesc>where Φ(· ) is the (non-linear/high-dimension) mapping. 2. Compute covariance matrix in this new space: C = 1 m P m j=1 Φ(d j )Φ(d j ) T . (T = transpose) 3. Solve the eigen-problem: λv = Cv. 4. The eigenvectors v with the largest eigenvalues λ form a projection matrix P . Datapoints can now be pro- jected to the principal axes of the non-linear space de- fined by Φ(· ).</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_2"><head>1 .</head><label>1</label><figDesc>Inherent feature selection: RankBoost selects T fea- tures that are most conducive to good rankings. Since there are no guarantees that the Kernel PCA's direc- tions of high variance always correspond to directions of good ranking, RankBoost's inherent feature selec- tion reduces the need for tuning. For a LEARN() algo- rithm without inherent feature selection (e.g. RankSVM), we may have to tune for (a) number of Kernel PCA features, (b) relative importance of Kernel PCA fea- tures compared to original features. 2. Non-linear thresholding in weak learners h(· ): One could define the weak learner to be simply the feature values (e.g. h(· ) = raw BM25 score)</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_3"><head>Figure 2 :</head><label>2</label><figDesc>Figure 2: Main result (MAP and NDCG@n) for (a) TREC'03, (b) TREC'04, (c) OHSUMED. Both transductive and combined systems outperform baseline in all datasets and all metrics.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_4"><head>Figure 3 :</head><label>3</label><figDesc>Figure 3: Top 5 feature combinations employed in RankBoost, by count. There is a diversity of feature combinations that lead to good performance, indicating that different test queries require different rankers.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_5"><head></head><label></label><figDesc>How important is the non-linear aspect of Kernel PCA? Would we have achieved similar gains if we restrict trans- ductive to perform only linear PCA? To test this, we trained new systems consisting of original features plus 5 linear PCA features, vs. original features + 5 polynomial, rbf, or dif- fusion kernel features. On TREC'04, we observe the MAP scores, in order: .3701 (rbf), .3670 (poly), .3627 (diff), .3614 (linear). However, on TREC'03, linear is not the worst: .3032 (diff), .2996 (linear), .2895 (poly), .2754 (rbf)</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_6"><head>Figure 5 :</head><label>5</label><figDesc>Figure 5: Scatterplot of TREC'03 MAP results for transductive (x-axis) vs. baseline (y-axis).</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_7"><head>Figure 4 :</head><label>4</label><figDesc>Figure 4: Query-level changes in MAP: We show the number of queries (in transductive) that improved/degraded compared to baseline. In TREC'03 (a), the majority of queries improved, but in TREC'04 (b) and OHSUMED (c) a significant proportion degraded. See text for more explanation.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_0" validated="false"><head>Table 1 :</head><label>1</label><figDesc></figDesc><table>Data characteristics 
+TREC'03 TREC'04 OHSUMED 
+#query 
+50 
+75 
+106 
+#document 
+49k 
+74k 
+16k 
+avg #doc/query 
+983.4 
+988.9 
+152.3 
+#relevant doc 
+516 
+1600 
+4.8k 
+avg #relevant/query 
+1 
+0.6 
+28 
+avg #doc pairs 
+302k 
+262k 
+369k 
+#feature (original) 
+44 
+44 
+25 
+#feature (transductive) 
+54 
+69 
+50 
+
+</table></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_2" validated="false"><head>Table 2 :</head><label>2</label><figDesc></figDesc><table>Main result (Figure 2 in table form). All 
+transductive/combined improve on baseline. Statis-
+tically significant improvements are bold-fonted. 
+MAP 
+N@1 
+N@3 
+N@5 
+N@10 
+
+TREC'03 
+baseline 
+.1880 
+.3200 
+.2619 
+.2504 
+.2498 
+transductive .3226 .5000 .4512 .4140 .4092 
+combined 
+.2627 .3600 .3568 .3670 .3444 
+
+TREC'04 
+baseline 
+.3524 
+.4400 
+.4060 
+.4037 
+.4294 
+transductive .3703 
+.4667 
+.4152 
+.4286 
+.4507 
+combined 
+.3829 .4933 .4544 .4397 .4638 
+
+OHSUMED 
+baseline 
+.4427 
+.5252 
+.4707 
+.4479 
+.4274 
+transductive .4455 
+.5503 
+.4890 
+.4567 
+.4457 
+combined 
+.4509 .5692 
+.4829 .4735 .4503 
+
+</table></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_3" validated="false"><head>Table 3 :</head><label>3</label><figDesc></figDesc><table>KPCA on test (transductive) vs. KPCA on 
+train (inductive). 
+KPCA on train underperforms; 
+adapting to test queries is a useful strategy. 
+TREC'03 TREC'04 OHSUMED 
+Transductive 
+.3226 
+.3703 
+.4435 
+KPCA on train 
+.2534 
+.3558 
+.4420 
+Baseline 
+.1880 
+.3523 
+.4427 
+
+</table></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_4" validated="false"><head>Table 4 lists</head><label>4</label><figDesc></figDesc><table>some features that cor-
+</table></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_5" validated="true"><head>Table 4 : Some examples of original features that correlate highly with Kernel PCA features (coeff. of determination in parentheses). However, most features (not listed) have low correlation due to their non-linear relationship.</head><label>4</label><figDesc></figDesc><table>Polynomial 
+Diffusion 
+Linear 
+TREC'03 
+none 
+Hyperlink feature 
+LMIR.JM 
+query2 
+prop, weighted 
+of anchor 
+out-link (.66) 
+(.70) 
+TREC'04 
+dl of 
+HITS authority 
+LMIR.ABS 
+query10 
+anchor (.99) 
+(.89) 
+of title (.68) 
+OHSUMED 
+none 
+BM25 of 
+BM25 of 
+query1 
+title+abstract 
+title+abstract 
+(.78) 
+(.82) 
+
+orig only </table></figure>
+
+			<note place="foot" n="1"> Semi-supervised (inductive) learning is more general in that the unlabeled data E need not to be the test set; it can give predictions and be evaluated on another previously unseen and unlabeled data. See [37] for a good review.</note>
+
+			<note place="foot" n="3"> In the context of Kernel PCA, we drop the subscript in du to avoid clutter. du or d is a document list; d j is one document vector within the list.</note>
+
+			<note place="foot" n="5"> Although this paper has the same title as ours, the approach is entirely unrelated.</note>
+		</body>
+		<back>
+			<div type="references">
+
+				<listBibl>
+
+<biblStruct xml:id="b0">
+	<analytic>
+		<title level="a" type="main">Ranking on graph data</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Agarwal</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">ICML</title>
+		<imprint>
+			<date type="published" when="2006" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b1">
+	<analytic>
+		<title level="a" type="main">A framework for learning predictive structures from multiple tasks and unlabeled data</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><forename type="middle">K</forename><surname>Ando</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">T</forename><surname>Zhang</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">In Journal of Machine Learning Research</title>
+		<imprint>
+			<biblScope unit="volume">6</biblScope>
+			<date type="published" when="2005" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b2">
+	<analytic>
+		<title level="a" type="main">Analysis of representations for domain adaptation</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Ben-David</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Blitzer</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">K</forename><surname>Crammer</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">F</forename><surname>Pereira</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Neural Information Processing Systems</title>
+		<imprint>
+			<date type="published" when="2006" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b3">
+	<analytic>
+		<title level="a" type="main">Learning to rank with nonsmooth cost functions</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Burges</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Ragno</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Q</forename><surname>Le</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">NIPS</title>
+		<imprint>
+			<date type="published" when="2006" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b4">
+	<analytic>
+		<title level="a" type="main">Learning to rank using gradient descent</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Burges</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">T</forename><surname>Shaked</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">E</forename><surname>Renshaw</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Lazier</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Deeds</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">N</forename><surname>Hamilton</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">G</forename><surname>Hullender</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of the 22nd International Conference on Machine Learning</title>
+		<meeting>of the 22nd International Conference on Machine Learning</meeting>
+		<imprint>
+			<date type="published" when="2005" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b5">
+	<analytic>
+		<title level="a" type="main">Extensions of gaussian processes for ranking: semi-supervised and active learning</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">W</forename><surname>Chu</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Z</forename><surname>Ghahramani</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">NIPS Wksp on Learning to Rank</title>
+		<imprint>
+			<date type="published" when="2005" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b6">
+	<analytic>
+		<title level="a" type="main">Pranking with ranking</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">K</forename><surname>Crammer</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Y</forename><surname>Singer</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Neural Information Processing Systems (NIPS)</title>
+		<imprint>
+			<date type="published" when="2001" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b7">
+	<analytic>
+		<title level="a" type="main">An efficient boosting algorithm for combining preferences</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Y</forename><surname>Freund</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Iyer</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Schapire</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Y</forename><surname>Singer</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Journal of Machine Learning Research</title>
+		<imprint>
+			<biblScope unit="volume">4</biblScope>
+			<date type="published" when="2003" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b8">
+	<analytic>
+		<title level="a" type="main">Feature selection for ranking</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">X</forename><surname>Geng</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">T.-Y</forename><surname>Liu</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">T</forename><surname>Qin</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">H</forename><surname>Li</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">SIGIR</title>
+		<imprint>
+			<date type="published" when="2007" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b9">
+	<analytic>
+		<title level="a" type="main">Manifold-ranking based image retrieval</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>He</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Li</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">H.-J</forename><surname>Zhang</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">H</forename><surname>Tong</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Zhang</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">ACM Conf. on Multimedia</title>
+		<imprint>
+			<date type="published" when="2004" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b10">
+	<monogr>
+		<title level="m" type="main">Advances in Large Margin Classifiers, chapter Large margin rank boundaries for ordinal regression</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Herbrich</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">T</forename><surname>Graepel</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">K</forename><surname>Obermayer</surname></persName>
+		</author>
+		<imprint>
+			<date type="published" when="2000" />
+			<publisher>MIT Press</publisher>
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b11">
+	<analytic>
+		<title level="a" type="main">IR evaluation methods for retrieving highly relevant documents</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">K</forename><surname>Järvelin</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Kekäläinen</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">SIGIR</title>
+		<imprint>
+			<date type="published" when="2000" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b12">
+	<analytic>
+		<title level="a" type="main">Optimizing search engines using clickthrough data</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">T</forename><surname>Joachims</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">SIGKDD</title>
+		<imprint>
+			<date type="published" when="2003" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b13">
+	<analytic>
+		<title level="a" type="main">Authoritative sources in a hyperlinked environment</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Kleinberg</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Journal of the ACM</title>
+		<imprint>
+			<biblScope unit="volume">46</biblScope>
+			<biblScope unit="issue">5</biblScope>
+			<date type="published" when="1999" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b14">
+	<analytic>
+		<title level="a" type="main">Diffusion kernels on graphs and other discrete structures</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">I</forename><surname>Kondor</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Lafferty</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">ICML</title>
+		<imprint>
+			<date type="published" when="2002" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b15">
+	<analytic>
+		<title level="a" type="main">Analysis of multiple evidence combination</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><forename type="middle">H</forename><surname>Lee</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">SIGIR</title>
+		<imprint>
+			<date type="published" when="1997" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b16">
+	<analytic>
+		<title level="a" type="main">McRank: Learning to rank using classification and gradient boosting</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>Li</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Burges</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Q</forename><surname>Wu</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">NIPS</title>
+		<imprint>
+			<date type="published" when="2007" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b17">
+	<analytic>
+		<title level="a" type="main">LETOR: Benchmark dataset for research on learning to rank for information retrieval</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">T.-Y</forename><surname>Liu</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">T</forename><surname>Qin</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Xu</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">W</forename><surname>Xiong</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">H</forename><surname>Li</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">SIGIR Workshop on Learning to Rank for IR (LR4IR)</title>
+		<imprint>
+			<date type="published" when="2007" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b18">
+	<analytic>
+		<title level="a" type="main">Boosting as gradient descent</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">L</forename><surname>Mason</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Baxter</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>Bartless</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Frean</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">NIPS</title>
+		<imprint>
+			<date type="published" when="2000" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b19">
+	<monogr>
+		<title level="m" type="main">Direct maximization of rank-based metrics</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Metzler</surname></persName>
+		</author>
+		<imprint>
+			<date type="published" when="2005" />
+			<pubPlace>Amherst CIIR</pubPlace>
+		</imprint>
+		<respStmt>
+			<orgName>University of Massachusetts</orgName>
+		</respStmt>
+	</monogr>
+<note type="report_type">Technical report</note>
+</biblStruct>
+
+<biblStruct xml:id="b20">
+	<analytic>
+		<title level="a" type="main">Self-taught learning: transfer learning from unlabeled data</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Raina</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Battle</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">H</forename><surname>Lee</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">B</forename><surname>Packer</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Ng</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">ICML</title>
+		<imprint>
+			<date type="published" when="2007" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b21">
+	<analytic>
+		<title level="a" type="main">Overview of the Okapi projects</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Robertson</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Journal of Documentation</title>
+		<imprint>
+			<biblScope unit="volume">53</biblScope>
+			<biblScope unit="issue">1</biblScope>
+			<date type="published" when="1997" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b22">
+	<analytic>
+		<title level="a" type="main">Improved boosting algorithms using confidence-rated predictions</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><forename type="middle">E</forename><surname>Schapire</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Y</forename><surname>Singer</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Machine Learning</title>
+		<imprint>
+			<date type="published" when="1999" />
+			<biblScope unit="volume">37</biblScope>
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b23">
+	<analytic>
+		<title level="a" type="main">Nonlinear component analysis as kernel eigenvalue problem</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">B</forename><surname>Schölkopf</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Smola</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">K.-R</forename><surname>Müller</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Neural Computation</title>
+		<imprint>
+			<biblScope unit="volume">10</biblScope>
+			<date type="published" when="1998" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b24">
+	<monogr>
+		<title level="m" type="main">Kernel methods for pattern analysis</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Shawe-Taylor</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">N</forename><surname>Cristianini</surname></persName>
+		</author>
+		<imprint>
+			<date type="published" when="2004" />
+			<publisher>Cambridge Univ. Press</publisher>
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b25">
+	<monogr>
+		<title level="m" type="main">Sparse kernel feature analysis</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Smola</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">O</forename><surname>Mangasarian</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">B</forename><surname>Schölkopf</surname></persName>
+		</author>
+		<idno>99-03</idno>
+		<imprint>
+			<date type="published" when="1999" />
+		</imprint>
+		<respStmt>
+			<orgName>University of Wisconsin, Data Mining Institute</orgName>
+		</respStmt>
+	</monogr>
+<note type="report_type">Technical Report</note>
+</biblStruct>
+
+<biblStruct xml:id="b26">
+	<analytic>
+		<title level="a" type="main">Learning to rank with partially labeled training data</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">T</forename><surname>Truong</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M.-R</forename><surname>Amini</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>Gallinari</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Int&apos;l Conf. on Multidisciplinary Info Sci/Tech</title>
+		<imprint>
+			<date type="published" when="2006" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b27">
+	<analytic>
+		<title level="a" type="main">FRank: a ranking method with fidelity loss</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M.-F</forename><surname>Tsai</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">T.-Y</forename><surname>Liu</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">T</forename><surname>Qin</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">H.-H</forename><surname>Chen</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">W.-Y</forename><surname>Ma</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">SIGIR</title>
+		<imprint>
+			<date type="published" when="2007" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b28">
+	<monogr>
+		<title level="m" type="main">Learning ranking function via relevance propagation</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Wang</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Li</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Z</forename><surname>Li</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">W.-Y</forename><surname>Ma</surname></persName>
+		</author>
+		<imprint>
+			<date type="published" when="2005" />
+			<pubPlace>Microsoft Research Asia</pubPlace>
+		</imprint>
+	</monogr>
+<note type="report_type">Technical report</note>
+</biblStruct>
+
+<biblStruct xml:id="b29">
+	<analytic>
+		<title level="a" type="main">Protein ranking by semi-supervised network propagation</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Weston</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Kuang</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Leslie</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">W</forename><forename type="middle">S</forename><surname>Noble</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">BMC Bioinformatics</title>
+		<imprint>
+			<biblScope unit="issue">7</biblScope>
+			<date type="published" when="2006" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b30">
+	<analytic>
+		<title level="a" type="main">Query expansion using local and global document analysis</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Xu</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">W</forename><forename type="middle">B</forename><surname>Croft</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">SIGIR</title>
+		<imprint>
+			<date type="published" when="1996" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b31">
+	<analytic>
+		<title level="a" type="main">AdaRank: A boosting algorithm for information retrieval</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Xu</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">H</forename><surname>Li</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">SIGIR</title>
+		<imprint>
+			<date type="published" when="2007" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b32">
+	<analytic>
+		<title level="a" type="main">A support vector method for optimizing average precision</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Y</forename><surname>Yue</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">T</forename><surname>Finley</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">F</forename><surname>Radlinski</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">T</forename><surname>Joachims</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">SIGIR</title>
+		<imprint>
+			<date type="published" when="2007" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b33">
+	<analytic>
+		<title level="a" type="main">A study of smoothing methods for language models applied to ad hoc information retrieval</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Zhai</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Lafferty</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">SIGIR</title>
+		<imprint>
+			<date type="published" when="2001" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b34">
+	<analytic>
+		<title level="a" type="main">A regression framework for learning ranking functions using relative relevance judgements</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Z</forename><surname>Zheng</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">H</forename><surname>Zha</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">K</forename><surname>Chen</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">G</forename><surname>Sun</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">SIGIR</title>
+		<imprint>
+			<date type="published" when="2007" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b35">
+	<analytic>
+		<title level="a" type="main">Ranking on data manifolds</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Zhou</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Weston</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Gretton</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">O</forename><surname>Bousquet</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">B</forename><surname>Schökopf</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">NIPS</title>
+		<imprint>
+			<date type="published" when="2004" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b36">
+	<monogr>
+		<title level="m" type="main">Semi-supervised learning literature survey</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">X</forename><surname>Zhu</surname></persName>
+		</author>
+		<idno>1530</idno>
+		<imprint>
+			<date type="published" when="2005" />
+		</imprint>
+		<respStmt>
+			<orgName>University of Wisconsin, Madison, Computer Science Dept.</orgName>
+		</respStmt>
+	</monogr>
+<note type="report_type">Technical Report</note>
+</biblStruct>
+
+				</listBibl>
+			</div>
+		</back>
+	</text>
+</TEI>

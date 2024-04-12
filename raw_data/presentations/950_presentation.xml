@@ -1,0 +1,514 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>Elfen Scheduling Fine-Grain Principled Borrowing from</p>
+    <p>Latency-Critical Workloads using Simultaneous Multithreading (SMT)</p>
+    <p>Xi Yang Australian National University</p>
+    <p>Stephen M Blackburn Australian National University</p>
+    <p>Kathryn S McKinley Microsoft Research</p>
+  </div>
+  <div class="page">
+    <p>Tail Latency Matters</p>
+    <p>Two second slowdown reduced revenue/user by 4.3%.</p>
+    <p>[Eric Schurman, Bing]</p>
+    <p>[Jack Brutlag, Google]</p>
+    <p>Luiz Andr Barroso, Urs Hlzle The Datacenter as a Computer: An Introduction to the Design of Warehouse-Scale Machines</p>
+    <p>Such WSCs tend to have relatively low average utilization, spending most of its time in the 10 - 50% CPU utilization range.</p>
+  </div>
+  <div class="page">
+    <p>La te</p>
+    <p>nc y</p>
+    <p>(m s)</p>
+    <p>RPS</p>
+    <p>Lucene alone 50%ile Lucene alone 95%ile Lucene alone 99%ile</p>
+    <p>High ResponsivenessLow Utilization</p>
+    <p>Intel Xeon-D 1540 Broadwell</p>
+    <p>LC</p>
+    <p>Luiz Andr Barroso, Urs Hlzle The Datacenter as a Computer: An Introduction to the Design of Warehouse-Scale Machines</p>
+    <p>Such WSCs tend to have relatively low average utilization, spending most of its time in the 10 - 50% CPU utilization range.</p>
+    <p>Service Level Objective 100ms SLO</p>
+    <p>La te</p>
+    <p>nc y</p>
+    <p>(m s)</p>
+    <p>RPS</p>
+    <p>Lucene alone 99%ile</p>
+    <p>U ti</p>
+    <p>liz at</p>
+    <p>io n</p>
+    <p>/ no</p>
+    <p>S M</p>
+    <p>T</p>
+    <p>RPS</p>
+    <p>LC</p>
+  </div>
+  <div class="page">
+    <p>Soak up Slack with Batch?</p>
+    <p>LC batch</p>
+    <p>core core core core</p>
+    <p>shared cache</p>
+    <p>Co-running on different cores SMT turned off</p>
+    <p>responsiveness requires idle cores because OS descheduling is slow</p>
+    <p>LC idle LCidlecorebatchidleLC</p>
+    <p>shared cache shared cache</p>
+    <p>core core core core t1 t2 t1 t2 t1 t2 t1 t2t1 t2 t1 t2 t1 t2 t1 t2</p>
+    <p>Co-running on different cores SMT turned off</p>
+    <p>Co-running on same core in SMT lanes</p>
+  </div>
+  <div class="page">
+    <p>l at</p>
+    <p>en cy</p>
+    <p>( m</p>
+    <p>s)</p>
+    <p>RPS</p>
+    <p>Lucene alone with IPC 1.0 with IPC 0.01</p>
+    <p>SMT Co-Runner</p>
+    <p>Even IPC 0.01 violates SLO at low load!</p>
+    <p>while(1);</p>
+    <p>while(1) { movnti(); mfence();</p>
+    <p>}</p>
+    <p>IPC 1.0</p>
+    <p>IPC 0.01</p>
+    <p>SLO</p>
+    <p>Great utilization!</p>
+    <p>U ti</p>
+    <p>liz at</p>
+    <p>io n</p>
+    <p>/ no</p>
+    <p>S M</p>
+    <p>T</p>
+    <p>RPS</p>
+  </div>
+  <div class="page">
+    <p>Functional Units</p>
+    <p>Load Store Queue</p>
+    <p>Issue LogicLanes</p>
+    <p>time lucene</p>
+    <p>Simultaneous Multithreading OFF</p>
+  </div>
+  <div class="page">
+    <p>lane 1</p>
+    <p>Functional Units</p>
+    <p>Load Store Queue</p>
+    <p>Issue LogicLanes</p>
+    <p>Dynamically shared</p>
+    <p>Statically partitioned</p>
+    <p>Round-robin shared</p>
+    <p>time lucene</p>
+    <p>IPC 0.01</p>
+    <p>Active SMT lanes share critical resources</p>
+    <p>lane 2</p>
+    <p>Simultaneous Multithreading ON</p>
+  </div>
+  <div class="page">
+    <p>Principled Borrowing</p>
+    <p>time</p>
+    <p>busy idle</p>
+    <p>Batch borrows hardware when LC is idle</p>
+    <p>Batch releases hardware when LC is busy</p>
+    <p>Can we implement principled borrowing on current hardware?</p>
+    <p>LC</p>
+    <p>batch</p>
+  </div>
+  <div class="page">
+    <p>Hardware is Ready  Software is Not</p>
+    <p>time</p>
+    <p>Batch lane calls mwait</p>
+    <p>Thread sleeps, releasing hardware to OS (~2K cycles)</p>
+    <p>OS supports thread sleeping, but not hardware sleeping release SMT hardware to other lane</p>
+    <p>OS schedules batch lane with any ready job</p>
+    <p>LC</p>
+    <p>batch</p>
+  </div>
+  <div class="page">
+    <p>nanonap()</p>
+    <p>Semantics</p>
+    <p>Thread invoking nanonap releases SMT hardware without releasing SMT context</p>
+    <p>OS cannot schedule hardware context</p>
+    <p>OS can interrupt and wakeup thread</p>
+  </div>
+  <div class="page">
+    <p>nanonap()</p>
+    <p>per_cpu_variable: nap_flag; void nanonap() {</p>
+    <p>enter_kernel(); disable_preemption(); my_nap_flag = this_cpu_flag(nap_flag); monitor(my_nap_flag); mwait(); enable_preemption(); leave_kernel();</p>
+    <p>}</p>
+    <p>time LC</p>
+    <p>batch</p>
+    <p>nanonap</p>
+  </div>
+  <div class="page">
+    <p>Elfen Scheduler</p>
+    <p>Instrument batch workloads to detect LC threads &amp; nap</p>
+    <p>Bind latency-critical threads to LC lane Bind batch threads to batch lane</p>
+    <p>No change to latency-critical threads</p>
+  </div>
+  <div class="page">
+    <p>Elfen Scheduler</p>
+    <p>time</p>
+    <p>OS touches nap_flag to wake up batch thread</p>
+    <p>/* fast path check injected into method body */ check: if (!request_lane_idle)</p>
+    <p>slow_path();</p>
+    <p>slow_path() { nanonap(); }</p>
+    <p>/* maps lane IDs to the running task */ exposed SHIM signal: cpu_task_map task_switch(task T) {</p>
+    <p>cpu_task_map[thiscpu] = T; } idle_task() { // wake up any waiting batch thread update_nap_flag_of_partner_lane(); ......</p>
+    <p>}</p>
+    <p>LC</p>
+    <p>batch</p>
+    <p>nanonap()</p>
+  </div>
+  <div class="page">
+    <p>l at</p>
+    <p>en cy</p>
+    <p>( m</p>
+    <p>s)</p>
+    <p>RPS</p>
+    <p>w antlr</p>
+    <p>w bloat</p>
+    <p>w eclipse</p>
+    <p>w fop</p>
+    <p>w hsqldb</p>
+    <p>w jython</p>
+    <p>w luindex</p>
+    <p>w lusearch</p>
+    <p>w pmd</p>
+    <p>w xalan</p>
+    <p>Lucene alone</p>
+    <p>Results: Borrow Idle</p>
+    <p>U ti</p>
+    <p>liz at</p>
+    <p>io n</p>
+    <p>/ no</p>
+    <p>S M</p>
+    <p>T</p>
+    <p>RPS</p>
+    <p>increased utilization 10x - 1.5x</p>
+    <p>l at</p>
+    <p>en cy</p>
+    <p>( m</p>
+    <p>s)</p>
+    <p>RPS</p>
+    <p>U ti</p>
+    <p>liz at</p>
+    <p>io n</p>
+    <p>/ no</p>
+    <p>S M</p>
+    <p>T</p>
+    <p>RPS</p>
+    <p>same latency!</p>
+  </div>
+  <div class="page">
+    <p>Beyond Mutual Exclusion</p>
+    <p>time</p>
+    <p>Mutual exclusion</p>
+    <p>LC</p>
+    <p>batch</p>
+    <p>Concurrent co-running with a budget</p>
+    <p>Fixed budget policy  Refresh budget policy  Dynamic budget policy</p>
+    <p>Borrow idle policy</p>
+    <p>nanonap nanonap nanonap</p>
+  </div>
+  <div class="page">
+    <p>l at</p>
+    <p>en cy</p>
+    <p>( m</p>
+    <p>s)</p>
+    <p>RPS</p>
+    <p>U ti</p>
+    <p>liz at</p>
+    <p>io n</p>
+    <p>/ no</p>
+    <p>S M</p>
+    <p>T</p>
+    <p>RPS</p>
+    <p>l at</p>
+    <p>en cy</p>
+    <p>( m</p>
+    <p>s) RPS</p>
+    <p>U ti</p>
+    <p>liz at</p>
+    <p>io n</p>
+    <p>/ no</p>
+    <p>S M</p>
+    <p>T</p>
+    <p>RPS</p>
+    <p>Borrow idle on 1 core Borrow idle on 7 cores Dynamic budget 7 cores</p>
+    <p>l at</p>
+    <p>en cy</p>
+    <p>( m</p>
+    <p>s)</p>
+    <p>RPS</p>
+    <p>U ti</p>
+    <p>liz at</p>
+    <p>io n</p>
+    <p>/ no</p>
+    <p>S M</p>
+    <p>T</p>
+    <p>RPS</p>
+  </div>
+  <div class="page">
+    <p>Conclusion</p>
+    <p>Principled borrowing for SMT</p>
+    <p>nanonap() releases STM hardware without giving it to OS Elfen scheduler implementation &amp; policies</p>
+    <p>Same tail latency!</p>
+    <p>Thank you!</p>
+    <p>https://github.com/elfenscheduler</p>
+  </div>
+  <div class="page">
+    <p>BACKUP SLIDES</p>
+  </div>
+  <div class="page">
+    <p>La te</p>
+    <p>n cy</p>
+    <p>( m</p>
+    <p>s)</p>
+    <p>RPS</p>
+    <p>U ti</p>
+    <p>li za</p>
+    <p>ti o n /</p>
+    <p>n o S</p>
+    <p>M T</p>
+    <p>RPS</p>
+    <p>High ResponsivenessLow Utilization</p>
+    <p>Intel Xeon-D 1540 Broadwell</p>
+    <p>LC</p>
+    <p>Luiz Andr Barroso, Urs Hlzle The Datacenter as a Computer: An Introduction to the Design of Warehouse-Scale Machines</p>
+    <p>Such WSCs tend to have relatively low average utilization, spending most of its time in the 10 - 50% CPU utilization range.</p>
+    <p>Service Level Objective 100ms SLO</p>
+    <p>LC</p>
+  </div>
+  <div class="page">
+    <p>Results: Borrow Idle</p>
+    <p>ile la</p>
+    <p>te nc</p>
+    <p>y (m</p>
+    <p>s)</p>
+    <p>RPS</p>
+    <p>Lucene alone w antlr w bloat w eclipse w fop w hsqldb w jython w luindex w lusearch w pmd w xalan</p>
+    <p>U ti li z a ti o</p>
+    <p>n /</p>
+    <p>n o S</p>
+    <p>M T</p>
+    <p>RPS</p>
+    <p>RPS</p>
+    <p>RPS</p>
+    <p>increased utilization 90% to 37%</p>
+    <p>increased utilization 80% to 10%</p>
+  </div>
+  <div class="page">
+    <p>Borrow idle on 1 cores</p>
+    <p>RPS</p>
+    <p>RPS</p>
+    <p>RPS</p>
+    <p>RPS</p>
+    <p>ile la</p>
+    <p>te nc</p>
+    <p>y (m</p>
+    <p>s)</p>
+    <p>RPS</p>
+    <p>Lucene alone w antlr w bloat w eclipse w fop w hsqldb w jython w luindex w lusearch w pmd w xalan</p>
+    <p>U ti li z a ti o n</p>
+    <p>/ n</p>
+    <p>o S</p>
+    <p>M T</p>
+    <p>RPS</p>
+    <p>Borrow idle on 7 cores Dynamic budget 7 cores</p>
+    <p>increased utilization 100% to 10%</p>
+  </div>
+  <div class="page">
+    <p>Result</p>
+  </div>
+  <div class="page">
+    <p>Result</p>
+  </div>
+  <div class="page">
+    <p>BACKUP SLIDES</p>
+  </div>
+  <div class="page">
+    <p>Tail Latency Matters</p>
+    <p>Two second slowdown reduced revenue/user by 4.3%.</p>
+    <p>[Eric Schurman, Bing]</p>
+    <p>[Jack Brutlag, Google] p75, Luiz Andr Barroso, Urs Hlzle The Datacenter as a Computer: An Introduction</p>
+    <p>to the Design of Warehouse-Scale Machines</p>
+    <p>Such WSCs tend to have relatively low average utilization, spending most of its time in the 10 - 50% CPU utilization range.</p>
+  </div>
+  <div class="page">
+    <p>L a te</p>
+    <p>n c y (</p>
+    <p>m s )</p>
+    <p>RPS</p>
+    <p>L a te</p>
+    <p>n c y (</p>
+    <p>m s )</p>
+    <p>RPS</p>
+    <p>High ResponsivenessLow Utilization</p>
+    <p>La te</p>
+    <p>nc y</p>
+    <p>(m s)</p>
+    <p>RPS</p>
+    <p>Lucene search benchmark on one core of an Intel Xeon-D 1540 Broadwell.</p>
+    <p>U ti li z a ti o</p>
+    <p>n /</p>
+    <p>n o S</p>
+    <p>M T</p>
+    <p>RPS</p>
+    <p>LC</p>
+    <p>p75, Luiz Andr Barroso, Urs Hlzle The Datacenter as a Computer: An Introduction</p>
+    <p>to the Design of Warehouse-Scale Machines</p>
+    <p>Such WSCs tend to have relatively low average utilization, spending most of its time in the 10 - 50% CPU utilization range.</p>
+  </div>
+  <div class="page">
+    <p>Soak up Slack with Batch?</p>
+    <p>core core core core</p>
+    <p>shared cache</p>
+    <p>LC batch</p>
+    <p>shared cache shared cache</p>
+    <p>Co-running on different cores SMT turned off Co-running on same core in SMT lanes</p>
+    <p>LC idle core LCbatch core core core core t1 t2 t1 t2 t1 t2 t1 t2t1 t2 t1 t2 t1 t2 t1 t2</p>
+  </div>
+  <div class="page">
+    <p>SMT Co-Runner</p>
+    <p>ile la</p>
+    <p>te nc</p>
+    <p>y (m</p>
+    <p>s)</p>
+    <p>RPS</p>
+    <p>Lucene alone with IPC 0.01 with IPC 1</p>
+    <p>Even IPC 0.01 violates SLO at low load!</p>
+    <p>while(1);</p>
+    <p>while(1) { movnti(); mfence();</p>
+    <p>}</p>
+    <p>IPC 1.0</p>
+    <p>IPC 0.01</p>
+    <p>U ti li z a ti o n / n</p>
+    <p>o S</p>
+    <p>M T</p>
+    <p>RPS</p>
+  </div>
+  <div class="page">
+    <p>Even Low IPC Co-Runner is Destructive</p>
+    <p>LC</p>
+    <p>Functional Units</p>
+    <p>Load Store Queue</p>
+    <p>Issue LogicLanes</p>
+    <p>Dynamically shared</p>
+    <p>Statically partitioned</p>
+    <p>Round-robin shared</p>
+    <p>time lucene</p>
+    <p>IPC 0.01</p>
+    <p>Critical resources are shared by active SMT lanes.</p>
+    <p>batch</p>
+  </div>
+  <div class="page">
+    <p>Principled Borrowing</p>
+    <p>time</p>
+    <p>busy idle</p>
+    <p>Batch lane borrows hardware resources when LC lane is idle</p>
+    <p>Batch lane releases hardware resources when LC lane is busy</p>
+    <p>Can we implement principled borrowing on current hardware?</p>
+    <p>LC</p>
+    <p>batch</p>
+  </div>
+  <div class="page">
+    <p>Hardware is Ready  Software is Not</p>
+    <p>time</p>
+    <p>Batch lane calls mwait</p>
+    <p>Thread sleeps, releasing hardware to OS (~2K cycles)</p>
+    <p>When LC lane is busy, batch lane must do nothing (nap)</p>
+    <p>OS schedules batch lane with any ready job</p>
+    <p>LC</p>
+    <p>batch</p>
+  </div>
+  <div class="page">
+    <p>nanonap()</p>
+    <p>Thread nap semantics</p>
+    <p>Put SMT hardware lane in idle state</p>
+    <p>OS cannot schedule hardware context</p>
+    <p>OS can interrupt and wakeup thread</p>
+  </div>
+  <div class="page">
+    <p>nanonap()</p>
+    <p>per_cpu_variable: nap_flag; void nanonap() {</p>
+    <p>enter_kernel(); disable_preemption(); my_nap_flag = this_cpu_flag(nap_flag); monitor(my_nap_flag); mwait(); enable_preemption(); leave_kernel();</p>
+    <p>}</p>
+    <p>time</p>
+    <p>batch lane naps</p>
+    <p>LC</p>
+    <p>batch</p>
+  </div>
+  <div class="page">
+    <p>Elfen Scheduler</p>
+    <p>No change to latency critical threads</p>
+    <p>Bind latency critical threads to LC lane Bind batch threads to batch lane</p>
+    <p>Instrument batch workloads to detect LC threads quickly &amp; nap</p>
+  </div>
+  <div class="page">
+    <p>Elfen Scheduler</p>
+    <p>time</p>
+    <p>/* fast path check injected into method body */ check: if (!request_lane_idle)</p>
+    <p>slow_path();</p>
+    <p>slow_path() { nanonap(); }</p>
+    <p>/* maps lane IDs to the running task */ exposed SHIM signal: cpu_task_map task_switch(task T) {</p>
+    <p>cpu_task_map[thiscpu] = T; } idle_task() {</p>
+    <p>// wake up any waiting batch thread update_nap_flag_of_partner_lane(); ......</p>
+    <p>}</p>
+    <p>LC</p>
+    <p>batch</p>
+  </div>
+  <div class="page">
+    <p>Results: Borrow Idle</p>
+    <p>ile la</p>
+    <p>te nc</p>
+    <p>y (m</p>
+    <p>s)</p>
+    <p>RPS</p>
+    <p>Lucene alone w antlr w bloat w eclipse w fop w hsqldb w jython w luindex w lusearch w pmd w xalan</p>
+    <p>U ti li z a ti o n</p>
+    <p>/ n</p>
+    <p>o S</p>
+    <p>M T</p>
+    <p>RPS</p>
+    <p>RPS</p>
+    <p>RPS</p>
+    <p>increased utilization 90% to 37%</p>
+    <p>increased utilization 80% to 10%</p>
+  </div>
+  <div class="page">
+    <p>Beyond Mutual Exclusion</p>
+    <p>time</p>
+    <p>Mutual exclusion</p>
+    <p>LC</p>
+    <p>batch</p>
+    <p>Concurrent co-running with a budget</p>
+    <p>Fixed budget policy  Refresh budget policy  Dynamic budget policy</p>
+    <p>Borrow idle policy</p>
+    <p>nanonap nanonap nanonap</p>
+  </div>
+  <div class="page">
+    <p>Borrow idle on 1 cores</p>
+    <p>RPS</p>
+    <p>RPS</p>
+    <p>RPS</p>
+    <p>RPS</p>
+    <p>ile la</p>
+    <p>te nc</p>
+    <p>y (m</p>
+    <p>s)</p>
+    <p>RPS</p>
+    <p>Lucene alone w antlr w bloat w eclipse w fop w hsqldb w jython w luindex w lusearch w pmd w xalan</p>
+    <p>U ti li z a ti o n</p>
+    <p>/ n</p>
+    <p>o S</p>
+    <p>M T</p>
+    <p>RPS</p>
+    <p>Borrow idle on 7 cores Dynamic budget 7 cores</p>
+    <p>increased utilization 100% to 10%</p>
+  </div>
+  <div class="page">
+    <p>Conclusion</p>
+    <p>Principled borrowing for SMT</p>
+    <p>nanonap() releases STM hardware without giving it to OS</p>
+    <p>Elfen scheduler implementation &amp; policies</p>
+    <p>Same tail latency!?</p>
+    <p>Thank you!</p>
+    <p>https: //github.com/elfenscheduler</p>
+  </div>
+</Presentation>

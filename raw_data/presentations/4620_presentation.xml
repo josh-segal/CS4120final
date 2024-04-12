@@ -1,0 +1,316 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>Transactional Collection Classes Brian D. Carlstrom</p>
+    <p>Transactional Collection Classes</p>
+    <p>Brian D. Carlstrom, Austen McDonald, Michael Carbin Christos Kozyrakis, Kunle Olukotun</p>
+    <p>Computer Systems Laboratory Stanford University</p>
+    <p>http://tcc.stanford.edu</p>
+  </div>
+  <div class="page">
+    <p>Transactional Collection Classes 2</p>
+    <p>Transactional Memory</p>
+    <p>Promise of Transactional Memory (TM) 1. Make parallel programming easier 2. Better performance through concurrent execution</p>
+    <p>How does TM make parallel programming easier? Program with large atomic regions Keep the performance of fine-grained locking</p>
+    <p>Transactional Collection Classes Transactional versions of Map, SortedMap, Queue,  Avoid unnecessary data dependency violations Provide scalability while allowing access to shared data</p>
+  </div>
+  <div class="page">
+    <p>Transactional Collection Classes 3</p>
+    <p>Evaluating Transactional Memory</p>
+    <p>Past evaluations Convert fine-grained locks to fine-grained transactions Convert barrier style applications with little communication</p>
+    <p>Past results TM can compete given similar programmer effort</p>
+    <p>What happens when we use longer transactions?</p>
+  </div>
+  <div class="page">
+    <p>Transactional Collection Classes 4</p>
+    <p>TM hash table micro-benchmark comparison</p>
+    <p>Old: Many short transactions that each do only one Map operation</p>
+    <p>CPUs</p>
+    <p>S pe</p>
+    <p>ed up</p>
+    <p>Locks</p>
+    <p>Trans actions</p>
+    <p>CPUs</p>
+    <p>S pe</p>
+    <p>ed up</p>
+    <p>Locks</p>
+    <p>Transactions</p>
+    <p>`</p>
+    <p>New: Long transactions containing one or more Map operations</p>
+  </div>
+  <div class="page">
+    <p>Transactional Collection Classes 5</p>
+    <p>New: High contention - All threads in 1 warehouse</p>
+    <p>All transactions touch some shared Map</p>
+    <p>TM SPECjbb2000 benchmark comparison</p>
+    <p>Old: Measures JVM scalability, but app rarely has communication</p>
+    <p>1 thread per warehouse, 1% inter-warehouse transactions</p>
+    <p>CPUs</p>
+    <p>S pe</p>
+    <p>ed up</p>
+    <p>Locks</p>
+    <p>Transactions</p>
+    <p>`</p>
+    <p>CPUs</p>
+    <p>S pe</p>
+    <p>ed up</p>
+    <p>Locks</p>
+    <p>Trans actions</p>
+    <p>`</p>
+    <p>`</p>
+  </div>
+  <div class="page">
+    <p>Transactional Collection Classes 6</p>
+    <p>Unwanted data dependencies limit scaling</p>
+    <p>Data structure bookkeeping causing serialization Frequent HashMap and TreeMap violations updating size and modification counts</p>
+    <p>With short transactions Enough parallelism from operations that do not conflict to make up for the ones that do conflict</p>
+    <p>With long transactions Too much lost work from conflicting operations</p>
+    <p>How can we eliminate unwanted dependencies?</p>
+  </div>
+  <div class="page">
+    <p>Transactional Collection Classes 7</p>
+    <p>Reducing unwanted dependencies</p>
+    <p>Custom hash table Dont need size or modCount? Build stripped down Map Disadvantage: Do not want to custom build data structures</p>
+    <p>Open-nested transactions Allows a child transaction to commit before parent Disadvantage: Lose transactional atomicity</p>
+    <p>Segmented hash tables Use ConcurrentHashMap (or similar approaches)  Compiler and Runtime Support for Efficient STM, Intel, PLDI 2006</p>
+    <p>Disadvantage: Reduces, but does not eliminate, unnecessary violations</p>
+    <p>Is this reduction of violations good enough?</p>
+  </div>
+  <div class="page">
+    <p>Transactional Collection Classes 8</p>
+    <p>Composing Map operations</p>
+    <p>Suppose we want to perform two Map operations atomically</p>
+    <p>With locks: take a lock on Map and hold it for duration With transactions: one big atomic block Both lousy performance</p>
+    <p>Use ConcurrentHashMap? Wont help lock version Probabilistic approach hurts as number of operations per transaction increases</p>
+    <p>Can we do better?</p>
+    <p>CPUs</p>
+    <p>S pe</p>
+    <p>ed up</p>
+    <p>Locks Transactions</p>
+    <p>`</p>
+    <p>Example compound operation: atomic {</p>
+    <p>int balance = map.get(acct);</p>
+    <p>balance += deposit;</p>
+    <p>map.put(acct, balance);}</p>
+  </div>
+  <div class="page">
+    <p>Transactional Collection Classes 9</p>
+    <p>Semantic Concurrency Control</p>
+    <p>Database concept of multi-level transactions Release low-level locks on data after acquiring higher-level locks on semantic concepts such as keys and size</p>
+    <p>Example Before releasing lock on B-tree node containing key 7 record dependency on key 7 in lock table B-tree locks prevent races  lock table provides isolation</p>
+    <p>Read7#2317</p>
+    <p>ModeKeyTX#</p>
+  </div>
+  <div class="page">
+    <p>Transactional Collection Classes 10</p>
+    <p>Semantic Concurrency Control</p>
+    <p>Applying Semantic Concurrency Control to TM Avoid retaining memory level dependencies Replace with semantic dependencies Add conflict detection on semantic properties</p>
+    <p>Transactional Collection Classes Avoid memory level dependencies on size field,  Replace with semantic dependencies on keys, size,  Only detect semantic conflicts that are necessary No more memory conflicts on implementation details</p>
+  </div>
+  <div class="page">
+    <p>Transactional Collection Classes 11</p>
+    <p>Transactional Collection Classes</p>
+    <p>Our general approach Read operations acquire semantic dependency</p>
+    <p>Open nesting used to read class state</p>
+    <p>Writes buffered until commit Check for semantic conflicts on commit Release dependencies on commit and abort</p>
+    <p>Simplified Map example Read operations add dependencies on keys Write operations buffer inserts and updates On commit we applied buffered changes, violating transactions that read values from keys that are changing On commit and abort we remove dependencies on the keys we have read</p>
+  </div>
+  <div class="page">
+    <p>Transactional Collection Classes 12</p>
+    <p>{}{c =&gt; 23}{c =&gt; 23}</p>
+    <p>{c =&gt; [1]}</p>
+    <p>size=4</p>
+    <p>{a =&gt; 50,</p>
+    <p>b =&gt; 17,</p>
+    <p>c =&gt; 23,</p>
+    <p>d =&gt; 42}</p>
+    <p>size=2</p>
+    <p>{a =&gt; 50,</p>
+    <p>b =&gt; 17}</p>
+    <p>{d =&gt; 42}</p>
+    <p>{d =&gt; [2]}{c =&gt; [1],</p>
+    <p>d =&gt; [2]}</p>
+    <p>size=3</p>
+    <p>{a =&gt; 50,</p>
+    <p>b =&gt; 17,</p>
+    <p>c =&gt; 23}</p>
+    <p>Example of non-conflicting put operations</p>
+    <p>Underlying Map</p>
+    <p>Write Buffer</p>
+    <p>Dependencies</p>
+    <p>put(c,23) open-nested transaction</p>
+    <p>{}</p>
+    <p>{}</p>
+    <p>Write Buffer</p>
+    <p>put(d,42) open-nested transaction</p>
+    <p>TX #2 startingTX #1 starting</p>
+    <p>TX #1 commit and handler execution</p>
+    <p>TX #2 commit and handler execution</p>
+  </div>
+  <div class="page">
+    <p>Transactional Collection Classes 13</p>
+    <p>{}</p>
+    <p>{c =&gt; [1]}{}{}{c =&gt; [1,2]}</p>
+    <p>size=3</p>
+    <p>{a =&gt; 50,</p>
+    <p>b =&gt; 17,</p>
+    <p>c =&gt; 23}</p>
+    <p>{}{c =&gt; 23}{c =&gt; 23}</p>
+    <p>size=3</p>
+    <p>{a =&gt; 50,</p>
+    <p>b =&gt; 17,</p>
+    <p>c =&gt; 23}</p>
+    <p>size=2</p>
+    <p>{a =&gt; 50,</p>
+    <p>b =&gt; 17}</p>
+    <p>{}</p>
+    <p>Example of conflicting put and get operations</p>
+    <p>Underlying Map</p>
+    <p>Write Buffer</p>
+    <p>Dependencies</p>
+    <p>put(c,23) open-nested transaction</p>
+    <p>Write Buffer</p>
+    <p>get(c) open-nested transaction</p>
+    <p>TX #2 startingTX #1 starting</p>
+    <p>TX #1 commit and handler execution</p>
+    <p>TX #2 abort and handler execution</p>
+  </div>
+  <div class="page">
+    <p>Transactional Collection Classes 14</p>
+    <p>Benefits of Semantic Concurrency Approach</p>
+    <p>Works with any conforming implementation HashMap, TreeMap,</p>
+    <p>Avoids implementation specific violations Not just size and mod count HashTable resizing does not abort parent transactions TreeMap rotations invisible as well</p>
+  </div>
+  <div class="page">
+    <p>Transactional Collection Classes 15</p>
+    <p>Making a Transactional Class</p>
+  </div>
+  <div class="page">
+    <p>Transactional Collection Classes 16</p>
+    <p>Making a Transactional Class</p>
+    <p>Avoid memory dependencies on committed state Record semantic dependencies in shared state Consult buffered state for local changes of our own write operations</p>
+    <p>Transfers local state to committed state  Abort other transactions with conflicting dependencies  Releases dependencies</p>
+  </div>
+  <div class="page">
+    <p>Transactional Collection Classes 17</p>
+    <p>Library focused solution</p>
+    <p>Programmer just uses the usual collection interfaces Code change as simple as replacing</p>
+    <p>Map map = new HashMap();</p>
+    <p>with Map map = new TransactionalMap();</p>
+    <p>We provide similar interface coverage to util.concurrent Maps: TransactionalMap, TransactionalSortedMap Sets: TransactionalSet, TransactionalSortedSet Queue: TransactionalQueue</p>
+    <p>Primarily only library writers need to master implementation Seems more manageable work than util.concurrent effort</p>
+  </div>
+  <div class="page">
+    <p>Transactional Collection Classes 18</p>
+    <p>Paper details</p>
+    <p>TransactionalMap Discussion of full interface including dealing with iteration</p>
+    <p>TransactionalSortedMap Adds tracking of range dependencies</p>
+    <p>TransactionalQueue Reduces serialization requirements Mostly FIFO, but if abort after remove, simple pushback</p>
+  </div>
+  <div class="page">
+    <p>Transactional Collection Classes 19</p>
+    <p>Evaluation Environment</p>
+    <p>The Atomos Transactional Programming Language Java - locks + transactions = Atomos Implementation based on Jikes RVM 2.4.2+CVS GNU Classpath 0.19</p>
+    <p>Hardware is simulated PowerPC chip multiprocessor 1-32 processors with private L1 and shared L2</p>
+    <p>For details about the Atomos programming language See PLDI 2006</p>
+    <p>For details on hardware for open nesting, handlers, etc. See ISCA 2006</p>
+    <p>For details on simulated chip multiprocessor See PACT 2005</p>
+  </div>
+  <div class="page">
+    <p>Transactional Collection Classes 20</p>
+    <p>TestMap results</p>
+    <p>TestMap is a long operation containing a single map operation</p>
+    <p>Java HashMap with single lock scales because lock region is small compared to long operation</p>
+    <p>TransactionalMap with semantic concurrency control returns scalability lost to memory level violations</p>
+    <p>CPUs S</p>
+    <p>pe ed</p>
+    <p>up</p>
+    <p>Java HashMap</p>
+    <p>Atomos HashMap</p>
+    <p>Atomos TransactionalMap</p>
+    <p>`</p>
+  </div>
+  <div class="page">
+    <p>Transactional Collection Classes 21</p>
+    <p>TestCompound results</p>
+    <p>TestCompound is a long operation containing two map operations</p>
+    <p>Java HashMap protects the compound operations with a lock, limiting scalability</p>
+    <p>TransactionalMap preserves scalability of TestMap 0</p>
+    <p>CPUs</p>
+    <p>S pe</p>
+    <p>ed up</p>
+    <p>Java HashMap Atomos HashMap Atomos TransactionalMap</p>
+    <p>`</p>
+  </div>
+  <div class="page">
+    <p>Transactional Collection Classes 22</p>
+    <p>High-contention SPECjbb2000 results</p>
+    <p>Java Locks Short critical sections</p>
+    <p>Atomos Baseline Full protection of logical ops</p>
+    <p>Performance Limit? Data dependency violations on unique ID generator for new order objects 0</p>
+    <p>CPUs S</p>
+    <p>pe ed</p>
+    <p>up</p>
+    <p>Java</p>
+    <p>Atomos Baseline</p>
+    <p>`</p>
+  </div>
+  <div class="page">
+    <p>Transactional Collection Classes 23</p>
+    <p>High-contention SPECjbb2000 results</p>
+    <p>Java Locks Short critical sections</p>
+    <p>Atomos Baseline Full protection of logical ops</p>
+    <p>Atomos Open Use simple open-nesting for UID generation</p>
+    <p>Performance Limit? Data dependency violations on TreeMap and HashMap</p>
+    <p>CPUs S</p>
+    <p>pe ed</p>
+    <p>up</p>
+    <p>Java</p>
+    <p>Atomos Baseline</p>
+    <p>Atomos Open</p>
+    <p>`</p>
+  </div>
+  <div class="page">
+    <p>Transactional Collection Classes 24</p>
+    <p>High-contention SPECjbb2000 results</p>
+    <p>Java Locks Short critical sections</p>
+    <p>Atomos Baseline Full protection of logical ops</p>
+    <p>Atomos Open Use simple open-nesting for UID generation</p>
+    <p>Atomos Transactional Change to Transactional Collection Classes</p>
+    <p>Performance Limit? Semantic violations from calls to SortedMap.firstKey()</p>
+    <p>CPUs S</p>
+    <p>pe ed</p>
+    <p>up</p>
+    <p>Java Atomos Baseline Atomos Open Atomos Transactional</p>
+    <p>`</p>
+  </div>
+  <div class="page">
+    <p>Transactional Collection Classes 25</p>
+    <p>High-contention SPECjbb2000 results</p>
+    <p>SortedMap dependency SortedMap use overloaded</p>
+    <p>Replace with Map and Queue 1. Use Map for lookup by ID 2. Use Queue to find oldest 0</p>
+    <p>CPUs S</p>
+    <p>pe ed</p>
+    <p>up</p>
+    <p>Java Atomos Baseline Atomos Open Atomos Transactional</p>
+    <p>`</p>
+  </div>
+  <div class="page">
+    <p>Transactional Collection Classes 26</p>
+    <p>High-contention SPECjbb2000 results</p>
+    <p>What else could we do? Split larger transactions into smaller ones In the limit, we can end up with transactions matching the short critical regions of Java</p>
+    <p>Return on investment Coarse grained transactional version is giving 8x on 32 processors Coarse grained lock version would not have scaled at all</p>
+    <p>CPUs S</p>
+    <p>pe ed</p>
+    <p>up</p>
+    <p>Java Atomos Baseline Atomos Open Atomos Transactional</p>
+    <p>`</p>
+  </div>
+  <div class="page">
+    <p>Transactional Collection Classes 27</p>
+    <p>Conclusions</p>
+    <p>Transactional memory promises to ease parallelization Need to support coarse grained transactions</p>
+    <p>Need to access shared data from within transactions While composing operations atomically While avoiding unnecessary dependency violations While still having reasonable performance!</p>
+    <p>Transactional Collection Classes Provides needed scalability through familiar library interfaces of Map, SortedMap, Set, SortedSet, and Queue</p>
+  </div>
+</Presentation>

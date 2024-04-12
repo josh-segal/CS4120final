@@ -1,0 +1,258 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>Daejun Park and Dongkun Shin Sungkyunkwan University, Korea</p>
+    <p>pdaejun@skku.edu, dongkun@skku.edu</p>
+    <p>iJournaling: Fine-Grained Journaling for Improving the Latency of Fsync System Call</p>
+  </div>
+  <div class="page">
+    <p>Fsync() system call  used by many applications to guarantee durability of a file  blocks until the flushing data is completed.</p>
+    <p>Database management system  MYSQL (tpcc-mysql) calls fsync() about 140 call/s</p>
+    <p>Smartphone application  A burstshot (20 pics) at smartphone calls fsync() 100 times  Adding a phone number on contract app calls fsync() 7 times</p>
+    <p>Why fsync() latency is important?</p>
+    <p>Fsync latency can affect on application performance</p>
+  </div>
+  <div class="page">
+    <p>Legacy journaling in the ext4 file operation</p>
+    <p>Periodic JBD commit</p>
+    <p>Commit interval</p>
+    <p>fsync()</p>
+    <p>data</p>
+    <p>metadata Compound transaction</p>
+    <p>storage</p>
+    <p>journal area data area</p>
+  </div>
+  <div class="page">
+    <p>Long fsync() latency with heavy BG write</p>
+    <p>fs y</p>
+    <p>n c</p>
+    <p>la te</p>
+    <p>n cy</p>
+    <p>( s)</p>
+    <p>iterations</p>
+    <p>ext4 &amp; Samsung 850 pro SSD (128GB)</p>
+    <p>longer than 3 seconds</p>
+    <p>fsyncgenerating</p>
+    <p>thread</p>
+    <p>BG write thread (fio)</p>
+    <p>ext4 file system</p>
+  </div>
+  <div class="page">
+    <p>File level journaling</p>
+    <p>File-level journaling is needed for fsync()!</p>
+    <p>iJournaling</p>
+    <p>Normal journaling fsync(B)</p>
+    <p>Flush data</p>
+    <p>File A File B File C</p>
+    <p>Compound tx Tx commit</p>
+    <p>File-level journaling fsync(B)</p>
+    <p>Flush data</p>
+    <p>File A File CFile B</p>
+    <p>File-level tx</p>
+    <p>Compound tx</p>
+  </div>
+  <div class="page">
+    <p>Hybrid journaling  Normal journaling</p>
+    <p>Periodic JBD commit</p>
+    <p>Commit interval</p>
+    <p>fsync()</p>
+    <p>iJournaling Commit interval</p>
+    <p>fsync()</p>
+    <p>iJournal commit</p>
+    <p>Periodic JBD commit</p>
+    <p>Use iJournaling on fsync</p>
+    <p>On demand JBD commit</p>
+  </div>
+  <div class="page">
+    <p>Related Work</p>
+    <p>CCFS[FAST 17], PBG[ISCE 14], Eager synching[NVMSA 14], IceFS[OSDI 14], Spanfs[ATC 05]  Minimizes the compound transaction problem by isolation</p>
+    <p>ScaleFS[*], ZFS  uses a logical logging technique.  performance overhead occurs because each file-system operation</p>
+    <p>must record its own log  Xsyncfs [TOC 08], NoFS [FAST 12], and OptFS</p>
+    <p>[SOSP 13]  improved the fsync latency by delaying sync operations or changing</p>
+    <p>the implementation of ordering constraint.</p>
+    <p>[*] Rasha Eqbal. ScaleFS: A multicore-scalable file system. Masters thesis, Massachusetts Institute of Technology, August 2014.</p>
+  </div>
+  <div class="page">
+    <p>Challenges for iJournaling</p>
+  </div>
+  <div class="page">
+    <p>Legacy journaling  physical logging</p>
+    <p>Physical logging with 4KB block granularity  multiple file operations share metadata</p>
+    <p>Needs to track file-level changes on metadata In memory metadata</p>
+    <p>iJournal transaction</p>
+    <p>Block bitmap Inode table ExtentGDT</p>
+    <p>LBA</p>
+    <p>root</p>
+    <p>inode</p>
+    <p>Extent tree</p>
+    <p>Inode bitmap</p>
+  </div>
+  <div class="page">
+    <p>iJournaling  Logging and Recovery</p>
+    <p>Compare &amp; update metadata</p>
+    <p>recovered BB</p>
+    <p>i-Tx</p>
+    <p>iJournal area block</p>
+    <p>bitmap</p>
+    <p>metadata area</p>
+    <p>ijournal transaction</p>
+    <p>start block: 30 length: 2</p>
+    <p>extent</p>
+    <p>block bitmap</p>
+    <p>iJournal recovery</p>
+  </div>
+  <div class="page">
+    <p>iJournal transaction</p>
+    <p>iJournal header block  journal header</p>
+    <p>magic number  transaction ID (+ sub-txID)</p>
+    <p>inode number  inode structure  block tag</p>
+    <p>Journal  metadata contents (ex. extent)</p>
+    <p>Commit block</p>
+    <p>journal header inode number inode struct.</p>
+    <p>block tag</p>
+    <p>ijournal header</p>
+    <p>extent extent commit block</p>
+    <p>bitmap (BB)table (IT) struct. (EXT) struct. (GDT) In memory metadata</p>
+  </div>
+  <div class="page">
+    <p>Inter-file dependencies  Parent DE</p>
+    <p>If a file is fsynced but its parent directory entry is not committed  unreachable</p>
+    <p>Log DE of uncommitted parent directory</p>
+    <p>/</p>
+    <p>/a /b</p>
+    <p>/b/d.txt /b/e.txt/b/c.txt uncommitted</p>
+    <p>/</p>
+    <p>/a /b</p>
+    <p>/b/d.txt /b/e.txt/b/c.txt</p>
+    <p>System crash</p>
+    <p>X</p>
+    <p>fsync(/b/d.txt) ERROR=open(/b/d.txt)</p>
+    <p>Uncommitted hard link modification of fsynced file</p>
+  </div>
+  <div class="page">
+    <p>Managing iJournal area</p>
+    <p>Shared journal area  No required additional space  iJournaling performed at the service routine of fsync()  However, ijournaling must wait until the block allocation of JBD is</p>
+    <p>completed</p>
+    <p>normal tx TXID:10</p>
+    <p>i-tx 11</p>
+    <p>i-tx 11</p>
+    <p>normal tx 11</p>
+    <p>i-tx 12</p>
+    <p>fsync fsync fsync fsync delayed</p>
+    <p>Shared journal area</p>
+    <p>JBD JBD Inter-transaction dependency multiple transactions cannot be committed concurrently</p>
+  </div>
+  <div class="page">
+    <p>Managing iJournal area</p>
+    <p>Per-core iJournal area  Required to additional space for per-core iJournal area  separating journal areas can improve the concurrency of</p>
+    <p>journaling operations  sub-TxID is needed for sorting i-txs in order</p>
+    <p>i-tx 11,0</p>
+    <p>i-tx 12,0</p>
+    <p>i-tx 11,1</p>
+    <p>Normal journal area Per-core ijournal area</p>
+    <p>normal tx TXID:10</p>
+    <p>normal tx 11</p>
+  </div>
+  <div class="page">
+    <p>iJournal recovery</p>
+    <p>iJournaling recovery process 1. normal journal recovery 2. file i-tx recovery</p>
+    <p>Recover block allocation information using extent 3. dir i-tx recovery</p>
+    <p>Recover DE to make accessible for fsynced file</p>
+    <p>Tx n-1</p>
+    <p>Tx n</p>
+    <p>Normal Journal area</p>
+    <p>i-Tx (n,0,A)</p>
+    <p>i-Tx (n+1,1,C)</p>
+    <p>iJournal (core 0)</p>
+    <p>i-Tx (n+1,0,C)</p>
+    <p>iJournal (core 1)</p>
+    <p>Tx n</p>
+    <p>i-Tx (n+1,1,C)</p>
+    <p>recovery resultJBD commit</p>
+    <p>TxID = n-1</p>
+    <p>fop(A) fop(B) fop(C) fop(C) crash</p>
+    <p>fsync(A) JBD commit</p>
+    <p>TxID = n fsync(C) fsync(C)</p>
+    <p>time</p>
+    <p>i-Tx (n,0,A)</p>
+    <p>Tx n</p>
+  </div>
+  <div class="page">
+    <p>Implementation</p>
+    <p>iJournaling  Based on ext4 file system (ordered mode)  iJournaling on fsync() system call applied  Delayed allocation enabled  boosting technique[FAST 15] optionally applied</p>
+    <p>Desktop  Linux kernel 4.7.3  Samsung 850 Pro SSD</p>
+    <p>Smartphone  Linux kernel version: 3.4.5  Android OS version: 4.2.2 (Jelly Bean)  eMMC 32 GB</p>
+    <p>[1] Jeong et al. Boosting quasi-asynchronous I/O for better responsiveness in mobile devices. FAST 15</p>
+  </div>
+  <div class="page">
+    <p>Fsync latency on various BG write traffic</p>
+    <p>a v er</p>
+    <p>a g e</p>
+    <p>fs y</p>
+    <p>n c</p>
+    <p>la te</p>
+    <p>n cy</p>
+    <p>( s)</p>
+    <p>background write bandwidth (MB/s)</p>
+    <p>normal normal w/ boosting ijournal ijournal w/ boosting</p>
+    <p>a v er</p>
+    <p>a g e</p>
+    <p>fs y</p>
+    <p>n c</p>
+    <p>la te</p>
+    <p>n cy</p>
+    <p>( s)</p>
+    <p>background write bandwidth (MB/s)</p>
+    <p>normal normal w/ boosting ijournal ijournal w/ boosting</p>
+    <p>desktop smartphone</p>
+    <p>Latency is reduced</p>
+    <p>Latency is reduced</p>
+  </div>
+  <div class="page">
+    <p>Multicore scalability on iJournaling</p>
+    <p>b a</p>
+    <p>n d</p>
+    <p>w id</p>
+    <p>th (</p>
+    <p>G B</p>
+    <p>/s )</p>
+    <p>number of cores &amp; sysbench instance</p>
+    <p>normal single ijournal area per-core ijournal</p>
+    <p>RAMDISK</p>
+    <p>ex) 4-core</p>
+    <p>single JBD thread handles tx commit</p>
+    <p>fsync context commits one ijournal at a time</p>
+  </div>
+  <div class="page">
+    <p>Real workload on iJournaling</p>
+    <p>w/o bg. write w/ bg. write</p>
+    <p>p er</p>
+    <p>fo rm</p>
+    <p>an ce</p>
+    <p>i m</p>
+    <p>p ro</p>
+    <p>v em</p>
+    <p>en t tpcc-mysql (tpmC)</p>
+    <p>YCSB (ops/s) varmail (ops/s)</p>
+    <p>w/o bg. write w/ bg. write</p>
+    <p>el a p</p>
+    <p>se d</p>
+    <p>t im</p>
+    <p>e (s</p>
+    <p>)</p>
+    <p>normal normal w/ boosting ijournal ijournal w/ boosting</p>
+    <p>desktop smartphone burstshot</p>
+    <p>Performance is improved</p>
+    <p>Latency is reduced</p>
+  </div>
+  <div class="page">
+    <p>Conclusion</p>
+    <p>fsync() system call can be delayed under the compound transaction scheme</p>
+    <p>a hybrid journaling technique, called ijournaling  journals only the related file-level transactions of an fsync call  recovers the file-system consistency through file-level journals</p>
+    <p>upon a crash recovery</p>
+    <p>We implemented ijournaling and showed significant improvements to the fsync latencies</p>
+  </div>
+  <div class="page">
+    <p>Thank you!</p>
+  </div>
+</Presentation>

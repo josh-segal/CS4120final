@@ -1,0 +1,291 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>Deepview: Virtual Disk Failure Diagnosis</p>
+    <p>and Pattern Detection for Azure Qiao Zhang1, Guo Yu2, Chuanxiong Guo3,</p>
+    <p>Yingnong Dang4, Nick Swanson4, Xinsheng Yang4, Randolph Yao4, Murali Chintalapati4, Arvind Krishnamurthy1, Tom Anderson1</p>
+  </div>
+  <div class="page">
+    <p>VM Availability</p>
+    <p>IaaS is one of the largest cloud services today</p>
+    <p>High VM availability is a key performance metric</p>
+    <p>Yet, achieving 99.999% VM uptime remains a challenge</p>
+  </div>
+  <div class="page">
+    <p>Clos Network</p>
+    <p>Azure IaaS Architecture  Compute and storage clusters with a Clos-like network</p>
+    <p>Compute-storage Separation  VMs and Virtual Hard Disks (VHDs) from different clusters</p>
+    <p>Hypervisor transparently redirects disk access</p>
+    <p>Data survive compute rack failure Storage Cluster</p>
+    <p>VM</p>
+    <p>Hypervisor</p>
+    <p>Host VM</p>
+    <p>Compute Cluster</p>
+    <p>Subsystems inside a Datacenter</p>
+  </div>
+  <div class="page">
+    <p>A New Type of Failure: VHD Failures</p>
+    <p>Infra failures can disrupt VHD access</p>
+    <p>Hypervisor can retry, but not indefinitely</p>
+    <p>Hypervisor will eventually crash the VM</p>
+    <p>Customers then take actions to keep their app-level SLAs</p>
+    <p>Clos Network</p>
+    <p>Storage Cluster</p>
+    <p>VM</p>
+    <p>Hypervisor</p>
+    <p>Host VM</p>
+    <p>Compute Cluster</p>
+    <p>Subsystems inside a Datacenter</p>
+  </div>
+  <div class="page">
+    <p>How much do VHD failures impact VM availability?</p>
+    <p>VHD failures:  52% of unplanned VM downtime  Tens of minutes to hours to localizeVHD</p>
+    <p>Failure 52%</p>
+    <p>SW Failure 41%</p>
+    <p>HW Failure 6%</p>
+    <p>Unknown 1%</p>
+    <p>Breakdown of Unplanned VM Downtime in a Year</p>
+    <p>VHD failure localization is the bottleneck</p>
+  </div>
+  <div class="page">
+    <p>Failure Triage was Slow and Inaccurate</p>
+    <p>Each team checks their subsystem for anomalies to match the incident  e.g., host heart-beats, storage perf-counters, link discards</p>
+    <p>Incidents get ping-ponged due to false positives  Inaccurate and slow diagnosis</p>
+    <p>Gray failures in network and storage are hard to catch  Troubled but not totally down  Only fail a subset of VHD requests  Can take hours to localize</p>
+  </div>
+  <div class="page">
+    <p>Deepview Approach: Global View</p>
+    <p>C1 C2 C3 C4</p>
+    <p>S1 S2 S3</p>
+    <p>Bipartite Model</p>
+    <p>C1 C2</p>
+    <p>C3 C4</p>
+    <p>S1 S2 S3 Grid View</p>
+    <p>Isolate failures by examining interactions between subsystems  Instead of alerting every team</p>
+    <p>Bipartite model  Compute Clusters (left) : Storage Clusters (right)  Edge if VMs from compute cluster mount VHDs from a storage cluster  Edge weight = VHD failure rate</p>
+  </div>
+  <div class="page">
+    <p>Deepview Approach: Global View</p>
+    <p>Azure measurements revealed many common failures patterns</p>
+    <p>C1 C2 C3 C4</p>
+    <p>S1</p>
+    <p>S2</p>
+    <p>S3</p>
+    <p>Compute Cluster C2 failed</p>
+    <p>C2 Failure Grid View</p>
+    <p>C1 C2 C3 C4</p>
+    <p>S1 S2 S3</p>
+    <p>Example Compute Cluster Failure</p>
+    <p>C1 C2 C3 C4</p>
+    <p>S1</p>
+    <p>S2</p>
+    <p>S3</p>
+    <p>Storage Cluster S1 Failed</p>
+    <p>Example Storage Cluster Failure</p>
+    <p>S1 Gray Failure Grid View</p>
+    <p>C1 C2 C3 C4</p>
+    <p>S1 S2 S3</p>
+  </div>
+  <div class="page">
+    <p>Challenges Remaining challenges: 1. Need to locate network failures 2. Need to handle gray failures 3. Need to be near-real-time</p>
+    <p>Generalized model Lasso + Hypothesis testing</p>
+    <p>Streaming data pipeline</p>
+    <p>A system to localize VHD failures to underlying failures in compute, storage or network subsystems within a time budget of 15 minutes</p>
+    <p>Summary of our goal:</p>
+    <p>Time budget set by production team to meet availability goals</p>
+  </div>
+  <div class="page">
+    <p>Outline</p>
+    <p>Global View Approach Model &amp; Algorithm System Evaluation Architectural Lessons Related Work</p>
+  </div>
+  <div class="page">
+    <p>Deepview Model: Include the Network</p>
+    <p>Clos Network</p>
+    <p>Storage ClusterCompute Cluster</p>
+    <p>Need to handle multipath &amp; ECMP</p>
+    <p>Simplify Clos network to a tree by aggregating network devices</p>
+    <p>Can model at the granularity of clusters or racks</p>
+  </div>
+  <div class="page">
+    <p>Deepview Model: Estimate Component Health</p>
+    <p>= 0</p>
+    <p>()</p>
+    <p>()</p>
+    <p>= &lt;</p>
+    <p>()</p>
+    <p>= &lt; +</p>
+    <p>B</p>
+    <p>=</p>
+    <p>=  =measurement noise</p>
+    <p>System of Linear Equations</p>
+    <p>Blue: observable Red: unknown Purple: topology</p>
+    <p>Component j is healthy with  =  ()  D = 0, clear component j  D  0, may blame it</p>
+    <p>Assume independent failures</p>
+    <p>=num of VMs crashed =num of VMs</p>
+  </div>
+  <div class="page">
+    <p>Deepview Algorithm: Prefer Simpler Explanation via Lasso</p>
+    <p>Potentially, #unknowns &gt; #equations  Traditional least-square regression would fail</p>
+    <p>Sparsity</p>
+    <p>H =  ,K</p>
+    <p>+</p>
+    <p>Lasso Objective Function:</p>
+    <p>=  +  +  +   =  +  +  +   =  +  +  +   =  +  +  +</p>
+    <p>Net</p>
+    <p>C1 C2 S1 S2</p>
+    <p>= &lt; +</p>
+    <p>B</p>
+    <p>Example:</p>
+    <p>But multiple simultaneous failures are rare  Encode this domain knowledge mathematically?</p>
+    <p>Equivalent to prefer most D to be zero  Lasso regression can get sparse solutions efficiently</p>
+  </div>
+  <div class="page">
+    <p>Deepview Algorithm: Principled Blame Decision via Hypothesis Testing</p>
+    <p>Need a binary decision (flag/clear) for each component  Ad-hoc thresholds do not work reliably  Can we make a principled decision?</p>
+    <p>If estimated failure probability worse than average, then likely a real failure</p>
+    <p>Hypothesis test:  If reject HS j , blame component j; otherwise, clear it</p>
+    <p>: = W .   : &lt; W</p>
+  </div>
+  <div class="page">
+    <p>Kusto Engine</p>
+    <p>Deepview System Architecture: NRT Data Pipeline</p>
+    <p>VHD Failure</p>
+    <p>VM Info</p>
+    <p>StorageAcct</p>
+    <p>Net Topo</p>
+    <p>VMsPerPath Input</p>
+    <p>Real-time</p>
+    <p>Non-RT</p>
+    <p>Ingestion Pipeline</p>
+    <p>RAW DATA SLIDING WINDOW OF INPUT</p>
+    <p>Output</p>
+    <p>ACTIONS</p>
+    <p>Alerts</p>
+    <p>Vis</p>
+    <p>Near-realtime Scheduler</p>
+    <p>RUN ALGO</p>
+    <p>Algo</p>
+  </div>
+  <div class="page">
+    <p>Outline</p>
+    <p>Global View Approach Model &amp; Algorithm System Evaluation Architectural Lessons Related Work</p>
+  </div>
+  <div class="page">
+    <p>Evaluation</p>
+    <p>Deepview has been deployed in production at Azure</p>
+  </div>
+  <div class="page">
+    <p>Some Statistics</p>
+    <p>Analyzed Deepview results for one month  Daily VHD failures: hundreds to tens of thousands</p>
+    <p>Detected 100 failures instances  70 matched with existing tickets, 30 were previously undetected</p>
+    <p>Reduced unclassified VHD failures to less than a max of 500 per day  Host failures or customer mistakes (e.g., expired storage accounts)</p>
+  </div>
+  <div class="page">
+    <p>Case Study 1: Unplanned ToR Reboot</p>
+    <p>Unplanned ToR reboot can cause VM crashes  Know this can happen, but not where and when</p>
+    <p>Deepview can flag those ToRs</p>
+    <p>Associate VM downtime with ToR failures  Quantify the impact of ToR as a single-point-offailure on VM availability</p>
+    <p>ToR_11</p>
+    <p>ToR_12</p>
+    <p>ToR_13</p>
+    <p>ToR_14</p>
+    <p>ToR_15</p>
+    <p>S TR</p>
+    <p>_0 1</p>
+    <p>S TR</p>
+    <p>_0 2</p>
+    <p>S TR</p>
+    <p>_0 3</p>
+    <p>S TR</p>
+    <p>_0 4</p>
+    <p>S TR</p>
+    <p>_0 5</p>
+    <p>S TR</p>
+    <p>_0 6</p>
+    <p>S TR</p>
+    <p>_0 7</p>
+    <p>Blamed the right ToR among 288 components</p>
+  </div>
+  <div class="page">
+    <p>Case Study 2: Storage Cluster Gray Failure</p>
+    <p>A storage cluster was brought online with a bug that puts some VHDs in negative cache</p>
+    <p>Deepview flagged the faulty storage cluster almost immediately while manual triage took 20+ hours</p>
+    <p>Hour</p>
+    <p>N u</p>
+    <p>m b</p>
+    <p>e r</p>
+    <p>o f</p>
+    <p>V M</p>
+    <p>s w</p>
+    <p>it h</p>
+    <p>V</p>
+    <p>H D</p>
+    <p>F a</p>
+    <p>ilu re</p>
+    <p>s p</p>
+    <p>e r</p>
+    <p>H o</p>
+    <p>u r</p>
+    <p>Number of VMs with VHD Failures per Hour during a Storage Cluster Gray Failure</p>
+  </div>
+  <div class="page">
+    <p>Case Study 3: Network Failure</p>
+    <p>Network outages are rare, but do happen</p>
+    <p>In an incident, many top tier links were mistakenly turned off, causing large capacity loss</p>
+    <p>When storage replication traffic hit, it caused huge packet losses and many VMs to crash</p>
+    <p>Deepview pinpointed the misbehaving aggregate switches</p>
+    <p>A Network Failure due to Top Tier Link</p>
+    <p>Capacity Loss</p>
+    <p>C om</p>
+    <p>pu te</p>
+    <p>C lu</p>
+    <p>st er</p>
+    <p>s</p>
+    <p>Storage Clusters</p>
+  </div>
+  <div class="page">
+    <p>Boolean Tomo SCORE Deepview</p>
+    <p>Precision Recall</p>
+    <p>Algorithm Accuracy Comparison</p>
+    <p>Two other tomography algorithms: Boolean-Tomo and SCORE  Greedy heuristics to find minimum set of failures</p>
+    <p>Use production trace from 42 incidents  16 Compute, 14 Storage, 10 ToR, 2 Net</p>
+  </div>
+  <div class="page">
+    <p>Deepview Time to Detection  Time to detection (TTD)</p>
+    <p>Time from incident start to failure localized  Estimate start time from VHD failure event timestamp</p>
+    <p>Deepviews TTD is under 10 min  Data ingestion takes ~3.5 min  ~5 minutes sliding window delay  Worst-case 18 sec algorithm running time</p>
+    <p>Meets the target TTD of 15 min  Can be made faster but mitigation time is on human time scale</p>
+  </div>
+  <div class="page">
+    <p>Outline</p>
+    <p>Global View Approach Model &amp; Algorithm System Evaluation Architectural Lessons Related Work</p>
+  </div>
+  <div class="page">
+    <p>ToR as a Single Point of Failure  Reduced Network Cost vs. Availability cost for using a single ToR per rack  Soft failures (recoverable by reboot) vs. hard failures</p>
+    <p>ToR Availability</p>
+    <p>=   %    + %     .%</p>
+    <p>=   %    .+%    .  .</p>
+    <p>= .%  Dependent services (ToRs) need to provide one extra nine to target service (VMs)</p>
+    <p>ToRs not on critical path for VMs to achieve five-nines availability</p>
+  </div>
+  <div class="page">
+    <p>VMs and their Storage Co-location  For load balancing, VMs can mount VHDs from any storage cluster in the same region</p>
+    <p>Some VMs have storage that are further away  Can longer network paths impact VM availability? And by how much?</p>
+    <p>Longer network path do lead to higher (11.4%) VHD failure rate</p>
+    <p>At Azure, 52% two-hop, 41% four-hop  Compute daily VHD failure rates: rS (two-hop), rf (four-hop)  Average over 3-months, rS and rf  rf  rS rS = 11.4% increase</p>
+  </div>
+  <div class="page">
+    <p>Related Work  NetPoirot [SIGCOMM '16]</p>
+    <p>A single-node solution to failure localization using TCP statistics  Complementary if TCP statistics from customer VMs are available</p>
+    <p>Binary Tomography  Deepview achieves higher precision/recall than those greedy heuristics</p>
+    <p>(Approximate) Bayesian Network  Too slow for our problem  Future work to compare accuracy experimentally</p>
+  </div>
+  <div class="page">
+    <p>Conclusion</p>
+    <p>Identified VHD failures as the availability bottleneck at Azure</p>
+    <p>Deepview reduced unclassified daily VHD failures from 10,000s to 100s</p>
+    <p>Revealed new failures, e.g., unplanned ToR reboots, storage gray failures</p>
+    <p>Quantified the impact of several architectural decisions on VM availability</p>
+    <p>Thank you! Questions?</p>
+  </div>
+</Presentation>

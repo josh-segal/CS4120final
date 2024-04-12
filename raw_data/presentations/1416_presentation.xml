@@ -1,0 +1,258 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>The DComp Testbed Ryan Goodfellow, Stephen Schwab, Erik Kline,</p>
+    <p>Lincoln Thurlow and Geoff Lawler</p>
+  </div>
+  <div class="page">
+    <p>Outline</p>
+    <p>Context: DCompTB is a Merge testbed facility.</p>
+    <p>Testbed hardware design and physical networks.</p>
+    <p>EVPN-Based experiment networks.</p>
+    <p>Infrapod experiment services.</p>
+    <p>Network emulation.</p>
+    <p>Experiment materialization runtime.</p>
+    <p>Modular technology stack.</p>
+    <p>Virtual testbed development environment.</p>
+  </div>
+  <div class="page">
+    <p>Some Quick Vocabulary Experiment</p>
+    <p>Model Realization Materialization</p>
+    <p>Testbed Facility</p>
+  </div>
+  <div class="page">
+    <p>DCompTB as a Merge Testbed Facility</p>
+    <p>The Merge Portal manages the experiment development process.</p>
+    <p>Testbed facilities need only focus on materializing experiments.</p>
+    <p>Facilities publish a testbed model to a merge portal and implement the merge driver interface.</p>
+    <p>Facilities are implemented as an orchestrated set of self-contained software components</p>
+  </div>
+  <div class="page">
+    <p>Testbed Hardware Design and Physical Networks</p>
+    <p>1440 nodes</p>
+    <p>1200 minnow</p>
+    <p>240 rohu</p>
+    <p>77 switches</p>
+    <p>5 emulation servers</p>
+    <p>4 storage nodes</p>
+    <p>2 infrastructure servers</p>
+  </div>
+  <div class="page">
+    <p>Testbed Hardware Design and Physical Networks</p>
+  </div>
+  <div class="page">
+    <p>Testbed Hardware Design and Physical Networks</p>
+    <p>Infrastructure Network</p>
+  </div>
+  <div class="page">
+    <p>EVPN Testbed Networks</p>
+    <p>Beginning life of a testbed</p>
+    <p>Interesting devices exist</p>
+    <p>Network equipment exists</p>
+    <p>Lets make a testbed!</p>
+  </div>
+  <div class="page">
+    <p>EVPN Based Experiment Networks</p>
+    <p>Separation of experiment infrastructure networks from the networks over which experiments execute is critical</p>
+    <p>Dont want to introduce artifacts from orchestration, remote file systems, etc...</p>
+    <p>Experiments are just that experiments, if you're not destroying your experiment network on the fist go whatever youre doing is boring.</p>
+    <p>Need a network to function independent of whats going on in the experiment network.</p>
+    <p>Experiment networks are not generally flat - this is problematic for automation.</p>
+  </div>
+  <div class="page">
+    <p>EVPN Based Experiment Networks</p>
+    <p>Making things a bit more concrete than clouds, we have a set of leaf switches connecting to nodes and fabrics interconnecting leaves</p>
+    <p>We need to provide isolation between experiments.</p>
+    <p>Could use vlans, but experience has shown this to be problematic for a number of reasons.</p>
+    <p>Crossing routers presents issues.</p>
+    <p>Multicast support across switches and tunnels is problematic.</p>
+    <p>How about experiments that need to themselves tunnel, QinQ? Not viable for all sub-protocols, and stacking has issues for complex switching meshes.</p>
+  </div>
+  <div class="page">
+    <p>EVPN Based Experiment Networks</p>
+    <p>Enter Ethernet virtual private network (EVPN)</p>
+    <p>A multiprotocol border gateway protocol (MP-BGP) implementation that provides a control plane for VXLAN.</p>
+    <p>VXLAN: similar in spirit to VLAN with the following significant differences</p>
+    <p>Full packet encapsulation L2 in (L3 in L2).</p>
+    <p>Clean underlay overlay model - underlay is L3 and routable just like normal L3.</p>
+    <p>24 bit address space vs VLAN 12 bit (only 4096 identifiers avail)</p>
+    <p>EVPN provides several route types we only use at 2</p>
+    <p>macadv: mac X is reachable at VTEP P</p>
+    <p>multicast: VTEP P is reachable at addr A</p>
+  </div>
+  <div class="page">
+    <p>EVPN Based Experiment Networks</p>
+    <p>Now that we have a virtual network isolation mechanism, lets make some virtual networks.</p>
+    <p>Canopy is a virtual network synthesis system</p>
+    <p>Client server model</p>
+    <p>Client runs at a sensible place in infrastructure with management access to network appliances</p>
+    <p>Servers run on network appliances</p>
+    <p>Servers expose gRPC API for managing virtual network synthesis functions</p>
+    <p>VTEP create/destroy/parametrization</p>
+    <p>VLAN create/destroy (for internal VTEP plumbing and managing VLAN/VXLAN boundary networks)</p>
+    <p>MTU management</p>
+    <p>Port links state management</p>
+  </div>
+  <div class="page">
+    <p>EVPN Based Experiment Networks  Now we have isolated connectivity, but still lack basic network</p>
+    <p>services for infrastructure networks.</p>
+    <p>So we need DHCP and DNS, how do we hook it into our EVPN system</p>
+    <p>The testbed switches run FRRs bgpd, so let's just run that.</p>
+    <p>A few issues</p>
+    <p>Again no real API</p>
+    <p>FRRs self-compatibility is a zoo</p>
+    <p>Quagga variants</p>
+    <p>Cumulus variants</p>
+    <p>Pure FRR variants</p>
+    <p>Different BGPD/Zebra combos do things differently</p>
+  </div>
+  <div class="page">
+    <p>EVPN Based Experiment Networks</p>
+    <p>GoBGP to the rescue.</p>
+    <p>A BGP upper half daemon written in pure Go.</p>
+    <p>Has a gRPC API</p>
+    <p>Great EVPN support</p>
+    <p>Active development community thats great to work with</p>
+    <p>But its only an upper half, meaning it will speak MP-BGP to its neighbors, but to be useful we also need to update our own forwarding tables in response to this information.</p>
+  </div>
+  <div class="page">
+    <p>EVPN Based Experiment Networks</p>
+    <p>So we developed Gobble, a lower half for GoBGP</p>
+    <p>Uses the GoBGP gRPC to poll for macadv and multicast evpn routes</p>
+    <p>Updates the kernels neighbor, routing and bridge forwarding tables through netlink (weve also written an rtnetlink library in Go as we find many of our tools need to talk to the kernel through netlink)</p>
+    <p>So now when we want to provide a service on a specific experiments infrastructure network, its as simple as advertising a mac address, standing up a VTEP and GoBGP/Gobble automatically takes care of the rest.</p>
+    <p>What mac address you say? Good question.</p>
+    <p>A few slides a snuck a hexagon around the Nex logo. That represents a container and the little box at the bottom represents a veth pair, with a MAC. More on this later.</p>
+  </div>
+  <div class="page">
+    <p>EVPN Based Experiment Networks</p>
+    <p>Now adding services on multiple infrastructure networks in an isolated way becomes almost trivial.</p>
+    <p>Launching a new service simply means launching a container and advertising its MAC on the appropriate EVPN domain.</p>
+    <p>This lets us run multiple services on an experiments infranet (common EVPN domain) as well as support multiple independent infranets without worry about crosstalk.</p>
+  </div>
+  <div class="page">
+    <p>Infrapod Experiment Services  Services do not end at DHCP/DNS, many others are</p>
+    <p>needed.</p>
+    <p>A container for each would work fine, but would create quite a bit of bloat.</p>
+    <p>So we just burgle the Kubernetes Pod abstraction.</p>
+    <p>Only need 1 experiment interface per N containers</p>
+    <p>(N-1) fewer  Interfaces  Network namespaces  Mac advertisements  IP addresses</p>
+    <p>Now we have a common landing spot for all container based services needed for any given experiment</p>
+    <p>Not only for basic infrastructure needs, but also for experimenters who would like a place to place containerized services on their network but not allocate a testbed resource for it (something like Prometheus immediately comes to mind)</p>
+  </div>
+  <div class="page">
+    <p>Infrapod Experiment Services</p>
+    <p>Lets make things a bit more concrete by putting server boundaries around things and call the servers that host services in the way just described infraservers.</p>
+    <p>One cool thing is that an infraserver, is that its very easily replicated thanks to the dynamically routed nature of EVPN-based services.</p>
+  </div>
+  <div class="page">
+    <p>Infrapod Experiment Services</p>
+    <p>Its also easy to have specific infraservers for specific things.</p>
+    <p>As an example in our DARPA DComp testbed, we have purpose built storage servers that we run as another flavor of infraserver but the software stack is the same.</p>
+    <p>The takeaway is that the basic architecture allows for a diverse family of specific building blocks to come together as a cohesive testbed under a robust underlay/overlay virtual multi-network.</p>
+  </div>
+  <div class="page">
+    <p>Network Emulation</p>
+    <p>Suppose this diagram is our experiment topology</p>
+    <p>Black nodes at the edges are servers.</p>
+    <p>Blue nodes are leaf switches</p>
+    <p>Green nodes are fabric switches</p>
+    <p>Teal nodes are spine switches</p>
+    <p>The core network is BGP/ECMP based.</p>
+  </div>
+  <div class="page">
+    <p>Network Emulation</p>
+    <p>We want high fidelity at the edges (e.g. testbed nodes)</p>
+    <p>Dont want to have to implement an actual fattree load balanced network.</p>
+    <p>DCompTB supports modeling and emulating the entire routed network and interconnecting nodes through it.</p>
+  </div>
+  <div class="page">
+    <p>Network Emulation  Support for multiple network</p>
+    <p>types</p>
+    <p>Latency, capacity and loss parameterized p2p and multipoint links.</p>
+    <p>Wireless networks with mobility and migration models.</p>
+    <p>Several types of switched and routed networks.</p>
+    <p>Basic traffic emulation included</p>
+    <p>Workload emulators (mimes)</p>
+    <p>Various source/sink models</p>
+    <p>Data Center Networks</p>
+    <p>Wireless Networks</p>
+    <p>Internet Models</p>
+  </div>
+  <div class="page">
+    <p>Network Emulation</p>
+    <p>Emulation plumbing works through surrogate type-2 (MACADV) EVPN advertisements.</p>
+    <p>When X needs to talk to Z through an emulator</p>
+    <p>X is advertised to Z at the emulation server.</p>
+    <p>Z is advertised to X at the emulation server.</p>
+    <p>The emulation server emulates the network in between and kicks out the packets on VXLAN segment in which the real MACADV lives.</p>
+  </div>
+  <div class="page">
+    <p>Experiment Materialization Runtime</p>
+    <p>The cogs system transforms Merge materialization commands into a dependency graph of tasks.</p>
+  </div>
+  <div class="page">
+    <p>Experiment Materialization Runtime</p>
+    <p>The cogs system transforms Merge materialization commands into a dependency graph of tasks.</p>
+    <p>Tasks are executed by a pool of replicated cog workers.</p>
+  </div>
+  <div class="page">
+    <p>Experiment Materialization Runtime</p>
+    <p>The cogs system transforms Merge materialization commands into a dependency graph of tasks.</p>
+    <p>Tasks are executed by a pool of replicated cog workers.</p>
+    <p>The cogs complete tasks using Merge technology stack components.</p>
+  </div>
+  <div class="page">
+    <p>Modular Technology Stack</p>
+    <p>cogs Testbed facility automation system. wgd Wireguard configuration daemon</p>
+    <p>canopy Virtual network synthesis sled Imaging system</p>
+    <p>nex Integrated DHCP/DNS server tftp A TFTP server for PXE</p>
+    <p>rally Ceph-based network storage ipxe A fork of iPXE node bootstrapping</p>
+    <p>beluga Power control daemon rtnl A Go-based rtnetlink library</p>
+    <p>moa Network emulation engine images Testbed image creation automation</p>
+    <p>gobble GoBGP lower half for Linux stor Cogs storage library</p>
+    <p>foundry Testbed node configuration</p>
+    <p>All of the following were built to support DCompTB but are  Useful in any testbed setting.  Provide strong APIs  Are completely open source.</p>
+    <p>https://gitlab.com/mergetb/tech</p>
+  </div>
+  <div class="page">
+    <p>Virtual Testbed Development Environment</p>
+    <p>Testbed in a bottle.</p>
+    <p>Created Raven virtualization tool to make it easy to describe and deploy complex networks of virtual machines.</p>
+    <p>https://gitlab.com/rygoo/raven</p>
+    <p>Turn-key testing environment for Merge portal + testbed facility.</p>
+    <p>https://gitlab.com/mergetb/prototypes</p>
+  </div>
+  <div class="page">
+    <p>Thanks!</p>
+  </div>
+  <div class="page">
+    <p>Backup</p>
+  </div>
+  <div class="page">
+    <p>Popping up the stack</p>
+    <p>Popping back up the stack, the general system looks like this</p>
+    <p>In the top left we have a server that talks to Merge and acts as an entry point into the testbed. Then we have several flavors of infraserver.</p>
+    <p>New in this diagram are network emulation nodes that live on experiment networks but are connected using the same EVPN stack.</p>
+    <p>The takeaway is that the basic architecture allows for a diverse family of specific building blocks to come together as a cohesive testbed under a robust underlay/overlay virtual multi-network.</p>
+  </div>
+  <div class="page">
+    <p>EVPN + Infrapods</p>
+  </div>
+  <div class="page">
+    <p>Experiment Materialization Runtime</p>
+    <p>The cogs system transforms Merge materialization commands into a dependency graph of tasks.</p>
+    <p>Tasks are executed by a pool of replicated cog workers.</p>
+    <p>The cogs complete tasks using Merge technology stack components.</p>
+    <p>Every component in the Merge technology stack has a gRPC API making interfacing from the cogs simple.</p>
+  </div>
+  <div class="page">
+    <p>EVPN Based Experiment Networks  Services do not end at DHCP/DNS.</p>
+    <p>Another interesting one is Sled - our System Loader for Ephemeral Devices (SLED). This is our OS imaging system.</p>
+    <p>The Sled system does the following things  PXE-boots a u-root image with the sledc</p>
+    <p>software on it  Sledc runs a protocol with the Sled server</p>
+    <p>sledd that requests what image is supposed to be running on the node and where to get it</p>
+    <p>Sledc then grabs the image, stamps it on the device and kexecs into the images kernel (or bootloader)</p>
+    <p>An interesting question is where to put sled? Just spin up another container and another address, maybe ...</p>
+  </div>
+</Presentation>

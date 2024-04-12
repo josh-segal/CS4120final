@@ -1,0 +1,488 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<TEI xmlns="http://www.tei-c.org/ns/1.0" 
+xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+xsi:schemaLocation="http://www.tei-c.org/ns/1.0 /Users/atharsefid/Desktop/grobid-0.5.3/grobid-home/schemas/xsd/Grobid.xsd"
+ xmlns:xlink="http://www.w3.org/1999/xlink">
+	<teiHeader xml:lang="en">
+		<encodingDesc>
+			<appInfo>
+				<application version="0.5.3" ident="GROBID" when="2019-03-26T16:40+0000">
+					<ref target="https://github.com/kermitt2/grobid">GROBID - A machine learning software for extracting information from scholarly documents</ref>
+				</application>
+			</appInfo>
+		</encodingDesc>
+		<fileDesc>
+			<titleStmt>
+				<title level="a" type="main">Scalable Modeling of Real Graphs using Kronecker Multiplication</title>
+			</titleStmt>
+			<publicationStmt>
+				<publisher/>
+				<availability status="unknown"><licence/></availability>
+			</publicationStmt>
+			<sourceDesc>
+				<biblStruct>
+					<analytic>
+						<author>
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Jure</forename><surname>Leskovec</surname></persName>
+							<affiliation key="aff0">
+								<orgName type="institution">Carnegie Mellon University</orgName>
+							</affiliation>
+						</author>
+						<author role="corresp">
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Christos</forename><surname>Faloutsos</surname></persName>
+							<email>christos@cs.cmu.edu</email>
+							<affiliation key="aff0">
+								<orgName type="institution">Carnegie Mellon University</orgName>
+							</affiliation>
+						</author>
+						<title level="a" type="main">Scalable Modeling of Real Graphs using Kronecker Multiplication</title>
+					</analytic>
+					<monogr>
+						<imprint>
+							<date/>
+						</imprint>
+					</monogr>
+				</biblStruct>
+			</sourceDesc>
+		</fileDesc>
+		<profileDesc>
+			<abstract>
+				<p>Given a large, real graph, how can we generate a synthetic graph that matches its properties, i.e., it has similar degree distribution, similar (small) diameter, similar spectrum, etc? We propose to use &quot;Kronecker graphs&quot;, which naturally obey all of the above properties, and we present KronFit, a fast and scalable algorithm for fitting the Kronecker graph generation model to real networks. A naive approach to fitting would take super-exponential time. In contrast, Kron-Fit takes linear time, by exploiting the structure of Kronecker product and by using sampling. Experiments on large real and synthetic graphs show that KronFit indeed mimics very well the patterns found in the target graphs. Once fitted, the model parameters and the resulting synthetic graphs can be used for anonymization, extrapo-lations, and graph summarization.</p>
+			</abstract>
+		</profileDesc>
+	</teiHeader>
+	<text xml:lang="en">
+		<body>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="1.">Introduction</head><p>Large, real graphs have a lot of structure: they typically obey power laws in their in-and out-degree distributions; they have small diameter; and they often have a self-similar structure, with communities within communities Although several, realistic, graph generators have been proposed in the past (like the preferential attachment, the copying model, the small-world model, the forest fire model, etc.), very little work exists on how to fit the parameters of such models. This is exactly the problem we examine here. Given a large real graph, we want to choose the most realistic generator and to estimate its parameters, so that our resulting synthetic graph matches the properties of the real graph as well as possible.</p><p>Ideally we would like: (a) A graph generation model that naturally obeys as many properties as possible, among the ones observed in real graphs. (b) The parameter fitting should be fast and scalable, so that we can handle graphs with thousands and millions of nodes. (c) The resulting set of parameters should generate realistic-looking graphs, that match the topological properties of the target, real graph.</p><p>The fitting presents several conceptual and engineering challenges: Which generator should we choose, among the many in the literature? How do we measure the goodness of the fit? How do we solve the correspondence problem (which node of the real graph corresponds to what node of the synthetic one)?</p><p>We examine the Kronecker graphs ( <ref type="bibr" target="#b12">Leskovec et al., 2005</ref>) which are based on Kronecker matrix multiplication. Kronecker model can generate graphs that obey many of the patterns found in real graphs. Moreover, we present KronFit, a fast and scalable algorithm for fitting Kronecker graphs by using maximum likelihood. When calculating the likelihood one needs to consider all mappings of nodes to the graph adjacency matrix, which becomes intractable for graphs with more than a few nodes. Even when given "true" mapping evaluating the likelihood is prohibitively expensive. We present solutions to both problems: We develop Metropolis sampling algorithm for node mapping and approximate the likelihood to obtain a linear time algorithm that scales to large graphs.</p><p>Once the model is fitted to the real graph, there are several benefits and applications: (a) The parameters give us information about the structure of the graph itself; (b) Graph compression: we can compress the graph, by just storing the model parameters, and the deviations between the real and the synthetic graph; (c) Extrapolations: we can use the model to generate a larger graph, to help us understand how the network will look like in the future; (d) Sampling: conversely, we can also generate a smaller graph, which may be useful for running simulation experiments (e.g., simulating routing algorithms in computer networks, or virus/worm propagation algorithms), when these algorithms may be too slow to run on large graphs; (e) Anonymization: suppose that the real graph can not be publicized, like, e.g., corporate e-mail network; customer-product sales in a recommendation system. Yet, we would like to share our network. Our work gives ways to such a realistic, 'similar' network.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="2.">Related Work and Background</head><p>Networks across a wide range of domains have been found to share common statistical properties. We use these properties as sanity checks, that is, our synthetic graphs should match the properties of the target graph. First we give a list of such properties, then we mention the graph generators, and finally we survey earlier attempts at graph fitting.</p><p>Graph patterns One of the most striking patterns is the power-law of the degree distribution: n k ∝ k −a , where a &gt; 0 is the power-law exponent, and n k is the count of nodes with degree k. Power law (or power law tail) distributions occur in the Web ( <ref type="bibr" target="#b11">Kleinberg et al., 1999</ref>), in the Internet ( <ref type="bibr" target="#b9">Faloutsos et al., 1999</ref>), in citation graphs <ref type="bibr" target="#b14">(Redner, 1998)</ref>, in on-line social networks ( <ref type="bibr" target="#b5">Chakrabarti et al., 2004</ref>), and many more.</p><p>The second pattern is the small diameter (the smallworld phenomenon, or 'six degrees of separation'): In real graphs, most pairs of nodes are within few hops from each other <ref type="bibr" target="#b1">(Albert &amp; Barabási, 2002;</ref><ref type="bibr" target="#b13">Milgram, 1967)</ref>. Hop-plot extends the notion of diameter by plotting the number of reachable pairs P (h) within h hops. It gives us a sense how quickly nodes' neighborhoods expand with the distance.</p><p>The spectral properties also exhibit power laws: The scree plot is a plot of the eigen-(or singular-) values of graph adjacency matrix, versus their rank. It often obeys a power law. The same holds for the distribution of the components of the first eigenvector ("network value" of each node) ( <ref type="bibr" target="#b5">Chakrabarti et al., 2004</ref>).</p><p>Generative models The earliest generative model for graphs is a random graph model <ref type="bibr" target="#b8">(Erdos &amp; Renyi, 1960)</ref>where a pair of nodes has identical, independent probability of being joined by an edge. Although heavily studied, this model fails to generate powerlaw degree distributions. For small diameters, there is the small-world generator <ref type="bibr" target="#b19">(Watts &amp; Strogatz, 1998)</ref>. The rest of the recent ones all generate heavy-tailed degree distributions (power-law, or lognormal). An influential idea was the preferential attachment <ref type="bibr">(Al- bert &amp; Barabasi, 1999;</ref><ref type="bibr" target="#b11">Kleinberg et al., 1999</ref>) where new nodes prefer to attach to high-degree older nodes, which leads to power-law tails and to low diameters. There are also many variations: "copying model", the "winner does not take all" model, and the "forest fire" model. See <ref type="bibr" target="#b4">(Chakrabarti &amp; Faloutsos, 2006</ref>) for a detailed survey and comparison of these methods.</p><p>One should also note that most of graph generative models usually aim in modeling (explaining) just a single property of the network. For these models it is known that there are certain network properties they don't generate. Moreover, simple expressions have been derived that relate the network property (e.g., degree exponent) with the setting of (usually just a single) parameter. So, in these models there is no interesting parameter estimation and fitting.</p><p>Our work builds on the "Kronecker Graph model" ( <ref type="bibr" target="#b12">Leskovec et al., 2005</ref>), where Kronecker matrix multiplication is used to lead to realistic graphs obeying multiple properties of real world graphs. Kronecker graphs have a variable number of parameters, which makes them interesting for fitting. We describe them in more detail later.</p><p>Fitting graph models Most work in fitting network models comes from the social sciences, where the so-called exponential random graph models were introduced, also known as p * <ref type="bibr" target="#b18">(Wasserman &amp; Pattison, 1996)</ref>. The p * model focuses on "local" structural features of networks (like, e.g. characteristics of nodes that determine a presence of an edge), while here we model a large real-world graphs as a whole. Moreover, for large graphs the number of parameters becomes large, and estimation prohibitively expensive.</p><p>A common theme when estimating P (G) is the challenge of factorially many orderings of nodes. Ordering can define the mapping to rows of adjacency matrix, or the order in which nodes were added to the network. ( <ref type="bibr" target="#b3">Butts, 2005</ref>) used permutation sampling to determine similarity of adjacency matrices, and <ref type="bibr" target="#b2">(Bezáková et al., 2006</ref>) used it for graph model selection. Recently, an approach for estimating parameters of "copying" models was introduced ( <ref type="bibr" target="#b20">Wiuf et al., 2006</ref>), however authors also note that the class of "copying" models may not be rich enough to model real networks.</p><p>As we show later, the Kronecker Graph model has the necessary expressive power to mimic real graphs.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.">Kronecker Graphs</head><p>Kronecker matrix multiplication was recently proposed for realistic graph generation, and shown to be able to produce graphs that match many of the patterns found in real graphs ( <ref type="bibr" target="#b12">Leskovec et al., 2005</ref>). Kronecker graphs are based on a recursive construction. A procedure that is best described in terms of the Kronecker product of graph adjacency matrices.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>Deterministic Kronecker Graphs</head><p>The main idea is to create self-similar graphs, recursively. We begin with an initiator graph G 1 , with N 1 nodes, and by recursion we produce successively larger graphs G 2 . . . G n such that the k th graph G k is on N k = N k 1 nodes. Kronecker product is a perfect tool for this goal: <ref type="figure">Figure 1</ref>. Kronecker multiplication: Top row: structure of adjacency matrices. Bottom: corresponding graphs -"3-chain" and its Kronecker product with itself; each of the nodes gets expanded into 3 nodes, which are then linked.</p><formula xml:id="formula_0">1 1 0 1 1 1 0 1 1 G 1 G 1 G 1 G 1 G 1 G 1 G 1 0 0 (a) G 1 (b) Intermediate (c) G 2 = G 1 ⊗ G 1</formula></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>Definition 1 (Kronecker product of matrices)</head><p>Given two matrices U = [u i,j ] and V of sizes n × m and n × m respectively, the Kronecker product matrix</p><formula xml:id="formula_1">S of dimensions (n * n ) × (m * m ) is given by S = U ⊗ V . =     u1,1V u1,2V . . . u1,mV u2,1V u2,2V . . . u2,mV . . . . . . . . . . . . un,1V un,2V . . . un,mV     (1)</formula><p>Kronecker product of two graphs is defined as Kronecker product of their adjacency matrices. We denote k th Kronecker power of <ref type="figure">Figure 1</ref> shows the recursive construction of Kronecker graphs. We start with G 1 , a 3-node chain, and Kronecker power it to obtain G 2 . To produce G k from G k−1 , we "expand" (replace) nodes of G k−1 by copies of G 1 , and join the copies according to the adjacencies in G k−1 (see <ref type="figure">fig. 1</ref>). One can imagine this by positing that communities in the graph grow recursively, with nodes in the community recursively getting expanded into miniature copies of the community. Nodes in the sub-community then link among themselves and to nodes from other communities.</p><formula xml:id="formula_2">G 1 as G [k] 1 (abbreviated to G k ), where G k = G [k] 1 = G k−1 ⊗ G 1 .</formula><p>Stochastic Kronecker Graphs Here we will be working with a stochastic version of Kronecker Graphs. The difference is that now initiator matrix is stochastic: we start with a N 1 × N 1 probability matrix Θ = [θ ij ], where the element θ ij ∈ [0, 1] is the probability that edge (i, j) is present. We compute the k th Kronecker power P = Θ <ref type="bibr">[k]</ref> ; And then for each p uv ∈ P, include edge (u, v) with probability p uv .</p><p>Stochastic Kronecker Graphs are thus parameterized by the N 1 × N 1 probability (parameter) matrix Θ. The probability p uv of an edge (u, v) occurring in k-th Kronecker power P = Θ <ref type="bibr">[k]</ref> can be calculated as:</p><formula xml:id="formula_3">puv = k−1 i=0 Θ u − 1 N i 1 (modN1) + 1, v − 1 N i 1 (modN1) + 1</formula><p>The equation imitates recursive deepening into matrix P, where at every level i the appropriate element of Θ is chosen. Since P has N k 1 rows and columns it takes O(k log N 1 ) to evaluate the equation.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="4.">Proposed Method</head></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="4.1.">Preliminaries</head><p>Stochastic graph models introduce probability distributions over graphs. A generative model assigns probability P (G) to every graph G. P (G) is the likelihood that a given model generated graph G. We concentrate on Stochastic Kronecker Graph model, and consider fitting it to a real graph G. We use maximum likelihood approach, i.e. we aim to find parameter values Θ that maximize the P (G) under the model. This presents several challenges:</p><p>Model selection Graph is a single structure, and not a set of items drawn i.i.d. from some distribution. So one can not split it into independent training and test sets. The fitted parameters will thus be best to generate a particular instance of a graph. Also, overfitting is an issue since more complex model fits better.</p><p>Node labeling The second issue is the node ordering or node labeling. Graph G has a set of N nodes, and each node has unique index (label). Labels do not carry any particular meaning. One can think of this as a graph is first generated and then the labels are randomly assigned to the nodes. This means that two isomorphic graphs that have different node labeling should have the same likelihood. So to compute the likelihood one has to consider all node labelings P (G) = σ P (G|σ)P (σ), where the sum is over all permutations σ of N nodes.</p><p>Likelihood estimation Calculating P (G|σ) naively takes O(N 2 ) by simply evaluating the probability of each edge in the graph adjacency matrix. The challenge is averaging over the super-exponentially many permutations which is computationally intractable, and thus one has to reside to simulation and sampling. As we will later see for real graphs even calculating</p><formula xml:id="formula_4">P (G|σ) in O(N 2 ) is infeasible.</formula><p>We use sampling to avoid super-exponential sum over the node labelings. By exploiting the structure of kronecker matrix multiplication we develop an algorithm to evaluate P (G|σ) in linear time O(E). Since real graphs are sparse, i.e. the number of edges is of the same order as the number of nodes, this makes the fitting of the Kronecker model to large graphs tractable.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="4.2.">Problem Formulation</head><p>Suppose we are given a graph G on N = N k 1 nodes (for some positive integer k), and a N 1 by N 1 Stochastic Kronecker Graph initiator matrix Θ. Θ is a parameter matrix, a set of parameters that we aim to estimate. For now also assume N 1 is given. Later we will show how to select it. Next, we create a Stochastic Kronecker Graph probability matrix P = Θ <ref type="bibr">[k]</ref> , where every cell p ij of P contains a probability that node i links to node j. We evaluate the probability that G is a realization of P. The task is to find such Θ that has the highest probability of generating G. Formally, we are solving:</p><p>arg max</p><formula xml:id="formula_5">Θ P (G|Θ)<label>(2)</label></formula><p>A permutation σ of the set {1, . . . , N } defines the mapping of nodes from G to stochastic adjacency matrix P. The node labeling is arbitrary and carries no significant information. A priori all labelings are equally likely. To evaluate the likelihood of G one needs to consider all possible mappings of N nodes of G to rows of P. For convenience we work with log-likelihood l(Θ), and solve arg max Θ l(Θ), where l(Θ) is defined as:</p><formula xml:id="formula_6">l(Θ) = log P (G|Θ) = log σ P (G|Θ, σ)P (σ|Θ) = log σ P (G|Θ, σ)P (σ)<label>(3)</label></formula><p>P (G|Θ, σ) is calculated as follows. First, by using Θ we create the Stochastic Kronecker graph adjacency matrix P = Θ <ref type="bibr">[k]</ref> . Permutation σ defines the mapping of nodes of G to the rows and columns of stochastic adjacency matrix P. Modeling edges as Bernoulli random variables we evaluate the likelihood:</p><formula xml:id="formula_7">P (G|P, σ) = (u,v)∈G P[σu, σv] (u,v) / ∈G (1 − P[σu, σv]),<label>(4)</label></formula><p>where we denote σ i as the i th element of the permutation σ, and P[i, j] is the element at row i, and column j of matrix P = Θ <ref type="bibr">[k]</ref> . The products go over all edges present in graph G, and all edges missing from G.</p><p>Ideally, we would like to compute the log-likelihood l(G|Θ) and the gradient matrix ∂ ∂ ˆ Θt l( ˆ Θ t ), and then use the gradient to update the current parameter estimates and move towards a better solution. Algorithm 1 gives an outline of the optimization procedure.</p><p>As the problem is introduced there are several difficulties. First, we assume gradient descent type optimization will work, i.e. the problem does not have (too many) local minima. Second, we are summing over exponentially many permutations in equation 3.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>Algorithm 1 KronFit algorithm</head><p>Input: integer N 1 , and graph</p><formula xml:id="formula_8">G on N = N k 1 nodes Output: MLE parametersˆΘparametersˆ parametersˆΘ (N 1 × N 1 matrix) initializê Θ 1 while not converged do evaluate gradient: ∂ ∂ ˆ Θt l( ˆ Θ t ) update parameters: ˆ Θ t+1 = ˆ Θ t + λ ∂ ∂ ˆ Θt l( ˆ Θ t ) end while returnˆΘreturnˆ returnˆΘ = ˆ Θ t</formula><p>Algorithm 2 Calculating log-likelihood and gradient Input: Parameter matrix Θ, and graph G Output: Log-likelihood l(Θ), and gradient ∂ ∂Θ l(Θ)</p><formula xml:id="formula_9">for t = 1 to T do σ (t) := SamplePermutation(G, Θ) l t = log P (G|σ (t) , Θ) grad t := ∂ ∂Θ log P (G|σ (t) , Θ) end for return l(Θ) = 1 T t l t , ∂ ∂Θ l(Θ) = 1 T t grad t</formula><p>Third, the evaluation of equation 4 as it is written takes O(N 2 ) and needs to be evaluated N ! times. So, naively calculating the likelihood takes O <ref type="figure" target="#fig_3">(N 2 N !)</ref>.</p><p>Next, we show that all these can be done in linear time.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="4.3.">Summing over the Node Labelings</head><p>To maximize equation 2 using algorithm 1 we need to obtain log-likelihood gradient ∂ ∂Θ l(Θ). We can write:</p><formula xml:id="formula_10">∂ ∂Θ l(Θ) = σ ∂ ∂Θ P (G|σ, Θ)P (σ) σ P (G|σ , Θ)P (σ ) = σ ∂ log P (G|σ, Θ) ∂Θ P (G|σ, Θ) P (σ) P (G|Θ) = σ ∂ log P (G|σ, Θ) ∂Θ P (σ|G, Θ)<label>(5)</label></formula><p>Note we are still summing over all permutations σ, so calculating eq. 5 is computationally intractable for graphs with more than a few nodes. However, the equation has a nice form which allows to use simulation techniques and avoid the summation over super-exponentially many node labelings. We simulate draws from the permutation distribution P (σ|G, Θ), and evaluate the quantities at the sampled permutations to obtain the expected values of log-likelihood and gradient. Algorithm 2 gives the details.</p><p>Next, we describe a Metropolis algorithm to simulate draws from the permutation distribution P (σ|G, Θ), which is given by P (σ|G, Θ) = P (σ, G, Θ)/ σ P (σ, G, Θ) = σ P (σ, G, Θ)/Z σ , where Z σ is the normalizing constant that is hard to </p><formula xml:id="formula_11">end if i = i + 1 until σ (i) ∼ P (σ|G, Θ) return σ (i)</formula><p>Where U (0, 1) is a uniform distribution on <ref type="bibr">[0,</ref><ref type="bibr">1]</ref>, and σ := SwapElements(σ, j, k) is the permutation σ obtained from σ by swapping elements j and k.</p><p>compute since it involves the sum over N ! elements. However, if we compute the likelihood ratio between permutations σ and σ (eq. 6) notice that the normalizing constants cancel out:</p><formula xml:id="formula_12">P (σ |G,Θ) P (σ|G,Θ) = (u,v)∈G P[σu,σv ] P[σ u ,σ v ] (u,v) / ∈G (1−P[σu,σv ]) (1−P[σ u ,σ v ])<label>(6)</label></formula><formula xml:id="formula_13">= (u,v)∈G (σu,σv )񮽙 =(σ u ,σ v ) P[σu,σv ] P[σ u ,σ v ] (u,v) / ∈G (σu,σv )񮽙 =(σ u ,σ v ) (1−P[σu,σv ]) (1−P[σ u ,σ v ])<label>(7)</label></formula><p>This immediately suggests Metropolis sampling algorithm (Gamerman, 1997) to simulate draws from the permutation distribution since Metropolis is solely based on such ratios. In particular, suppose that in the Metropolis algorithm (Algorithm 3) we consider a move from permutation σ to a candidate permutation σ . Probability of accepting the move to σ is given by eq. 6, if P (σ |G,Θ) P (σ|G,Θ) ≤ 1 or 1 otherwise. We further speed up algorithm by using the following observation. As written the eq. 6 takes O(N 2 ) to evaluate since we have to consider N 2 possible edges. However, notice that permutations σ and σ differ only at two elements, i.e. elements at position j and k are swapped, e.i. σ and σ map all nodes except the two to the same location, which means those elements of equation 6 cancel out. Thus we only need to traverse two rows and columns of matrix P, namely rows and columns j and k, since everywhere else the mapping of nodes to the adjacency matrix is the same for both permutations. We get eq. 7 where the products go only over the two rows where σ and σ differ. </p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="4.4.">Efficiently Evaluating the Likelihood</head><p>Similarly to evaluating the likelihood ratio, naively calculating the log-likelihood l(Θ) or its gradient ∂ ∂Θ l(Θ) takes time quadratic in the number of nodes. Next we show how to compute this in linear time.</p><p>We begin with observation that real graphs are sparse, which means the number of edges is not quadratic but rather linear in the number of nodes. This means that majority of elements of graph adjacency matrix are zero, i.e. most of the edges are not present. We exploit this fact. The idea is to first calculate the likelihood (gradient) of an empty graph, i.e. a graph with no edges, and then correct for edges that are in G.</p><p>Naively calculating the likelihood for an empty graph one needs to evaluate every cell of graph adjacency matrix. We consider Taylor approximation to the likelihood, and exploit the structure of matrix P to devise a constant time algorithm.</p><p>First, consider the second order Taylor approximation to log-likelihood of an edge that succeeds with probability x but does not appear in the graph: log(1 − x) ≈ −x − 1 2 x 2 . Calculating l e (Θ), the log-likelihood of an empty graph, becomes:</p><formula xml:id="formula_14">le(Θ) = N i,j=1 log(1 − pij) ≈ − N 1 i,j=1 θi,j k − 1 2 N 1 i,j=1 θ 2 i,j k (8)</formula><p>Equation 8 is holds due to the structure of matrix P generated by the Kronecker product. We substitute the log(1 − p ij ) with its Taylor approximation, which gives a sum over elements of P and their squares. Next, we notice the sum of elements of P forms a multinomial series, and thus i,j p ij = ( i,j θ ij ) k , where θ ij denotes an element of Θ, and P = Θ <ref type="bibr">[k]</ref> .</p><p>Calculating log-likelihood of G now takes O(N ): First, we calculate the likelihood of an empty graph in constant time, and then account for edges that are present, i.e. we subtract no-edge likelihood and add the edge likelihood:</p><formula xml:id="formula_15">l(Θ) = le(Θ) + (u,v)∈G − log(1 − P[σu, σv]) + log(P[σu, σv])</formula><p>Calculation of the gradient follows exactly the same pattern. We first calculate gradient if graph G would have no edges, and then correct for the edges that are present in G. We skip the details of the derivation for brevity. As in previous section we speed up the calculations of log-likelihood and the gradient by exploiting the fact that permutations σ and σ differ at only two positions, and thus given the log-likelihood (gradient) from previous time step one only needs to account for the swap of two rows and columns of P to update it.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="4.5.">Determining Size of the Initiator Matrix</head><p>For model selection to find the appropriate value of N 1 , the size of matrix Θ, and choose the right tradeoff between the complexity of the model and quality of the fit, we propose to use the Bayes Information Criterion (BIC) <ref type="bibr" target="#b16">(Schwarz, 1978)</ref>. Stochastic Kronecker Graphs model the presence of edges with Bernoulli random variables, where the canonical number of parameters is N 2k</p><p>1 , which is a function of a lower-dimensional parameter Θ. This is then a curved exponential family <ref type="bibr" target="#b6">(Efron, 1975)</ref>, and BIC naturally applies: BIC = −l( ˆ Θ) + 1 2 N 2 1 log(N 2 ), wherê Θ are maximum likelihood parameters under the model withˆΘ withˆ withˆΘ of size N 1 × N 1 , and N is the number of nodes in G.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="5.">Experiments</head><p>We begin by investigating the convergence of sampling and gradient descent, then present results on fitting large real-world graphs.</p><p>For the experiments we considered synthetic and real graphs. Synthetic Kronecker graphs were generated using˜Θusing˜ using˜Θ = [.9, .7; .5, .3], and k = 14 <ref type="figure" target="#fig_1">(N 1 = 16, 384)</ref>. Real graphs include a graph of connectivity among Internet Autonomous systems (AS) with N = 6, 474 and E = 26, 467; and a who-trusts-whom type social network from Epinions ( <ref type="bibr" target="#b15">Richardson et al., 2003</ref>) with N = 75, 879 and E = 508, 960.</p><p>In general networks do not have the number of nodes be the integer power of N 1 . As the removal of random nodes corrupts the degree distribution ( <ref type="bibr" target="#b17">Stumpf et al., 2005</ref>) we pad the graph with isolated nodes so that the total number of nodes is a integer power of N 1 .</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="5.1.">Convergence</head><p>In maximizing the likelihood we use stochastic approximation to the gradient. This adds variance to the gradient and makes efficient optimization techniques, e.g. conjugate gradient, highly unstable. Thus we use gradient descent, which is slower but easier to control.</p><p>Permutation sampling We examine the convergence of Metropolis permutation sampling. Starting with a random permutation we run algorithm 3, and measure convergence of likelihood and gradient to their true values. Experiments showed that one needs less than a million samples for the estimates to converge. We also measured the variance of the estimates is sufficiently small. In our experiments we start with a random permutation and use long burn-in time. Then when performing optimization we use the permutation from previous step to initialize the permutation at current step of gradient descent. The intuition is that small changes in Θ also mean small changes in P (σ|G, Θ).</p><p>Optimization space In Kronecker graphs permutations of the parameter matrix Θ all have the same likelihood. This means that the maximum likelihood optimization problem is not convex, but rather has several global minima. To check for the presence of other local minima where gradient descent could get stuck we run the following experiment: we generated 100 synthetic Kronecker graphs on 16,384 (2 14 ) nodes and 1.4 million edges on average, with a randomly chosen 2 × 2 parameter matrix Θ * . For each of the 100 graphs we start gradient descent from a different random location Θ , and try to recover Θ * . In 98% of the cases the descent converged to the true parameters. Many times the algorithm converged to a different global minima, i.e. permuted true parameter values. This suggests surprisingly nice structure of the optimization problem: it seems it behaves like a convex optimization problem with many equivalent global minima.</p><p>Gradient descent To get a better understanding of the convergence of the gradient descent we performed the following experiment. After every step t of gradient descent, we compare the true graph G with the synthetic Kronecker graph K generated using the current parameter estimatesˆΘestimatesˆ estimatesˆΘ t . <ref type="figure" target="#fig_3">Figure 2</ref> gives the convergence of log-likelihood (a), average absolute error in parameters (b), diameter (c), and largest singular value (d). Note how with iterations of gradient descent properties of graph K quickly converge to those of G even though we are not directly optimizing over  them: log-likelihood increases, average absolute error decreases, diameter and largest singular value of K both converge to G. This is a nice result since it shows that through the optimization of the maximum likelihood the graphs also match in several other properties even though we are not directly optimizing over them.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="5.2.">Fitting to Real-world Graphs</head><p>We also present experiments of fitting Kronecker Graphs model to real-world graphs. Given a real graph G we aim in discovering most likely parametersˆΘparametersˆ parametersˆΘ that ideally would generate a synthetic graph K having same properties as G. This assumes that Kronecker Graphs is a good model for real graphs, and that KronFit is able to recover good parameters. We take real graph G, find parametersˆΘparametersˆ parametersˆΘ using KronFit, generate synthetic graph K usingˆΘusingˆ usingˆΘ, and compare their properties that we introduced in section 2. <ref type="figure" target="#fig_1">Figure 3</ref> shows properties of Autonomous Systems graph, and compares them with the properties of a synthetic Kronecker graph generated using the fitted parametersˆΘparametersˆ parametersˆΘ of size 2 × 2. Notice that properties of both graphs match really well.</p><p>Autonomous Systems is undirected graph and the fitted parameter matrixˆΘmatrixˆ matrixˆΘ = [.98, .58; .58, .06] is also symmetric. This means that without a priori biasing the fitting towards undirected graphs, the recovered parameters obey this. Fitting AS graph from a random set of parameters, performing gradient descent for 50 iterations and at each iteration sampling half a million permutations, took less than 20 minutes on a standard desktop PC. This is a significant speedup over <ref type="bibr" target="#b2">(Bezáková et al., 2006</ref>), where by using a simi- lar permutation sampling approach for calculating the likelihood of a preferential attachment model on similar AS graph took about two days on a cluster of 50 machines, while in our case finding the MLE parameters took 20 minutes on a desktop PC.</p><p>Last, we present the results of fitting Epinions graph.</p><p>We performed 200 steps of gradient descent and at each step sampled 200,000 permutations. The fitting took 2.5 hours on a standard desktop. <ref type="figure" target="#fig_6">Figure 4</ref> shows the results. Notice very good fit of all properties between the Epinions graph and the synthetic graph. Estimated parameter matrix isˆΘisˆ isˆΘ = <ref type="bibr">[.99, .54; .49, .13]</ref>. As with Autonomous Systems estimated parameter matrixˆΘtrixˆ trixˆΘ is very skewed: θ 11 ≈ 1, the diagonal parameters (θ 12 , θ 21 ) are around 0.5, and θ 22 is very small. This indicates that in the Epinions network we observe the "core-periphery" type of network structure.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="5.3.">Scalability</head><p>We generated a sequence of increasingly larger synthetic graphs on N nodes and 8N edges, and measured the time of one iteration of gradient descent, i.e. sample 1 million permutations and evaluate the gradients.</p><p>We started with a graph on 1000 nodes, and finished with a graph on 8 million nodes, and 64 million edges. <ref type="figure" target="#fig_5">Figure 5</ref>(a) shows KronFit scales linearly with the size of the graph. We plot processor time vs. size of the graph. Dashed line presents linear fit to the data.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="5.4.">Model Selection</head><p>Last, we present result on model selection. <ref type="figure" target="#fig_5">Figure 5</ref>(b) shows BIC scores for the following experiment: We generated Kronecker graph with N = 2, 187 and E = 8, 736 using N 1 = 3 (9 parameters) and k = 7. For 1 ≤ N 1 ≤ 9 we find the MLE parameters using gradient descent, and calculate the BIC scores. Model with lowest score is chosen. As <ref type="figure" target="#fig_5">figure 5</ref>(b) shows we recovered the true model, i.e. BIC score is lowest for the model with the true number of parameters, N 1 = 3.  </p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="6.">Conclusion</head><p>We presented KronFit, a fast, scalable algorithm to create a synthetic graph that mimics the properties of a given real graph.</p><p>In contrast to earlier work, our work has the following novelties: (a) it is among the few that estimates the parameters of the chosen generator (b) it is among the few that has a concrete measure of goodness of the fit (namely, likelihood) (c) it avoids the quadratic complexity of computing the likelihood by exploiting the properties of the "Kronecker graphs" (d) it avoids the factorial explosion of the correspondence problem, by using Metropolis sampling.</p><p>The resulting algorithm matches well all the known properties of real graphs, as we show with the Epinions graph and the AS graph, it scales linearly on the number of edges, and it is order of magnitudes faster than earlier graph-fitting attempts: 20 minutes on a commodity PC, versus 2 days on a cluster of 50 workstations <ref type="bibr" target="#b2">(Bezáková et al., 2006</ref>).</p><p>The benefits of fitting a Kronecker graph model into a real graph are several: Extrapolation: Once we have the Kronecker generator Θ for a given real matrix G (such that G is mimicked by Θ <ref type="bibr">[k]</ref> ), a larger version of G would be generated by Θ <ref type="bibr">[k+1]</ref> . Sampling: Similarly, if we want a realistic sample of the real graph, we could use a smaller exponent in the Kronecker exponentiation, like Θ <ref type="bibr">[k−1]</ref> . Anonymization: Since Θ <ref type="bibr">[k]</ref> mimics G, we can publish Θ <ref type="bibr">[k]</ref> , without revealing information about the nodes of the real graph G.</p></div><figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_0"><head></head><label></label><figDesc>Appearing in Proceedings of the 24 th International Confer- ence on Machine Learning, Corvallis, OR, 2007. Copyright 2007 by the author(s)/owner(s).</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_1"><head>Algorithm 3</head><label>3</label><figDesc>SamplePermutation(G, Θ): Metropo- lis sampling of the permutations Input: Kronecker initiator matrix Θ and a graph G on N nodes Output: Permutation σ (i) ∼ P (σ|G, Θ) σ (0) := (1, . . . , N ) repeat Draw j and k uniformly from (1, . . . , N ) σ (i) := SwapElements(σ (i−1) , j, k) Draw u from U (0, 1) if u &gt; P (σ (i) |G,Θ) P (σ (i−1) |G,Θ) then σ (i) := σ (i−1)</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_2"><head></head><label></label><figDesc>Graphs we are working with here are too large to ex- plicitly create and store the stochastic adjacency ma- trix P by Kronecker powering the initiator matrix Θ. Every time probability P[i, j] of edge (i, j) is needed the equation in section 3 is evaluated, which takes O(k). So a single iteration of algorithm 3 takes O(kN ).</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_3"><head>Figure 2 .</head><label>2</label><figDesc>Figure 2. Convergence of graph patterns with the number of iterations of gradient descent using synthetic dataset.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_4"><head>Figure 3 .</head><label>3</label><figDesc>Figure 3. Autonomous Systems: Overlayed patterns of real graph and the fitted Kronecker graph. Notice that the fitted Kronecker graph matches patterns of the real graph.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_5"><head>Figure 5 .</head><label>5</label><figDesc>Figure 5. (a) Run time to sample 1 million gradients as the graph grows. The algorithm scales linearly with the graph size. (b) BIC score for model selection. Notice it recovers the model with the true number of parameters.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_6"><head>Figure 4 .</head><label>4</label><figDesc>Figure 4. Epinions: Overlayed patterns of real graph and the fitted Kronecker graph. Notice that the synthetic Kronecker graph generated using the fitted parameters matches patterns of the real Epinions graph.</figDesc></figure>
+		</body>
+		<back>
+
+			<div type="acknowledgement">
+			</div>
+
+			<div type="references">
+
+				<listBibl>
+
+<biblStruct xml:id="b0">
+	<analytic>
+		<title level="a" type="main">Emergence of scaling in random networks</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Albert</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A.-L</forename><surname>Barabasi</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Science</title>
+		<imprint>
+			<biblScope unit="page" from="509" to="512" />
+			<date type="published" when="1999" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b1">
+	<analytic>
+		<title level="a" type="main">Statistical mechanics of complex networks</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Albert</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A.-L</forename><surname>Barabási</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Reviews of Modern Physics</title>
+		<imprint>
+			<date type="published" when="2002" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b2">
+	<monogr>
+		<title level="m" type="main">Graph model selection using maximum likelihood</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">I</forename><surname>Bezáková</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Kalai</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Santhanam</surname></persName>
+		</author>
+		<imprint>
+			<date type="published" when="2006" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b3">
+	<monogr>
+		<title level="m" type="main">Permutation models for relational data</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><forename type="middle">T</forename><surname>Butts</surname></persName>
+		</author>
+		<idno>MBS 05-02</idno>
+		<imprint>
+			<date type="published" when="2005" />
+			<pubPlace>Irvine</pubPlace>
+		</imprint>
+		<respStmt>
+			<orgName>Univ. of California</orgName>
+		</respStmt>
+	</monogr>
+<note type="report_type">Tech. Rep.</note>
+</biblStruct>
+
+<biblStruct xml:id="b4">
+	<analytic>
+		<title level="a" type="main">Graph mining: Laws, generators, and algorithms</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Chakrabarti</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Faloutsos</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">ACM Computing Surveys</title>
+		<imprint>
+			<date type="published" when="2006" />
+			<biblScope unit="volume">38</biblScope>
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b5">
+	<monogr>
+		<title level="m" type="main">R-MAT: A recursive model for graph mining</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Chakrabarti</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Y</forename><surname>Zhan</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Faloutsos</surname></persName>
+		</author>
+		<imprint>
+			<date type="published" when="2004" />
+			<publisher>SDM</publisher>
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b6">
+	<monogr>
+		<title level="m" type="main">Defining the curvature of a statistical problem</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">B</forename><surname>Efron</surname></persName>
+		</author>
+		<imprint>
+			<date type="published" when="1975" />
+		</imprint>
+	</monogr>
+	<note>with applications to second order efficiency</note>
+</biblStruct>
+
+<biblStruct xml:id="b7">
+	<monogr>
+		<title/>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><surname>Ann</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><surname>Statist</surname></persName>
+		</author>
+		<imprint>
+			<biblScope unit="volume">3</biblScope>
+			<biblScope unit="page" from="1189" to="1242" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b8">
+	<analytic>
+		<title level="a" type="main">On the evolution of random graphs. Publication of the Mathematical Institute of the</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>Erdos</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Renyi</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Hungarian Acadamy of Science</title>
+		<imprint>
+			<biblScope unit="volume">5</biblScope>
+			<biblScope unit="page" from="17" to="67" />
+			<date type="published" when="1960" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b9">
+	<monogr>
+		<title level="m" type="main">On power-law relationships of the internet topology</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Faloutsos</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>Faloutsos</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Faloutsos</surname></persName>
+		</author>
+		<imprint>
+			<date type="published" when="1999" />
+			<publisher>SIG-COMM</publisher>
+			<biblScope unit="page" from="251" to="262" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b10">
+	<monogr>
+		<title level="m" type="main">Markov chain monte carlo, stochastic simulation for bayesian inference</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Gamerman</surname></persName>
+		</author>
+		<imprint>
+			<date type="published" when="1997" />
+			<publisher>Chapman &amp; Hall</publisher>
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b11">
+	<monogr>
+		<title level="m" type="main">The web as a graph: Measurements, models and methods</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><forename type="middle">M</forename><surname>Kleinberg</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><forename type="middle">R</forename><surname>Kumar</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>Raghavan</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Rajagopalan</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Tomkins</surname></persName>
+		</author>
+		<imprint>
+			<date type="published" when="1999" />
+			<publisher>COCOON</publisher>
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b12">
+	<monogr>
+		<title level="m" type="main">Realistic, mathematically tractable graph generation and evolution, using kronecker multiplication</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Leskovec</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Chakrabarti</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><forename type="middle">M</forename><surname>Kleinberg</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Faloutsos</surname></persName>
+		</author>
+		<imprint>
+			<date type="published" when="2005" />
+			<publisher>PKDD</publisher>
+			<biblScope unit="page" from="133" to="145" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b13">
+	<analytic>
+		<title level="a" type="main">The small-world problem</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Milgram</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Psychology Today</title>
+		<imprint>
+			<biblScope unit="volume">2</biblScope>
+			<biblScope unit="page" from="60" to="67" />
+			<date type="published" when="1967" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b14">
+	<analytic>
+		<title level="a" type="main">How popular is your paper? an empirical study of the citation distribution</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Redner</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">European Physical Journal B</title>
+		<imprint>
+			<biblScope unit="volume">4</biblScope>
+			<biblScope unit="page" from="131" to="134" />
+			<date type="published" when="1998" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b15">
+	<monogr>
+		<title level="m" type="main">Trust management for the semantic web</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Richardson</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Agrawal</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>Domingos</surname></persName>
+		</author>
+		<imprint>
+			<date type="published" when="2003" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b16">
+	<analytic>
+		<title level="a" type="main">Estimating the dimension of a model</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">G</forename><surname>Schwarz</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">The Annals of Statistics</title>
+		<imprint>
+			<biblScope unit="volume">6</biblScope>
+			<biblScope unit="page" from="461" to="464" />
+			<date type="published" when="1978" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b17">
+	<monogr>
+		<title level="m" type="main">Subnets of scale-free networks are not scale-free: Sampling properties of networks</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><forename type="middle">P H</forename><surname>Stumpf</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Wiuf</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><forename type="middle">M</forename><surname>May</surname></persName>
+		</author>
+		<imprint>
+			<date type="published" when="2005" />
+			<publisher>PNAS</publisher>
+			<biblScope unit="page">102</biblScope>
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b18">
+	<analytic>
+		<title level="a" type="main">Logit models and logistic regressions for social networks</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Wasserman</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>Pattison</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Psychometrika</title>
+		<imprint>
+			<biblScope unit="volume">60</biblScope>
+			<biblScope unit="page" from="401" to="425" />
+			<date type="published" when="1996" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b19">
+	<analytic>
+		<title level="a" type="main">Collective dynamics of &apos;small-world&apos; networks</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><forename type="middle">J</forename><surname>Watts</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><forename type="middle">H</forename><surname>Strogatz</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Nature</title>
+		<imprint>
+			<biblScope unit="volume">393</biblScope>
+			<biblScope unit="page" from="440" to="442" />
+			<date type="published" when="1998" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b20">
+	<monogr>
+		<title level="m" type="main">A likelihood approach to analysis of network data</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Wiuf</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Brameier</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">O</forename><surname>Hagberg</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><forename type="middle">P</forename><surname>Stumpf</surname></persName>
+		</author>
+		<imprint>
+			<date type="published" when="2006" />
+			<publisher>PNAS</publisher>
+			<biblScope unit="volume">103</biblScope>
+			<biblScope unit="page" from="7566" to="7570" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+				</listBibl>
+			</div>
+		</back>
+	</text>
+</TEI>

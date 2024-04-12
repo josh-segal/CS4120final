@@ -1,0 +1,236 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>IBM Haifa Research Lab  2007-2010 IBM Corporation</p>
+    <p>IsoStack  Highly Efficient Network Processing on Dedicated Cores</p>
+    <p>Leah Shalev Eran Borovik, Julian Satran, Muli Ben-Yehuda</p>
+  </div>
+  <div class="page">
+    <p>IBM Haifa Research Lab  2007-2010 IBM Corporation2</p>
+    <p>Outline</p>
+    <p>Motivation</p>
+    <p>IsoStack architecture</p>
+    <p>Prototype  TCP/IP over 10GE on a single core</p>
+    <p>Performance results</p>
+    <p>Summary</p>
+  </div>
+  <div class="page">
+    <p>IBM Haifa Research Lab  2007-2010 IBM Corporation3</p>
+    <p>TCP/IP End System Performance Challenge</p>
+    <p>TCP/IP stack is a major consumer of CPU cycles easy benchmark workloads can consume 80% CPU difficult workloads cause throughput degradation at 100% CPU</p>
+    <p>TCP/IP stack wastes CPU cycles: 100s of &quot;useful&quot; instructions per packet 10,000s of CPU cycles</p>
+  </div>
+  <div class="page">
+    <p>IBM Haifa Research Lab  2007-2010 IBM Corporation4</p>
+    <p>Long History of TCP/IP Optimizations</p>
+    <p>Decrease per-byte overhead Checksum calculation offload</p>
+    <p>Decrease the number of interrupts interrupt mitigation (coalescing)</p>
+    <p>Decrease the number of packets (for bulk transfers) Jumbo frames Large Send Offload (TCP Segmentation Offload) Large Receive Offload</p>
+  </div>
+  <div class="page">
+    <p>IBM Haifa Research Lab  2007-2010 IBM Corporation5</p>
+    <p>History of TCP Optimizations cont`  Full Offload</p>
+    <p>Instead of optimizations - offload to hardware TOE (TCP Offload Engine)</p>
+    <p>Expensive Not flexible Not robust - dependency on device vendor Not supported by some operating systems on principle</p>
+    <p>RDMA Requires support on the remote side not applicable to legacy upper layer protocols</p>
+    <p>TCP onload  offload to a dedicated main processor Using a multiprocessor system asymmetrically</p>
+  </div>
+  <div class="page">
+    <p>IBM Haifa Research Lab  2007-2010 IBM Corporation6</p>
+    <p>TCP/IP Parallelization</p>
+    <p>Nave initial transition to multiprocessor systems Using one lock to protect it all</p>
+    <p>Incremental attempts to improve parallelism Use more locks to decrease contention Use kernel threads to perform processing in parallel Hardware support to parallelize incoming packet processing  Receive-Side Scaling (RSS)</p>
+  </div>
+  <div class="page">
+    <p>IBM Haifa Research Lab  2007-2010 IBM Corporation7</p>
+    <p>Parallelizing TCP/IP Stack Using RSS</p>
+    <p>CPU 1</p>
+    <p>t1</p>
+    <p>Tx Rx1</p>
+    <p>Conn A</p>
+    <p>CPU 2</p>
+    <p>NIC</p>
+    <p>Conn B</p>
+    <p>Conn C</p>
+    <p>Conn D</p>
+    <p>Tx Rx 1</p>
+    <p>t2 t3</p>
+    <p>Rx 2Rx 2</p>
+    <p>CPU 1</p>
+    <p>t1</p>
+    <p>Conn A</p>
+    <p>CPU 2</p>
+    <p>NIC</p>
+    <p>Conn B</p>
+    <p>Conn C</p>
+    <p>Conn D</p>
+    <p>t3</p>
+    <p>TCP/IP</p>
+    <p>Theory (customized system) Practice</p>
+    <p>t3</p>
+    <p>TCP/IP</p>
+    <p>t1</p>
+  </div>
+  <div class="page">
+    <p>IBM Haifa Research Lab  2007-2010 IBM Corporation8</p>
+    <p>So, Where Do the Cycles Go?</p>
+    <p>No clear hot-spots Except lock/unlock functions</p>
+    <p>CPU is misused by the network stack: Interrupts, context switches, cache pollution</p>
+    <p>due to CPU sharing between applications and stack</p>
+    <p>IPIs, locking and cache line bouncing due to stack control state shared by different CPUs</p>
+  </div>
+  <div class="page">
+    <p>IBM Haifa Research Lab  2007-2010 IBM Corporation9</p>
+    <p>Our Approach  Isolate the Stack Dedicate CPUs for network stack</p>
+    <p>Use light-weight internal interconnect Scaling for many applications and high request rates</p>
+    <p>Make it transparent to applications Not just API-compatible  hide the latency of interaction</p>
+  </div>
+  <div class="page">
+    <p>IBM Haifa Research Lab  2007-2010 IBM Corporation10</p>
+    <p>IsoStack Architecture IsoStack CPU</p>
+    <p>Socket back-end</p>
+    <p>TCP/IP</p>
+    <p>Shared mem queue server</p>
+    <p>Internal interconnect</p>
+    <p>App CPU #2</p>
+    <p>app</p>
+    <p>Socket front-end</p>
+    <p>front-end Shared mem queue client</p>
+    <p>app</p>
+    <p>Socket front-end</p>
+    <p>Shared mem queue client</p>
+    <p>App CPU #1</p>
+    <p>app</p>
+    <p>Socket front-end</p>
+    <p>Shared mem queue client</p>
+    <p>Internal interconnect</p>
+    <p>Split socket layer: front-end in application</p>
+    <p>Maintains socket buffers posts socket commands onto command queue</p>
+    <p>back-end in IsoStack On dedicated core[s]</p>
+    <p>With connection affinity Polls for commands Executes the socket operations asynchronously Zero-copy</p>
+    <p>Shared-memory queues for socket delegation</p>
+    <p>Asynchronous messaging Flow control and aggregation Data copy by socket front-end</p>
+  </div>
+  <div class="page">
+    <p>IBM Haifa Research Lab  2007-2010 IBM Corporation11</p>
+    <p>IsoStack Shared Memory Command Queues Low overhead multipleproducers-single-consumer mechanism</p>
+    <p>Non-trusted producers</p>
+    <p>Design Principles: Lock-free, cache-aware Bypass kernel whenever possible</p>
+    <p>problematic with the existing hardware support</p>
+    <p>Interrupt mitigation</p>
+    <p>Design Choices Extremes: A single command queue</p>
+    <p>Con - high contention on access</p>
+    <p>Per-thread command queue Con - high number of queues to be polled by the server</p>
+    <p>Our choice: Per-socket command queues</p>
+    <p>Aggregation of tx and rx data Per-CPU notification queues</p>
+    <p>Requires kernel involvement to protect access to these queues</p>
+  </div>
+  <div class="page">
+    <p>IBM Haifa Research Lab  2007-2010 IBM Corporation12</p>
+    <p>IsoStack Prototype Implementation</p>
+    <p>Power6 (4x2 cores), AIX 6.1</p>
+    <p>Same codebase for IsoStack and legacy stack</p>
+    <p>IsoStack runs as single kernel thread dispatcher</p>
+    <p>Polls adapter rx queue Polls socket back-end queues Invokes regular TCP/IP processing</p>
+    <p>Network stack is [partially] optimized for serialized execution</p>
+    <p>Some locks eliminated Some control data structures replicated to avoid sharing</p>
+    <p>Other OS services are avoided when possible</p>
+    <p>E.g., avoid wakeup calls Just to workaround HW and OS support limitations</p>
+  </div>
+  <div class="page">
+    <p>IBM Haifa Research Lab  2007-2010 IBM Corporation13</p>
+    <p>TX Performance</p>
+    <p>Message size</p>
+    <p>C p</p>
+    <p>u U</p>
+    <p>til iz</p>
+    <p>a ti o</p>
+    <p>n .</p>
+    <p>T h</p>
+    <p>ro u</p>
+    <p>g h</p>
+    <p>p u</p>
+    <p>t (M</p>
+    <p>B /s</p>
+    <p>) .</p>
+    <p>Native CPU IsoStack CPU Native Througput IsoStack Throughput</p>
+  </div>
+  <div class="page">
+    <p>IBM Haifa Research Lab  2007-2010 IBM Corporation14</p>
+    <p>Rx Performance</p>
+    <p>Message size</p>
+    <p>C P</p>
+    <p>U u</p>
+    <p>ti liz</p>
+    <p>a ti o n</p>
+    <p>T h ro</p>
+    <p>u g h p u t</p>
+    <p>(M B</p>
+    <p>/s )</p>
+    <p>Native CPU IsoStack CPU Native Throughput IsoStack Throughput</p>
+  </div>
+  <div class="page">
+    <p>IBM Haifa Research Lab  2007-2010 IBM Corporation15</p>
+    <p>Impact of Un-contended Locks</p>
+    <p>Impact of unnecessary lock re-enabled in IsoStack:</p>
+    <p>For low number of connections: Throughput decreased Same or higher CPU utilization</p>
+    <p>For higher number of connections:</p>
+    <p>Same throughput Higher CPU utilization</p>
+    <p>Even when un-contended, locks have tangible cost!</p>
+    <p>C P</p>
+    <p>U u</p>
+    <p>ti li z a ti</p>
+    <p>o n</p>
+    <p>T h</p>
+    <p>ro u</p>
+    <p>g h</p>
+    <p>p u</p>
+    <p>t (M</p>
+    <p>B /s</p>
+    <p>)</p>
+    <p>Native CPU IsoStack CPU IsoStack+Lock CPU Native Throughput IsoStack Throughput IsoStack+Lock Throughput</p>
+    <p>Transmit performance for 64 byte messages</p>
+  </div>
+  <div class="page">
+    <p>IBM Haifa Research Lab  2007-2010 IBM Corporation16</p>
+    <p>IsoStack  Summary</p>
+    <p>Isolation of network stack dramatically reduces overhead No CPU sharing costs Decreased memory sharing costs</p>
+    <p>Explicit asynchronous messaging instead of blind sharing Optimized for large number of applications Optimized for high request rate (short messages)</p>
+    <p>Opportunity for further improvement with hardware and OS extensions</p>
+    <p>Generic support for subsystem isolation</p>
+  </div>
+  <div class="page">
+    <p>IBM Haifa Research Lab  2007-2010 IBM Corporation17</p>
+    <p>Questions?</p>
+  </div>
+  <div class="page">
+    <p>IBM Haifa Research Lab  2007-2010 IBM Corporation18</p>
+    <p>Backup</p>
+  </div>
+  <div class="page">
+    <p>IBM Haifa Research Lab  2007-2010 IBM Corporation19</p>
+    <p>Using Multiple IsoStack Instances Utilize adapter packet classification capabilities</p>
+    <p>Connections are assigned to IsoStack instances according to the adapter classification function</p>
+    <p>Applications can request connection establishment from any stack instance, but once the connection is established, socket back-end notifies socket front-end which instance will handle this connection.</p>
+    <p>IsoStack CPU 1</p>
+    <p>t1</p>
+    <p>Conn A IsoStack</p>
+    <p>CPU 2</p>
+    <p>NIC</p>
+    <p>Conn B</p>
+    <p>Conn C</p>
+    <p>Conn D</p>
+    <p>t2 t3</p>
+    <p>TCP/IP/Eth</p>
+    <p>App CPU 1 App CPU 2</p>
+    <p>TCP/IP/Eth</p>
+  </div>
+  <div class="page">
+    <p>IBM Haifa Research Lab  2007-2010 IBM Corporation20</p>
+    <p>Potential for Platform Improvements The hardware and the operating systems should provide a better infrastructure for subsystem isolation:</p>
+    <p>efficient interaction between large number of applications and an isolated subsystem</p>
+    <p>in particular, better notification mechanisms, both to and from the isolated subsystem</p>
+    <p>Non-shared memory pools</p>
+    <p>Energy-efficient wait on multiple memory locations</p>
+  </div>
+</Presentation>

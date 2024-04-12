@@ -1,0 +1,686 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<TEI xmlns="http://www.tei-c.org/ns/1.0" 
+xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+xsi:schemaLocation="http://www.tei-c.org/ns/1.0 /Users/atharsefid/Desktop/grobid-0.5.3/grobid-home/schemas/xsd/Grobid.xsd"
+ xmlns:xlink="http://www.w3.org/1999/xlink">
+	<teiHeader xml:lang="en">
+		<encodingDesc>
+			<appInfo>
+				<application version="0.5.3" ident="GROBID" when="2019-03-26T16:50+0000">
+					<ref target="https://github.com/kermitt2/grobid">GROBID - A machine learning software for extracting information from scholarly documents</ref>
+				</application>
+			</appInfo>
+		</encodingDesc>
+		<fileDesc>
+			<titleStmt>
+				<title level="a" type="main">Generating Impact-Based Summaries for Scientific Literature</title>
+			</titleStmt>
+			<publicationStmt>
+				<publisher/>
+				<availability status="unknown"><licence/></availability>
+			</publicationStmt>
+			<sourceDesc>
+				<biblStruct>
+					<analytic>
+						<author>
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Qiaozhu</forename><surname>Mei</surname></persName>
+							<affiliation key="aff0">
+								<orgName type="institution" key="instit1">University of Illinois at Urbana-Champaign</orgName>
+								<orgName type="institution" key="instit2">University of Illinois at Urbana-Champaign</orgName>
+							</affiliation>
+						</author>
+						<author role="corresp">
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Chengxiang</forename><surname>Zhai</surname></persName>
+							<email>czhai@cs.uiuc.edu</email>
+							<affiliation key="aff0">
+								<orgName type="institution" key="instit1">University of Illinois at Urbana-Champaign</orgName>
+								<orgName type="institution" key="instit2">University of Illinois at Urbana-Champaign</orgName>
+							</affiliation>
+						</author>
+						<title level="a" type="main">Generating Impact-Based Summaries for Scientific Literature</title>
+					</analytic>
+					<monogr>
+						<imprint>
+							<date/>
+						</imprint>
+					</monogr>
+				</biblStruct>
+			</sourceDesc>
+		</fileDesc>
+		<profileDesc>
+			<abstract>
+				<p>In this paper, we present a study of a novel summarization problem, i.e., summarizing the impact of a scientific publication. Given a paper and its citation context , we study how to extract sentences that can represent the most influential content of the paper. We propose language modeling methods for solving this problem , and study how to incorporate features such as authority and proximity to accurately estimate the impact language model. Experiment results on a SIGIR publication collection show that the proposed methods are effective for generating impact-based summaries.</p>
+			</abstract>
+		</profileDesc>
+	</teiHeader>
+	<text xml:lang="en">
+		<body>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="1">Introduction</head><p>The volume of scientific literature has been growing rapidly. From a recent statistics, each year 400,000 new citations are added to MED-LINE, the major biomedical literature database <ref type="bibr">1</ref> . This fast growth of literature makes it difficult for researchers, especially beginning researchers to keep track of the research trends and find high impact papers on unfamiliar topics. Impact factors <ref type="bibr" target="#b6">(Kaplan and Nelson, 2000</ref>) are useful, but they are just numerical values, so they cannot tell researchers which aspects of a paper are influential. On the other hand, a regular content-based summary (e.g., the abstract or conclusion section of a paper or an automatically generated topical summary ( <ref type="bibr" target="#b4">Giles et al., 1998;</ref><ref type="bibr">?)</ref>) can help a user know about the main 1 http://www.nlm.nih.gov/bsd/history/tsld024.htm content of a paper, but not necessarily the most influential content of the paper. Indeed, the abstract of a paper mostly reflects the expected impact of the paper as perceived by the author(s), which could significantly deviate from the actual impact of the paper in the research community. Moreover, the impact of a paper changes over time due to the evolution and progress of research in a field. For example, an algorithm published a decade ago may be no longer the state of the art, but the problem definition in the same paper can be still well accepted.</p><p>Although much work has been done on text summarization (See Section 6 for a detailed survey), to the best of our knowledge, the problem of impact summarization has not been studied before. In this paper, we study this novel summarization problem and propose language modeling-based approaches to solving the problem. By definition, the impact of a paper has to be judged based on the consent of research community, especially by people who cited it. Thus in order to generate an impact-based summary, we must use not only the original content, but also the descriptions of that paper provided in papers which cited it, making it a challenging task and different from a regular summarization setup such as news summarization. Indeed, unlike a regular summarization system which identifies and interprets the topic of a document, an impact summarization system should identify and interpret the impact of a paper.</p><p>As a proof of concept, we define the impact summarization problem in the framework of extraction-based text summarization <ref type="bibr" target="#b11">(Luhn, 1958;</ref><ref type="bibr" target="#b13">McKeown and Radev, 1995)</ref>, and cast the problem as an impact sentence retrieval problem. We propose language models to exploit both the citation context and original content of a paper to generate an impact-based summary. We study how to incorporate features such as authority and proximity into the estimation of language models. We propose and evaluate several different strategies for estimating the impact language model, which is key in impact summarization. No existing test collection is available for evaluating impact summarization. We construct a test collection using 28 years of ACM SIGIR papers <ref type="bibr">(1978 -2005)</ref> to evaluate the proposed methods. Experiment results on this collection show that the proposed approaches are effective for generating impactbased summaries. The results also show that using both the original document content and the citation contexts is important and incorporating citation authority and proximity is beneficial.</p><p>An impact-based summary is not only useful for facilitating the exploration of literature, but also helpful for suggesting query terms for literature retrieval, understanding the evolution of research trends, and identifying the interactions of different research fields. The proposed methods are also applicable to summarizing the impact of documents in other domains where citation context exists, such as emails and weblogs.</p><p>The rest of the paper is organized as follows. In Section 2 and 3, we define the impact-based summarization problem and propose the general language modeling approach. In Section 4, we present different instantiations of the framework and introduce different strategies and features. We discuss our experiments and results in Section 5. Finally, the related work and conclusions are discussed in Section 6 and Section 7.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="2">Impact Summarization</head><p>Following the existing work on topical summarization of scientific literature <ref type="bibr" target="#b14">(Paice, 1981;</ref><ref type="bibr" target="#b15">Paice and Jones, 1993)</ref>, we define an impactbased summary of a paper as a set of sentences extracted from the paper that can reflect the impact of the paper, where "impact" is roughly defined as the influence of the paper on research of similar or related topics as reflected in the citations of the paper. Such an extraction-based definition of summarization has also been quite common in most existing general summarization work ( <ref type="bibr" target="#b17">Radev et al., 2002)</ref>.</p><p>By definition, in order to generate an impact summary of a paper, we must look at how other papers cite the paper, use this information to infer the impact of the paper, and select sentences from the original paper that can reflect the inferred impact. Note that we do not directly use the sentences from the citation context to form a summary. This is because in citations, the discussion of the paper cited is usually mixed with the content of the paper citing it, and sometimes also with discussion about other papers cited.</p><p>Formally, let d = (s 0 , s 1 , ..., s n ) be a paper to be summarized, where s i is a sentence. We refer to a sentence (in another paper) in which there is an explicit citation of d as a citing sentence of d. When a paper is cited, it is often discussed consecutively in more than one sentence near the citation, thus intuitively we would like to consider a window of sentences centered at a citing sentence; the window size would be a parameter to set. We call such a window of sentences a citation context, and use C to denote the union of all the citation contexts of d in a collection of research papers. Thus C itself is a set (more precisely bag) of sentences. The task of impact-based summarization is thus to 1) construct a representation of the impact of d, I, based on d and C; 2) design a scoring function Score(.) to rank sentences in d based on how well a sentence reflects I. A user-defined number of top-ranked sentences can then be selected as the impact summary for d.</p><p>The formulation above immediately suggests that we can cast the impact summarization problem as a retrieval problem where each candidate sentence in d is regarded as a "document", the impact of the paper (i.e., I) as a "query", and our goal is to "retrieve" sentences that can reflect the impact of the paper as indicated by the citation context. Looking at the problem in this way, we see that there are two main challenges in impact summarization: first, we must be able to infer the impact based on both the citation contexts and the original document; second, we should measure how well a sentence reflects this inferred impact. To solve these challenges, in the next section, we propose to model impact with unigram language models and score sentences using Kullback-Leibler divergence. We further propose methods for estimating the impact language model based on several features including the authority of citations, and the citation proximity.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3">Language Models for Impact Summarization</head></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.1">Impact language models</head><p>From the retrieval perspective, our collection is the paper to be summarized, and each sentence is a "document" to be retrieved. However, unlike in the case of ad hoc retrieval, we do not really have a query describing the impact of the paper; instead, we have a lot of citation contexts that can be used to infer information about the query. Thus the main challenge in impact summarization is to effectively construct a "virtual impact query" based on the citation contexts. What should such a virtual impact query look like? Intuitively, it should model the impactreflecting content of the paper. We thus propose to represent such a virtual impact query with a unigram language model. Such a model is expected to assign high probabilities to those words that can describe the impact of paper d, just as we expect a query language model in ad hoc retrieval to assign high probabilities to words that tend to occur in relevant documents <ref type="bibr" target="#b16">(Ponte and Croft, 1998)</ref>. We call such a language model the impact language model of paper d (denoted as θ I ); it can be estimated based on both d and its citation context C as will be discussed in Section 4.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.2">KL-divergence scoring</head><p>With the impact language model in place, we can then adopt many existing probabilistic retrieval models such as the classic probabilistic retrieval models <ref type="bibr" target="#b20">(Robertson, 1977)</ref> and the Kullback-Leibler (KL) divergence retrieval model ( <ref type="bibr" target="#b8">Lafferty and Zhai, 2001;</ref><ref type="bibr">Zhai and Laf- ferty, 2001</ref>), to solve the problem of impact summarization by scoring sentences based on the estimated impact language model. In our study, we choose to use the KL-divergence scoring method to score sentences as this method has performed well for regular ad hoc retrieval tasks ) and has an information theoretic interpretation.</p><p>To apply the KL-divergence scoring method, we assume that a candidate sentence s is generated from a sentence language model θ s . Given s in d and the citation context C, we would first estimate θ s based on s and estimate θ I based on C, and then score s with the negative KL divergence of θ s and θ I . That is,</p><formula xml:id="formula_0">Score(s) = −D(θ I ||θ s ) = w∈V p(w|θ I ) log p(w|θ s )− w∈V p(w|θ I ) log p(w|θ I )</formula><p>where V is the set of words in our vocabulary and w denotes a word.</p><p>From the information theoretic perspective, the KL-divergence of θ s and θ I can be interpreted as measuring the average number of bits wasted in compressing messages generated according to θ I (i.e., impact descriptions) nonoptimally with coding designed based on θ s . If θ s and θ I are very close, the KL-divergence would be small and Score(s) would be high, which intuitively makes sense. Note that the second term (entropy of θ I ) is independent of s, so it can be ignored for ranking s.</p><p>We see that according to the KL-divergence scoring method, our main tasks are to estimate θ s and θ I . Since s can be regarded as a short document, we can use any standard method to estimate θ s . In this work, we use Dirichlet prior smoothing ) to estimate θ s as follows:</p><formula xml:id="formula_1">p(w|θ s ) = c(w, s) + µ s * P (w|D) |s| + µ s (1)</formula><p>where |s| is the length of s, c(w, s) is the count of word w in s, p(w|D) is a background model estimated using</p><formula xml:id="formula_2">c(w,D)</formula><p>w ∈V c(w ,D) (D can be the set of all the papers available to us) and µ s is a smoothing parameter. Note that as the length of a sentence is very short, smoothing is critical for addressing the data sparseness problem.</p><p>The remaining challenge is to estimate θ I accurately based on d and its citation contexts.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="4">Estimation of Impact Language Models</head><p>Intuitively, the impact of a paper is mostly reflected in the citation context. Thus the estimation of the impact language model should be primarily based on the citation context C. However, we would like our impact model to be able to help us select impact-reflecting sentences from d, thus it is important for the impact model to explain well the paper content in general. To achieve this balance, we treat the citation context C as prior information and the current document d as the observed data, and use Bayesian estimation to estimate the impact language model. Specifically, let p(w|C) be a citation context language model estimated based on the citation context C. We define Dirichlet prior with parameters {µ C p(w|C)} w∈V for the impact model, where µ C encodes our confidence on this prior and effectively serves as a weighting parameter for balancing the contribution of C and d for estimating the impact model. Given the observed document d, the posterior mean estimate of the impact model would be ( <ref type="bibr" target="#b12">MacKay and Peto, 1995;</ref><ref type="bibr" target="#b25">Zhai and Lafferty, 2001</ref>)</p><formula xml:id="formula_3">P (w|θ I ) = c(w, d) + µ c p(w|C) |d| + µ c<label>(2)</label></formula><p>µ c can be interpreted as the equivalent sample size of our prior. Thus setting µ c = |d| means that we put equal weights on the citation context and the document itself. µ c = 0 yields p(w|θ I ) = p(w|d), which is to say that the impact is entirely captured by the paper itself, and our impact summarization problem would then become the standard single document (topical) summarization. Intuitively though, we would want to set µ c to a relatively large number to exploit the citation context in our estimation, which is confirmed in our experiments. An alternative way is to simply interpolate p(w|d) and p(w|C) with a constant coefficient:</p><formula xml:id="formula_4">p(w|θ I ) = (1 − δ)p(w|d) + δp(w|C)<label>(3)</label></formula><p>We will compare the two strategies in Section 5. How do we estimate p(w|C)? Intuitively, words occurring in C frequently should have high probabilities. A simple way is to pool together all the sentences in C and use the maximum likelihood estimator,</p><formula xml:id="formula_5">p(w|C) = s∈C c(w, s) w ∈V s∈C c(w , s)<label>(4)</label></formula><p>where c(w, s) is the count of w in s.</p><p>One deficiency of this simple estimate is that we treat all the (extended) citation sentences equally. However, there are at least two reasons why we want to assign unequal weights to different citation sentences: (1) A sentence closer to the citation label should contribute more than one far away. (2) A sentence occurring in a highly authorative paper should contribute more than that in a less authorative paper. To capture these two heuristics, we define a weight coefficient α s for a sentence s in C as follows:</p><formula xml:id="formula_6">α s = pg(s)pr(s)</formula><p>where pg(s) is an authority score of the paper containing s and pr(s) is a proximity score that rewards a sentence close to the citation label.</p><p>For example, pg(s) can be the PageRank value ( <ref type="bibr" target="#b0">Brin and Page, 1998</ref>) of the document with s, which measures the authority of the document based on a citation graph, and is computed as follows: We construct a directed graph from the collection of scientific literature with each paper as a vertex and each citation as a directed edge pointing from the citing paper to the cited paper. We can then use the standard PageRank algorithm <ref type="bibr" target="#b0">(Brin and Page, 1998</ref>) to compute a PageRank value for each document.</p><p>We define pr(s) as pr(s) = 1 α k , where k is the distance between sentence s and the center sentence (i.e., the citing sentence containing the citation label) of the window containing s. Thus the sentence with the citation label will have a proximity of 1 (because k = 0), while the sentences away from the citation label will have a decaying weight controlled by parameter α.</p><p>With α s , we can then use the following "weighted" maximum likelihood estimate for the impact language model:</p><formula xml:id="formula_7">p(w|C) = s∈C α s c(w, s) w ∈V s∈C α s c(w , s)<label>(5)</label></formula><p>As we will show in Section 5, this weighted maximum likelihood estimate performs better than the simple maximum likelihood estimate, and both pg(s) and pr(s) are useful.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="5">Experiments and Results</head></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="5.1">Experiment Design</head></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="5.1.1">Test set construction</head><p>Because no existing test set is available for evaluating impact summarization, we opt to create a test set based on 28 years of ACM SI-GIR papers <ref type="bibr">(1978 -2005)</ref> available through the ACM Digital Library 2 and the SIGIR membership. Leveraging the explicit citation information provided by ACM Digital Library, for each of the 1303 papers, we recorded all other papers that cited the paper and extracted the citation context from these citing papers. Each citation context contains 5 sentences with 2 sentences before and after the citing sentence.</p><p>Since a low-impact paper would not be useful for evaluating impact summarization, we took all the 14 papers from the SIGIR collection that have no less than 20 citations by papers in the same collection as candidate papers for evaluation. An expert in Information Retrieval field read each paper and its citation context, and manually created an impact-based summary by selecting all the "impact-capturing" sentences from the paper. Specifically, the expert first attempted to understand the most influential content of a paper by reading the citation contexts. The expert then read each sentence of the paper and made a decision whether the sentence covers some "influential content" as indicated in the citation contexts. The sentences that were decided as covering some influential content were then collected as the gold standard impact summary for the paper. We assume that the title of a paper will always be included in the summary, so we excluded the title both when constructing the gold standard and when generating a summary. The gold standard summaries have a minimum length of 5 sentences and a maximum length of 18 sentences; the median length is 9 sentences. These 14 impact-based summaries are used as gold standards for our experiments, based on which all summaries generated by the system are evaluated. This data set is available at http://sifaka.cs.uiuc.edu/ qmei2/data/impact.html. We must admit that using only 14 papers for evaluation is a limitation of our work. However, going beyond the 14 papers would risk reducing the reliability of impact judgment due to the sparseness of citations. How to develop a better test collection is an important future direction.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="5.1.2">Evaluation Metrics</head><p>Following the current practice in evaluating summarization, particularly DUC 3 , we use the ROUGE evaluation package ( <ref type="bibr" target="#b10">Lin and Hovy, 2003)</ref>.</p><p>Among ROUGE metrics, ROUGE-N(models n-gram co-occurrence, N = 1, 2) and ROUGE-L(models longest common sequence) generally perform well in evaluating both singledocument summarization and multi-document summarization (Lin and Hovy, 2003) (and thus are applicable to evaluating the MEADDoc+Cite baseline method to be described below). Thus although we evaluated our methods with all the metrics provided by ROUGE, we only report ROUGE-1 and ROUGE-L in this paper (other metrics give very similar results).</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="5.1.3">Baseline methods</head><p>Since impact summarization has not been previously studied, there is no natural baseline method to compare with. We thus adapt some state-of-the-art conventional summarization methods implemented in the MEAD toolkit ( <ref type="bibr" target="#b18">Radev et al., 2003)</ref>  <ref type="bibr">4</ref> to obtain three baseline methods: (1) LEAD: It simply extracts sentences from the beginning of a paper, i.e., sentences in the abstract or beginning of the intro-  Here we concatenate all the citation contexts in a paper to form a "citation document" and then use the MEAD multidocument summarizer to generate a summary from the original paper plus all its citation documents; this baseline represents a reasonable way of applying an existing summarization method to generate an impact-based summary. Note that this method may extract sentences in the citation contexts but not in the original paper.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="5.2">Basic Results</head><p>We first show some basic results of impact summarization in <ref type="table" target="#tab_1">Table 1</ref>. They are generated using constant coefficient interpolation for the impact language model (i.e., Equation 3) with δ = 0.8, weighted maximum likelihood estimate for the citation context model (i.e., Equation 5) with α = 3, and µ s = 1, 000 for candidate sentence smoothing (Equation 1). These results are not necessarily optimal as will be seen when we examine parameter and method variations. From <ref type="table" target="#tab_1">Table 1</ref>, we see clearly that our method consistently outperforms all the baselines. Among the baselines, MEAD-Doc is consistently better than both LEAD and MEADDoc+Cite. While MEAD-Doc's outperforming LEAD is not surprising, it is somehow surprising that MEAD-Doc also outperforms MEADDoc+Cite as the latter uses both the citation context and the original document. One possible explanation may be that MEAD is not designed for impact summarization and it has been trapped by the distracting content in the citation context. Indeed, this can also explain why MEAD-Doc+Cite tends to perform worse than LEAD by ROUGE-L since if MEAD-Doc+Cite picks up sentences from the citation context rather than the original papers, it would not match as well with the gold standard as LEAD which selects sentences from the original papers. These results thus show that conventional summarization techniques are inadequate for impact summarization, and the proposed language modeling methods are more effective for generating impact-based summaries.</p><p>In <ref type="table">Table 2</ref>, we show a sample impact-based summary and the corresponding MEAD-Doc regular summary. We see that the regular summary tends to have general sentences about the problem, background and techniques, not very informative in conveying specific contributions of the paper. None of these sentences was selected by the human expert. In contrast, the sentences in the impact summary cover several details of the impact of the paper (i.e., specific smoothing methods especially Dirichlet prior, sensitivity of performance to smoothing, and dual role of smoothing), and sentences 4 and 6 are also among the 8 sentences picked by the human expert. Interestingly, both sentences are not in the abstract of the original paper, suggesting a deviation of the actual impact of a paper and that perceived by the author(s).</p><p>Impact-based summary: 1. <ref type="figure">Figure 5</ref>: Interpolation versus backoff for Jelinek-Mercer (top), Dirichlet smoothing (middle), and absolute discounting (bottom). 2. Second, one can de-couple the two different roles of smoothing by adopting a two stage smoothing strategy in which Dirichlet smoothing is first applied to implement the estimation role and Jelinek-Mercer smoothing is then applied to implement the role of query modeling 3. We find that the backoff performance is more sensitive to the smoothing parameter than that of interpolation, especially in Jelinek-Mercer and Dirichlet prior. 4. We then examined three popular interpolation-based smoothing methods (Jelinek-Mercer method, Dirichlet priors, and absolute discounting), as well as their backoff versions, and evaluated them using several large and small TREC retrieval testing collections. summary 5. By rewriting the query-likelihood retrieval model using a smoothed document language model, we derived a general retrieval formula where the smoothing of the document language model can be interpreted in terms of several heuristics used intraditional models, including TF-IDF weighting and document length normalization. 6. We find that the retrieval performance is generally sensitive to the smoothing parameters, suggesting that an understanding and appropriate setting of smoothing parameters is very important in the language modeling approach. Regular summary (generated using MEAD-Doc):</p><p>1. Language modeling approaches to information retrieval are attractive and promising because they connect the problem of retrieval with that of language model estimation, which has been studied extensively in other application areas such as speech recognition. 2. The basic idea of these approaches is to estimate a language model for each document, and then rank documents by the likelihood of the query according to the estimated language model. 3. On the one hand, theoretical studies of an underlying model have been developed; this direction is, for example, represented by the various kinds of logic models and probabilistic models (e.g., <ref type="bibr">[14,</ref><ref type="bibr">3,</ref><ref type="bibr">15,</ref><ref type="bibr">22]</ref>). 4. After applying the Bayes' formula and dropping a document-independent constant (since we are only interested in ranking documents), we have p(d|q) ∝ (q|d)p(d). 5. As discussed in <ref type="bibr">[1]</ref>, the righthand side of the above equation has an interesting interpretation, where, p(d) is our prior belief that d is relevant to any query and p(q|d) is the query likelihood given the document, which captures how well the document "fits" the particular query q. 6. The probability of an unseen word is typically taken as being proportional to the general frequency of the word, e.g., as computed using the document collection. <ref type="table">Table 2</ref>: Impact-based summary vs. regular summary for the paper "A study of smoothing methods for language models applied to ad hoc information retrieval".</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="5.3">Component analysis</head><p>We now turn to examine the effectiveness of each component in the proposed methods and different strategies for estimating θ I .</p><p>Effectiveness of interpolation: We hypothesized that we need to use both the original document and the citation context to estimate θ I . To test this hypothesis, we compare the results of using only d, only the citation context, and interpolation of them in <ref type="table" target="#tab_3">Table 3</ref>. We show two different strategies of interpolation (i.e., constant coefficient with δ = 0.8 and Dirichlet with µ c = 20, 000) as described in Section 4.</p><p>From <ref type="table" target="#tab_3">Table 3</ref>, we see that both strategies of interpolation indeed outperform using either the original document model (p(w|d)) or the citation context model (p(w|C) alone, which confirms that both the original paper and the citation context are important for estimating θ I . We also see that using the citation context alone is better than using the original paper alone, which is expected. Between the two strategies, Dirichlet dynamic coefficient is slightly better than constant coefficient (CC), after optimizing the interpolation parameter for both strategy.  Citation authority and proximity: These heuristics are very interesting to study as they are unique to impact summarization and not well studied in the existing summarization work.  In Tuning of other parameters: There are three other parameters which need to be tuned: (1) µ s for candidate sentence smoothing (Equation 1); (2) µ c in Dirichlet interpolation for impact model estimation (Equation 2); and (3) δ in constant coefficient interpolation (Equation 3). We have examined the sensitivity of performance to these parameters. In general, for a wide range of values of these parameters, the performance is relatively stable and near optimal. Specifically, the performance is near optimal as long as µ s and µ c are sufficiently large (µ s ≥ 1000, µ c ≥ 20, 000), and the interpolation parameter δ is between 0.4 and 0.9.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>Interpolation</head></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="6">Related Work</head><p>General text summarization, including single document summarization <ref type="bibr" target="#b11">(Luhn, 1958;</ref><ref type="bibr">Gold- stein et al., 1999</ref>) and multi-document summarization ( <ref type="bibr" target="#b7">Kraaij et al., 2001;</ref><ref type="bibr" target="#b18">Radev et al., 2003)</ref> has been well studied; our work is under the framework of extractive summarization <ref type="bibr" target="#b11">(Luhn, 1958;</ref><ref type="bibr" target="#b13">McKeown and Radev, 1995;</ref><ref type="bibr" target="#b5">Goldstein et al., 1999;</ref><ref type="bibr" target="#b7">Kraaij et al., 2001</ref>), but it differs from both single-document summarization and multi-document summarization, and does not fit to any existing formulation of the summarization problem. Technical paper summarization has also been studied ( <ref type="bibr" target="#b15">Paice and Jones, 1993;</ref><ref type="bibr" target="#b21">Saggion and Lapalme, 2002;</ref><ref type="bibr" target="#b24">Teufel and Moens, 2002</ref>), but the previous work did not explore citation context to emphasize the impact of papers. Citation context has been explored (e.g., citances in ( <ref type="bibr" target="#b22">Schwartz et al., 2007)</ref>, and in ( <ref type="bibr" target="#b19">Ritchie et al., 2006</ref>)), but not in the way to summarize the impact of a paper.</p><p>Recently, people have explored various types of auxiliary knowledge such as hyperlinks <ref type="bibr">(De- lort et al., 2003</ref>) and clickthrough data ( <ref type="bibr" target="#b23">Sun et al., 2005</ref>), to summarize a webpage; such work is related to ours as anchor text is similar to citation context, but it is based on a standard formulation of multi-document summarization and would contain only sentences from anchor text. Our work is also related to work on using language models for retrieval <ref type="bibr" target="#b16">(Ponte and Croft, 1998;</ref><ref type="bibr" target="#b25">Zhai and Lafferty, 2001;</ref><ref type="bibr" target="#b8">Lafferty and Zhai, 2001</ref>) and summarization ( <ref type="bibr" target="#b7">Kraaij et al., 2001</ref>). However, we do not have an explicit query and constructing the impact model is a novel exploration. We propose new language models to capture the impact.</p></div><figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_1" validated="false"><head>Table 1 :</head><label>1</label><figDesc></figDesc><table>Performance Comparison of Summarizers 
+
+duction section; we include LEAD to see if such 
+"leading sentences" reflect the impact of a paper 
+as authors presumably would expect to summa-
+rize a paper's contributions in the abstract. (2) 
+MEAD-Doc: It uses the single-document sum-
+marizer in MEAD to generate a summary based 
+solely on the original paper; comparison with 
+this baseline can tell us how much better we can 
+do than a conventional topic-based summarizer 
+that does not consider the citation context. (3) 
+MEAD-Doc+Cite: </table></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_3" validated="false"><head>Table 3 : Effectiveness of interpolation</head><label>3</label><figDesc></figDesc><table></table></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_4" validated="false"><head>Table 4 :</head><label>4</label><figDesc></figDesc><table>Authority (pg(s)) and proximity (pr(s)) 
+
+</table></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_5" validated="false"><head>Table 4 , we show the ROUGE-L values for various combinations of these two heuristics (summary length is 15). We turn off either pg(s) or pr(s) by setting it to a constant; when both are turned off, we have the unweighted MLE of p(w|C) (Equation 4). Clearly, using weighted</head><label>4</label><figDesc></figDesc><table>MLE with any of the two heuristics is better 
+than the unweighted MLE, indicating that both 
+heuristics are effective. However, combining the 
+two heuristics does not always improve over us-
+ing a single one. ROUGE-1 results are similar. 
+</table></figure>
+
+			<note place="foot" n="2"> http://www.acm.org/dl</note>
+
+			<note place="foot" n="3"> http://duc.nist.gov/ 4 &quot;http://www.summarization.com/mead/&quot;</note>
+		</body>
+		<back>
+
+			<div type="acknowledgement">
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="7">Conclusions</head><p>In this paper, we have defined and studied the novel problem of summarizing the impact of a research paper. Our goal is to generate an impact-based summary for a paper to capture the most influential content of the paper. We cast the problem as an impact sentence retrieval problem, and proposed new language models to model the impact of a paper based on both the original content of the paper and its citation contexts in a literature collection with consideration of citation autority and proximity.</p><p>Since the impact summarization problem has not previously studied, we created a test data set based on ACM SIGIR papers that can be reused to evaluate impact summarization. Our experiment results on this test set show that the proposed impact summarization methods are effective and outperform several baselines that represent the existing summarization methods.</p><p>Automatically generating impact-based summaries can not only help users access and digest influential research publications, but also facilitate other literature mining tasks such as milestone mining and research trend monitoring. A major line of future work would be to explore such applications. Another important future direction is to construct larger test sets for evaluation to facilitate further study of techniques for impact summarization.</p></div>
+			</div>
+
+			<div type="references">
+
+				<listBibl>
+
+<biblStruct xml:id="b0">
+	<analytic>
+		<title level="a" type="main">The anatomy of a large-scale hypertextual web search engine</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Brin</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">L</forename><surname>Page</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the seventh international conference on World Wide Web</title>
+		<meeting>the seventh international conference on World Wide Web</meeting>
+		<imprint>
+			<date type="published" when="1998" />
+			<biblScope unit="page" from="107" to="117" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b1">
+	<monogr>
+		<title level="m" type="main">Language Modeling and Information Retrieval</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">W</forename><forename type="middle">B</forename><surname>Croft</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Lafferty</surname></persName>
+		</author>
+		<imprint>
+			<date type="published" when="2003" />
+			<publisher>Kluwer Academic Publishers</publisher>
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b2">
+	<analytic>
+		<title level="a" type="main">Enhanced web document summarization using hyperlinks</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J.-Y</forename><surname>Delort</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">B</forename><surname>Bouchon-Meunier</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Rifqi</forename></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the fourteenth ACM conference on Hypertext and hypermedia</title>
+		<meeting>the fourteenth ACM conference on Hypertext and hypermedia</meeting>
+		<imprint>
+			<date type="published" when="2003" />
+			<biblScope unit="page" from="208" to="215" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b3">
+	<analytic>
+		<title level="a" type="main">New methods in automatic extracting</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">H</forename><forename type="middle">P</forename><surname>Edmundson</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">J. ACM</title>
+		<imprint>
+			<biblScope unit="volume">16</biblScope>
+			<biblScope unit="page" from="264" to="285" />
+			<date type="published" when="1969" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b4">
+	<analytic>
+		<title level="a" type="main">Citeseer: an automatic citation indexing system</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><forename type="middle">L</forename><surname>Giles</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">K</forename><forename type="middle">D</forename><surname>Bollacker</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Lawrence</forename></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the third ACM conference on Digital libraries</title>
+		<meeting>the third ACM conference on Digital libraries</meeting>
+		<imprint>
+			<date type="published" when="1998" />
+			<biblScope unit="page" from="89" to="98" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b5">
+	<analytic>
+		<title level="a" type="main">Summarizing text documents: sentence selection and evaluation metrics</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Goldstein</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Kantrowitz</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">V</forename><surname>Mittal</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Carbonell</forename></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of SIGIR 99</title>
+		<meeting>SIGIR 99</meeting>
+		<imprint>
+			<date type="published" when="1999" />
+			<biblScope unit="page" from="121" to="128" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b6">
+	<analytic>
+		<title level="a" type="main">Determining the publication impact of a digital library</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">N</forename><forename type="middle">R</forename><surname>Kaplan</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><forename type="middle">L</forename><surname>Nelson</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">J. Am. Soc. Inf. Sci</title>
+		<imprint>
+			<biblScope unit="volume">51</biblScope>
+			<biblScope unit="page" from="324" to="339" />
+			<date type="published" when="2000" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b7">
+	<analytic>
+		<title level="a" type="main">Combining a mixture language model and naive bayes for multi-document summarisation</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">W</forename><surname>Kraaij</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Spitters</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Van Der Heijden</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the DUC2001 workshop</title>
+		<meeting>the DUC2001 workshop<address><addrLine>New Orleans</addrLine></address></meeting>
+		<imprint>
+			<date type="published" when="2001" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b8">
+	<analytic>
+		<title level="a" type="main">Document language models, query models, and risk minimization for information retrieval</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Lafferty</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Zhai</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of SIGIR&apos;01</title>
+		<meeting>SIGIR&apos;01</meeting>
+		<imprint>
+			<date type="published" when="2001" />
+			<biblScope unit="page" from="111" to="119" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b9">
+	<analytic>
+		<title level="a" type="main">Generating hierarchical summaries for web searches</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><forename type="middle">J</forename><surname>Lawrie</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">W</forename><forename type="middle">B</forename><surname>Croft</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of SIGIR 2003</title>
+		<meeting>SIGIR 2003</meeting>
+		<imprint>
+			<date type="published" when="2003" />
+			<biblScope unit="page" from="457" to="458" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b10">
+	<analytic>
+		<title level="a" type="main">Automatic evaluation of summaries using n-gram co-occurrence statistics</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C.-Y</forename><surname>Lin</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">E</forename><surname>Hovy</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the 2003 Conference of the North American Chapter of the Association for Computational Linguistics on Human Language Technology</title>
+		<meeting>the 2003 Conference of the North American Chapter of the Association for Computational Linguistics on Human Language Technology</meeting>
+		<imprint>
+			<date type="published" when="2003" />
+			<biblScope unit="page" from="71" to="78" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b11">
+	<analytic>
+		<title level="a" type="main">The automatic creation of literature abstracts</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">H</forename><forename type="middle">P</forename><surname>Luhn</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">IBM Journal of Research and Development</title>
+		<imprint>
+			<biblScope unit="volume">2</biblScope>
+			<biblScope unit="page" from="159" to="165" />
+			<date type="published" when="1958" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b12">
+	<analytic>
+		<title level="a" type="main">A hierarchical Dirichlet language model</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Mackay</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">L</forename><surname>Peto</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Natural Language Engineering</title>
+		<imprint>
+			<biblScope unit="volume">1</biblScope>
+			<biblScope unit="page" from="289" to="307" />
+			<date type="published" when="1995" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b13">
+	<analytic>
+		<title level="a" type="main">Generating summaries of multiple news articles</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">K</forename><surname>Mckeown</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><forename type="middle">R</forename><surname>Radev</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of SIGIR 1995</title>
+		<meeting>SIGIR 1995</meeting>
+		<imprint>
+			<date type="published" when="1995" />
+			<biblScope unit="page" from="74" to="82" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b14">
+	<analytic>
+		<title level="a" type="main">The automatic generation of literature abstracts: an approach based on the identification of self-indicating phrases</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><forename type="middle">D</forename><surname>Paice</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of SIGIR 1981</title>
+		<meeting>SIGIR 1981</meeting>
+		<imprint>
+			<date type="published" when="1981" />
+			<biblScope unit="page" from="172" to="191" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b15">
+	<analytic>
+		<title level="a" type="main">The identification of important concepts in highly structured technical papers</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><forename type="middle">D</forename><surname>Paice</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><forename type="middle">A</forename><surname>Jones</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of SIGIR 1993</title>
+		<meeting>SIGIR 1993</meeting>
+		<imprint>
+			<date type="published" when="1993" />
+			<biblScope unit="page" from="69" to="78" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b16">
+	<analytic>
+		<title level="a" type="main">A language modeling approach to information retrieval</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><forename type="middle">M</forename><surname>Ponte</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">W</forename><forename type="middle">B</forename><surname>Croft</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the 21st annual international ACM SIGIR conference on Research and development in information retrieval</title>
+		<meeting>the 21st annual international ACM SIGIR conference on Research and development in information retrieval</meeting>
+		<imprint>
+			<date type="published" when="1998" />
+			<biblScope unit="page" from="275" to="281" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b17">
+	<analytic>
+		<title level="a" type="main">Introduction to the special issue on summarization</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><forename type="middle">R</forename><surname>Radev</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">E</forename><surname>Hovy</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">K</forename><surname>Mckeown</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Comput. Linguist</title>
+		<imprint>
+			<biblScope unit="volume">28</biblScope>
+			<biblScope unit="page" from="399" to="408" />
+			<date type="published" when="2002" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b18">
+	<analytic>
+		<title level="a" type="main">Evaluation challenges in large-scale document summarization: the mead project</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><forename type="middle">R</forename><surname>Radev</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Teufel</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">H</forename><surname>Saggion</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">W</forename><surname>Lam</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Blitzer</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">H</forename><surname>Qi</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Celebi</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Liu</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">E</forename><surname>Drabek</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the 41st Annual Meeting on Association for Computational Linguistics</title>
+		<meeting>the 41st Annual Meeting on Association for Computational Linguistics</meeting>
+		<imprint>
+			<date type="published" when="2003" />
+			<biblScope unit="page" from="375" to="382" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b19">
+	<analytic>
+		<title level="a" type="main">Creating a Test Collection for Citationbased IR Experiments</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Ritchie</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Teufel</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Robertson</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the HLT-NAACL 2006</title>
+		<meeting>the HLT-NAACL 2006</meeting>
+		<imprint>
+			<date type="published" when="2006" />
+			<biblScope unit="page" from="391" to="398" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b20">
+	<analytic>
+		<title level="a" type="main">The probability ranking principle in ir</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><forename type="middle">E</forename><surname>Robertson</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Journal of Documentation</title>
+		<imprint>
+			<biblScope unit="volume">33</biblScope>
+			<biblScope unit="page" from="294" to="304" />
+			<date type="published" when="1977" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b21">
+	<analytic>
+		<title level="a" type="main">Generating indicative-informative summaries with sumum</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">H</forename><surname>Saggion</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">G</forename><surname>Lapalme</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Comput. Linguist</title>
+		<imprint>
+			<biblScope unit="volume">28</biblScope>
+			<biblScope unit="page" from="497" to="526" />
+			<date type="published" when="2002" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b22">
+	<analytic>
+		<title level="a" type="main">Multiple Alignment of Citation Sentences with Conditional Random Fields and Posterior Decoding</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><forename type="middle">S</forename><surname>Schwartz</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Divoli</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><forename type="middle">A</forename><surname>Hearst</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the 2007 EMNLP-CoNLL</title>
+		<meeting>the 2007 EMNLP-CoNLL</meeting>
+		<imprint>
+			<date type="published" when="2007" />
+			<biblScope unit="page" from="847" to="857" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b23">
+	<analytic>
+		<title level="a" type="main">Web-page summarization using clickthrough data</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J.-T</forename><surname>Sun</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Shen</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">H.-J</forename><surname>Zeng</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Q</forename><surname>Yang</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Y</forename><surname>Lu</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Chen</forename></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Z</forename></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the 28th annual international ACM SIGIR conference on Research and development in information retrieval</title>
+		<meeting>the 28th annual international ACM SIGIR conference on Research and development in information retrieval</meeting>
+		<imprint>
+			<date type="published" when="2005" />
+			<biblScope unit="page" from="194" to="201" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b24">
+	<analytic>
+		<title level="a" type="main">Summarizing scientific articles: experiments with relevance and rhetorical status</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Teufel</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Moens</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Comput. Linguist</title>
+		<imprint>
+			<biblScope unit="volume">28</biblScope>
+			<biblScope unit="page" from="409" to="445" />
+			<date type="published" when="2002" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b25">
+	<analytic>
+		<title level="a" type="main">A study of smoothing methods for language models applied to ad hoc information retrieval</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Zhai</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Lafferty</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the 24th annual international ACM SIGIR conference on Research and development in information retrieval</title>
+		<meeting>the 24th annual international ACM SIGIR conference on Research and development in information retrieval</meeting>
+		<imprint>
+			<date type="published" when="2001" />
+			<biblScope unit="page" from="334" to="342" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+				</listBibl>
+			</div>
+		</back>
+	</text>
+</TEI>

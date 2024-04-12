@@ -1,0 +1,334 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>Austere Flash Caching with Deduplication and Compression</p>
+    <p>Qiuping Wang*, Jinhong Li*, Wen Xia# Erik Kruus^, Biplob Debnath^, Patrick P. C. Lee*</p>
+    <p>*The Chinese University of Hong Kong (CUHK) #Harbin Institute of Technology, Shenzhen</p>
+    <p>^NEC Labs</p>
+  </div>
+  <div class="page">
+    <p>Flash Caching</p>
+    <p>Flash-based solid-state drives (SSDs)   Faster than hard disk drives (HDD)   Better reliability   Limited capacity and endurance</p>
+    <p>Flash caching  Accelerate HDD storage by caching frequently accessed blocks in flash</p>
+  </div>
+  <div class="page">
+    <p>Deduplication and Compression</p>
+    <p>Reduce storage and I/O overheads</p>
+    <p>Deduplication (coarse-grained)  In units of chunks (fixed- or variable-size)  Compute fingerprint (e.g., SHA-1) from chunk content  Reference identical (same FP) logical chunks to a physical copy</p>
+    <p>Compression (fine-grained)  In units of bytes  Transform chunks into fewer bytes</p>
+  </div>
+  <div class="page">
+    <p>Deduplicated and Compressed Flash Cache</p>
+    <p>LBA: chunk address in HDD; FP: chunk fingerprint</p>
+    <p>CA: chunk address in flash cache (after deduped + compressed)</p>
+    <p>SSD</p>
+    <p>Chunking</p>
+    <p>I/O</p>
+    <p>Deduplication and compression</p>
+    <p>LBA  FP</p>
+    <p>FP  CA, length</p>
+    <p>FP-index</p>
+    <p>LBA-index</p>
+    <p>RAM</p>
+    <p>HDD</p>
+    <p>Dirty list</p>
+    <p>Variable-size compressed chunks</p>
+    <p>(after deduplication)</p>
+    <p>Fixed-size chunks</p>
+    <p>LBA, CA LBA, CA</p>
+    <p>Read/write</p>
+  </div>
+  <div class="page">
+    <p>Memory Amplification for Indexing</p>
+    <p>Example: 512-GiB flash cache with 4-TiB HDD working set</p>
+    <p>Conventional flash cache  Memory overhead: 256 MiB</p>
+    <p>Deduplicated and compressed flash cache  LBA-index: 3.5 GiB  FP-index: 512 MiB  Memory amplification: 16x</p>
+    <p>Can be higher</p>
+    <p>LBA (8B)  CA (8B)</p>
+    <p>LBA (8B)  FP (20B)</p>
+    <p>FP (20B)  CA (8B) + Length (4B)</p>
+  </div>
+  <div class="page">
+    <p>Related Work</p>
+    <p>Nitro [Li et al., ATC14]  First work to study deduplication and compression in flash caching  Manage compressed data in Write-Evict Units (WEUs)</p>
+    <p>CacheDedup [Li et al, FAST16]  Propose dedup-aware algorithms for flash caching to improve hit ratios</p>
+    <p>They both suffer from memory amplification!</p>
+  </div>
+  <div class="page">
+    <p>Our Contribution</p>
+    <p>AustereCache: a deduplicated and compressed flash cache with austere memory-efficient management  Bucketization</p>
+    <p>No overhead for address mappings  Hash chunks to storage locations</p>
+    <p>Fixed-size compressed data management  No tracking for compressed lengths of chunks in memory</p>
+    <p>Bucket-based cache replacement  Cache replacement per bucket  Count-Min Sketch [Cormode 2005] for low-memory reference counting</p>
+    <p>Extensive trace-driven evaluation and prototype experiments</p>
+  </div>
+  <div class="page">
+    <p>Bucketization</p>
+    <p>Main idea  Use hashing to partition index and cache space</p>
+    <p>(RAM) LBA-index and FP-index  (SSD) metadata region and data region</p>
+    <p>Store partial keys (prefixes) in memory  Memory savings</p>
+    <p>Layout  Hash entries into equal-sized buckets  Each bucket has fixed-number of slots</p>
+    <p>Bucket</p>
+    <p>mapping / data</p>
+    <p>slot</p>
+  </div>
+  <div class="page">
+    <p>(RAM) LBA-index and FP-index</p>
+    <p>(RAM) LBA-index and FP-index</p>
+    <p>Locate buckets with hash suffixes  Match slots with hash prefixes  Each slot in FP-index corresponds to a storage location in flash</p>
+    <p>Bucket LBA-index</p>
+    <p>LBA-hash prefix FP hash Flag</p>
+    <p>FP-index</p>
+    <p>FP-hash prefix Flag</p>
+    <p>slot</p>
+    <p>Bucket</p>
+    <p>slot</p>
+  </div>
+  <div class="page">
+    <p>(SSD) Metadata and Data Regions</p>
+    <p>(SSD) Metadata region and data region</p>
+    <p>Each slot has full FP and list of full LBAs in metadata region  For validation against prefix collisions</p>
+    <p>Cached chunks in data region</p>
+    <p>Metadata region</p>
+    <p>Data regionFP List of LBAs Chunk</p>
+    <p>Bucket</p>
+    <p>slot</p>
+    <p>Bucket</p>
+    <p>slot</p>
+  </div>
+  <div class="page">
+    <p>Fixed-size Compressed Data Management</p>
+    <p>Main idea  Slice and pad a compressed chunk into fixed-size subchunks</p>
+    <p>Advantages  Compatible with bucketization</p>
+    <p>Store each subchunk in one slot  Allow per-chunk management for cache replacement</p>
+  </div>
+  <div class="page">
+    <p>Fixed-size Compressed Data Management</p>
+    <p>Layout  One chunk occupies multiple consecutive slots  No additional memory for compressed length</p>
+    <p>FP-index</p>
+    <p>SSD RAM</p>
+    <p>FP List of LBAs Length</p>
+    <p>FP-hash prefix Flag</p>
+    <p>Chunk</p>
+    <p>Bucket</p>
+    <p>Metadata Region Data Region Subchunk</p>
+  </div>
+  <div class="page">
+    <p>Bucket-based Cache Replacement</p>
+    <p>Main idea  Cache replacement in each bucket independently</p>
+    <p>Eliminate priority-based structures for cache decisions</p>
+    <p>Slot</p>
+    <p>LBA-index</p>
+    <p>Slot</p>
+    <p>Reference Counter</p>
+    <p>Old</p>
+    <p>FP-index</p>
+    <p>Recent</p>
+    <p>Combine recency and deduplication  LBA-index: least-recently-used policy  FP-index: least-referenced policy  Weighted reference counting based on</p>
+    <p>recency in LBAs</p>
+  </div>
+  <div class="page">
+    <p>Sketch-based Reference Counting</p>
+    <p>High memory overhead for complete reference counting  One counter for every FP-hash</p>
+    <p>Count-Min Sketch [Cormode 2005]  Fixed memory usage with provable error bounds</p>
+    <p>+1</p>
+    <p>+1</p>
+    <p>+1</p>
+    <p>FP-hash count = minimum counter indexed by (i, Hi(FP-hash))</p>
+    <p>w</p>
+    <p>h</p>
+  </div>
+  <div class="page">
+    <p>Evaluation</p>
+    <p>Implement AustereCache as a user-space block device  ~4.5K lines of C++ code in Linux</p>
+    <p>Traces  FIU traces: WebVM, Homes, Mail  Synthetic traces: varying I/O dedup ratio and write-read ratio</p>
+    <p>I/O dedup ratio: fraction of duplicate written chunks in all written chunks</p>
+    <p>Schemes  AustereCache: AC-D, AC-DC  CacheDedup: CD-LRU-D, CD-ARC-D, CD-ARC-DC</p>
+  </div>
+  <div class="page">
+    <p>Memory Overhead</p>
+    <p>AC-D incurs 69.9-94.9% and 70.4-94.7% less memory across all traces than CD-LRU-D and CD-ARC-D, respectively.</p>
+    <p>AC-DC incurs 87.0-97.0% less memory than CD-ARC-DC.</p>
+    <p>AC-D AC-DC CD-LRU-D CD-ARC-D CD-ARC-DC</p>
+    <p>M em</p>
+    <p>or y</p>
+    <p>(M iB</p>
+    <p>)</p>
+    <p>M em</p>
+    <p>or y</p>
+    <p>(M iB</p>
+    <p>)</p>
+    <p>M em</p>
+    <p>or y</p>
+    <p>(M iB</p>
+    <p>)</p>
+    <p>(a) WebVM (b) Homes (c) Mail Figure 5: Exp#1 (Overall memory usage). Note that the y-axes are in log scale.</p>
+    <p>new SHA-1 fingerprint for the 32 KiB chunk. Table 2 shows the basic statistics of each regenerated FIU trace on 32 KiB chunks.</p>
+    <p>The original FIU traces have no compression details. Thus, for each chunk fingerprint, we set its compressibility ratio (i.e., the ratio of raw bytes to the compressed bytes) following a normal distribution with mean 2 and variance 0.25 as in [24]. Synthetic. For throughput measurement (5.5), we build a synthetic trace generator to account for different access patterns. Each synthetic trace is configured by two parameters: (i) I/O deduplication ratio, which specifies the fraction of writes that can be removed on the write path due to deduplication; and (ii) write-to-read ratio, which specifies the ratios of writes to reads.</p>
+    <p>We generate a synthetic trace as follows. First, we randomly generate a working set by choosing arbitrary LBAs within the primary storage. Then we generate an access pattern based on the given write-to-read ratio, such that the write and read requests each follow a Zipf distribution. We derive the chunk content of each write request based on the given I/O deduplication ratio as well as the compressibility ratio as in the FIU trace generation (see above). Currently, our evaluation fixes the working set size as 128 MiB, the primary storage size as 5 GiB, and the Zipf constant as 1.0; such parameters are all configurable.</p>
+    <p>Exp#1 (Overall memory usage). We compare the memory usage of different schemes. We vary the flash cache size from 12.5% to 100% of WSS of each FIU trace, and configure the LBA-index and the FP-index based on our default setup (5.2). To obtain the actual memory usage (rather than the allocated memory space for the index structures), we call malloc trim at the end of each trace replay to return all unallocated memory from the process heap to the operating system, and check the residual set size (RSS) from /proc/self/stat as the memory usage.</p>
+    <p>Figure 5 shows that AustereCache significantly saves the memory usage compared to CacheDedup. For the noncompression schemes (i.e., AC-D, CD-LRU-D, and CD-ARCD), AC-D incurs 69.9-94.9% and 70.4-94.7% less memory across all traces than CD-LRU-D and CD-ARC-D, respectively. For the compression schemes (i.e., AC-DC and CDARC-DC), AC-DC incurs 87.0-97.0% less memory than CDARC-DC.</p>
+    <p>AustereCache achieves higher memory savings than CacheDedup in compression mode, since CD-ARC-DC needs to additionally maintain the lengths of all compressed chunks, while AC-DC eliminates such information. If we compare the memory overhead with and without compression, CD-ARCDC incurs 78-194% more memory usage than CD-ARC-D across all traces, implying that compression comes with high memory usage penalty in CacheDedup. On the other hand, AC-DC only incurs 2-58% more memory than AC-D.</p>
+    <p>Exp#2 (Impact of design techniques on memory savings). We study how different design techniques of AustereCache help memory savings. We mainly focus on bucketization (3.1) and bucket-based cache replacement (3.3); for fixedsize compressed data management (3.2), we refer readers to Exp#1 for our analysis.</p>
+    <p>We choose CD-LRU-D of CacheDedup as our baseline and compare it with AC-D (both are non-compressed versions), and add individual techniques to see how they contribute to the memory savings of AC-D. We consider four variants:</p>
+  </div>
+  <div class="page">
+    <p>Read Hit Ratios</p>
+    <p>AC-D has up to 39.2% higher read hit ratio than CD-LRU-D, and similar read hit ratio as CD-ARC-D</p>
+    <p>AC-DC has up to 30.7% higher read hit ratio than CD-ARC-DC</p>
+    <p>AC-D AC-DC CD-LRU-D CD-ARC-D CD-ARC-DC</p>
+    <p>R ea</p>
+    <p>d H</p>
+    <p>it (%</p>
+    <p>)</p>
+    <p>R ea</p>
+    <p>d H</p>
+    <p>it (%</p>
+    <p>)</p>
+    <p>R ea</p>
+    <p>d H</p>
+    <p>it (%</p>
+    <p>)</p>
+    <p>(a) WebVM (b) Homes (c) Mail Figure 5: Exp#3 (Read hit ratio).</p>
+    <p>Figure 5 shows the results. AustereCache generally achieves higher read hit ratios than different CacheDedup algorithms. For the non-compression schemes, AC-D increases the read hit ratio of CD-LRU-D by up to 39.2%. The reason is that CD-LRU-D is only aware of the request recency and fails to clean stale chunks in time (2.4), while AustereCache favors to evict chunks with small reference counts. On the other hand, AC-D achieves similar read hit ratios to CD-ARC-D, and in particular has a higher read hit ratio (up to 13.4%) when the cache size is small in WebVM (12.5% WSS) by keeping highly referenced chunks in cache. For the compression schemes, AC-DC has higher read hit ratios than CD-ARC-DC, by 0.5-30.7% in WebVM, 0.7-9.9% in Homes, and 0.3-6.2% in Mail. Note that CD-ARC-DC shows a lower read hit ratio than CD-ARC-D although it intuitively stores more chunks with compression, mainly because it cannot quickly evict stale chunks due to the WEU-based organization (2.4). Exp#4 (Write reduction ratio). We further evaluate different schemes in terms of the write reduction ratio, defined as the fraction of reduction of bytes written to the cache due to both deduplication and compression. A high write reduction ratio implies less written data to the flash cache and hence improved performance and endurance.</p>
+    <p>Figure ?? shows the results. For the non-compression schemes, AC-D, CD-LRU-D, and CD-ARC-D show marginal differences in WebVM and Homes, while in Mail, AC-D has lower write reduction ratios than CD-LRU-D by up to 17.5%. We find that CD-LRU-D tends to keep more stale chunks in cache, thereby saving the writes that hit the stale chunks. For example, when the cache size is 12.5% of WSS in Mail, 17.1% of the write reduction in CD-LRU-D comes from the writes to the stale chunks, while in WebVM and Homes, the corresponding numbers are only 3.6% and 1.1%, respectively. AC-D achieves lower write reduction ratios than CD-LRUD, but achieves much higher read hit ratios by up to 39.2% by favoring to evict the chunks with small reference counts (Exp#3).</p>
+    <p>For the compression schemes, both CD-ARC-DC and ACDC have much higher write reduction ratios than the noncompression schemes due to compression. However, AC-DC shows a slightly lower write reduction ratio than CD-ARC</p>
+    <p>DC by 7.7-14.5%. The reason is that AC-DC pads the last subchunk of each variable-size compressed chunk, thereby incurring extra writes. As we show later in Exp#5 (5.4), a smaller subchunk size can reduce the padding overhead, although the memory usage also increases.</p>
+    <p>AC-DC maintains the significant memory savings compared to CD-ARC-DC, by 92.8-95.3% for varying chunk sizes (Figure 6(a)) and 93.1-95.1% for varying subchunk sizes (Figure 6(b)). It also maintains higher read hit ratios than CD-ARC-DC, by 5.0-12.3% for varying chunk sizes (Figure 6(c)) and 7.9-10.4% for varying subchunk sizes (Figure 6(d)). AC-DC incurs a (slightly) less write reduction ratio than CD-ARC-DC due to padding, by 10.0-14.8% for varying chunk sizes (Figure 6(e)); the results are consistent with those in Exp#4. Nevertheless, using a smaller subchunk size can mitigate the padding overhead. As shown in Figure 6(f), the write reduction ratio of AC-DC approaches that of CD-ARCDC when the subchunk size decreases. When the subchunk size is 4 KiB, AC-DC only has a 6.2% less write reduction ratio than CD-ARC-DC. Note that if we change the subchunk size from 8 KiB to 4 KiB, the memory usage increases from 14.5 MiB to 17.3 MiB (by 18.8%), since the number of buckets is doubled in the FP-index (while the LBA-index remains the same). Exp#6 (Impact of LBA-index sizes). We study the impact of LBA-index sizes. We vary the LBA-index size from 1 to 8 of the FP-index size (recall that the default is 4), and fix the cache size as 12.5% of WSS.</p>
+    <p>Figure 7 depicts the memory usage and read hit ratios; we</p>
+  </div>
+  <div class="page">
+    <p>Write Reduction Ratios</p>
+    <p>AC-D is comparable as CD-LRU-D and CD-ARC-D</p>
+    <p>AC-DC is slightly lower (by 7.7-14.5%) than CD-ARC-DC  Due to padding in compressed data management</p>
+    <p>(a) WebVM (b) Homes (c) Mail Figure 7: Exp#3 (Read hit ratio).</p>
+    <p>AC-D AC-DC CD-LRU-D CD-ARC-D CD-ARC-DC</p>
+    <p>W ri</p>
+    <p>te R</p>
+    <p>d. (%</p>
+    <p>)</p>
+    <p>W ri</p>
+    <p>te R</p>
+    <p>d. (%</p>
+    <p>)</p>
+    <p>W ri</p>
+    <p>te R</p>
+    <p>d. (%</p>
+    <p>)</p>
+    <p>(a) WebVM (b) Homes (c) Mail Figure 8: Exp#4 (Write reduction ratio).</p>
+    <p>AC-DC maintains the significant memory savings compared to CD-ARC-DC, by 92.8-95.3% for varying chunk sizes (Figure 9(a)) and 93.1-95.1% for varying subchunk sizes (Figure 9(b)). It also maintains higher read hit ratios than CD-ARC-DC, by 5.0-12.3% for varying chunk sizes (Figure 9(c)) and 7.9-10.4% for varying subchunk sizes (Figure 9(d)). AC-DC incurs a (slightly) less write reduction ratio than CD-ARC-DC due to the paddings by 10.0-14.8% for varying chunk sizes (Figure 9(e)); the results are consistent with those in Exp#4. Nevertheless, using a smaller subchunk size can mitigate the padding overhead. As shown in Figure 9(f), the write reduction ratio of AC-DC approaches that of CD-ARC-DC when the subchunk size decreases. When the subchunk size is 4 KiB, AC-DC only has a 6.2% less write reduction ratio than CD-ARC-DC. Note that if we change the subchunk size from 8 KiB to 4 KiB, the memory usage increases from 14.5 MiB to 17.3 MiB (by 18.8%), since the number of buckets is doubled in the FP-index (while the LBA-index remains the same).</p>
+    <p>Exp#6 (Impact of LBA-index sizes). We study the impact of LBA-index sizes. We vary the LBA-index size from 1 to 8 of the FP-index size (recall that the default is 4), and fix the cache size as 12.5% of WSS.</p>
+    <p>Figure 10 depicts the memory usage and read hit ratios; we omit the write reduction ratio as there is nearly no change for varying LBA-index sizes. When the LBA-index size increases, the memory usage increases by 17.6%, 111.5%, and 160.9% in WebVM, Homes and Mail, respectively (Figure 10(a)), as we allocate more buckets in the LBA-index. Note that the increase in memory usage in WebVM is less</p>
+    <p>(a) Memory usage vs. chunk size</p>
+    <p>(b) Memory usage vs. subchunk size</p>
+    <p>(c) Read hit ratio vs. chunk size</p>
+    <p>(d) Read hit ratio vs. subchunk size</p>
+    <p>(e) Write reduction ratio vs. chunk size</p>
+    <p>(f) Write reduction ratio vs. subchunk size</p>
+    <p>Figure 9: Exp#5 (Impact of chunk sizes and subchunk sizes). We focus on the Homes trace and fix the cache size as 25% of WSS in Homes.</p>
+    <p>than those in Homes and Mail, mainly because the WSS of WebVM is small and incurs a small actual increase of the total memory usage. Also, the read hit ratio increases with</p>
+  </div>
+  <div class="page">
+    <p>Throughput</p>
+    <p>AC-DC has highest throughput  Due to high write reduction ratio and high read hit ratio</p>
+    <p>AC-D has slightly lower throughput than CD-ARC-D  AC-D needs to access the metadata region during indexing</p>
+    <p>(a) Memory usage (b) Read hit ratio</p>
+    <p>Figure 10: Exp#6 (Impact of LBA-index sizes).</p>
+    <p>AC-D AC-DC CD-LRU-D CD-ARC-D CD-ARC-DC</p>
+    <p>(a) Throughput vs. I/O dedup ratio (write-to-read ratio 7:3)</p>
+    <p>(b) Throughput vs. write-to-read ratio (I/O dedup ratio 50%)</p>
+    <p>Figure 11: Exp#7 (Throughput).</p>
+    <p>the LBA-index size, until the LBA-index reaches 4 of the FP-index size (Figure 10(b)). In particular, for WebVM, the read hit ratio grows from 36.7% (1) to 70.4% (8), while for Homes and Mail, the read hit ratios increase by only 4.3% and 5.3%, respectively. The reason is that when the LBAindex size increases, WebVM shows a higher increase in the total reference counts of the cached chunks than Homes and Mail, implying that more reads can be served by the cached chunks (i.e., higher read hit ratios).</p>
+    <p>Figures 11(a) and 11(b) show the results for varying I/O deduplication ratios (with a fixed write-to-read ratio 7:3, which represents a write-intensive workload as in FIU traces) and varying write-to-read ratios (with a fixed I/O deduplication ratio 50%), respectively. For the non-compression schemes, AC-D achieves 18.5-86.6% higher throughput than CD-LRU-D for all cases except when the write-to-read ratio is 1:9 (slightly slower by 2.3%). Compared to CD-ARC-D,</p>
+    <p>Figure 12: Exp#8 (CPU overhead).</p>
+    <p>Figure 13: Exp#9 (Throughput of multi-threading).</p>
+    <p>AC-D is slower by 1.1-24.5%, since both AC-D and CDARC-D have similar read hit ratios and write reduction ratios (5.3), while AC-D issues additional reads and writes to the metadata region (CD-ARC-D keeps all indexing information in memory). AC-D achieves similar throughput to CD-ARCD when there are more duplicate chunks (i.e., under high I/O deduplication ratios). For compression schemes, AC-DC achieves 6.8-99.6% higher throughput than CD-ARC-DC.</p>
+    <p>Overall, AC-DC achieves the highest throughput among all schemes for two reasons. First, AustereCache generally achieves higher or similar read hit ratios compared to CacheDedup algorithms (5.3). Second, AustereCache incorporates deduplication awareness into cache replacement by caching chunks with high reference counts, thereby absorbing more writes in the SSD and reducing writes to the slow HDD. Exp#8 (CPU overhead). We study the CPU overhead of deduplication and compression of AustereCache along the I/O path. We measure the latencies of four computation steps, including fingerprint computation, compression, index lookup, and index update. Specifically, we run the WebVM trace with a cache size of 12.5% of WSS, and collect the statistics of 100 non-duplicate write requests. We also compare their latencies with those of 32 KiB chunk write requests to the SSD and the HDD using the fio benchmark tool [2].</p>
+    <p>Figure 12 depicts the results. Fingerprint computation has the highest latency (15.5  s) among all four steps. In total, AustereCache adds around 31.2  s of CPU overhead. On the other hand, the latencies of 32 KiB writes to the SSD and the HDD are 85  s and 5,997  s, respectively. Note that the CPU overhead can be suppressed via multi-threaded processing, as shown in Exp#9. Exp#9 (Throughput of multi-threading). We evaluate the throughput gain of AustereCache when it enables multithreading and issues concurrent requests to multiple buckets (4). We use synthetic traces with a write-to-read ratio of 7:3, and consider the I/O deduplication ratio of 50% and 80%.</p>
+    <p>Figure 13 shows the throughput versus the number of threads being configured in AustereCache. When the number of threads increases, AustereCache shows a higher throughput gain under 80% I/O deduplication ratio (from 93.8 MiB/s to 235.5 MiB/s, or 2.51) than under 50% I/O deduplication ratio (from 60.0 MiB/s to 124.9 MiB/s, or 2.08). A higher I/O deduplication ratio implies less I/O to flash, and AustereCache benefits more from multi-threading on parallelizing</p>
+    <p>(a) Memory usage (b) Read hit ratio</p>
+    <p>Figure 10: Exp#6 (Impact of LBA-index sizes).</p>
+    <p>T hp</p>
+    <p>t ( M</p>
+    <p>iB /s</p>
+    <p>)</p>
+    <p>(a) Throughput vs. I/O dedup ratio (write-to-read ratio 7:3)</p>
+    <p>(b) Throughput vs. write-to-read ratio (I/O dedup ratio 50%)</p>
+    <p>Figure 11: Exp#7 (Throughput).</p>
+    <p>the LBA-index size, until the LBA-index reaches 4 of the FP-index size (Figure 10(b)). In particular, for WebVM, the read hit ratio grows from 36.7% (1) to 70.4% (8), while for Homes and Mail, the read hit ratios increase by only 4.3% and 5.3%, respectively. The reason is that when the LBAindex size increases, WebVM shows a higher increase in the total reference counts of the cached chunks than Homes and Mail, implying that more reads can be served by the cached chunks (i.e., higher read hit ratios).</p>
+    <p>Figures 11(a) and 11(b) show the results for varying I/O deduplication ratios (with a fixed write-to-read ratio 7:3, which represents a write-intensive workload as in FIU traces) and varying write-to-read ratios (with a fixed I/O deduplication ratio 50%), respectively. For the non-compression schemes, AC-D achieves 18.5-86.6% higher throughput than CD-LRU-D for all cases except when the write-to-read ratio is 1:9 (slightly slower by 2.3%). Compared to CD-ARC-D,</p>
+    <p>Figure 12: Exp#8 (CPU overhead).</p>
+    <p>Figure 13: Exp#9 (Throughput of multi-threading).</p>
+    <p>AC-D is slower by 1.1-24.5%, since both AC-D and CDARC-D have similar read hit ratios and write reduction ratios (5.3), while AC-D issues additional reads and writes to the metadata region (CD-ARC-D keeps all indexing information in memory). AC-D achieves similar throughput to CD-ARCD when there are more duplicate chunks (i.e., under high I/O deduplication ratios). For compression schemes, AC-DC achieves 6.8-99.6% higher throughput than CD-ARC-DC.</p>
+    <p>Overall, AC-DC achieves the highest throughput among all schemes for two reasons. First, AustereCache generally achieves higher or similar read hit ratios compared to CacheDedup algorithms (5.3). Second, AustereCache incorporates deduplication awareness into cache replacement by caching chunks with high reference counts, thereby absorbing more writes in the SSD and reducing writes to the slow HDD. Exp#8 (CPU overhead). We study the CPU overhead of deduplication and compression of AustereCache along the I/O path. We measure the latencies of four computation steps, including fingerprint computation, compression, index lookup, and index update. Specifically, we run the WebVM trace with a cache size of 12.5% of WSS, and collect the statistics of 100 non-duplicate write requests. We also compare their latencies with those of 32 KiB chunk write requests to the SSD and the HDD using the fio benchmark tool [2].</p>
+    <p>Figure 12 depicts the results. Fingerprint computation has the highest latency (15.5  s) among all four steps. In total, AustereCache adds around 31.2  s of CPU overhead. On the other hand, the latencies of 32 KiB writes to the SSD and the HDD are 85  s and 5,997  s, respectively. Note that the CPU overhead can be suppressed via multi-threaded processing, as shown in Exp#9. Exp#9 (Throughput of multi-threading). We evaluate the throughput gain of AustereCache when it enables multithreading and issues concurrent requests to multiple buckets (4). We use synthetic traces with a write-to-read ratio of 7:3, and consider the I/O deduplication ratio of 50% and 80%.</p>
+    <p>Figure 13 shows the throughput versus the number of threads being configured in AustereCache. When the number of threads increases, AustereCache shows a higher throughput gain under 80% I/O deduplication ratio (from 93.8 MiB/s to 235.5 MiB/s, or 2.51) than under 50% I/O deduplication ratio (from 60.0 MiB/s to 124.9 MiB/s, or 2.08). A higher I/O deduplication ratio implies less I/O to flash, and AustereCache benefits more from multi-threading on parallelizing</p>
+    <p>(a) Memory usage (b) Read hit ratio</p>
+    <p>Figure 10: Exp#6 (Impact of LBA-index sizes).</p>
+    <p>T hp</p>
+    <p>t ( M</p>
+    <p>iB /s</p>
+    <p>)</p>
+    <p>(a) Throughput vs. I/O dedup ratio (write-to-read ratio 7:3)</p>
+    <p>(b) Throughput vs. write-to-read ratio (I/O dedup ratio 50%)</p>
+    <p>Figure 11: Exp#7 (Throughput).</p>
+    <p>the LBA-index size, until the LBA-index reaches 4 of the FP-index size (Figure 10(b)). In particular, for WebVM, the read hit ratio grows from 36.7% (1) to 70.4% (8), while for Homes and Mail, the read hit ratios increase by only 4.3% and 5.3%, respectively. The reason is that when the LBAindex size increases, WebVM shows a higher increase in the total reference counts of the cached chunks than Homes and Mail, implying that more reads can be served by the cached chunks (i.e., higher read hit ratios).</p>
+    <p>Figures 11(a) and 11(b) show the results for varying I/O deduplication ratios (with a fixed write-to-read ratio 7:3, which represents a write-intensive workload as in FIU traces) and varying write-to-read ratios (with a fixed I/O deduplication ratio 50%), respectively. For the non-compression schemes, AC-D achieves 18.5-86.6% higher throughput than CD-LRU-D for all cases except when the write-to-read ratio is 1:9 (slightly slower by 2.3%). Compared to CD-ARC-D,</p>
+    <p>Figure 12: Exp#8 (CPU overhead).</p>
+    <p>Figure 13: Exp#9 (Throughput of multi-threading).</p>
+    <p>AC-D is slower by 1.1-24.5%, since both AC-D and CDARC-D have similar read hit ratios and write reduction ratios (5.3), while AC-D issues additional reads and writes to the metadata region (CD-ARC-D keeps all indexing information in memory). AC-D achieves similar throughput to CD-ARCD when there are more duplicate chunks (i.e., under high I/O deduplication ratios). For compression schemes, AC-DC achieves 6.8-99.6% higher throughput than CD-ARC-DC.</p>
+    <p>Overall, AC-DC achieves the highest throughput among all schemes for two reasons. First, AustereCache generally achieves higher or similar read hit ratios compared to CacheDedup algorithms (5.3). Second, AustereCache incorporates deduplication awareness into cache replacement by caching chunks with high reference counts, thereby absorbing more writes in the SSD and reducing writes to the slow HDD. Exp#8 (CPU overhead). We study the CPU overhead of deduplication and compression of AustereCache along the I/O path. We measure the latencies of four computation steps, including fingerprint computation, compression, index lookup, and index update. Specifically, we run the WebVM trace with a cache size of 12.5% of WSS, and collect the statistics of 100 non-duplicate write requests. We also compare their latencies with those of 32 KiB chunk write requests to the SSD and the HDD using the fio benchmark tool [2].</p>
+    <p>Figure 12 depicts the results. Fingerprint computation has the highest latency (15.5  s) among all four steps. In total, AustereCache adds around 31.2  s of CPU overhead. On the other hand, the latencies of 32 KiB writes to the SSD and the HDD are 85  s and 5,997  s, respectively. Note that the CPU overhead can be suppressed via multi-threaded processing, as shown in Exp#9. Exp#9 (Throughput of multi-threading). We evaluate the throughput gain of AustereCache when it enables multithreading and issues concurrent requests to multiple buckets (4). We use synthetic traces with a write-to-read ratio of 7:3, and consider the I/O deduplication ratio of 50% and 80%.</p>
+    <p>Figure 13 shows the throughput versus the number of threads being configured in AustereCache. When the number of threads increases, AustereCache shows a higher throughput gain under 80% I/O deduplication ratio (from 93.8 MiB/s to 235.5 MiB/s, or 2.51) than under 50% I/O deduplication ratio (from 60.0 MiB/s to 124.9 MiB/s, or 2.08). A higher I/O deduplication ratio implies less I/O to flash, and AustereCache benefits more from multi-threading on parallelizing</p>
+  </div>
+  <div class="page">
+    <p>CPU Overhead and Multi-threading</p>
+    <p>Latency (32 KiB chunk write)  HDD (5,997 s) and SSD (85 s)  AustereCache (31.2 s) (fingerprinting 15.5 s)  Latency hidden via multi-threading</p>
+    <p>Multi-threading (write-read ratio 7:3)  50% I/O dedup ratio: 2.08X  80% I/O dedup ratio: 2.51X  Higher I/O dedup ratio implies less I/O to flash  more computation savings via multi-threading</p>
+    <p>(a) Memory usage (b) Read hit ratio</p>
+    <p>Figure 10: Exp#6 (Impact of LBA-index sizes).</p>
+    <p>(a) Throughput vs. I/O dedup ratio (write-to-read ratio 7:3)</p>
+    <p>(b) Throughput vs. write-to-read ratio (I/O dedup ratio 50%)</p>
+    <p>Figure 11: Exp#7 (Throughput).</p>
+    <p>the LBA-index size, until the LBA-index reaches 4 of the FP-index size (Figure 10(b)). In particular, for WebVM, the read hit ratio grows from 36.7% (1) to 70.4% (8), while for Homes and Mail, the read hit ratios increase by only 4.3% and 5.3%, respectively. The reason is that when the LBAindex size increases, WebVM shows a higher increase in the total reference counts of the cached chunks than Homes and Mail, implying that more reads can be served by the cached chunks (i.e., higher read hit ratios).</p>
+    <p>Figures 11(a) and 11(b) show the results for varying I/O deduplication ratios (with a fixed write-to-read ratio 7:3, which represents a write-intensive workload as in FIU traces) and varying write-to-read ratios (with a fixed I/O deduplication ratio 50%), respectively. For the non-compression schemes, AC-D achieves 18.5-86.6% higher throughput than CD-LRU-D for all cases except when the write-to-read ratio is 1:9 (slightly slower by 2.3%). Compared to CD-ARC-D,</p>
+    <p>L at</p>
+    <p>en cy</p>
+    <p>( us</p>
+    <p>)</p>
+    <p>Fingerprint Compression</p>
+    <p>Lookup Update</p>
+    <p>SSD HDD</p>
+    <p>Figure 12: Exp#8 (CPU overhead).</p>
+    <p>Figure 13: Exp#9 (Throughput of multi-threading).</p>
+    <p>AC-D is slower by 1.1-24.5%, since both AC-D and CDARC-D have similar read hit ratios and write reduction ratios (5.3), while AC-D issues additional reads and writes to the metadata region (CD-ARC-D keeps all indexing information in memory). AC-D achieves similar throughput to CD-ARCD when there are more duplicate chunks (i.e., under high I/O deduplication ratios). For compression schemes, AC-DC achieves 6.8-99.6% higher throughput than CD-ARC-DC.</p>
+    <p>Overall, AC-DC achieves the highest throughput among all schemes for two reasons. First, AustereCache generally achieves higher or similar read hit ratios compared to CacheDedup algorithms (5.3). Second, AustereCache incorporates deduplication awareness into cache replacement by caching chunks with high reference counts, thereby absorbing more writes in the SSD and reducing writes to the slow HDD. Exp#8 (CPU overhead). We study the CPU overhead of deduplication and compression of AustereCache along the I/O path. We measure the latencies of four computation steps, including fingerprint computation, compression, index lookup, and index update. Specifically, we run the WebVM trace with a cache size of 12.5% of WSS, and collect the statistics of 100 non-duplicate write requests. We also compare their latencies with those of 32 KiB chunk write requests to the SSD and the HDD using the fio benchmark tool [2].</p>
+    <p>Figure 12 depicts the results. Fingerprint computation has the highest latency (15.5  s) among all four steps. In total, AustereCache adds around 31.2  s of CPU overhead. On the other hand, the latencies of 32 KiB writes to the SSD and the HDD are 85  s and 5,997  s, respectively. Note that the CPU overhead can be suppressed via multi-threaded processing, as shown in Exp#9. Exp#9 (Throughput of multi-threading). We evaluate the throughput gain of AustereCache when it enables multithreading and issues concurrent requests to multiple buckets (4). We use synthetic traces with a write-to-read ratio of 7:3, and consider the I/O deduplication ratio of 50% and 80%.</p>
+    <p>Figure 13 shows the throughput versus the number of threads being configured in AustereCache. When the number of threads increases, AustereCache shows a higher throughput gain under 80% I/O deduplication ratio (from 93.8 MiB/s to 235.5 MiB/s, or 2.51) than under 50% I/O deduplication ratio (from 60.0 MiB/s to 124.9 MiB/s, or 2.08). A higher I/O deduplication ratio implies less I/O to flash, and AustereCache benefits more from multi-threading on parallelizing</p>
+    <p>(a) Memory usage (b) Read hit ratio</p>
+    <p>Figure 10: Exp#6 (Impact of LBA-index sizes).</p>
+    <p>(a) Throughput vs. I/O dedup ratio (write-to-read ratio 7:3)</p>
+    <p>(b) Throughput vs. write-to-read ratio (I/O dedup ratio 50%)</p>
+    <p>Figure 11: Exp#7 (Throughput).</p>
+    <p>the LBA-index size, until the LBA-index reaches 4 of the FP-index size (Figure 10(b)). In particular, for WebVM, the read hit ratio grows from 36.7% (1) to 70.4% (8), while for Homes and Mail, the read hit ratios increase by only 4.3% and 5.3%, respectively. The reason is that when the LBAindex size increases, WebVM shows a higher increase in the total reference counts of the cached chunks than Homes and Mail, implying that more reads can be served by the cached chunks (i.e., higher read hit ratios).</p>
+    <p>Figures 11(a) and 11(b) show the results for varying I/O deduplication ratios (with a fixed write-to-read ratio 7:3, which represents a write-intensive workload as in FIU traces) and varying write-to-read ratios (with a fixed I/O deduplication ratio 50%), respectively. For the non-compression schemes, AC-D achieves 18.5-86.6% higher throughput than CD-LRU-D for all cases except when the write-to-read ratio is 1:9 (slightly slower by 2.3%). Compared to CD-ARC-D,</p>
+    <p>Figure 12: Exp#8 (CPU overhead).</p>
+    <p>T hp</p>
+    <p>t ( M</p>
+    <p>iB /s</p>
+    <p>)</p>
+    <p>Figure 13: Exp#9 (Throughput of multi-threading).</p>
+    <p>AC-D is slower by 1.1-24.5%, since both AC-D and CDARC-D have similar read hit ratios and write reduction ratios (5.3), while AC-D issues additional reads and writes to the metadata region (CD-ARC-D keeps all indexing information in memory). AC-D achieves similar throughput to CD-ARCD when there are more duplicate chunks (i.e., under high I/O deduplication ratios). For compression schemes, AC-DC achieves 6.8-99.6% higher throughput than CD-ARC-DC.</p>
+    <p>Overall, AC-DC achieves the highest throughput among all schemes for two reasons. First, AustereCache generally achieves higher or similar read hit ratios compared to CacheDedup algorithms (5.3). Second, AustereCache incorporates deduplication awareness into cache replacement by caching chunks with high reference counts, thereby absorbing more writes in the SSD and reducing writes to the slow HDD. Exp#8 (CPU overhead). We study the CPU overhead of deduplication and compression of AustereCache along the I/O path. We measure the latencies of four computation steps, including fingerprint computation, compression, index lookup, and index update. Specifically, we run the WebVM trace with a cache size of 12.5% of WSS, and collect the statistics of 100 non-duplicate write requests. We also compare their latencies with those of 32 KiB chunk write requests to the SSD and the HDD using the fio benchmark tool [2].</p>
+    <p>Figure 12 depicts the results. Fingerprint computation has the highest latency (15.5  s) among all four steps. In total, AustereCache adds around 31.2  s of CPU overhead. On the other hand, the latencies of 32 KiB writes to the SSD and the HDD are 85  s and 5,997  s, respectively. Note that the CPU overhead can be suppressed via multi-threaded processing, as shown in Exp#9. Exp#9 (Throughput of multi-threading). We evaluate the throughput gain of AustereCache when it enables multithreading and issues concurrent requests to multiple buckets (4). We use synthetic traces with a write-to-read ratio of 7:3, and consider the I/O deduplication ratio of 50% and 80%.</p>
+    <p>Figure 13 shows the throughput versus the number of threads being configured in AustereCache. When the number of threads increases, AustereCache shows a higher throughput gain under 80% I/O deduplication ratio (from 93.8 MiB/s to 235.5 MiB/s, or 2.51) than under 50% I/O deduplication ratio (from 60.0 MiB/s to 124.9 MiB/s, or 2.08). A higher I/O deduplication ratio implies less I/O to flash, and AustereCache benefits more from multi-threading on parallelizing</p>
+  </div>
+  <div class="page">
+    <p>Conclusion</p>
+    <p>AustereCache: memory efficiency in deduplicated and compressed flash caching via  Bucketization  Fixed-size compressed data management  Bucket-based cache replacement</p>
+    <p>Source code: http://adslab.cse.cuhk.edu.hk/software/austerecache</p>
+  </div>
+  <div class="page">
+    <p>Thank You! Q &amp; A</p>
+  </div>
+</Presentation>

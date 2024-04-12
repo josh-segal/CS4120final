@@ -1,0 +1,175 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>Typing in-place update</p>
+    <p>David Aspinall</p>
+    <p>LFCS</p>
+    <p>Edinburgh</p>
+    <p>Martin Hofmann</p>
+    <p>Institut fur Informatik</p>
+    <p>Munich</p>
+  </div>
+  <div class="page">
+    <p>Motivation and background</p>
+    <p>Goal: use in-place update rather than fresh creation of memory cells and GC when its safe. Safe means to implement the functional semantics.</p>
+    <p>Examples:  implement list append by altering first list, but ensure</p>
+    <p>result is indistinguishable from a functional append.</p>
+    <p>implement array update as in-place update but ensure result is indistinguishable from a functional update: set:array,int,val -&gt; array.</p>
+    <p>Background: languages &amp; type systems capturing complexity classes (Hofmann).</p>
+    <p>Possible applications: embedded systems, smartcards, HDLs.</p>
+  </div>
+  <div class="page">
+    <p>Programming with diamonds</p>
+    <p>LFPL [MH, ESOP 2000] is prototypical first-order linear functional programming language with recursively defined</p>
+    <p>functions and the following types:</p>
+    <p>A ::= N |  | L(A) | T(A) | A1 A2</p>
+    <p>The diamond type  stands for a unit of heap space.</p>
+    <p>Diamonds give the programmer control over heap space in an abstract and type-safe way.</p>
+    <p>Many standard examples can be typed in LFPL.</p>
+  </div>
+  <div class="page">
+    <p>Diamond trading</p>
+    <p>def list reverse(list l) = reverse_aux(l, nil)</p>
+    <p>def list reverse_aux(list l,list acc) =</p>
+    <p>match l with</p>
+    <p>nil -&gt; acc</p>
+    <p>| cons(d,h,t) -&gt; reverse_aux(t,cons(d,h,acc))</p>
+    <p>The first argument to cons has type .</p>
+    <p>Computing with bounded heap space: the only way to obtain a  is by pattern matching.</p>
+    <p>Can easily add malloc:() -&gt;  and free: -&gt; ().</p>
+  </div>
+  <div class="page">
+    <p>Imperative operational semantics</p>
+    <p>LFPL is executed imperatively, using in-place update.</p>
+    <p>Simple compilers have been written which translate to imperative languages: C, Java, JVML, and HBAL.</p>
+    <p>More abstractly, we can give a stack-based operational semantics which updates a heap.</p>
+    <p>S, ` e v,</p>
+    <p>S : Var  SVal stack v : SVal stack value: integer, location, NULL, or tuple thereof</p>
+    <p>: Loc  HVal heap h : HVal heap value: stack value or record {id1 = v1 . . . idn = vn}</p>
+  </div>
+  <div class="page">
+    <p>Diamond arguments evaluate to heap locations:</p>
+    <p>S, ` ed ld, S, ` eh vh, S, ` et vt,</p>
+    <p>S, ` cons(ed,eh,et) ld,[ld,{hd=vh,tl = vt}]</p>
+    <p>S, ` e l, (l) ={hd=vh,tl=vt} S[xd , l,xh , vh,xt , vt], ` ec v,</p>
+    <p>S, ` match e with nil =&gt; en | cons(xd,xh,xt) =&gt; ec v,</p>
+    <p>The typing rules must ensure type safety, and that the operational (in-place update) interpretation agrees with the set-theoretic</p>
+    <p>(functional) interpretation.</p>
+    <p>In LFPL, linearity for heap-types ensures this agreement. But this is overly conservative. . .</p>
+  </div>
+  <div class="page">
+    <p>A drawback of LFPL</p>
+    <p>def sumdigits(l) =</p>
+    <p>match l with</p>
+    <p>nil -&gt; 0</p>
+    <p>| cons(d,h,t) -&gt; h + (10 * sumdigits(t))</p>
+    <p>After evaluating sumdigits(l), list l is considered destroyed. We can avoid this by reconstructing the argument:</p>
+    <p>def sumdigits(l) =</p>
+    <p>match l with</p>
+    <p>nil -&gt; (nil,0)</p>
+    <p>| cons(d,h,t) -&gt; let (t,n) = sumdigits(t)</p>
+    <p>in (cons(d,h,t), h + (10 * n))</p>
+    <p>But this is tedious and inefficient; we would rather relax linearity for calls to sumdigits, since it is quite safe to do so.</p>
+  </div>
+  <div class="page">
+    <p>Relaxing linearity for heap data</p>
+    <p>We want to express that sumdigits operates in a read-only fashion on its argument. Moreover, it returns a result which</p>
+    <p>no longer refers to the list. So</p>
+    <p>cons(d,sumdigits(l),reverse(l))</p>
+    <p>is correctly evaluated, assuming left-to-right eval order.</p>
+    <p>Other functions are read-only, but give a result which shares with the argument, e.g., nth tail(n,l). But now</p>
+    <p>cons(d,nth_tail(2,l),cons(d,reverse(l),nil))</p>
+    <p>is not soundly evaluated by the imperative op sems. If</p>
+    <p>l=[1,2,3], we get [[1],[3,2,1]], not [[3],[3,2,1]].</p>
+    <p>Later uses of l should only be allowed if they are also</p>
+    <p>non-destructive.</p>
+  </div>
+  <div class="page">
+    <p>Usage aspects</p>
+    <p>The op. sems and examples motivate usage aspects for sub-expressions:</p>
+    <p>Aspects express relationship between heap region of arguments of a function and the heap region of its result.</p>
+    <p>Our aspects are novel AFAWK, but related to some previous analyses of linear type systems.</p>
+    <p>Wadler: sequential let. Odersky: observer annotations (cf.2).</p>
+    <p>Kobayashi: -annotations (cf.3).</p>
+  </div>
+  <div class="page">
+    <p>An improved LFPL</p>
+    <p>We track usage aspects of variables in the context. Each variable is annotated with an aspect i {1,2,3}:</p>
+    <p>x1 i1 : A1, . . . ,xn</p>
+    <p>in : An ` e : A</p>
+    <p>Each argument of a function is annotated:</p>
+    <p>+, - : N3,N3  N nilA : L(A)</p>
+    <p>consA : 1,A2,L(A)2  L(A)</p>
+    <p>Function applications and other expressions are restricted to variables to track aspects. The let rule combines</p>
+    <p>contexts, and assumes an evaluation order.</p>
+  </div>
+  <div class="page">
+    <p>Variable typing rules</p>
+    <p>x 2 : A ` x : A</p>
+    <p>( VAR )</p>
+    <p>,x i : A ` e : B j  i</p>
+    <p>,x j : A ` e : B</p>
+    <p>( DROP )</p>
+    <p>` e : A A heap-free (no , L(A), T(A))</p>
+    <p>i means  with any 2-aspect xk 2 : Ak replaced by xk</p>
+    <p>i : Ak.</p>
+  </div>
+  <div class="page">
+    <p>List typing rules</p>
+    <p>` nilA : L(A)</p>
+    <p>xd 1 : ,xh</p>
+    <p>` en : B</p>
+    <p>,xd id : ,xh</p>
+    <p>ih : A,xt</p>
+    <p>it : L(A) ` ec : B i = min(id,ih,it)</p>
+    <p>,x i : L(A) ` match x with nil =&gt; en | cons(xd,xh,xt) =&gt; ec : B</p>
+  </div>
+  <div class="page">
+    <p>The let rule</p>
+    <p>S, ` ea v, S[x , v], ` eb v,</p>
+    <p>S, ` let x = ea in eb v,</p>
+    <p>,a ` ea : A b,,x i : A ` eb : B side condition</p>
+    <p>i,,ia b ` let x = ea in eb : B</p>
+    <p>Side condition prevents common variables</p>
+    <p>z  dom(a)=dom(b) being modified before being referenced and prevents internal sharing in heap regions</p>
+    <p>reachable from the stack.</p>
+    <p>A contraction rule for aspect 3 variables is derivable.</p>
+  </div>
+  <div class="page">
+    <p>Correctness proof</p>
+    <p>Aim: prove that operational semantics agrees with denotational semantics (soundness and adequacy).</p>
+    <p>Denotational sems e is usual set-theoretic semantics. Interpret  as a unit type, ignore d in cons(d,h,t).</p>
+    <p>RN(n,) =.  R(l,) ={l}.  RL(A)(NULL,) =.  RL(A)(l,) ={l}RA(h,)RL(A)(t,)</p>
+    <p>when (l) ={hd = h,tl = t}.</p>
+  </div>
+  <div class="page">
+    <p>, if n = n.  l ,i 0, if l  dom().  NULL L(A),i nil.</p>
+    <p>l L(A),i cons(h,t), if (l) ={hd=vh,tl = vt}, l ,i 0, vh</p>
+    <p>A,i h, vt</p>
+    <p>L(A),i t.</p>
+    <p>Additionally, R(l,), RA(vh,), RL(A)(vt,) are pairwise disjoint in case i = 1.</p>
+    <p>S, ` e v, iff e  and v C,i e</p>
+    <p>for i = 2 and (with condition on ), for 1. Moreover, regions in  relate to those in  as expected by aspects in  .</p>
+  </div>
+  <div class="page">
+    <p>Further details</p>
+    <p>Paper gives full typing rules. Also discusses sharing in data-structures, and both  and  products.</p>
+    <p>Home page: http://www.dcs.ed.ac.uk/home/resbnd</p>
+    <p>Experimental compilers available on our web pages: target features author</p>
+    <p>C Nick Brown</p>
+    <p>C tail-recursion opt Christian Kirkegaard</p>
+    <p>HBAL dedicated typed AL Matthieu Lucotte</p>
+    <p>C / JVML datatypes Robert Atkey</p>
+    <p>Java usage aspects, datatypes DA &amp; MH</p>
+  </div>
+  <div class="page">
+    <p>Future and ongoing work on LFPL</p>
+    <p>Consider further ways to relax linearity, handle internal sharing</p>
+    <p>separation sets xk : ik Mk Ak ` e : A (Michal Konecny)</p>
+    <p>sharing sets xk :Sk Ak ` e : A,S,D (Robert Atkey)</p>
+    <p>Inference mechanisms Reconstruct  arguments (Steffen Jost, Dilsun Krl)</p>
+    <p>Higher-order functions MH (POPL 2002) bounded space with HO</p>
+    <p>Other features: arrays, polymorphism, . . .</p>
+    <p>Related project: Mobile Resource Guarantees investigating PCC for resource constraints.</p>
+  </div>
+</Presentation>

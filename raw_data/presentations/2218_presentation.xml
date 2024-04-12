@@ -1,0 +1,278 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>Breaking Apart the VFS for Managing File Systems Kuei (Jack) Sun, Matthew Lakier, Angela Demke Brown, and Ashvin Goel</p>
+    <p>University of Toronto HotStorage 18, Boston, MA.</p>
+  </div>
+  <div class="page">
+    <p>File-System Management Applications  Used by system administrators</p>
+    <p>To maintain, optimize, and administer their file systems</p>
+    <p>Examples  Defragmentation Tool</p>
+    <p>File System Resizing Tool</p>
+    <p>Garbage Collector</p>
+    <p>File System Aware Data Scrubber</p>
+    <p>File System Upgrade Tool</p>
+    <p>Essential for successful deployment of file system</p>
+  </div>
+  <div class="page">
+    <p>Problem</p>
+    <p>These applications operate directly on file system structures  E.g., a defragmentation tool moves extents of a fragmented file</p>
+    <p>Development requires significant engineering effort  Applications have to be developed from scratch for each file system</p>
+    <p>Each file system has its own set of data structures</p>
+  </div>
+  <div class="page">
+    <p>Problem</p>
+    <p>These applications operate directly on file system structures  E.g., a defragmentation tool moves extents of a fragmented file</p>
+    <p>Development requires significant engineering effort  Applications have to be developed from scratch for each file system</p>
+    <p>Each file system has its own set of data structures</p>
+    <p>block bitmap</p>
+    <p>super block ext4 journal</p>
+    <p>block group descriptor table</p>
+    <p>inode table</p>
+    <p>block group</p>
+    <p>descriptor</p>
+    <p>inode (reg file)</p>
+    <p>inode (directory)</p>
+    <p>dir block</p>
+    <p>data block</p>
+    <p>inode bitmap</p>
+    <p>block group</p>
+    <p>descriptor</p>
+    <p>Ext4 File System super block</p>
+    <p>tree of trees</p>
+    <p>chunk tree</p>
+    <p>fs tree</p>
+    <p>extent tree</p>
+    <p>btree node</p>
+    <p>btree leaf</p>
+    <p>btree leaf</p>
+    <p>btree leaf</p>
+    <p>Btrfs File System</p>
+  </div>
+  <div class="page">
+    <p>Problem</p>
+    <p>These applications operate directly on file system structures  E.g., a defragmentation tool moves extents of a fragmented file</p>
+    <p>Development requires significant engineering effort  Applications have to be developed from scratch for each file system</p>
+    <p>Each file system has its own set of data structures</p>
+    <p>Need detailed knowledge of file system format  To identify and interpret file system structures</p>
+    <p>File system format is complex and poorly documented  Developed by experts</p>
+    <p>Emerging file systems frequently lack these applications  Impedes adoption</p>
+  </div>
+  <div class="page">
+    <p>Goals and Challenges</p>
+    <p>Goal  Provide generic API for building file system management applications</p>
+    <p>E.g. a defragmentation tool that works for all file systems</p>
+    <p>Challenge  These applications require fine-grained control over metadata and data</p>
+    <p>E.g. migrate data block to another physical location</p>
+    <p>API needs to provide such control while being generic across file systems</p>
+  </div>
+  <div class="page">
+    <p>Approach</p>
+    <p>Design generic API based on low-level file system abstractions  Applications operate on abstract file system objects</p>
+    <p>Blocks or extents, inodes, directory entries</p>
+    <p>These objects are accessed via abstract operations  E.g., Allocate, free, iterate, map</p>
+    <p>Example: defragmentation tool  Finds fragmented blocks of a file</p>
+    <p>Iterates through logical to physical block mappings</p>
+    <p>Relocates them to contiguous extent  Requires allocation of contiguous extent and remapping of the file</p>
+  </div>
+  <div class="page">
+    <p>eVFS Operations FS Object Operations Description Global super_make Makes a new file system (i.e, mkfs)</p>
+    <p>super_set Update file system settings Extents extent_alloc / extent_free Allocate or free an extent</p>
+    <p>extent_iterate Iterate through all extents used by inode freesp_iterate Iterate through all free space extents extent_reverse Returns all inode that maps to extent</p>
+    <p>Inodes inode_alloc / inode_free Allocate or free an inode inode_read / inode write Same as VFS read/write, required for</p>
+    <p>accessing mangled data inode_map Maps physical extent to logical file offset inode_iterate Iterate through all allocated inodes</p>
+  </div>
+  <div class="page">
+    <p>eVFS Operations</p>
+    <p>Crash consistency  Protects file system from corruption and data loss</p>
+    <p>Lacking in most file system management applications</p>
+    <p>FS Object Operations Description Directory Entries</p>
+    <p>dirent_add Add an entry to a directory inode dirent_remove Remove an entry from directory inode dirent_iterate Iterate through all entries in directory</p>
+    <p>Transaction tx_begin Provide support for crash consistency tx_abort</p>
+    <p>tx_commit</p>
+  </div>
+  <div class="page">
+    <p>eVFS Implementation</p>
+    <p>Written in C++ using Spiffy  Spiffy</p>
+    <p>Library generated from annotated file system data structures</p>
+    <p>Robust parsing and serialization routines for type-safe access</p>
+    <p>Lines of Code File System Read API Write API</p>
+    <p>Ext4 666 N/A Btrfs 583 N/A F2FS 199 1953</p>
+  </div>
+  <div class="page">
+    <p>Journal Implementation</p>
+    <p>Variable-sized redo journal  Placed in free space of both old and new file system</p>
+    <p>Transaction aborts if journal runs out of free space</p>
+    <p>Written in 1350 lines of C code</p>
+    <p>old old</p>
+    <p>: old file system</p>
+    <p>: new file system</p>
+    <p>: journal</p>
+  </div>
+  <div class="page">
+    <p>Journal Implementation</p>
+    <p>Variable-sized redo journal  Placed in free space of both old and new file system</p>
+    <p>Conversion aborts if journal runs out of free space</p>
+    <p>Written in 1350 lines of C code</p>
+    <p>old old</p>
+    <p>new</p>
+    <p>: old file system</p>
+    <p>: new file system</p>
+    <p>: journal</p>
+  </div>
+  <div class="page">
+    <p>Journal Implementation</p>
+    <p>Variable-sized redo journal  Placed in free space of both old and new file system</p>
+    <p>Conversion aborts if journal runs out of free space</p>
+    <p>Written in 1350 lines of C code</p>
+    <p>old old</p>
+    <p>: old file system</p>
+    <p>: new file system</p>
+    <p>: journal</p>
+  </div>
+  <div class="page">
+    <p>Journal Implementation</p>
+    <p>Variable-sized redo journal  Placed in free space of both old and new file system</p>
+    <p>Conversion aborts if journal runs out of free space</p>
+    <p>Written in 1350 lines of C code</p>
+    <p>Optimization  Does not journal if no overwrite occurs</p>
+    <p>old old</p>
+    <p>new</p>
+    <p>: old file system</p>
+    <p>: new file system</p>
+    <p>: journal</p>
+  </div>
+  <div class="page">
+    <p>Journal Implementation</p>
+    <p>Variable-sized redo journal  Placed in free space of both old and new file system</p>
+    <p>Conversion aborts if journal runs out of free space</p>
+    <p>Written in 1350 lines of C code</p>
+    <p>Optimization  Does not journal if no overwrite occurs</p>
+    <p>old old new</p>
+    <p>: old file system</p>
+    <p>: new file system</p>
+    <p>: journal</p>
+  </div>
+  <div class="page">
+    <p>Journal Implementation</p>
+    <p>Variable-sized redo journal  Placed in free space of both old and new file system</p>
+    <p>Conversion aborts if journal runs out of free space</p>
+    <p>Written in 1350 lines of C code</p>
+    <p>Optimization  Does not journal if no overwrite occurs</p>
+    <p>May need to relocate journal blocks</p>
+    <p>journal</p>
+    <p>: old file system</p>
+    <p>: new file system</p>
+    <p>: journal</p>
+    <p>new</p>
+  </div>
+  <div class="page">
+    <p>Journal Implementation</p>
+    <p>Variable-sized redo journal  Placed in free space of both old and new file system</p>
+    <p>Conversion aborts if journal runs out of free space</p>
+    <p>Written in 1350 lines of C code</p>
+    <p>Optimization  Does not journal if no overwrite occurs</p>
+    <p>May need to relocate journal blocks</p>
+    <p>: old file system</p>
+    <p>: new file system</p>
+    <p>: journal</p>
+    <p>new</p>
+  </div>
+  <div class="page">
+    <p>Journal Implementation</p>
+    <p>Variable-sized redo journal  Placed in free space of both old and new file system</p>
+    <p>Conversion aborts if journal runs out of free space</p>
+    <p>Written in 1350 lines of C code</p>
+    <p>Optimization  Does not journal if no overwrite occurs</p>
+    <p>May need to relocate journal blocks</p>
+    <p>: old file system</p>
+    <p>: new file system</p>
+    <p>: journal</p>
+    <p>new</p>
+  </div>
+  <div class="page">
+    <p>File System Conversion Tool</p>
+    <p>In-place conversion from one file system to another  No backup device necessary</p>
+    <p>Keeps data blocks in original location as much as possible</p>
+    <p>30 to 50 times faster than copy-based conversion</p>
+    <p>Written generically using eVFS  Requires only 224 LOC</p>
+    <p>Supports any pair of file systems</p>
+    <p>Conversion may result in loss of information  E.g. Ext4 does not support immutable snapshots</p>
+    <p>Convert from Btrfs to Ext4 will result in a copy of snapshot</p>
+  </div>
+  <div class="page">
+    <p>File System Conversion Tool 1. old = fs_open(device, READONLY); 2. new = fs_open(device, target_fs, UNFORMATTED); 3. tx = txn_begin(new); 4. super_make(tx); 5. for (it = inode_iterate(old); *it != null; it++) { 6. inode = *it; 7. i_nr = inode_alloc(tx, inode); 8. if (i_nr &gt; 0 &amp;&amp; S_ISREG(inode.i_mode)) 9. ret = process_regular_file(tx, i_nr, inode);</p>
+    <p>10. if (ret &lt; 0) { txn_abort(tx); exit(ret); }</p>
+    <p>} 11. txn_commit(tx);</p>
+  </div>
+  <div class="page">
+    <p>File System Conversion Tool int process_regular_file(tx, i_nr, inode) {</p>
+    <p>} 2. for (it = extent_iterate(inode); *it != null; it++) { 3. ext = *it; 4. ret = extent_alloc(tx, ext.phy_nr, ext.size);</p>
+    <p>5. ret = inode_map(tx, i_nr, ext.log_nr, ext.phy_nr,</p>
+    <p>ext.size);</p>
+    <p>} } 21</p>
+  </div>
+  <div class="page">
+    <p>Benefits of Journaling</p>
+    <p>Provides crash consistency  Small performance overhead of 20%  Reduces memory overhead of file system conversion tool</p>
+    <p>With journaling, old file system can be read while writing the new file system</p>
+    <p>Without journaling, old file system may be clobbered by new file system  Must read entire old file system content into memory before writing new file</p>
+    <p>system</p>
+  </div>
+  <div class="page">
+    <p>Discussion</p>
+    <p>VFS eVFS  File-level API  Supports all file</p>
+    <p>systems</p>
+    <p>File object API  Supports most file</p>
+    <p>systems</p>
+    <p>Data structure API  Type-safe access  Simplifies traversal  File-system specific</p>
+    <p>No API  File-system specific</p>
+    <p>Spiffy Manual</p>
+    <p>FS Specific API  Provides greatest</p>
+    <p>control</p>
+    <p>Generic API  Provides least</p>
+    <p>control</p>
+  </div>
+  <div class="page">
+    <p>Limitations</p>
+    <p>VFS eVFS Spiffy Manual</p>
+    <p>FS Specific API  Provides greatest</p>
+    <p>control</p>
+    <p>Generic API  Provides least</p>
+    <p>control</p>
+    <p>File system may only support a subset of eVFS  E.g. Ext4 cannot efficiently implement reverse mapping of extent to inodes</p>
+    <p>Does not support file-system specific tools  E.g. file system checkers operate on file-system specific structures</p>
+    <p>E.g. eVFS does not support Btrfs RAID and volume manager 24</p>
+  </div>
+  <div class="page">
+    <p>Future Work</p>
+    <p>Online Support for eVFS  Current implementation works for offline only</p>
+    <p>Must handle concurrency</p>
+    <p>Idea  Reuse file systems locking protocols to ensure atomicity</p>
+    <p>Existing applications should not see inconsistent file system state</p>
+  </div>
+  <div class="page">
+    <p>Conclusion</p>
+    <p>Extended Virtual File System Interface (eVFS)  Operates on abstract file system objects</p>
+    <p>Supports fine-grained operations</p>
+    <p>Enables file system management applications to be written generically</p>
+    <p>Application works across file systems</p>
+  </div>
+  <div class="page">
+    <p>Breaking Apart the VFS for Managing File Systems</p>
+    <p>Presented by Kuei (Jack) Sun</p>
+    <p>Questions?</p>
+  </div>
+  <div class="page">
+    <p>Evaluation</p>
+    <p>Compare copy-based converter vs. Spiffy converter  Copy converter copies data to local disk, reformat, then copies back</p>
+    <p>Converts 64GB file system with 16GB of data on SSD</p>
+    <p>Copy converter 30~50 times slower</p>
+    <p>se c</p>
+    <p>o nd</p>
+    <p>s</p>
+    <p># of files</p>
+    <p>Copy Converter</p>
+    <p>Spiffy Converter</p>
+  </div>
+</Presentation>

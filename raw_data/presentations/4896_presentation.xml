@@ -1,0 +1,329 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>Dune: Safe User-level Access to Privileged CPU Features</p>
+    <p>Adam Belay, Andrea Bi&gt;au, Ali MashAzadeh, David Terei, David Mazires, and Christos Kozyrakis</p>
+    <p>Stanford University</p>
+  </div>
+  <div class="page">
+    <p>The power of privilege</p>
+    <p>Privileged CPU features are fundamental to kernels</p>
+    <p>But other, compelling uses:  Speed up garbage collecAon (Azul C4)</p>
+    <p>Page tables provide memory access informaAon  Privilege separaAon within a process (Palladium)</p>
+    <p>MMU hardware isolates compartments  Safe naAve code in web browsers (Xax)</p>
+    <p>System call handler intercepts system calls</p>
+  </div>
+  <div class="page">
+    <p>Should we change the kernel?</p>
+    <p>Problem: stability concerns, challenging to distribute, composability concerns</p>
+    <p>CPU</p>
+    <p>Kernel</p>
+    <p>App</p>
+    <p>Patch PTEs</p>
+    <p>PGTBL Root</p>
+  </div>
+  <div class="page">
+    <p>What about an Exokernel?</p>
+    <p>CPU</p>
+    <p>Exokernel</p>
+    <p>App</p>
+    <p>Garbage CollecAon Library OS</p>
+    <p>Problem: must replace enAre OS stack 4</p>
+  </div>
+  <div class="page">
+    <p>What about a virtual machine?</p>
+    <p>CPU</p>
+    <p>Hypervisor</p>
+    <p>JVM Browser</p>
+    <p>GC Kernel Linux</p>
+    <p>Problem: virtual machines have strict parAAoning 5</p>
+  </div>
+  <div class="page">
+    <p>Dune in a Nutshell</p>
+    <p>Provide safe user-level access to privileged CPU features  SAll a normal process in all ways (POSIX API, etc)  Key idea: leverage exisAng virtualizaAon hardware (VT-x)</p>
+    <p>CPU</p>
+    <p>Kernel App</p>
+    <p>Host Mode Guest Mode</p>
+    <p>POSIX</p>
+  </div>
+  <div class="page">
+    <p>CPU</p>
+    <p>Kernel App</p>
+    <p>Host Mode Guest Mode</p>
+    <p>Guest Page Table</p>
+    <p>Host Page Table</p>
+    <p>PTEs PTEs</p>
+    <p>SoluAon: control the page table directly within a process</p>
+    <p>Garbage collecAon in Dune</p>
+  </div>
+  <div class="page">
+    <p>Outline</p>
+    <p>Overview  Design  EvaluaAon</p>
+  </div>
+  <div class="page">
+    <p>Available CPU features</p>
+    <p>Privilege Modes  SYSRET, SYSEXIT, IRET</p>
+    <p>Virtual Memory  MOV CRn, INVLPG, INVPCID</p>
+    <p>ExcepAons  LIDT, LTR, IRET, STI, CLI</p>
+    <p>SegmentaAon  LGDT, LLDT</p>
+  </div>
+  <div class="page">
+    <p>Dune architecture</p>
+    <p>CPU</p>
+    <p>Kernel</p>
+    <p>Process</p>
+    <p>Host Mode Guest Mode</p>
+    <p>libDune Dune Module</p>
+    <p>Host mode -&gt; VMX root mode on Intel  Normally used for hypervisors  In Dune, we run the kernel here  Reason: need access to VT-x instrucAons</p>
+  </div>
+  <div class="page">
+    <p>Dune architecture</p>
+    <p>CPU</p>
+    <p>Kernel</p>
+    <p>Process</p>
+    <p>Host Mode Guest Mode</p>
+    <p>libDune Dune Module</p>
+    <p>Guest mode -&gt; VMX non-root mode on Intel  Normally used by the guest kernel  In Dune, we run ordinary processes here  Reason: need access to privileged features</p>
+  </div>
+  <div class="page">
+    <p>Dune architecture</p>
+    <p>CPU</p>
+    <p>Kernel</p>
+    <p>Process</p>
+    <p>Host Mode Guest Mode</p>
+    <p>libDune Dune Module</p>
+    <p>Dune Module (~2500 LOC)  Configures and manages virtualizaAon hardware  Provides integraAon with the rest of the kernel in order to support a</p>
+    <p>process abstracAon  Uses Intel VT-x (could easily add AMD SVM)</p>
+  </div>
+  <div class="page">
+    <p>Dune architecture</p>
+    <p>CPU</p>
+    <p>Kernel</p>
+    <p>Process</p>
+    <p>Host Mode Guest Mode</p>
+    <p>libDune Dune Module</p>
+    <p>libDune (~10,000 LOC)  A uAlity library to help applicaAons manage privileged hardware</p>
+    <p>features  Completely untrusted  ExcepAon handling, system call handling, page allocator, page table</p>
+    <p>management, ELF loader</p>
+  </div>
+  <div class="page">
+    <p>Providing a process abstracAon</p>
+    <p>Memory management  System calls  POSIX Signals</p>
+  </div>
+  <div class="page">
+    <p>Memory management in Dune</p>
+    <p>Host-Physical (RAM)</p>
+    <p>Kernel Page Table</p>
+    <p>Host-Virtual</p>
+    <p>EPT</p>
+    <p>Guest-Physical</p>
+    <p>User Page Table</p>
+    <p>Guest-Virtual</p>
+    <p>Dune Process</p>
+    <p>Kernel</p>
+    <p>Configure the EPT to provide process memory</p>
+    <p>User programs can then directly access the page table</p>
+  </div>
+  <div class="page">
+    <p>System calls in Dune</p>
+    <p>SYSCALL will only trap back into the process  Use VMCALL (i.e. a hypercall) to perform normal kernel system calls</p>
+    <p>CPU</p>
+    <p>Kernel</p>
+    <p>Host Mode Guest Mode</p>
+    <p>Process Syscall Handler</p>
+    <p>Syscall Handler</p>
+    <p>VMCALL</p>
+    <p>SYSCALL</p>
+  </div>
+  <div class="page">
+    <p>But SYSCALL is sAll useful</p>
+    <p>Isolate untrusted code by running it in a less privileged mode (i.e. ring 3 on x86)</p>
+    <p>Leverage the supervisor bit in the page table to protect memory 17</p>
+    <p>Process (ring 0)</p>
+    <p>Untrusted Code (ring 3)</p>
+    <p>Syscall Handler</p>
+  </div>
+  <div class="page">
+    <p>Signals in Dune</p>
+    <p>Signals should only be delivered to ring 0  What happens if process is in ring 3?  Possible soluAon: have the Dune module manually transiAon the process to ring 0  Works but slow and somewhat complex</p>
+    <p>Our soluAon: deliver signals as injected interrupts  Hardware automaAcally switches to ring 0  Can use CLI and STI to efficiently mask signals</p>
+  </div>
+  <div class="page">
+    <p>Many implementaAon challenges</p>
+    <p>Reducing VM exit and VM entry overhead  Pthread and fork were tricky to integrate with the Linux kernel</p>
+    <p>EPT does not support enough address space  Check the paper for details</p>
+  </div>
+  <div class="page">
+    <p>Outline</p>
+    <p>Overview  Design  Evalua-on</p>
+  </div>
+  <div class="page">
+    <p>EvaluaAon</p>
+    <p>How much overhead does Dune add?  What potenAal does Dune create for opAmizaAon?</p>
+    <p>What is Dunes performance in end-to-end use cases?</p>
+  </div>
+  <div class="page">
+    <p>Overhead analysis</p>
+    <p>(cycles) Getpid Page fault Page walk</p>
+    <p>Linux 138 2,687 36</p>
+    <p>Dune 895 5,093 86</p>
+    <p>Two sources of overhead  VMX transiAons  EPT translaAons</p>
+  </div>
+  <div class="page">
+    <p>OpAmizaAon analysis</p>
+    <p>(cycles) ptrace (getpid)</p>
+    <p>trap Appel 1 (TRAP, PROT1,</p>
+    <p>UNPROT)</p>
+    <p>Appel 2 (PROTN, TRAP,</p>
+    <p>UNPROT)</p>
+    <p>Linux 27,317 2,821 701,413 684,909</p>
+    <p>Dune 1,091 587 94,496 94,854</p>
+    <p>Large opportuniAes for opAmizaAon  Faster system call interposiAon and traps  More efficient user-level virtual memory manipulaAon</p>
+  </div>
+  <div class="page">
+    <p>End-to-end case studies  We built and evaluated three systems  ApplicaAon sandbox (~1300 LOC)  Constrained the system calls performed by an untrusted binary</p>
+    <p>Garbage collecAon (less than 100 LOC change)  Improved dirty page detecAon through direct access to dirty bits</p>
+    <p>Privilege separaAon (~750 LOC)  Supported several protecAon domains within a single process through use of mulAple page roots (with TLB tagging)</p>
+  </div>
+  <div class="page">
+    <p>Sandbox: SPEC2000 performance</p>
+    <p>!25</p>
+    <p>!20</p>
+    <p>!15</p>
+    <p>!10</p>
+    <p>!5</p>
+    <p>gzip vpr</p>
+    <p>gcc m</p>
+    <p>esa art</p>
+    <p>m cf</p>
+    <p>equake</p>
+    <p>crafty</p>
+    <p>am m</p>
+    <p>p</p>
+    <p>parser</p>
+    <p>eon perlbm</p>
+    <p>k</p>
+    <p>gap vortex</p>
+    <p>bzip2</p>
+    <p>tw olf</p>
+    <p>% S</p>
+    <p>lo w</p>
+    <p>d o w</p>
+    <p>n</p>
+    <p>Sandbox Sandbox w/ LGPG Linux w/ LGPG</p>
+    <p>Only notable end-to-end effect is EPT overhead  Can be eliminated through use of large pages</p>
+  </div>
+  <div class="page">
+    <p>Sandbox: ligh&gt;pd performance</p>
+    <p>Linux Dune Sandbox VMware Player</p>
+    <p>LighHpd performance (connec-ons per second)</p>
+    <p>Slight reducAon in throughput (less than 2%) due to VMCALL overhead</p>
+  </div>
+  <div class="page">
+    <p>Performance of other use cases</p>
+    <p>Up to 40% improvements in garbage collecAon performance (less than 100 LOC)</p>
+    <p>Privilege separaAon system can context switch between subdomains 3x faster than Linux can switch between processes (750 LOC)</p>
+  </div>
+  <div class="page">
+    <p>Conclusions</p>
+    <p>ApplicaAons can benefit from access to privileged CPU features</p>
+    <p>VirtualizaAon hardware allows us to provide such access safely</p>
+    <p>Dune creates new opportuniAes to build and improve applicaAons without kernel changes</p>
+    <p>Dune has modest performance overhead  Download Dune at h&gt;p://dune.scs.stanford.edu</p>
+  </div>
+  <div class="page">
+    <p>Xax - kernel hack</p>
+    <p>Implement picoprocess system call support</p>
+    <p>Hardware</p>
+    <p>Kernel</p>
+    <p>App Monitor</p>
+    <p>Patch</p>
+    <p>Syscall Register</p>
+    <p>Syscall Handler</p>
+  </div>
+  <div class="page">
+    <p>CPU</p>
+    <p>Kernel</p>
+    <p>Host Mode Guest Mode</p>
+    <p>Guest Syscall Register</p>
+    <p>Host Syscall Register</p>
+    <p>handle system calls directly within a process</p>
+    <p>Xax  the Dune approach</p>
+    <p>Monitor App</p>
+    <p>Syscall Handler</p>
+    <p>Syscall Handler</p>
+  </div>
+  <div class="page">
+    <p>Suppose we wanted to build a faster garbage collector</p>
+    <p>leverage OS virtual memory support?  Technique: memory remapping  Problem: mmap() is too slow (TLB invalidaAons)</p>
+    <p>Technique: dirty page detecAon  Problem: Linux does not expose dirty page informaAon</p>
+  </div>
+  <div class="page">
+    <p>ApplicaAon: sandboxing</p>
+    <p>! ! ! ! ! Sandbox!</p>
+    <p>Untrusted!Process!</p>
+    <p>SYSCA LL!</p>
+    <p>! ! Kernel!</p>
+    <p>Dune!Module!</p>
+    <p>VM CA</p>
+    <p>LL!</p>
+    <p>Mini!ELF! Loader!</p>
+    <p>Syscall! Filter!</p>
+    <p>Checkpoint! System!</p>
+    <p>ldBlinux!ELF! Loader!</p>
+  </div>
+  <div class="page">
+    <p>ApplicaAon: garbage collecAon</p>
+    <p>! ! ! ! ! Applica(on!</p>
+    <p>PGTBL!</p>
+    <p>! ! Kernel!</p>
+    <p>Dune!Module!</p>
+    <p>VM CA</p>
+    <p>LL!</p>
+    <p>Garbage! Collector! READ/CLEAR!</p>
+    <p>DIRTY!BITS!</p>
+  </div>
+  <div class="page">
+    <p>Could Dune Run in a VM?</p>
+  </div>
+  <div class="page">
+    <p>What about Libra?</p>
+    <p>Hypervisor</p>
+    <p>General Purpose OS</p>
+    <p>Libra (a library OS) Gateway (9p server)</p>
+    <p>Shared memory</p>
+    <p>JVM + App</p>
+    <p>Works but very complex and overhead is high</p>
+    <p>VFS NET BLOCK</p>
+    <p>VHBA VNIC</p>
+  </div>
+  <div class="page">
+    <p>Why Dune is Safe</p>
+    <p>Two key ideas  Memory protected by EPT  Privileged state protected by VT-x</p>
+  </div>
+  <div class="page">
+    <p>VT-x: shadows privileged state</p>
+    <p>HW: VMX Root Mode (host) HW: VMX Non-root Mode (guest)</p>
+    <p>Dune Process</p>
+    <p>Kernel</p>
+    <p>VM Enter</p>
+    <p>VM Exit</p>
+    <p>Host GDT</p>
+    <p>Host IDT</p>
+    <p>Host CR3</p>
+    <p>Guest GDT</p>
+    <p>Guest IDT</p>
+    <p>Guest CR3</p>
+  </div>
+  <div class="page">
+    <p>SPEC2000 - different sandboxing approaches</p>
+    <p>Dune Linux LGPG</p>
+    <p>Dune LGPG</p>
+    <p>Strategy 3.1 -4.3 -4.1 12.7 37.6 23.7 4.7</p>
+    <p>-10 -5 0 5</p>
+    <p>Sl ow</p>
+    <p>do w n Pe</p>
+    <p>rc en</p>
+    <p>ta ge</p>
+  </div>
+</Presentation>

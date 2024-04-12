@@ -1,0 +1,401 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>Accelerating Leukocyte Tracking Using CUDA:</p>
+    <p>A Case Study in Leveraging Manycore Coprocessors</p>
+    <p>Michael Boyer, David Tarjan,</p>
+    <p>Scott T. Acton, and Kevin Skadron</p>
+    <p>University of Virginia</p>
+    <p>IPDPS 2009</p>
+  </div>
+  <div class="page">
+    <p>Outline</p>
+    <p>Leukocyte tracking:</p>
+    <p>Problem</p>
+    <p>Current approaches</p>
+    <p>Acceleration using CUDA:</p>
+    <p>Bottlenecks</p>
+    <p>Optimization techniques</p>
+    <p>Performance impact</p>
+  </div>
+  <div class="page">
+    <p>Leukocyte Tracking</p>
+    <p>Velocity of rolling leukocytes (white blood cells) provides important information about the inflammatory response</p>
+    <p>Velocity measured by tracking leukocytes through multiple frames</p>
+  </div>
+  <div class="page">
+    <p>Leukocyte Tracking: Approaches</p>
+    <p>Manual analysis</p>
+    <p>Researcher marks leukocyte centers frameby-frame</p>
+    <p>Process 1 minute of video in tens of hours</p>
+    <p>Automated analysis using MATLAB</p>
+    <p>Removes manual effort and observer bias</p>
+    <p>Process 1 minute of video in &gt;4.5 hours</p>
+  </div>
+  <div class="page">
+    <p>Goal: Leverage CUDA and a GPU to accelerate leukocyte tracking to near real-time speeds</p>
+  </div>
+  <div class="page">
+    <p>Acceleration</p>
+    <p>CUDA for GPU</p>
+    <p>Experimental setup:  CPU: 3.2 GHz quad-core Intel Core 2 Extreme</p>
+    <p>X9770</p>
+    <p>GPU: NVIDIA GeForce GTX 280 (PCIe 2.0)</p>
+  </div>
+  <div class="page">
+    <p>CUDA</p>
+    <p>Programming model for running generalpurpose applications on NVIDIA GPUs</p>
+    <p>Based on C, with some minor extensions</p>
+    <p>Main CUDA abstraction: kernel function</p>
+    <p>Scalar program invoked across many threads</p>
+    <p>Threads grouped into thread blocks</p>
+    <p>Communication only allowed among threads within the same thread block</p>
+  </div>
+  <div class="page">
+    <p>Program</p>
+    <p>Allocate GPU memory</p>
+    <p>Transfer input data</p>
+    <p>Launch kernel</p>
+    <p>Transfer results</p>
+    <p>Free GPU memory</p>
+    <p>Acceleration using CUDA</p>
+    <p>CPU GPU</p>
+    <p>Step 1: Determine which code to offload to the GPU as a CUDA kernel</p>
+    <p>Step 2: Write the CPU-side CUDA code</p>
+    <p>Step 3: Write and optimize the GPU kernel</p>
+    <p>CUDA kernel</p>
+    <p>We focus on these two steps</p>
+  </div>
+  <div class="page">
+    <p>Tracking Algorithm</p>
+    <p>Inputs: Video frame</p>
+    <p>Location of cells in previous frame</p>
+    <p>Output: Location of cells in current frame</p>
+    <p>For each cell:</p>
+    <p>Extract sub-image near cells old location</p>
+    <p>Compute MGVF matrix over sub-image</p>
+    <p>Evolve active contour using MGVF matrix</p>
+    <p>runtime</p>
+  </div>
+  <div class="page">
+    <p>Computing the MGVF Matrix</p>
+    <p>Motion Gradient Vector Flow</p>
+    <p>Gradient vector field biased in the assumed direction of motion</p>
+    <p>MGVF matrix is approximated via an iterative solution procedure</p>
+    <p>Sub-image near cell Corresponding MGVF</p>
+  </div>
+  <div class="page">
+    <p>MGVF Pseudo-code</p>
+    <p>MGVF = normalized sub-image gradient</p>
+    <p>do {</p>
+    <p>Compute the difference between each element and its eight neighbors</p>
+    <p>Compute the regularized Heaviside function across each matrix</p>
+    <p>Update MGVF matrix</p>
+    <p>Compute convergence criterion</p>
+    <p>} while (not converged)</p>
+    <p>Initial kernel body</p>
+  </div>
+  <div class="page">
+    <p>Nave CUDA Implementation</p>
+    <p>C C + OpenMP Nave CUDA</p>
+    <p>CUDA</p>
+    <p>S p</p>
+    <p>ee d</p>
+    <p>u p</p>
+    <p>o v</p>
+    <p>er M</p>
+    <p>A T</p>
+    <p>L A</p>
+    <p>B</p>
+    <p>Kernel is called ~50,000 times per frame  Amount of work per call is small  Runtime dominated by CUDA overheads:</p>
+    <p>Memory allocation  Memory copying  Kernel call overhead</p>
+  </div>
+  <div class="page">
+    <p>Kernel Overhead</p>
+    <p>Kernel calls are not cheap!</p>
+    <p>Overhead of one kernel call: 9 s</p>
+    <p>Overhead of one CPU function: 3 ns</p>
+    <p>Heaviside kernel:</p>
+    <p>27% of kernel runtime due to computation</p>
+    <p>73% of kernel runtime due to kernel overhead</p>
+  </div>
+  <div class="page">
+    <p>Lesson 1: Reduce Kernel Overhead</p>
+    <p>Increase amount of work per kernel call</p>
+    <p>Decrease total number of kernel calls</p>
+    <p>Amortize overhead of each kernel call across more computation</p>
+  </div>
+  <div class="page">
+    <p>Larger Kernel Implementation</p>
+    <p>MGVF = normalized sub-image gradient</p>
+    <p>do {</p>
+    <p>Compute the difference between each pixel and its eight neighbors</p>
+    <p>Compute the regularized Heaviside function across each matrix</p>
+    <p>Update MGVF matrix</p>
+    <p>Compute convergence criterion</p>
+    <p>} while (! converged)</p>
+    <p>Expand kernel body</p>
+  </div>
+  <div class="page">
+    <p>Kernel Execution</p>
+    <p>Memory Copying</p>
+    <p>Memory Allocation</p>
+    <p>Percentage of Runtime</p>
+    <p>Larger Kernel Implementation</p>
+    <p>C C + OpenMP Nave CUDA Larger Kernel</p>
+    <p>CUDA</p>
+    <p>S p</p>
+    <p>ee d</p>
+    <p>u p</p>
+    <p>o v</p>
+    <p>er M</p>
+    <p>A T</p>
+    <p>L A</p>
+    <p>B</p>
+    <p>bottleneck</p>
+  </div>
+  <div class="page">
+    <p>Memory Allocation Overhead</p>
+    <p>Megabytes Allocated Per Call</p>
+    <p>T im</p>
+    <p>e P</p>
+    <p>er C</p>
+    <p>al l (</p>
+    <p>m ic</p>
+    <p>ro se</p>
+    <p>c o</p>
+    <p>n d</p>
+    <p>s )</p>
+    <p>malloc (CPU memory) cudaMalloc (GPU memory)</p>
+  </div>
+  <div class="page">
+    <p>Lesson 2: Reduce Memory Management Overhead</p>
+    <p>Reduce the number of memory allocations</p>
+    <p>Allocate memory once and reuse it throughout the application</p>
+    <p>If memory size is not known a priori, estimate and only re-allocate if estimate is too small</p>
+  </div>
+  <div class="page">
+    <p>Kernel Execution</p>
+    <p>Memory Copying</p>
+    <p>Memory Allocation</p>
+    <p>Percentage of Runtime</p>
+    <p>Reduced Allocation Implementation</p>
+    <p>C C + OpenMP Nave CUDA Larger Kernel Reduced Allocation</p>
+    <p>CUDA</p>
+    <p>S p</p>
+    <p>ee d</p>
+    <p>u p</p>
+    <p>o v</p>
+    <p>er M</p>
+    <p>A T</p>
+    <p>L A</p>
+    <p>B</p>
+    <p>bottleneck</p>
+  </div>
+  <div class="page">
+    <p>Memory Transfer Overhead</p>
+    <p>Megabytes per Transfer</p>
+    <p>T ra</p>
+    <p>n s</p>
+    <p>fe r</p>
+    <p>T im</p>
+    <p>e (</p>
+    <p>m il</p>
+    <p>lis ec</p>
+    <p>o n</p>
+    <p>d s</p>
+    <p>)</p>
+    <p>CPU to GPU GPU to CPU</p>
+    <p>transfer size used by this application</p>
+  </div>
+  <div class="page">
+    <p>Lesson 3: Reduce Memory Transfer Overhead</p>
+    <p>If the CPU operates on values produced by the GPU:</p>
+    <p>Move the operation to the GPU</p>
+    <p>May improve performance even if the operation itself is slower on the GPU</p>
+    <p>Operation (GPU)</p>
+    <p>Time</p>
+    <p>values produced by GPU</p>
+    <p>values consumed by GPU</p>
+    <p>Memory Transfer</p>
+    <p>Operation (CPU)</p>
+    <p>Memory Transfer</p>
+  </div>
+  <div class="page">
+    <p>GPU Reduction Implementation</p>
+    <p>MGVF = normalized sub-image gradient</p>
+    <p>do {</p>
+    <p>Compute the difference between each pixel and its eight neighbors</p>
+    <p>Compute the regularized Heaviside function across each matrix</p>
+    <p>Update MGVF matrix</p>
+    <p>Compute convergence criterion</p>
+    <p>} while (! converged)</p>
+    <p>Add convergence check to</p>
+    <p>kernel body</p>
+  </div>
+  <div class="page">
+    <p>Memory Transfer</p>
+    <p>Memory Transfer</p>
+    <p>Kernel Overhead Revisited</p>
+    <p>Overhead depends on calling pattern:</p>
+    <p>One at a time (synchronous): 9 s</p>
+    <p>Back-to-back (asynchronous): 3 s</p>
+    <p>Kernel Call</p>
+    <p>Kernel Call</p>
+    <p>Kernel Call</p>
+    <p>Kernel Call</p>
+    <p>Kernel Call</p>
+    <p>Kernel Call</p>
+    <p>Synchronous:</p>
+    <p>Asynchronous:</p>
+    <p>Implicit Synchronization</p>
+    <p>Kernel Call</p>
+    <p>Kernel Call</p>
+  </div>
+  <div class="page">
+    <p>Lesson 1 Revisited: Reduce Kernel Overhead</p>
+    <p>Increase amount of work per kernel call</p>
+    <p>Decrease total number of kernel calls</p>
+    <p>Amortize overhead of each kernel call across more computation</p>
+    <p>Launch kernels back-to-back</p>
+    <p>Kernel calls are asynchronous: avoid explicit or implicit synchronization between kernel calls</p>
+    <p>Overlap kernel execution on the GPU with driver access on the CPU</p>
+  </div>
+  <div class="page">
+    <p>GPU Reduction Implementation</p>
+    <p>C C + OpenMP Nave CUDA Larger Kernel Reduced Allocation</p>
+    <p>GPU Reduction</p>
+    <p>CUDA</p>
+    <p>S p</p>
+    <p>ee d</p>
+    <p>u p</p>
+    <p>o v</p>
+    <p>er M</p>
+    <p>A T</p>
+    <p>L A</p>
+    <p>B</p>
+    <p>Kernel Execution</p>
+    <p>Memory Copying</p>
+    <p>Memory Allocation</p>
+    <p>Percentage of Runtime</p>
+  </div>
+  <div class="page">
+    <p>Persistent Thread Block</p>
+    <p>MGVF = normalized sub-image gradient</p>
+    <p>do {</p>
+    <p>Compute the difference between each pixel and its eight neighbors</p>
+    <p>Compute the regularized Heaviside function across each matrix</p>
+    <p>Update MGVF matrix</p>
+    <p>Compute convergence criterion</p>
+    <p>} while (! converged)</p>
+    <p>How can we offload the</p>
+    <p>entire while loop as a</p>
+    <p>kernel?</p>
+  </div>
+  <div class="page">
+    <p>Persistent Thread Block</p>
+    <p>Problem: need a global memory fence  Multiple thread blocks compute the MGVF matrix</p>
+    <p>Thread blocks cannot communicate with each other</p>
+    <p>So each iteration requires a separate kernel call</p>
+    <p>Solution: compute entire matrix in one thread block  Arbitrary number of iterations can be computed in a single kernel call</p>
+  </div>
+  <div class="page">
+    <p>Persistent Thread Block: Example</p>
+    <p>Canonical CUDA Approach</p>
+    <p>(1-to-1 mapping between threads and data elements)</p>
+    <p>Persistent Thread Block</p>
+    <p>MGVF Matrix MGVF Matrix</p>
+  </div>
+  <div class="page">
+    <p>SM SM SM</p>
+    <p>SM SM SM</p>
+    <p>SM SM SM</p>
+    <p>Cell 2</p>
+    <p>Cell 3</p>
+    <p>Cell 4</p>
+    <p>Cell 5</p>
+    <p>Cell 6</p>
+    <p>Cell 7</p>
+    <p>Cell 8</p>
+    <p>Cell 9</p>
+    <p>SM SM SM</p>
+    <p>SM SM SM</p>
+    <p>SM SM SM</p>
+    <p>Cell 1</p>
+    <p>Cell 1</p>
+    <p>Cell 1</p>
+    <p>Cell 1</p>
+    <p>Cell 1</p>
+    <p>Cell 1</p>
+    <p>Cell 1</p>
+    <p>Cell 1</p>
+    <p>Cell 1</p>
+    <p>GPU</p>
+    <p>Persistent Thread Block: Example</p>
+    <p>Cell 1</p>
+    <p>Canonical CUDA Approach</p>
+    <p>(1-to-1 mapping between threads and data elements)</p>
+    <p>Persistent Thread Block</p>
+    <p>GPU</p>
+  </div>
+  <div class="page">
+    <p>Lesson 4: Avoid Global Memory Fences</p>
+    <p>Confine dependent computations to a single thread block</p>
+    <p>Execute an iterative algorithm until convergence in a single kernel call</p>
+    <p>Only efficient if there are multiple independent computations</p>
+  </div>
+  <div class="page">
+    <p>Persistent Thread Block Implementation</p>
+    <p>C C + OpenMP Nave CUDA Larger Kernel Reduced Allocation</p>
+    <p>GPU Reduction</p>
+    <p>Persistent Thread Block</p>
+    <p>CUDA</p>
+    <p>S p</p>
+    <p>ee d</p>
+    <p>u p</p>
+    <p>o v</p>
+    <p>er M</p>
+    <p>A T</p>
+    <p>L A</p>
+    <p>B</p>
+  </div>
+  <div class="page">
+    <p>Absolute Performance</p>
+    <p>MATLAB C C + OpenMP CUDA</p>
+    <p>F ra</p>
+    <p>m e</p>
+    <p>s p</p>
+    <p>e r</p>
+    <p>S e</p>
+    <p>c o</p>
+    <p>n d</p>
+    <p>( F</p>
+    <p>P S</p>
+    <p>)</p>
+  </div>
+  <div class="page">
+    <p>Conclusions</p>
+    <p>CUDA overheads can be significant bottlenecks</p>
+    <p>Techniques presented here can help mitigate the impact of these bottlenecks</p>
+    <p>CUDA provides enormous performance improvements for leukocyte tracking</p>
+    <p>200x speedup over MATLAB</p>
+    <p>27x speedup over OpenMP</p>
+    <p>Processing time for a 1 minute video reduced from &gt;4.5 hours to &lt;1.5 minutes</p>
+    <p>Real-time leukocyte tracking will be feasible in the near future</p>
+  </div>
+  <div class="page">
+    <p>Acknowledgements</p>
+    <p>Funding provided by:</p>
+    <p>NSF grant IIS-0612049</p>
+    <p>SRC grant 1607.001</p>
+    <p>NVIDIA research grant</p>
+    <p>GRC AMD/Mahboob Kahn Ph.D. fellowship</p>
+    <p>Equipment donated by NVIDIA</p>
+  </div>
+  <div class="page">
+    <p>Software</p>
+    <p>Source code available at:</p>
+    <p>http://lava.cs.virginia.edu/wiki/rodinia</p>
+    <p>ImageJ plugin will be available soon</p>
+  </div>
+</Presentation>

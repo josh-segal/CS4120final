@@ -1,0 +1,490 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<TEI xmlns="http://www.tei-c.org/ns/1.0" 
+xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+xsi:schemaLocation="http://www.tei-c.org/ns/1.0 /Users/atharsefid/Desktop/grobid-0.5.3/grobid-home/schemas/xsd/Grobid.xsd"
+ xmlns:xlink="http://www.w3.org/1999/xlink">
+	<teiHeader xml:lang="en">
+		<encodingDesc>
+			<appInfo>
+				<application version="0.5.3" ident="GROBID" when="2019-03-26T16:56+0000">
+					<ref target="https://github.com/kermitt2/grobid">GROBID - A machine learning software for extracting information from scholarly documents</ref>
+				</application>
+			</appInfo>
+		</encodingDesc>
+		<fileDesc>
+			<titleStmt>
+				<title level="a" type="main">The Software Stack for Transactional Memory Challenges and Opportunities</title>
+			</titleStmt>
+			<publicationStmt>
+				<publisher/>
+				<availability status="unknown"><licence/></availability>
+			</publicationStmt>
+			<sourceDesc>
+				<biblStruct>
+					<analytic>
+						<author>
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Brian</forename><forename type="middle">D</forename><surname>Carlstrom</surname></persName>
+							<affiliation key="aff0">
+								<orgName type="department">Computer Systems Laboratory</orgName>
+								<orgName type="institution">Stanford University</orgName>
+							</affiliation>
+						</author>
+						<author>
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Jaewoong</forename><surname>Chung</surname></persName>
+							<email>jwchung@stanford.edu</email>
+							<affiliation key="aff0">
+								<orgName type="department">Computer Systems Laboratory</orgName>
+								<orgName type="institution">Stanford University</orgName>
+							</affiliation>
+						</author>
+						<author>
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Christos</forename><surname>Kozyrakis</surname></persName>
+							<email>kozyraki@stanford.edu</email>
+							<affiliation key="aff0">
+								<orgName type="department">Computer Systems Laboratory</orgName>
+								<orgName type="institution">Stanford University</orgName>
+							</affiliation>
+						</author>
+						<author>
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Kunle</forename><surname>Olukotun</surname></persName>
+							<affiliation key="aff0">
+								<orgName type="department">Computer Systems Laboratory</orgName>
+								<orgName type="institution">Stanford University</orgName>
+							</affiliation>
+						</author>
+						<title level="a" type="main">The Software Stack for Transactional Memory Challenges and Opportunities</title>
+					</analytic>
+					<monogr>
+						<imprint>
+							<date/>
+						</imprint>
+					</monogr>
+				</biblStruct>
+			</sourceDesc>
+		</fileDesc>
+		<profileDesc>
+			<abstract>
+				<p>1. Introduction</p>
+			</abstract>
+		</profileDesc>
+	</teiHeader>
+	<text xml:lang="en">
+		<body>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="2.">Data Structures</head><p>Parallel access to data structures using locks is a trade off between simplicity and efficiency. Usually a programmer will start with a single lock to protect a structure, which can lead to idle time due to contention. A programmer can then move to finer grained locks, with the cost of implementation complexity, increasing the likelihood of deadlock.</p><p>There has been work on non-blocking data structures to avoid using locks and the common problems they lead to such as deadlocks, convoying, and priority inversion. However, these data structures can be more complex than even their fine-grained locking counterparts.</p><p>Transactional memory allows simple lock-free data structures to be used with concurrent access without performance impact. However, similar to non-blocking data structures, contention can still be a problem. For example, a simple hash table will have little contention even on parallel update. However, if the table tries to maintain the current number of elements, it creates a source of contention for any update that adds or removes elements, which for most uses is the common case.</p><p>A few extensions to the basic transactional semantics have been proposed to handle such cases <ref type="bibr" target="#b11">[12]</ref>. The concept of open nested transaction can help by minimizing the impact of contention, by only rolling back the update of element counter and not the entire transaction. Another approach is to use violation handlers to respond to contention in a data structure specific way; in the case of the counter, the transaction can discard its changes and simply re-increment the counter. One area of future work is to create a transaction friendly set of standard collection classes for C++ and Java.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.">Program Composition</head><p>Building software systems involves the composition of many building blocks, such as data structures, to create a working whole. Simple nesting of transactions allows basic libraries to be built and integrated into larger components, similar to the nesting of synchronized blocks in Java. Transactions can also offer alternatives to threads for parallelism, such as speculative loops that use transactions to maintain sequential semantics while taking advantage of additional processors for performance. Parallel looping constructs can dynamically detect the number of processors to use, running sequentially if higher levels of parallelism are already using other processors or using all processors if their is a sequential caller.</p><p>One challenge to program composition is the inclusion of I/O calls within a transaction. A general solution is to use buffering of input and output to remove any non-transactional operations from within transactions. In practice, this seems reasonable in many cases. For example, in a web server, a request can be read from the network, then a transaction can process the request buffering its output. If the transaction completes successfully, the buffer can be flushed across the network. If the transaction is aborted, it can be restarted with the same input. If there is a compelling reason, the I/O could be allowed from within the transaction, with some compensating code to be run on failure. For example, a transaction may want to use a private temporary file within a transaction, which could simply be deleted if the transaction is later aborted.</p><p>Another challenge to program composition is waiting on conditional variables within nested transactions. There is no transactional interpretation that is guaranteed to preserve the semantics of all lock based programs <ref type="bibr" target="#b2">[3]</ref>. Fortunately, alternatives such as conditional critical regions fit well with transactional memory <ref type="bibr" target="#b9">[10]</ref>.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="4.">Operating Systems</head><p>Operating system kernels show great potential to benefit from Transactional memory. The Linux kernel's evolution from uniprocessor to multiprocessor support has shown many of the difficulties of locks. Over time there has been a move from a "one big lock" lock approach to finer grained locks for high contention data structures. The increased code complexity due to locking has led a significant number of bugs. For example, many drivers have had issues working in a multiprocessor environment because of requirements locking places on all accesses to shared data structures. Transactional memory can simplify kernel construction and potentially even provide performance improvements by speculating through former lock waiting points.</p><p>Transactional memory can also be used to build more reliable and secure operating systems. The atomicity of transactions prevents unexpected hardware or software faults from leaving shared system structures in an inconsistent state. The isolation provided by transactions can be useful for a secure system in that latent attacks from malicious code are always wrapped by transactions and remain ineffective to systems until they are filtered by security conformance test before the commit of the transactions.</p><p>The opportunities provided by transactional memory come with some challenges. Operating systems typically consider processors to have low preemption cost. Even though there is much talk of the cost of context switching, in practice the cost of save and restore the register set is negligible. Unfortunately, hardware transactional memory complicates preemption by extending the processor state to include the current state of transactional memory in addition to the register set. Operating system schedulers may need to take the transactional status of a processor into consideration, favoring the preemption of code not currently in a transaction. Forward progress can become a serious issue if transactions need to run longer than the scheduling quantum and are rolled back on preemption, although studies of common case transactional behavior of programs seems to indicate this is not likely to be a problem <ref type="bibr" target="#b6">[7]</ref>.</p><p>Interrupts handling creates similar problems, because we do not want the handlers state to affect an unrelated transaction that was already running. One potential solution is to run interrupt handlers as a sort of open nested transaction that runs and commits its changes without committing the parent that was already on the processor.</p><p>Physical device I/O operations are inherently non-transactional because they cannot be rolled back. Several approaches should be considered. First, some buffering techniques described above might work for non-block devices. Second, I/O operations could be delayed until commit, a typical approach taken in other transactional systems. Finally, perhaps simply prohibiting device I/O within a transaction would not be an undue burden on the kernel programmer.</p><p>Finally, virtual memory management needs to cooperate with transactional memory when updating virtual to physical address mappings so that changes in mapping do not cause the system to miss any data conflicts.</p><p>It is worth noting that the challenges of transaction preemption on context switch or interrupt are limited to hardware transactional memory systems. Software transactional memory systems do not share these issues, since by definition none of their transactional state is maintained within the processor. Hopefully, the challenges presented by hardware transactional memory in the context of operating systems can be explored in parallel with opportunities through the use of software transactional memory.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="5.">Language Implementation</head><p>Just as databases hide complexity in implementation in order to provide a simple interface, programming language runtimes often have to deal with details so the programmer does not have to. One area of complexity is memory allocation. For example, some software transactional memory systems internally differentiate between heap allocated and stack allocated objects in C/C++ <ref type="bibr" target="#b14">[15]</ref>. Java garbage collectors need to be made transaction aware so parallel collection can avoid unnecessary overhead.</p><p>While there are challenges in implementing programming languages in a transactional environment, there are opportunities as well. For example, one can imagine taking advantage of violation detection to allow a garbage collector to run in parallel with mutator threads, where a violation works as event trigger for concurrent updates of mutators and collectors to heap and stack memory. By having violation handlers to do suitable adjustments at violations due to conflicts between collectors and mutators, the burden of playing with fine-grain locking and synchronization schemes can be greatly mitigated <ref type="bibr" target="#b11">[12]</ref>. In addition, one could imagine a JIT compiler making unsafe optimization with respect to reachability of a location, counting on violations to catch any problems in practice.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="6.">Programming Models</head><p>There seem to be as many different semantics for transactional memory as there are transactional memory proposals. While most provide the basic concept of begin transaction, commit transaction, and simple nesting, from this starting point there are departures for many competing destinations. One source of concern is that often proposals use the same name for differing semantics, with one example being the usage of open nesting.</p><p>A larger problem is when certain behavior is not defined at all. For example, there are two general forms of atomicity: strong and weak. Strong atomicity implies that a transaction's results are not visible to non-transactional code and that changes made to shared state by non-transactional code violate transactions that depend on that state. However some systems offer only weak atomicity, which means atomicity is preserved only if all accesses are from within transactions, but no guarantees are made for simultaneous read or write access from non-transactional code. This means that reads from outside transactions may read partially update state and that writes may break the atomicity assumptions of code that is running within a transaction.</p><p>We believe that strong atomicity should be a requirement of all transactional memory proposals, otherwise a programmer accidentally reading or writing shared state outside a transaction will destroy atomicity expectations in other parts of the system. While almost all hardware transactional memory proposals provide strong atomicity, until recently most software transactional memory proposals did not. We are encouraged to see that this has become a topic of interest in recent software transactional memory research. However, we are concerned when some hardware proposals offer extensions that create environments where strong and weak atomicity might be mixed within a program, especially when neither programming model is a functional subset of the other <ref type="bibr" target="#b1">[2]</ref>.</p><p>One design challenge is how to provide transactional features to the programmer in a structured way, particularly in choosing which features to expose to high level programmers and which to reserve for system programming. A large number of language proposals that were otherwise unrelated to transactions have recently added atomic constructs, although some are more completely specified than others <ref type="bibr" target="#b0">[1,</ref><ref type="bibr" target="#b4">5,</ref><ref type="bibr" target="#b7">8]</ref>. Our own proposal for the Atomos programming language tries to address the boundary between transactional constructs for the programming language user and those programming language implementer, focusing on providing the basics like open and closed nesting and conditional waiting to the programmer and reserving the full power of violation handlers for the use under the hood <ref type="bibr" target="#b3">[4]</ref>.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="7.">Distributed Transactions</head><p>Large enterprise applications are typically built with distributed transactions. The programmer in this environment is already used to the concept of transactions, which have been used for decades as a vehicle to build reliable and efficient business systems. In these environments, a single transaction can span more than one system. Each system acts as a resource manager and a transaction manager employees a two phase commit protocol to ensure that the ACID properties of transactions are preserved in the event of the failure of any of the resource managers. It is important for the transactional memory community to be aware of the requirements placed on resource managers to allow future integration with external transaction managers.</p><p>Distributed transaction systems typically provide their own interface for coordinating transactions across the system, including such basic operations as committing a transaction, so that the requests are directed to the transaction manager. Some examples of these interfaces include Microsoft .Net's Enterprise Services for its Distributed Transaction Coordinator (DTC), Java 2 Enterprise Edition (J2EE)'s Java Transaction Service (JTS), and CORBA's Object Transaction Service (OTS). Any transactional memory interfaces, including transactional language proposals, need to consider how they could delegate their commit operations to use these interfaces if needed.</p><p>Distributed transaction systems often provide a declarative definition of the transaction proprieties of interfaces, separate from the code that implements those interfaces. For example, Enterprise Java Beans (EJBs), the distributed object system in J2EE, requires programmers to annotate interface methods with transactional properties such as TX REQUIRED or TX BEAN MANAGED to indicate if a transaction is expected to already be present or should be internal to the bean. When calling these interfaces, transactional memory may be able to extract parallelism by using the interface annotations as hints about what calls might prove useful sources of method-level parallelism.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="8.">Legacy Code</head><p>No matter how successful transactional memory systems become, they will always have to integrate with existing legacy code. There are several approaches to taking advantage of transactions with existing code. For existing parallel code with locks, proposals such as TLR have explored converting critical sections into transactions, falling back to locks on rollback <ref type="bibr" target="#b13">[14]</ref>. Even sequential code can take advantage of transactions with techniques to convert ordered loops into speculative transactions such as the Jrpm system for Java <ref type="bibr" target="#b5">[6]</ref>. Similar techniques could be applied directly to native code with binary translation. Together these two approaches promise to smooth the transition for both existing parallel and sequential code to parallel transactional execution.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="9.">Conclusion</head><p>For transactional memory to deliver on its promise, transactions must be integrated across the software stack. While there are several challenges along that way, revisiting the software stack for transactions provides a great opportunity to improve performance, reliability, and ease-of-use in future systems based on multicore chips. It also provides an opportunity to re-energize collaboration between the architecture, programming language, compiler, operating systems, and distributed systems communities. Such synergistic work is necessary to create practical and truly scalable parallel systems.</p></div>		</body>
+		<back>
+
+			<div type="acknowledgement">
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>Acknowledgements</head><p>This research was sponsored by the Defense Advanced Research Projects Agency (DARPA) through the Department of the Interior National Business Center under grant number NBCH104009. The views and conclusions contained in this document are those of the authors and should not be interpreted as representing the official policies, either expressed or implied, of the Defense Advanced Research Projects Agency (DARPA) or the U.S. Government.</p><p>Additional support was also available through NSF grant 0444470. Brian D. Carlstrom is supported by an Intel Foundation PhD Fellowship.</p></div>
+			</div>
+
+			<div type="references">
+
+				<listBibl>
+
+<biblStruct xml:id="b0">
+	<monogr>
+				<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">E</forename><surname>Allen</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Chase</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">V</forename><surname>Luchangco</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J.-W</forename><surname>Maessen</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Ryu</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">G</forename><forename type="middle">L S</forename><genName>Jr</genName></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Tobin-Hochstadt</surname></persName>
+		</author>
+		<title level="m">The Fortress Language Specification. Sun Microsystems</title>
+		<imprint>
+			<date type="published" when="2005" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b1">
+	<analytic>
+		<title level="a" type="main">Deconstructing transactional semantics: The subtleties of atomicity</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Blundell</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">E</forename><forename type="middle">C</forename><surname>Lewis</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><forename type="middle">M K</forename><surname>Martin</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Workshop on Duplicating, Deconstructing, and Debunking (WDDD)</title>
+		<imprint>
+			<date type="published" when="2005-06" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b2">
+	<analytic>
+		<title level="a" type="main">Transactional Execution of Java Programs</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">B</forename><forename type="middle">D</forename><surname>Carlstrom</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Chung</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">H</forename><surname>Chafi</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Mcdonald</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Minh</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">L</forename><surname>Hammond</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Kozyrakis</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">K</forename><surname>Olukotun</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">OOPSLA 2005 Workshop on Synchronization and Concurrency in Object-Oriented Languages (SCOOL)</title>
+		<imprint>
+			<date type="published" when="2005-10" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b3">
+	<analytic>
+		<title level="a" type="main">The Atomos Transactional Programming Language</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">B</forename><forename type="middle">D</forename><surname>Carlstrom</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Chung</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Mcdonald</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">H</forename><surname>Chafi</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Kozyrakis</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">K</forename><surname>Olukotun</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">PLDI &apos;06: Proceedings of the 2006 ACM SIGPLAN Conference on Programming Language Design and Implementation</title>
+		<meeting><address><addrLine>New York, NY, USA</addrLine></address></meeting>
+		<imprint>
+			<publisher>ACM Press</publisher>
+			<date type="published" when="2006" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b4">
+	<analytic>
+		<title level="a" type="main">X10: an object-oriented approach to non-uniform cluster computing</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>Charles</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Grothoff</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">V</forename><surname>Saraswat</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Donawa</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Kielstra</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">K</forename><surname>Ebcioglu</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Von Praun</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">V</forename><surname>Sarkar</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">OOPSLA &apos;05: Proceedings of the 20th annual ACM SIGPLAN conference on Object oriented programming systems languages and applications</title>
+		<meeting><address><addrLine>New York, NY, USA</addrLine></address></meeting>
+		<imprint>
+			<publisher>ACM Press</publisher>
+			<date type="published" when="2005" />
+			<biblScope unit="page" from="519" to="538" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b5">
+	<analytic>
+		<title level="a" type="main">The Jrpm system for dynamically parallelizing java programs</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><forename type="middle">K</forename><surname>Chen</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">K</forename><surname>Olukotun</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the 30th International Symposium on Computer Architecture</title>
+		<meeting>the 30th International Symposium on Computer Architecture</meeting>
+		<imprint>
+			<date type="published" when="2003-06" />
+			<biblScope unit="page" from="434" to="445" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b6">
+	<analytic>
+		<title level="a" type="main">The Common Case Transactional Behavior of Multithreaded Programs</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Chung</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">H</forename><surname>Chafi</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Minh</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Mcdonald</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">B</forename><surname>Carlstrom</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Kozyrakis</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">K</forename><surname>Olukotun</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the 12th International Conference on High-Performance Computer Architecture</title>
+		<meeting>the 12th International Conference on High-Performance Computer Architecture</meeting>
+		<imprint>
+			<date type="published" when="2006" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b7">
+	<monogr>
+		<title level="m" type="main">Chapel Specification</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><surname>Cray</surname></persName>
+		</author>
+		<imprint>
+			<date type="published" when="2005-02" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b8">
+	<monogr>
+		<title level="m" type="main">Transaction Processing: Concepts and Techniques</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Gray</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Reuter</surname></persName>
+		</author>
+		<imprint>
+			<date type="published" when="1993" />
+			<publisher>Morgan Kaufmann</publisher>
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b9">
+	<analytic>
+		<title level="a" type="main">Language support for lightweight transactions</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">T</forename><surname>Harris</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">K</forename><surname>Fraser</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">OOPSLA &apos;03: Proceedings of the 18th annual ACM SIGPLAN conference on Object-oriented programing, systems, languages, and applications</title>
+		<imprint>
+			<publisher>ACM Press</publisher>
+			<date type="published" when="2003" />
+			<biblScope unit="page" from="388" to="402" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b10">
+	<analytic>
+		<title level="a" type="main">Communicating sequential processes</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><forename type="middle">A R</forename><surname>Hoare</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Communications of the ACM</title>
+		<imprint>
+			<biblScope unit="volume">21</biblScope>
+			<biblScope unit="issue">8</biblScope>
+			<biblScope unit="page" from="666" to="677" />
+			<date type="published" when="1978" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b11">
+	<analytic>
+		<title level="a" type="main">Architectural Semantics for Practical Transactional Memory</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Mcdonald</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Chung</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">B</forename><surname>Carlstrom</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Kozyrakis</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">K</forename><surname>Olukotun</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the 33rd International Symposium on Computer Architecture</title>
+		<meeting>the 33rd International Symposium on Computer Architecture</meeting>
+		<imprint>
+			<date type="published" when="2006" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b12">
+	<analytic>
+		<title level="a" type="main">Characterization of TCC on Chip-Multiprocessors</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Mcdonald</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Chung</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">H</forename><surname>Chafi</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Minh</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">B</forename><forename type="middle">D</forename><surname>Carlstrom</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">L</forename><surname>Hammond</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Kozyrakis</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">K</forename><surname>Olukotun</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">PACT &apos;05: Proceedings of the 14th International Conference on Parallel Architectures and Compilation Techniques (PACT&apos;05)</title>
+		<meeting><address><addrLine>Washington, DC, USA</addrLine></address></meeting>
+		<imprint>
+			<publisher>IEEE Computer Society</publisher>
+			<date type="published" when="2005-09" />
+			<biblScope unit="page" from="63" to="74" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b13">
+	<analytic>
+		<title level="a" type="main">Transactional lock-free execution of lock-based programs</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Rajwar</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><forename type="middle">R</forename><surname>Goodman</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">ASPLOS-X: Proceedings of the 10th international conference on Architectural support for programming languages and operating systems</title>
+		<meeting><address><addrLine>New York, NY, USA</addrLine></address></meeting>
+		<imprint>
+			<publisher>ACM Press</publisher>
+			<date type="published" when="2002-10" />
+			<biblScope unit="page" from="5" to="17" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b14">
+	<analytic>
+		<title level="a" type="main">A high performance software transactional memory system for a multi-core runtime</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">B</forename><surname>Saha</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A.-R</forename><surname>Adl-Tabatabai</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><forename type="middle">L</forename><surname>Hudson</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><forename type="middle">Cao</forename><surname>Minh</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">B</forename><surname>Hertzberg</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">PPoPP &apos;06: Proceedings of the eleventh ACM SIGPLAN symposium on Principles and practice of parallel programming</title>
+		<meeting><address><addrLine>New York, NY, USA</addrLine></address></meeting>
+		<imprint>
+			<publisher>ACM Press</publisher>
+			<date type="published" when="2006-03" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+				</listBibl>
+			</div>
+		</back>
+	</text>
+</TEI>

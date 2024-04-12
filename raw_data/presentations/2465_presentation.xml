@@ -1,0 +1,166 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>Evaluating SFI for a CISC Architecture Stephen McCamant and Greg Morrisett</p>
+    <p>smcc@csail.mit.edu, greg@eecs.harvard.edu</p>
+    <p>MIT CSAIL and Harvard EECS</p>
+    <p>Outline</p>
+    <p>SFI as a security technique</p>
+    <p>Classic (RISC) SFI</p>
+    <p>A CISC-compatible approach</p>
+    <p>PittSFIeld implementation</p>
+    <p>Machine-checked proof</p>
+    <p>Conclusion</p>
+    <p>Software security: isolation</p>
+    <p>How can I keep a piece of code from doing bad things?</p>
+    <p>Author might be malicious, or code might be subverted by malicious input</p>
+    <p>Identify legal interfaces; how to limit interaction to them?</p>
+    <p>Application: future-proof archives</p>
+    <p>Embed decompressor in .zip file so its always available [Ford, 2005]</p>
+    <p>How to safely execute untrusted library?</p>
+    <p>Well-known isolation techniques</p>
+    <p>OS process abstraction + Robust hardware enforcement  System-call interface inflexible</p>
+    <p>Type-safe programming language (e.g., Java)</p>
+    <p>+ Allows fine-grained data sharing  Not applicable to C/C++</p>
+    <p>SFI in outline</p>
+    <p>Software-based Fault Isolation</p>
+    <p>Simulate hardware-style protection with binary-level rewriting</p>
+    <p>Insert checks to confine jumps and memory writes to sandbox regions</p>
+  </div>
+  <div class="page">
+    <p>Outline</p>
+    <p>SFI as a security technique</p>
+    <p>Classic (RISC) SFI</p>
+    <p>A CISC-compatible approach</p>
+    <p>PittSFIeld implementation</p>
+    <p>Machine-checked proof</p>
+    <p>Conclusion</p>
+    <p>Key problem: circumventing checks</p>
+    <p>f00: check %rs f04: unsafe op %rs</p>
+    <p>... ...</p>
+    <p>f80: jmp f04 ...</p>
+    <p>... fbc: check-bounds %rt fc0: jmp %rt</p>
+    <p>Do checks always precede unsafe ops?</p>
+    <p>Solution: dedicated registers</p>
+    <p>Indirect write only through %rs</p>
+    <p>Maintain invariant: at jump, %rs contains a legal data address</p>
+    <p>Safe to jump into middle of checks f40: mov %rt -&gt; %rs f44: check %rs f48: store %x, (%rs)</p>
+    <p>Requires several registers</p>
+    <p>Bitwise memory isolation</p>
+    <p>Distinct code and data areas to prevent self-modifying code</p>
+    <p>Areas have power-of-two size and alignment</p>
+    <p>Enforce by bitwise AND and OR on addresses</p>
+    <p>Ensure, dont check</p>
+    <p>Ideal: if the original program would have violated the security policy, the transformed program will halt with an error message right before the violation.</p>
+    <p>Ensure, dont check</p>
+    <p>Relaxed: if the original program would have violated the security policy, the transformed program will do something allowed by the security policy.</p>
+  </div>
+  <div class="page">
+    <p>More optimizations</p>
+    <p>Trusted register: check after modification, not before use</p>
+    <p>Invariant: frame pointer always safe for data region</p>
+    <p>Guard pages: put unmapped pages at edges of data area</p>
+    <p>E.g., push needs no checks</p>
+    <p>Outline</p>
+    <p>SFI as a security technique</p>
+    <p>Classic (RISC) SFI</p>
+    <p>A CISC-compatible approach</p>
+    <p>PittSFIeld implementation</p>
+    <p>Machine-checked proof</p>
+    <p>Conclusion</p>
+    <p>Key problem: overlapping instructions</p>
+    <p>push %esi</p>
+    <p>mov $0x56,%dh sbb $0xff,%al inc %eax or %al,%dh</p>
+    <p>movzbl 0x1c(%esi),%edx incl 0x8(%eax) ...</p>
+    <p>Processor can jump to any byte</p>
+    <p>Hard to make hidden instructions safe</p>
+    <p>Solution: enforce instruction alignment</p>
+    <p>No instruction crosses a 16-byte boundary</p>
+    <p>Jump targets have low 4 bits zero</p>
+    <p>call instructions end on 16-byte boundaries</p>
+    <p>Only need one spare register</p>
+    <p>Optimization: AND-only sandboxing</p>
+    <p>SFI data</p>
+    <p>SFI code</p>
+    <p>trusted code and data</p>
+    <p>Reduce sandboxing sequence to one instruction</p>
+    <p>Mask address with 20ffffff</p>
+    <p>Reserve 00000000 to 00ffffff</p>
+    <p>Security model</p>
+    <p>Compiler and rewriter are untrusted</p>
+    <p>Check rewriting on load; only this checker needs to be trusted</p>
+    <p>Disallow unknown instructions</p>
+    <p>Safety does not depend on compiler sanity</p>
+  </div>
+  <div class="page">
+    <p>Outline</p>
+    <p>SFI as a security technique</p>
+    <p>Classic (RISC) SFI</p>
+    <p>A CISC-compatible approach</p>
+    <p>PittSFIeld implementation</p>
+    <p>Machine-checked proof</p>
+    <p>Conclusion</p>
+    <p>Prototype IA-32 Transformation Tool for Software-based Fault Isolation Enabling Load-time Determinations (of safety)</p>
+    <p>http://pag.csail.mit.edu/smcc/</p>
+    <p>projects/pittsfield</p>
+    <p>Google: PittSFIeld SFI</p>
+    <p>Assembly-language rewriting</p>
+    <p>Rewriter is a Perl program that operates on GAS assembly code</p>
+    <p>Alignment using .align directives and conservative length estimation</p>
+    <p>Important to rewrite before symbolic references resolved (done by code producer)</p>
+    <p>One-pass, local verification</p>
+    <p>Single in-order pass over instruction sequence State machine keeps track of static invariant validity</p>
+    <p>Conservative assumptions at potential jump targets Must clean up before jumping elsewhere</p>
+    <p>SPEC benchmarks (gcc = 1:0)</p>
+    <p>benchmark time size compr. size Geom. Mean 1:21 1:75 1:07 164.gzip 1:16 1:65 1:10 175.vpr 1:07 1:67 1:07 176.gcc 1:55 1:84 1:05 181.mcf 1:01 1:74 1:13 186.crafty 1:29 1:62 1:06 197.parser 1:14 1:92 1:06 252.eon 1:35 1:72 1:05 253.perlbmk 1:36 1:96 1:07 254.gap 1:24 1:84 1:05 255.vortex 1:23 1:63 0:98 256.bzip2 1:16 1:63 1:09 300.twolf 1:08 1:80 1:08</p>
+    <p>Sources of time overhead</p>
+    <p>Real sandboxing</p>
+    <p>NOP sandboxing</p>
+    <p>Padding</p>
+    <p>No %ebx</p>
+    <p>No scheduling</p>
+    <p>gcc perl vortex eon gap crafty twolf parser vpr gzip bzip2 mcf G. mean</p>
+    <p>&lt; increasing binary size &lt;</p>
+  </div>
+  <div class="page">
+    <p>Outline</p>
+    <p>SFI as a security technique</p>
+    <p>Classic (RISC) SFI</p>
+    <p>A CISC-compatible approach</p>
+    <p>PittSFIeld implementation</p>
+    <p>Machine-checked proof</p>
+    <p>Conclusion</p>
+    <p>One good basket</p>
+    <p>For security, key is verifier</p>
+    <p>Want to know that if verifier says OK, code is really safe</p>
+    <p>Prove it!</p>
+    <p>Machine-checked proof for increased assurance</p>
+    <p>ACL2</p>
+    <p>ACL2 is a proof-assistant environment from J Moore et al. (UT Austin) Model a problem in restricted subset of Common Lisp</p>
+    <p>(no mutation, higher-order functions)</p>
+    <p>Refine goal into small sub-lemmas, each proved automatically</p>
+    <p>(perhaps with hints)</p>
+    <p>Statement to prove</p>
+    <p>Verifier implements a predicate on the code image</p>
+    <p>Model the processor as an interpreter</p>
+    <p>Unsafe operations cause it to halt, no exit</p>
+    <p>Proof status</p>
+    <p>Verified for a small but representative instruction subset:</p>
+    <p>nop mov addr, %eax xchg %eax, %ebx inc %eax mov %eax, addr xchg %eax, %ebp jmp addr and $immed, %ebx mov %eax, (%ebx) jmp *%ebx and $immed, %ebp mov %eax, (%ebp)</p>
+    <p>Realistic padding and encoding</p>
+    <p>Outline</p>
+    <p>SFI as a security technique</p>
+    <p>Classic (RISC) SFI</p>
+    <p>A CISC-compatible approach</p>
+    <p>PittSFIeld implementation</p>
+    <p>Machine-checked proof</p>
+    <p>Conclusion</p>
+  </div>
+  <div class="page">
+    <p>Conclusion</p>
+    <p>It is possible to do SFI efficiently on a CISC architecture</p>
+    <p>It is possible to apply SFI to full-scale applications</p>
+    <p>It is possible to trust an SFI implementation</p>
+    <p>Questions?</p>
+  </div>
+</Presentation>

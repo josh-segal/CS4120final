@@ -1,0 +1,447 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>A High Throughput String Matching Architecture for Intrusion Detection and</p>
+    <p>Prevention</p>
+    <p>Lin Tan U of Illinois, Urbana Champaign</p>
+    <p>Tim Sherwood UC, Santa Barbara</p>
+  </div>
+  <div class="page">
+    <p>Outline  Why String Matching</p>
+    <p>Matching against multiple strings</p>
+    <p>The Aho-Corasick Algorithm</p>
+    <p>The Devil in the Constants</p>
+    <p>A Bit-Split Algorithm</p>
+    <p>Hardware Design and Analysis</p>
+    <p>Conclusions</p>
+  </div>
+  <div class="page">
+    <p>To Protect and Serve</p>
+    <p>Our machines are constantly under attack</p>
+    <p>Cannot rely on end users, we need networks which actively defend themselves.</p>
+    <p>This requires the protection system to be able to operate at 10 to 40 Gb/s. (We aim at current and next generation networks.)</p>
+    <p>IDS/IPS are promising ways of providing protection Market for such systems: $918.9 million by the end of 2007. Snort: an widely accepted open source IDS</p>
+  </div>
+  <div class="page">
+    <p>Our Contributions</p>
+    <p>String Matching Architecture:  0.4MB and 10Gbps for Snort rule set ( &gt;10,000</p>
+    <p>characters)</p>
+    <p>Bit-Split String Matching Algorithm  Reduces out edges from 256 to 2.</p>
+    <p>Performance/area beats the best techniques we examined by a factor of 10 or more.</p>
+  </div>
+  <div class="page">
+    <p>Scanning for Intrusions</p>
+    <p>Most IDS define a set of rules. A string defines a suspicious transmission.</p>
+    <p>We are not building a full IDS, rather building the primitives from which full systems can be built</p>
+    <p>CodeRed worm: web flow established uricontent with /root.exe</p>
+    <p>Traffic In Traffic Out</p>
+    <p>Scan Software</p>
+    <p>IDS</p>
+  </div>
+  <div class="page">
+    <p>Multiple String Matching</p>
+    <p>The multiple string matching algorithm:  Input: A set of strings/patterns S, and a buffer b</p>
+    <p>Output: Every occurrence of an element of S in b</p>
+    <p>Extra constraint: b is really a stream</p>
+    <p>How to implement: Option 1) search for each string independently</p>
+    <p>Option 2) combine strings together and search all at once</p>
+    <p>A B</p>
+    <p>A string can be anywhere in the payload of a packet.</p>
+    <p>A B D F C A B Input:</p>
+    <p>A BC AStrings:</p>
+  </div>
+  <div class="page">
+    <p>Why hardware</p>
+    <p>Snort: &gt;1,000 rules, growing at 1 rule/day or more</p>
+    <p>Active research into automated rule building</p>
+    <p>Strings are not limited to be just [a-z]+</p>
+    <p>We need a high speed string matching technique with stringent worst case performance.</p>
+    <p>Many algorithms are targeted for average case performance. Aho-Corasick can scan once and output all matches. But it is too big to be on-chip.</p>
+  </div>
+  <div class="page">
+    <p>Outline  Why String Matching</p>
+    <p>Matching against multiple strings</p>
+    <p>The Aho-Corasick Algorithm</p>
+    <p>The Devil in the Constants</p>
+    <p>A Bit-Split Algorithm</p>
+    <p>Hardware Design and Analysis</p>
+    <p>Conclusions</p>
+  </div>
+  <div class="page">
+    <p>The Aho-Corasick Algorithm</p>
+    <p>Given a finite set P of patterns, build a deterministic finite automaton G accepting the set of all patterns in P.</p>
+  </div>
+  <div class="page">
+    <p>An AC Automaton Example</p>
+    <p>Example: P = {he, she, his, hers}</p>
+    <p>h</p>
+    <p>e</p>
+    <p>s</p>
+    <p>i h</p>
+    <p>s er</p>
+    <p>s</p>
+    <p>Initial State</p>
+    <p>Accepting State</p>
+    <p>State Transition Function</p>
+    <p>h S</p>
+    <p>h</p>
+    <p>h h</p>
+    <p>h h</p>
+    <p>S</p>
+    <p>S S</p>
+    <p>S</p>
+    <p>S</p>
+    <p>S</p>
+    <p>i</p>
+    <p>h</p>
+    <p>r</p>
+    <p>h</p>
+    <p>The Construction: linear time.</p>
+    <p>The search of all patterns in P: linear time</p>
+    <p>(Edges pointing back to State 0 are not shown).</p>
+  </div>
+  <div class="page">
+    <p>Linear Time: So whats the problem</p>
+    <p>&lt;14&gt; &lt;14&gt; &lt;14&gt; &lt;14&gt; &lt;14&gt;</p>
+    <p>How to implement it on chip?</p>
+    <p>Problem: Size too big to be on-chip  ~ 10,000 nodes  256 out edges per node  Requires 16,384*256*14 = ~10MB</p>
+    <p>Solution: partition into small state machines  Less strings per machine  Less out edges per machine</p>
+  </div>
+  <div class="page">
+    <p>Outline  Why String Matching</p>
+    <p>Matching against multiple strings</p>
+    <p>The Aho-Corasick Algorithm</p>
+    <p>The Devil in the Constants</p>
+    <p>A Bit-Split Algorithm</p>
+    <p>Hardware Design and Analysis</p>
+    <p>Conclusions</p>
+  </div>
+  <div class="page">
+    <p>Our Main Idea: Bit-Split</p>
+    <p>Partition rules (P) into smaller sets (P0 to Pn)</p>
+    <p>Build AC state-machine for each subset</p>
+    <p>For each DFA Pi, rip state-machine apart into 8 tiny state-machines (Bi0 through Bi7)</p>
+    <p>Each of which searches for 1 bit in the 8 bit encoding of an input character  Only if all the different B machines agree can</p>
+    <p>there actually a match</p>
+  </div>
+  <div class="page">
+    <p>Binary Encoding</p>
+    <p>P0 = { he, she, his, hers }</p>
+  </div>
+  <div class="page">
+    <p>An example of Bit-Split P0 = { he, she, his, hers }</p>
+    <p>h</p>
+    <p>e</p>
+    <p>s</p>
+    <p>i h</p>
+    <p>s er</p>
+    <p>s</p>
+    <p>h S</p>
+    <p>h</p>
+    <p>h h</p>
+    <p>h h</p>
+    <p>S</p>
+    <p>S S</p>
+    <p>S</p>
+    <p>S</p>
+    <p>S</p>
+    <p>i</p>
+    <p>h</p>
+    <p>r</p>
+    <p>h</p>
+    <p>(Edges pointing back to State 0 are not shown).</p>
+    <p>b0 {0}</p>
+    <p>P0 B03</p>
+    <p>b1 { }0</p>
+    <p>b2 { },1 0 ,3</p>
+    <p>{ }0,3{ } 0,1,2,6b3</p>
+    <p>b3{0,1,2,6}</p>
+    <p>b4{0,1,4}</p>
+    <p>b6{0,1,2,5,6}</p>
+    <p>b5{0,3,7,8}</p>
+    <p>b7{0,3,9}</p>
+  </div>
+  <div class="page">
+    <p>Compact State Set P0 = { he, she, his, hers }</p>
+    <p>h</p>
+    <p>e</p>
+    <p>s</p>
+    <p>i h</p>
+    <p>s er</p>
+    <p>s</p>
+    <p>h S</p>
+    <p>h</p>
+    <p>h h</p>
+    <p>h h</p>
+    <p>S</p>
+    <p>S S</p>
+    <p>S</p>
+    <p>S</p>
+    <p>S</p>
+    <p>i</p>
+    <p>h</p>
+    <p>r</p>
+    <p>h</p>
+    <p>(Edges pointing back to State 0 are not shown).</p>
+    <p>b0 { }</p>
+    <p>P0 B03</p>
+    <p>b1 { }</p>
+    <p>b2 { } 1</p>
+    <p>b3{ 2 }</p>
+    <p>b6{ 2,5 }</p>
+    <p>b5{7}</p>
+    <p>b7{9}</p>
+  </div>
+  <div class="page">
+    <p>An example of Bit-Split P0 = { he, she, his, hers }</p>
+    <p>(Edges pointing back to State 0 are not shown).</p>
+    <p>P0</p>
+    <p>h</p>
+    <p>e</p>
+    <p>s</p>
+    <p>i h</p>
+    <p>s er</p>
+    <p>s</p>
+    <p>h S</p>
+    <p>h</p>
+    <p>h h</p>
+    <p>h h</p>
+    <p>S</p>
+    <p>S S</p>
+    <p>S</p>
+    <p>S</p>
+    <p>S</p>
+    <p>i</p>
+    <p>h</p>
+    <p>r</p>
+    <p>h</p>
+    <p>B03 b0 {}</p>
+    <p>b1{}</p>
+    <p>b2{}</p>
+    <p>b3{2}</p>
+    <p>b4 {}</p>
+    <p>b6{2,5}</p>
+    <p>b5{7}</p>
+    <p>b7{9}</p>
+    <p>B04</p>
+    <p>b8{2,7}</p>
+    <p>b5 {}</p>
+    <p>b0 {}</p>
+    <p>b1{}</p>
+    <p>b2{}</p>
+    <p>b4{2}</p>
+    <p>b3 {}</p>
+    <p>b6{2,5}</p>
+    <p>b9{9}</p>
+    <p>b7 {}</p>
+  </div>
+  <div class="page">
+    <p>Nice Properties</p>
+    <p>The number of states in Bij is rigorously bounded by the number of states in Pi</p>
+    <p>No exponential blow up in state</p>
+    <p>Linear construction time</p>
+    <p>Possible to traverse multiple edges at a time to multiply throughput</p>
+  </div>
+  <div class="page">
+    <p>h</p>
+    <p>e</p>
+    <p>s</p>
+    <p>i h</p>
+    <p>s er</p>
+    <p>s</p>
+    <p>h S</p>
+    <p>h</p>
+    <p>h h</p>
+    <p>h h</p>
+    <p>S</p>
+    <p>S S</p>
+    <p>S</p>
+    <p>S</p>
+    <p>S</p>
+    <p>i</p>
+    <p>h</p>
+    <p>r</p>
+    <p>h</p>
+    <p>Matching on the example</p>
+    <p>h x h e r s Only scan the input stream once.</p>
+    <p>Input stream:</p>
+  </div>
+  <div class="page">
+    <p>h</p>
+    <p>e</p>
+    <p>s</p>
+    <p>i h</p>
+    <p>s er</p>
+    <p>s</p>
+    <p>h S</p>
+    <p>h</p>
+    <p>h h</p>
+    <p>h h</p>
+    <p>S</p>
+    <p>S S</p>
+    <p>S</p>
+    <p>S</p>
+    <p>S</p>
+    <p>i</p>
+    <p>h</p>
+    <p>r</p>
+    <p>h</p>
+    <p>Matching on the example</p>
+    <p>P0 B03 b0 {}</p>
+    <p>b1{}</p>
+    <p>b2{}</p>
+    <p>b3{2}</p>
+    <p>b4 {}</p>
+    <p>b6{2,5}</p>
+    <p>b5{7}</p>
+    <p>b7{9}</p>
+    <p>B04</p>
+    <p>b8{2,7}</p>
+    <p>b5 {}</p>
+    <p>b0 {}</p>
+    <p>b1{}</p>
+    <p>b2{}</p>
+    <p>b4{2}</p>
+    <p>b3 {}</p>
+    <p>b6{2,5}</p>
+    <p>b9{9}</p>
+    <p>b7 {}</p>
+    <p>h x h e 0 1 0 0 1 1 1 0</p>
+    <p>How do you combine the results from the different state machines? Only if all the state machines agree, is there actually a match.</p>
+  </div>
+  <div class="page">
+    <p>How to Implement</p>
+    <p>The AC state machine is equivalent to the 8 tiny state machines.</p>
+    <p>The 8 tiny state machines can run independently, which means in parallel</p>
+    <p>Intersection done with bit-wise AND.</p>
+    <p>8 is intuitive but not optimal</p>
+    <p>How to build a system to implement this algorithm?  Our algorithm makes it feasible to be on-chip</p>
+  </div>
+  <div class="page">
+    <p>A Hardware Implementation</p>
+    <p>A rule module is equivalent to an AC state machine  Rule modules, tiles are structurally equivalent  All full match vectors are concatenated to indicate which</p>
+    <p>strings are matched  One tile stores one tiny bit-split state machine</p>
+    <p>&lt;8&gt; &lt;8&gt; &lt;8&gt; &lt;8&gt; &lt;16&gt; 0</p>
+    <p>d e c o d</p>
+    <p>e r</p>
+    <p>InputInput</p>
+    <p>C u rr</p>
+    <p>e n t</p>
+    <p>S ta</p>
+    <p>te &lt;</p>
+    <p>C u rr</p>
+    <p>e n t</p>
+    <p>S ta</p>
+    <p>te &lt;</p>
+    <p>Partial Match Vector</p>
+    <p>Config Data</p>
+    <p>Output LatchOutput Latch</p>
+    <p>State Machine TileRule Module 0</p>
+    <p>Tile 0</p>
+    <p>Tile 1</p>
+    <p>Tile 3</p>
+    <p>Tile 2</p>
+    <p>Full Match Vector</p>
+    <p>Partial Match Vector</p>
+    <p>[6:7]</p>
+    <p>[2:3] [4:5]</p>
+    <p>Contr ol</p>
+    <p>Block</p>
+    <p>Rule Module 1</p>
+    <p>B y te</p>
+    <p>f ro</p>
+    <p>m</p>
+    <p>P a y lo</p>
+    <p>a d</p>
+    <p>Rule Module N</p>
+    <p>C o m</p>
+    <p>p le</p>
+    <p>te S</p>
+    <p>e t</p>
+    <p>o f</p>
+    <p>M a tc</p>
+    <p>h e s</p>
+    <p>fo r</p>
+    <p>A ll R</p>
+    <p>u le</p>
+    <p>s</p>
+    <p>String Match Engine</p>
+  </div>
+  <div class="page">
+    <p>An efficient Implementation</p>
+    <p>Tile 0 Tile 2Tile 1 Tile 3</p>
+    <p>Cycle 3 e 01 10 01 01 Cycle 2 h 01 10 10 00 Cycle 1 x 01 11 10 00 Cycle 0 h 01 10 10 00</p>
+    <p>h</p>
+    <p>h</p>
+    <p>x</p>
+    <p>e</p>
+    <p>h</p>
+    <p>h</p>
+    <p>x</p>
+    <p>e</p>
+    <p>h</p>
+    <p>h</p>
+    <p>e</p>
+    <p>xh</p>
+    <p>x</p>
+    <p>h e</p>
+    <p>e 1100 h 0000 x 0000 h 0000</p>
+    <p>e 1111 h 1110 x 1000 h 0000</p>
+    <p>e 1000 h 0000 x 0000 h 0000</p>
+    <p>e 1000 h 0000 x 0000 h 0000</p>
+    <p>Cycle 3 + P 1000 Cycle 2 + P 0000 Cycle 1 + P 0000 Cycle 0 + P 0000</p>
+  </div>
+  <div class="page">
+    <p>Performance of Hardware</p>
+    <p>Key Metric: Throughput*Character/Area</p>
+  </div>
+  <div class="page">
+    <p>Related Work  Software based</p>
+    <p>Good for ~100Mb/s, common case</p>
+    <p>FPGA-based  Many schemes map rules down to a specialized circuit</p>
+    <p>Near optimal utilization of hardware resources  Implementing state machines on block-RAMs [Cho and Mangione</p>
+    <p>Smith]  Concurrent to our work: mapping state machines to on-chip SRAM</p>
+    <p>[Aldwairi et. al.]  Bloom filters [Dharmapurikar et al.]</p>
+    <p>Excellent filter in the common case</p>
+    <p>TCAM-based  Require all patterns to be shorter or equal to TCAM width  Cutting long patterns: 2Gbps with 295KB TCAM [Yu et. al.]</p>
+  </div>
+  <div class="page">
+    <p>Conclusions</p>
+    <p>New Tile-based Architecture  0.4MB and 10Gbps for Snort rule set ( &gt;10,000</p>
+    <p>characters)</p>
+    <p>Possible to be used for other applications, e.g. IP lookups, packet classification.</p>
+    <p>New Bit-split Algorithm:  General purpose enough for many other applications, e.g.</p>
+    <p>spam detection, peephole optimization, IP lookups, packet classification, etc.</p>
+    <p>Feasible to be implemented on other tile-based architecture.</p>
+  </div>
+  <div class="page">
+    <p>Thank you! Questions?</p>
+  </div>
+  <div class="page">
+    <p>Backup Slides</p>
+  </div>
+  <div class="page">
+    <p>An efficient Implementation</p>
+    <p>Tile 0 Tile 2Tile 1 Tile 3</p>
+    <p>Cycle 3 e 01 10 01 01 Cycle 2 h 01 10 10 00 Cycle 1 x 01 11 10 00 Cycle 0 h 01 10 10 00</p>
+    <p>h</p>
+    <p>h</p>
+    <p>x</p>
+    <p>e</p>
+    <p>h</p>
+    <p>h</p>
+    <p>x</p>
+    <p>e</p>
+    <p>h</p>
+    <p>h</p>
+    <p>e</p>
+    <p>xh</p>
+    <p>x</p>
+    <p>h e</p>
+    <p>e 1100 h 0000 x 0000 h 0000</p>
+    <p>e 1111 h 1110 x 1000 h 0000</p>
+    <p>e 1000 h 0000 x 0000 h 0000</p>
+    <p>e 1000 h 0000 x 0000 h 0000</p>
+    <p>Cycle 3 + P 1000 Cycle 2 + P 0000 Cycle 1 + P 0000 Cycle 0 + P 0000</p>
+  </div>
+</Presentation>

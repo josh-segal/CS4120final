@@ -1,0 +1,1470 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<TEI xmlns="http://www.tei-c.org/ns/1.0" 
+xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+xsi:schemaLocation="http://www.tei-c.org/ns/1.0 /Users/atharsefid/Desktop/grobid-0.5.3/grobid-home/schemas/xsd/Grobid.xsd"
+ xmlns:xlink="http://www.w3.org/1999/xlink">
+	<teiHeader xml:lang="en">
+		<encodingDesc>
+			<appInfo>
+				<application version="0.5.3" ident="GROBID" when="2019-03-26T17:06+0000">
+					<ref target="https://github.com/kermitt2/grobid">GROBID - A machine learning software for extracting information from scholarly documents</ref>
+				</application>
+			</appInfo>
+		</encodingDesc>
+		<fileDesc>
+			<titleStmt>
+				<title level="a" type="main">Forwardflow: A Scalable Core for Power-Constrained CMPs</title>
+			</titleStmt>
+			<publicationStmt>
+				<publisher/>
+				<availability status="unknown"><licence/></availability>
+			</publicationStmt>
+			<sourceDesc>
+				<biblStruct>
+					<analytic>
+						<title level="a" type="main">Forwardflow: A Scalable Core for Power-Constrained CMPs</title>
+					</analytic>
+					<monogr>
+						<imprint>
+							<date/>
+						</imprint>
+					</monogr>
+				</biblStruct>
+			</sourceDesc>
+		</fileDesc>
+		<profileDesc>
+			<textClass>
+				<keywords>Categories and Subject Descriptors C1: [Processor Architectures]: Multiple Data Stream Architectures (Multiprocessors), Other Architecture Styles-Adaptable architectures</keywords>
+			</textClass>
+			<abstract>
+				<p>Chip Multiprocessors (CMPs) are now commodity hardware , but commoditization of parallel software remains elusive. In the near term, the current trend of increased core-per-socket count will continue, despite a lack of parallel software to exercise the hardware. Future CMPs must deliver thread-level parallelism when software provides threads to run, but must also continue to deliver performance gains for single threads by exploiting instruction-level parallelism and memory-level parallelism. However, power limitations will prevent conventional cores from exploiting both simultaneously. This work presents the Forwardflow Architecture, which can scale its execution logic up to run single threads, or down to run multiple threads in a CMP. Forwardflow dynamically builds an explicit internal dataflow representation from a conventional instruction set architecture, using forward dependence pointers to guide instruction wakeup, selection, and issue. Forwardflow&apos;s backend is organized into discrete units that can be individually (de-)activated, allowing each core&apos;s performance to be scaled by system software at the architectural level. On single threads, Forwardflow core scaling yields a mean runtime reduction of 21% for a 37% increase in power consumption. For multithreaded workloads, a Forwardflow-based CMP allows system software to select the performance point that best matches available power.</p>
+			</abstract>
+		</profileDesc>
+	</teiHeader>
+	<text xml:lang="en">
+		<body>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="1">INTRODUCTION</head><p>The last several years have witnessed a paradigm shift in the microprocessor industry, from chips holding one increasingly complex out-of-order core to chips holding a handful of simpler cores <ref type="bibr" target="#b12">[13,</ref><ref type="bibr" target="#b35">32]</ref>. While Moore's Law continues to promise more transistors <ref type="bibr" target="#b7">[8]</ref>, power and thermal concerns have driven the industry to focus on more power-efficient multicore designs. Microarchitects hope to improve applications' overall efficiency by focussing on thread-level parallelism (TLP), rather than instruction-level parallelism (ILP) within a single thread.</p><p>At least two fundamental problems undermine this vision. First, microprocessor vendors are already shipping products in which not all cores can simultaneously operate at full speed due to power constraints <ref type="bibr" target="#b13">[14]</ref>. This trend is likely to continue, as the fraction of active transistors decreases with each technology generation <ref type="bibr" target="#b5">[6,</ref><ref type="bibr" target="#b37">34]</ref>.</p><p>Second, Amdahl's Law still applies. Even well-parallelized applications have sequential bottlenecks that limit their parallel speedup, and most applications are not currently parallel at all. A thousand simple cores may maximize performance in an application's parallel section, but simple cores exacerbate sequential bottlenecks by providing limited ILP. Hill and Marty's multicore model <ref type="bibr" target="#b10">[11]</ref> leads to the conclusion that "researchers should seek methods of increasing core performance even at high cost." In other words, rather than simply double the number of simple cores when the transistor count doubles, architects should budget some of the additional transistors to increase singlethread performance instead.</p><p>Together, these two problems motivate scalable cores: cores that can trade off power and performance as the situation merits. Scaling core performance means scaling core resources to extract additional ILP, either by statically provisioning cores differently or by dynamically (de)allocating core resources. Conventional core microarchitectures have evolved largely in the uniprocessor domain, and scaling their microarchitectural structures in the CMP domain poses significant complexity and power challenges.</p><p>In a scalable core, resource allocation changes over time. Cores must not rely on powered-off components to function correctly when scaled down, and must not wastefully broad-</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>Dan Gibson</head><p>Computer david@cs.wisc.edu</p><p>Permission to make digital or hard copies of all or part of this work for personal or classroom use is granted without fee provided that copies are not made or distributed for profit or commercial advantage and that copies bear this notice and the full citation on the first page. To copy otherwise, to republish, to post on servers or to redistribute to lists, requires prior specific permission and/or a fee. ISCA 2010 Saint-Malo, France Copyright 2010 ACM cast across large structures when scaled up. Designers of scalable cores should avoid structures that are difficult to scale, like centralized register files and bypassing networks. Instead, they should focus on structures that can be easily disaggregated, and powered-on incrementally to improve core performance independent of other structures.</p><p>This work presents the Forwardflow Architecture, a scalable core design targeted at power-constrained CMPs leveraging a modular instruction window. Forwardflow represents inter-instruction dependences via a linked list of forward pointers <ref type="bibr" target="#b23">[23,</ref><ref type="bibr" target="#b24">24,</ref><ref type="bibr" target="#b38">35]</ref>. Instructions, values, and data dependences reside in a distributed Dataflow Queue (DQ), as illustrated in <ref type="figure" target="#fig_0">Figure 1</ref>. The DQ is comprised of independent banks and pipelines, which can be activated or de-activated by system software to scale a core's execution resources.</p><p>In a Forwardflow-based CMP, single-thread performance can be increased by scaling up a single core <ref type="table" target="#tab_7">(19% runtime  reduction on SPEC INT 2006, 25% on SPEC FP 2006, 9%</ref> on the Wisconsin Commercial Workload Suite). Other cores can be scaled down (e.g., with DVFS <ref type="bibr" target="#b13">[14]</ref>) or disabled to stay within the power budget. Even for multi-threaded workloads, scaling is still valuable when the power consumed does not exhaust the supply. Forwardflow cores can continue to scale performance up until a desired power budget has been reached.</p><p>Forwardflow's design delivers both high-performance and energy efficiency. Overall, Forwardflow cores are more efficient than a traditional core baseline in 44 of 47 studied benchmarks. No one configuration is most efficient in all cases, but because Forwardflow cores can scale, they enable system software to optimize a CMP for the desired metric, whether it be performance, energy efficiency, or low chipwide power consumption.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="2">TOWARD SCALABLE CORES</head><p>The most important feature of scalable (processor) cores is that they have multiple operating configurations at varied power/performance points. Scalable cores can scale up, allowing single-threaded applications to aggressively exploit ILP and MLP to the limits of available power, or can scale down to exploit TLP with more modest (and less power-hungry) single-thread performance. To compete with traditional designs, a scalable core should have a nominal operating point at which it delivers performance comparable to a traditional out-of-order core at comparable power, and should offer more aggressive configurations when scaled up. In other words, performance itself should not be sacrificed for performance scaling.</p><p>Canonical work in this domain, Core Fusion <ref type="bibr" target="#b14">[15]</ref> and Composable Lightweight Processors <ref type="bibr" target="#b15">[16]</ref>, compose entire cores to scale all pipeline resources at the same rate. Our work differs by observing that many workloads do not effectively utilize even relatively narrow instruction fetch (e.g., four instructions per cycle). To do so, Little's Law suggests that a core must maintain enough instructions in flight to match the product of fetch width and the average time between dispatch and commit (or squash). These buffered instructions constitute an instruction window-the predicted future execution path. As memory latencies increase, cores require large windows to exploit even modest fetch bandwidth. Our work builds on this insight by focusing on scaling window size to expose parallelism in memory-intensive workloads.</p><p>However, not all instructions in the window are alike. In a typical out-of-order design, instructions not yet eligible for execution reside in an instruction scheduler. The scheduler determines when an instruction is ready to execute (wakeup) and when to actually execute it (selection), based on operand availability. In general, instruction windows are easily scalable because they are SRAM-based, while many instruction schedulers are not because they rely on CAMbased <ref type="bibr" target="#b39">[36]</ref> or matrix-based <ref type="bibr" target="#b9">[10,</ref><ref type="bibr" target="#b28">27]</ref> broadcast for wakeup and priority encoders for selection.</p><p>Because many workloads are limited by latency to memory, it is important for high-performance cores-and scalable cores when scaled up-to service as many memory accesses concurrently as possible. However, a non-scalable instruction scheduler limits how much MLP a core can exploit, due to a phenomenon called IQ (scheduler) clog <ref type="bibr" target="#b36">[33]</ref>, in which the scheduler fills with instructions dependent on a longlatency operation (such as a cache miss). Optimizations exist to attack this problem, e.g., by steering dependent instructions into queues <ref type="bibr" target="#b22">[22]</ref>, moving dependent instructions to a separate buffer <ref type="bibr" target="#b26">[26]</ref>, and tracking dependences on only one source operand <ref type="bibr" target="#b17">[17]</ref>. These proposals ameliorate, but do not eliminate, the poor scalability of traditional instruction schedulers.</p><p>Runahead Execution, Waiting Instruction Buffers, and Continual Flow Pipelines address the scheduler problem by draining a scheduler of non-ready instructions (e.g., by buffering instructions <ref type="bibr" target="#b18">[18,</ref><ref type="bibr" target="#b33">31]</ref> or by simply discarding them <ref type="bibr" target="#b6">[7,</ref><ref type="bibr" target="#b21">21]</ref>). Drained instructions are no longer eligible for scheduling, and therefore they cannot wake and issue until they are re-inserted into the scheduler.</p><p>Another approach to improving scheduler scalability is to name the first successor of a value explicitly with a pointer <ref type="bibr" target="#b23">[23,</ref><ref type="bibr" target="#b24">24,</ref><ref type="bibr" target="#b38">35]</ref>, thereby reducing the likelihood of broadcasts in the scheduling hardware-broadcasts become corner cases but are still necessary. These approaches reduce scheduler complexity and power in fixed-size cores because most instructions have few successors <ref type="bibr" target="#b24">[24,</ref><ref type="bibr" target="#b28">27]</ref>. Our core design exploits this observation ubiquitously, by using pointers to represent not only the first register dependency, but all register and memory dependences (via NoSQ <ref type="bibr" target="#b29">[28]</ref>), thereby completely eliminating broadcasts. Like the dataflow architectures that inspired this work <ref type="bibr" target="#b2">[3,</ref><ref type="bibr" target="#b25">25]</ref>, our design leverages these same dependence pointers to direct data flow within the core itself, rather than relying on a centralized physical register file.</p><formula xml:id="formula_0">$7. $7. 089 ) ) ) ) ) 8:- ) ) ) ) ) 2:9 ) ) ) ,// ) ) ) / !</formula></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3">FORWARDFLOW ARCHITECTURE</head><p>In Forwardflow cores, inter-instruction dependences are represented as linked lists of forward pointers <ref type="bibr" target="#b23">[23,</ref><ref type="bibr" target="#b24">24,</ref><ref type="bibr" target="#b38">35]</ref>, instead of using physical register identifiers to label values. These pointers, along with values for each operand, are stored in the Dataflow Queue (DQ), shown in <ref type="figure" target="#fig_0">Figure 1</ref>, which takes the place of the traditional scheduler and centralized physical register file. Instead of broadcasting, DQ update hardware chases pointers to implement instruction wakeup. Though most dependence lists are short, serializing wakeup causes some slowdown. However, the use of pointers throughout the design enables a large, multibanked DQ implementation, which allows independent lists to be chased concurrently.</p><p>At the highest level, the Forwardflow pipeline <ref type="figure" target="#fig_2">(Figure 2)</ref> is not unlike traditional out-of-order microarchitectures. The Fetch stage fetches instructions on a predicted execution path, and Decode detects and handles potential data dependences, analogous to traditional renaming. Dispatch inserts instructions into the Dataflow Queue (DQ) and instructions issue when their operands become available. When instructions complete, scheduling logic wakes and selects dependent instructions for execution. Instructions commit in-order from the DQ.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.1">Frontend</head><p>In Forwardflow, Fetch proceeds no differently than other high-performance microarchitectures. Decode produces all information needed for Dispatch, which inserts the instruction into the DQ and updates the forward pointer chains. Decode must determine which pointer chains, if any, each instruction belongs to. It does this using the Register Consumer <ref type="table">Table (</ref>RCT), which tracks the tails of all active pointer chains in the DQ. Indexed by the architectural register name, the RCT resembles a traditional rename table except that it records the most-recent instruction (and operand slot) to reference a given architectural register.</p><p>Each instruction that writes a register begins a new value chain, but instructions that read registers also update the RCT to maintain the forward pointer chain for subsequent successors. The RCT also identifies registers last written by a committed instruction, and thus which values can be read at dispatch-time from the Architectural Register File (ARF).</p><p>The RCT is implemented as a RAM-based table. Since the port requirements of the RCT are significant, we expect it to be implemented aggressively and with some duplication. Fortunately, the RCT itself is small: each entry requires only bits.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.2">The Dataflow Queue (DQ)</head><p>The Dataflow Queue (DQ) is the heart of the Forwardflow architecture, and is involved in instruction dispatch, issue, completion, and commit. The DQ is essentially a CAM-free Register Update Unit <ref type="bibr" target="#b32">[30]</ref>, in that it schedules and orders instructions, but also maintains operand values. Each entry in the DQ holds an instruction's metadata (e.g., opcode, ALU control signals, destination architectural register name), three data values, and three forward pointers, representing up to two source operands and one destination operand per instruction. Value and pointer fields have empty/full and valid bits, respectively, to indicate whether they contain valid information. Dispatching an instruction allocates a DQ entry, but updates the pointer fields of previously dispatched instructions. Specifically, an instruction's DQ insertion will update zero, one, or two pointers belonging to earlier instructions in the DQ to establish correct forward dependences. In the example, Decode determines that the ld instruction is ready to issue at Dispatch because both source operands are available (R1's value, 88, is available in the ARF, since its busy bit in the RCT is zero, and the immediate operand, 44, is extracted from the instruction). Decode updates the RCT to indicate that ld produces R3 (but does not add the ld to R1's value chain, as R1 remains available in the ARF). Dispatch reads the ARF to obtain R1's value, writes both operands into the DQ, and issues the ld immediately. When the add is decoded, it consults the RCT and finds that R3's previous use was as the ld's destination field, and thus Dispatch updates the pointer from ld's destination to the add's first source operand. Like the ld, the add's immediate operand (55) is written into the DQ at dispatch. Dispatching the add also reads the ld's result empty/full bit. Had the ld's value been present in the DQ, the dispatch of the add would stall while reading the value array.</p><p>The mult's decode consults the RCT, and discovers that both operands, R3 and R4, are not yet available and were last referenced by the add's source 1 operand and the add's destination operand, respectively. Dispatch of the mult therefore checks for available results in both the add's source 1 value array and destination value array, and appends the mult to R3's and R4's pointer chains. Finally, like the add, the sub appends itself to the R3 pointer chain, and writes its dispatch-time ready operand (66) into the DQ.</p><p>Values for instruction operands may be obtained in four ways, each of which are handled differently in Forwardflow:</p><p>• Immediate operands, extracted from the instruction itself, are written into the instruction's appropriate operand value array in Dispatch (e.g., the add's second operand, 55).</p><p>• The Architectural Register File (ARF) is read in Dispatch to provide committed values to dispatching instructions (e.g., the ld's first source operand, R1). Values from the ARF are written into the instruction's operand value array, to ensure that values are local to instructions and can be accessed at issue-time without consulting potentially distant structures (e.g., a centralized register file).</p><p>• Values produced by earlier in-flight instructions that</p><p>have not yet executed (i.e., values not available at the successor's dispatch) will be delivered to the instruction by the pointer chasing hardware (e.g., this will be the case for the add, mult, and sub instructions).</p><p>• Values from earlier in-flight instructions that have already executed (identified via empty/full bits on value arrays) are read from the previous successor's (or producer's) value array and written into the dispatching instruction's value array (does not appear in the example).</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.3">Wakeup, Selection, and Issue</head><p>Once an instruction has been inserted into the DQ, it waits until its unavailable source operands are delivered by the execution management logic. Each instruction's DQ entry number (i.e., its address in the RAM) accompanies the instruction though the execution pipeline. When an instruction nears completion in its functional pipeline, pointer chasing hardware reads the instruction's destination value pointer. This pointer defines the value chain for the result value, and, in a distributed manner, locations of all succes-     <ref type="figure" target="#fig_1">Figure 3</ref>. Dispatch Example sors through transitive pointer chasing. The complete traversal of a chain is a multicycle operation, and successors beyond the first will wakeup (and potentially issue) with delay linearly proportional to their position in the chain.</p><formula xml:id="formula_1">$7. $7. 089 ) ) ) ) ) 8:- ) ) ) ) ) 2:9 ) ) ) ,// ) ) ) / !</formula><formula xml:id="formula_2">) ) ) ) ) ) ) ) ) ) ) ) 2:9 ) ) ) ,// ) ) ) / !</formula><formula xml:id="formula_3">) ) ) ) ) ) ) ) ) ) ) ) ) ) ) ) ) ,// ) ) ) / !</formula><formula xml:id="formula_4">) ) ) ) ) ) ) ) ) ) ) ) ) ) ) ) ) ) ) ) ) ) / !</formula><p>The wakeup process is illustrated in <ref type="figure">Figure 4</ref>. Upon completion of the ld, the memory value (99) is written into the DQ, and the ld's destination pointer is followed to the first successor, the add. Whenever a pointer is followed to a new DQ entry, available source operands and instruction metadata are read speculatively, anticipating that the arriving value will enable the current instruction to issue (a common case <ref type="bibr" target="#b17">[17]</ref>). Thus, in the next cycle, the add's metadata and source 2 value are read, and, coupled with the arriving value of 99, the add may now be issued. Concurrently, the update hardware reads the add's source 1 pointer, discovering the mult as the next successor.</p><p>As with the add, the mult's metadata, other source operand, and next pointer field are read. In this case, the source 1 operand is unavailable, and the mult will issue at a later time (when the add's destination pointer chain is chased). Finally, following the mult's source 2 pointer to the sub delivers 99 to the sub's first operand, enabling the sub to issue. At this point, a NULL pointer is discovered at the sub instruction, indicating the end of the value chain.</p><p>After instructions have been executed (i.e., when the empty/full bit on the destination operand's field has been set), instructions are removed from the head of the DQ and committed in program order. Commit logic removes the head instruction from the DQ by updating the DQ's head pointer and writes to the ARF where applicable. If the RCT's last writer field matches the committing DQ entry, the RCT's busy bit is cleared and subsequent successors may read the value directly from the ARF. The commit logic is not on the critical path of instruction execution, and the write to the ARF is not timing critical as long as space is not needed in the DQ for instruction dispatch.</p><p>As stated above, the pointer chasing hardware is responsible for issuing instructions to functional units during traversal. Should a particular instruction be unable to issue because of a structural hazard (i.e., all functional units are busy), the pointer chase must stall until the instruction can issue normally. Nominally, this condition is only a minor performance overhead. Rarely, a second structural hazard can arise when pointer chain that would normally begin its chase requires the use of stalled pointer-chasing control circuitry. This forms a circular dependence, as the functional unit cannot accept a new operation (i.e., the current result must first be collected from the functional unit) and the pointer-chasing hardware must stall until it can issue the current instruction, resulting in deadlock. The intersection of these two control hazards is rare, and can be ameliorated by modest buffering. Should deadlock still arise, the circular dependence is easily detected (i.e., all functional units are stalled and the update hardware is stalled), and can be resolved with a pipeline flush; ordering  properties of functional units guarantees forward progress of at least one instruction.</p><formula xml:id="formula_5">$7. $7. 089 ) ) ) ) ) 8:- ) ) ) ) ) 2:9 ) ) ,// ) ) /</formula><formula xml:id="formula_6">) ) ) ) ) 8:- ) ) ) ) ) 2:9 ) ) ) ,// ) ) / !</formula></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.4">Distributed Implementation</head><p>The number of value chains that may be followed concurrently in a given cycle is bounded by the number of banks (and ports) on the DQ. Pointers that designate operands in a distant bank must traverse a significant chip area. <ref type="figure">Figure 5</ref> illustrates a conceptual Forwardflow floorplan that arranges eight DQ banks in groups of four; pointers that cross bank groups incur additional latency. Functional pipelines are associated with groups, so execution resources can scale with window size.</p><p>The DQ is sub-banked on low-order bits of the DQ entry number to support concurrent access to contiguous elements. Sub-banking delivers ample bandwidth to dispatch and commit logic-which access the DQ contiguously-without adding additional ports. Each field of the DQ is implemented as a separate SRAM (e.g., value fields are separate from each pointer field, etc.), to further simplify the design, and to enable greater concurrency in the DQ management logic.</p><p>Since the DQ is built entirely of small SRAMs, it can scale to much larger sizes than a traditional instruction scheduler, yet is accessed at finer granularity than a ROB. Each entry in the DQ requires an estimated bits of storage across all fields.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.5">Pointer Chasing Hardware</head><p>In our design, each bank of the DQ is serviced by an independent instance of the pointer chasing hardware shown in <ref type="figure" target="#fig_4">Figure 6</ref>, consisting of a next pointer register, a current value register, a pending queue of pointer/value pairs, and buffered ports to the interconnect between the banks of the DQ. The logical behavior is described in the accompanying algorithm, which runs every cycle. Since DQ entry numbers accompany instructions through functional pipelines, pointers to destination fields can be inferred as instructions complete execution.</p><p>During a given cycle, the update hardware for a particular bank will attempt to follow exactly one pointer. If no pointer is available (line 8), the DQ is not accessed by the update hardware, thereby conserving power. Otherwise, if next designates a non-destination field (i.e., one of the two source operands), the remaining source operand (if present) and instruction opcode are read from the DQ, and the instruction is passed to issue arbitration (line 15). If arbitration for issue fails, the update hardware stalls on the current next pointer and will issue again on the following cycle.</p><p>The update hardware writes the arriving value into the DQ (line 18) and reads the pointer at next (line 19), following the list to the next successor. If the pointer designates a DQ entry assigned to a different bank, the pair &lt;next,value&gt; is placed in the bank transfer queue (line 23), and will traverse the interconnect in the next cycle.</p><p>The inter-DQ-bank interconnect itself is comprised of a first-level crossbar between neighboring banks (refer to <ref type="figure">Figure 5</ref>) for fast communication between logically adjacent DQ entries. A second-level crossbar connects each bank group, with additional communication delay. For maximum performance, the update hardware optimizes the case where next is initially NULL, the pending queue is empty, and a new pointer/value pair arrives from the interconnect.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.6">Control Speculation</head><p>Like other out-of-order machines, Forwardflow relies on dynamic branch and target prediction to improve pipeline   <ref type="bibr" target="#b24">[24]</ref>.</p><p>Not all forms of recovery can be handled by restoring from checkpoints. When exceptions or interrupts occur, it is legal to flush all instructions that follow the excepting instruction and quiesce the pipeline. This allows decode to resume with an empty RCT. So long as recoveries of this type are rare cases, performance impact is limited.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.7">Scaling Forwardflow Cores</head><p>The use of pointers throughout the design enables Forwardflow's control logic to handle window size reconfiguration gracefully-pointers are already oblivious of the structure to which they point. Since the DQ is managed as a FIFO, it is a simple matter to modify the head and tail pointer wraparound logic to accommodate variable DQ capacities that are powers of two, using simple modulo-2 N logic. DQ size can be abstracted as a power-control state <ref type="bibr" target="#b13">[14]</ref>, manageable by system software. Unused bank groups can safely be power-gated. While some prior work has examined techniques for dynamically adapting a core's aggressiveness in hardware <ref type="bibr" target="#b1">[2]</ref>, for now, we leave this policy decision to software. This work is agnostic of the precise mechanism that software might use to make scaling decisions, but many solutions are possible, including static profiling, online monitoring, and dynamic adaptation.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="4">METHODOLOGY</head><p>Our target machine is an 8-way CMP, pictured in <ref type="figure">Figure 7</ref>. Each node consists of a core, a private L1/L2 cache hierarchy, and one bank of a large, shared L3. We assume each core and private cache hierarchy operates in its own voltage domain, and furthermore that bank groups in the Forwardflow designs can be independently powered off. We evaluate Forwardflow using full-system cycle-accurate simulation, using Virtutech Simics <ref type="bibr" target="#b19">[19]</ref>, GEMS's Ruby <ref type="bibr" target="#b20">[20]</ref>, and inhouse timing-first processor models. We simulate SPEC CPU 2006 <ref type="bibr" target="#b8">[9]</ref>, SPEC OMP <ref type="bibr" target="#b3">[4]</ref>, and Wisconsin commercial workloads <ref type="bibr" target="#b0">[1]</ref>. We report and as our measures of energy efficiency.</p><p>We include a traditional out-of-order implementation as our baseline (OoO), to show that a nominal Forwardflow core performs comparably to a more traditional architecture. All target machines use NoSQ <ref type="bibr" target="#b29">[28]</ref> for memory disambiguation. Our implementation of NoSQ represents memory dependences by inserting artificial register dependences,  which are enforced by the DQ as though a genuine register dependency existed. NoSQ's predictions are verified via store vulnerability filtering and load replay at commit-time.</p><p>We evaluate three Forwardflow configurations with progressively larger DQs: F-1, F-2, and F-4. F-1 has the same window size and the same number of execution resources as OoO. F-1 has a four-way banked DQ; each bank has 32 entries. With the exception of cache bandwidth and capacity (held constant, as we do not scale the L1-D or D-TLB), F-2 has twice the execution resources of F-1-it represents two F-1 backends powered-on, similar to <ref type="figure">Figure 5</ref>. F-4 again doubles backend resources (i.e., four powered-on backends), for an aggregate window size of 512 entries, peak issue rate of 18 (8 INT, 8 FP, 2 MEM).</p><p>Our target machines run unmodified SPARCv9 operating systems and binaries. We model hardware-assisted TLB fill and register window exceptions for all target machines. We simulate each benchmark for one hundred million instructions. Multiple runs are used to achieve tight 95% confidence intervals (error bars are not visible in most cases). Benchmarks are fast-forwarded past their initialization phases, during which page tables, TLBs, predictors, and caches are warmed. We have augmented our simulators with Wattch <ref type="bibr" target="#b4">[5]</ref> and CACTI 5 <ref type="bibr" target="#b31">[29]</ref>, which provide architectural-level approximations of power consumed by logic and memory structures in the 32nm process. Our model assumes aggressive clock gating of logic structures not in use, with no reactivation delay. L2 and L3 caches are implemented with variable bias to control leakage and Low Standby Power Devices <ref type="bibr" target="#b31">[29]</ref> are used throughout the design, accounting for low overall leakage power.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="5">EVALUATION</head><p>We first consider the behavior of single threads on single cores of our 8-way CMP. We assume the seven unused cores are in an off state in which they consume no power (this assumption also applies to their private L2 caches, but not to their shared L3 banks-single-thread benchmarks observe the full L3 capacity). We believe this mode of operation will not be uncommon in future chips, as commodity multithreading remains elusive for many workloads.</p><p>A scalable core allows core configuration to be customized by system software, so it is possible to have the best of all worlds in most situations. We envision that this capability will complement DVFS in the positive scaling direction (i.e., can be used to scale performance up beyond what frequency scaling alone can provide). However, for due diligence, we evaluate all configurations, with the full expectation that not all points will be favorable for all configurations.     </p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="5.1">Single-Threaded Performance Results</head></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>Figure 9. c) INT, FP, and COM Categorized Mean Window Occupancy</head><p>To gain insight into the behavior of our design, we examine the MLP and categorized window occupancy of each configuration in <ref type="figure">Figures 9.b and 9</ref>.c, respectively. In the latter, we classify post-dispatch instructions into three categories: Waiting instructions are not yet eligible to execute because of an unavailable operand (these instructions are scheduler-resident in OoO). Executing instructions are currently being executed by the functional pipelines, or are outstanding in the memory system. Completed instructions have finished execution, but have not yet committed, due to an earlier Waiting or Executing instruction.</p><p>MLP and occupancy of Executing instructions (the observed ILP) are of key importance to performance. Across all single-thread benchmarks, univariate regression of Forwardflow runtimes with respect to MLP and Executing occupancy yields median and , respectively, suggesting that both play an important role in performance scaling.</p><p>OoO suffers from IQ clog in several cases (most dramatically in libquantum), limiting performance. Instructions dependent on cache misses fill OoO's scheduler, preventing dispatch-even if ready instructions follow in the subsequent instruction stream. The effect of IQ clog is evident in <ref type="figure">Figure 9</ref>.c: OoO's mean Waiting occupancy is very close to the scheduler size, indicating that the scheduler is often full. The Forwardflow designs, with no disjoint scheduler, do not suffer from scheduler clog (and can therefore accommodate more Waiting instructions). This yields a small runtime reduction of 2.4% for F-1 versus OoO, in spite of the latency of serialized wakeup in Forwardflow cores.</p><p>Further insight is offered by considering the throughput of several on-chip structures <ref type="figure" target="#fig_0">(Figure 10)</ref> as the core is scaled from F-1 to F-4. Not surprisingly, scaling the Forwardflow DQ increases functional unit throughput (FUs), but also more aggressively exercises unscaled portions of the chip. Throughput at L2 and L3 input ports, on-chip links, memory controllers, and the fetch logic all increase substantially when the core is scaled up. In other words, core scaling enables single threads to better utilize shared chip resources (nominally provisioned for many cores), and to better utilize portions of the core that are not scaled (e.g., Fetch).</p><p>In three cases, no Forwardflow configuration exceeds the performance of OoO. bzip2 and hmmer both exhibit high L1-D hit rates, and thus the latency of serialized wakeup cannot be hidden by accesses to memory (gromacs from SPEC FP 2006 behaves similarly). Some benchmarks are not particularly sensitive to changes in window size (e.g., gcc, gobmk, sjeng), as these benchmarks are control intensive, and performance gains are quickly lost to branch misprediction. sjeng's performance actually degrades as the window size grows beyond a certain point. Forwardflow's performance does not scale perfectly: scaling larger comes at the cost of increased wire delay when communicating with distant DQ elements. Increased operand network delay, and increased delay in dispatching instructions to distant DQ banks can overcome the benefit gained from increased window capacity and issue bandwidth. <ref type="figure" target="#fig_0">Figure 11</ref> presents the mean chip-wide power breakdown for each configuration. All power results are normalized to the harmonic mean power consumed by OoO when running SPEC INT. We organize power into twelve categories: of those that are not self-explanatory, "Other" includes NoSQ and control logic not suitable for other categories, "Network" refers to the on-chip inter-processor network, "DMEM" includes D-TLBs and L1-D caches, "Fetch" includes I-TLBs and L1-I caches, "Bypass/ON" represents power consumed by OoO's bypassing network or Forwardflow's operand network, and "Sched/UH" represents OoO's scheduler and Forwardflow's update hardware, respectively.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="5.2">Single-Threaded Power</head><p>The general trend of power consumption is fairly uniform across all workloads: F-1 consumes 9.9% less power overall than OoO, due to Forwardflow's efficient SRAM-based design. F-2 and F-4 tend to exceed OoO's consumption (7.2% and 23% respectively), constituting a dynamic power range of 37% between F-1 and F-4. However, merely exceeding the power consumed by a single active OoO core does not imply that the CMP's power budget is exceededthe power required to operate all cores simultaneously (e.g., <ref type="figure" target="#fig_0">Figure 13</ref>) is substantially higher than operating F-4 alone for any one benchmark.</p><p>The larger Forwardflow configurations consume more power than OoO overall, but much of this increase in power consumption arises because activity increases elsewhere on  <ref type="figure" target="#fig_0">Figure 11</ref>. Single-Thread Power Breakdown the CMP-from the graph, it is evident that the power consumed from Forwardflow-specific components (Sched, RF, RCT, DQ) does not increase as substantially as other core components (e.g., Fetch) or from the on-chip caches (L2/L3). This is a desired result, and follows from the throughputs shown in <ref type="figure" target="#fig_0">Figure 10</ref>. Forwardflow can scale core performance without concentrating power dissipation in the scaled components. <ref type="figure" target="#fig_0">Figure 12</ref> presents mean and . Because F-1 is both faster and consumes less power than OoO, it is not surprising that F-1 is more efficient overall by these metrics. One of the three Forwardflow configurations minimizes and in 30 of 33 of the single-threaded benchmarks. However, no single configuration is most efficient for all workloads-12 benchmarks minimize with F-1, 6 with F-2, and 12 with F-4.</p><p>, with a heavier weight on performance, is optimized in 13 benchmarks by F-2, and in 17 by F-4. Because no one configuration best suits all workloads, scalable cores in general and Forwardflow cores in particular enable system software to optimize the CMP for peak performance, lowest power consumption, or optimum efficiency, as the situation merits.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="5.3">Multithreaded Workloads</head><p>We next evaluate the CMP when it is fully utilized by a multithreaded application: either a commercial workload, or one of the SPEC OMP benchmarks. We again evaluate the performance, power, and efficiency of each configuration, but now all eight cores on our CMP are in an active state. In the multithreaded domain, the configuration space becomes significantly more complicated, as the possibility of heterogeneity arises. Though we leave any evaluation of this heterogeneity for future work, we observe that there are a large cross-product of design points between all-F-1 and all-F-4, considering the number of available benchmarks. <ref type="figure" target="#fig_0">Figure 13</ref> plots performance and power of multithreaded benchmarks. Unlike previous runtime graphs, <ref type="figure" target="#fig_0">Figure 13</ref> plots speedup normalized to that of OoO (OoO itself does not explicitly appear on the plots). Each benchmark is represented by a line, beginning with the power/performance point of F-1, and continuing to those of F-2 and F-4. Power is normalized to the same scale as <ref type="figure" target="#fig_0">Figure 11</ref>: Y=1.0 is the power consumed by one OoO-core running SPEC INT 2006. Note that SPEC OMP benchmark art is absent from the figure, as its behavior is dominated by TLB fill, and does not appear at the chosen scale because of very low overall power consumption.</p><p>As with the single-threaded workloads, most of the multithreaded workloads scale in both power consumption and performance from F-1 to F-4, though some benchmarks do not scale at all (e.g., ammp and wupwise in SPEC OMP). Mean runtime reduction is 12% (8.2%) for OMP (commercial workloads), and is accompanied by an increase in chip power of 32% (40%).</p><p>We observe a substantial power range in the objective benchmarks, as each exercises the available resources in a different manner. Depending on the available power budget, it may not be possible to run even scaled-down cores at full speed (e.g., DVFS may be required): F-1 running apsi consumes more than 12x the power of an average single thread of SPEC INT on OoO. With the aggressive clock gating used in this study, these ranges are possible, as an individual apsi thread is comparable in power consumption to the most power-hungry threads of SPEC CPU (and, of course, there are eight such threads in our OMP benchmarks).</p><p>Because we set no quantitative upper bound on our CMP power envelope, we cannot conclude which configurations <ref type="bibr">0</ref>  <ref type="figure" target="#fig_0">Figure 13</ref>. SPEC OMP (left) and Commercial Workload (right) Power vs. Performance are best. Instead, we briefly consider two hypothetical power budgets. The first is Y=8.0, the power budget at which the CMP is provisioned to allow each core to operate at OoO's power when running SPEC INT. Under this constraint, OoO can run 9 of 14 benchmarks at full speed (i.e., without any DVFS to hold power below the accepted maximum). At least one Forwardflow configuration can run without DVFS for all but two of these benchmarks, and several benchmarks (e.g., equake, fma3d, jbb) can safely scale to F-4. A second point of interest is Y=14.6, at which all OoO configurations can run without employing DVFS. At this power level, all Forwardflow configurations are feasible, except F-4 running galgel or apsi. Between these extremes of power budget, Forwardflow configurations-both the evaluated homogeneous and the possible heterogeneous configurations-provide a wealth of dynamic power range for system software to exploit.</p><p>As in the single-thread experiments, no single configuration is most efficient for all 14 benchmarks.</p><p>is minimized by F-1 in 9 cases, by F-2 in 1, and by F-4 in the remaining 4. As before, additional performance weight in the metric skews the minimum toward more aggressive designs, to F-1 for 6 benchmarks, F-2 for 1, and F-4 for the remaining 7. OoO never minimizes , nor .</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="6">CONCLUSIONS AND FUTURE WORK</head><p>Though Moore's Law endures, the fraction of simultaneously active transistors is dropping, and architects must find new methods to deliver both ILP and TLP with a single chip design. Single threads are likely to remain common workloads in many scenarios, but the transition to threading should not be hampered by lack of available parallelism in the hardware. To this end, we have re-evaluated core microarchitecture to design a processor that can scale its execution resources to match the available TLP. Our design, Forwardflow, is a scalable core architecture implementing out-of-order execution with manageable size and complexity. Forwardflow's execution resources can be scaled up to improve single-thread performance by 21% when few threads are available, allowing greater utilization of CMP resources by single threads than a traditional design. We evaluate a Forwardflow design that is ISA-compatible with existing SPARCv9 binaries and operating systems.</p><p>The Forwardflow core design itself is efficient and disaggregated. It replaces centralized scheduling logic and register files with a distributed, RAM-based Dataflow Queue (DQ), which can scale gracefully from small to large instruction windows, allowing the system to trade-off power and performance depending on how many DQ banks the system software provisions and enables. This design is more energy-efficient in 44 of 47 studied workloads (by either or metrics).</p><p>Forwardflow joins and, we hope, will be followed by other proposals to address the key issue of single-thread performance in the CMP domain-the design of scalable cores alone is an area worthy of future exploration. Perhaps most importantly, in order for future scalable core designs to flourish, much research remains exploring scaling policies.</p><p>In particular, it is not clear how system software (or some other controlling entity) should go about choosing a core configuration to best match a particular workload in absentia of advance profiling. The complexities of managing power consumption in a CMP are subtle, and as this work has shown, there is no single configuration that will be optimal in all cases. Moreover, benchmark behavior changes in time, and this should be considered in future work addressing these challenges.</p></div><figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_0"><head>Figure 1 .</head><label>1</label><figDesc>Figure 1. Dataflow Queue Example</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_1"><head>Figure 3 illustrates</head><label>3</label><figDesc>Figure 3 illustrates the dispatch process for a simple code sequence, highlighting both the common case of a single successor (the R4 chain) and the uncommon case of multiple successors (the R3 chain). Fields read are bordered with thick lines; fields written are shaded. The bottom symbol (⊥) is used to indicate NULL pointers (i.e., cleared pointer valid bits) and cleared empty/full bits.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_2"><head>Figure 2 . Pipeline diagram of the Forwardflow architecture. Forwardflow-specific structures are shaded.</head><label>2</label><figDesc>Figure 2. Pipeline diagram of the Forwardflow architecture. Forwardflow-specific structures are shaded.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_3"><head></head><label></label><figDesc>Figure 4. Wakeup Example</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_4"><head>Figure 6 .</head><label>6</label><figDesc>Figure 5. Eight-Bank Hierarchical DQ Floorplan</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_5"><head></head><label></label><figDesc>Figure 7. 8-Way CMP Target</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_6"><head>Figure 8 presents</head><label>8</label><figDesc>Figure 8 presents runtimes for individual SPEC INT 2006 benchmarks, normalized to OoO. Figure 9.a presents the geometric means for SPEC INT, SPEC FP and single-thread versions of the commercial workloads. Overall, these show the expected result that performance improves as window size increases: the mean runtime of F-4 is 21% less than F-1 (23% vs. OoO)-indicating that Forwardflow delivers performance scaling for single threaded workloads.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_7"><head>Figure 8</head><label>8</label><figDesc>Figure 8. SPEC INT 2006 Runtime</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_8"><head>Figure 9 . a) INT, FP, and COM Mean Runtime Figure 9 . b) INT, FP, and COM Mean</head><label>99</label><figDesc>Figure 9. a) INT, FP, and COM Mean Runtime</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_6" validated="false"><head></head><label></label><figDesc>utilization. Branch recovery mechanisms must restore the RCT's state as it was before the instructions following the branch were decoded, and invalidate all false-path instruc- tions. The former is accomplished by checkpointing the RCT on predicted branches, a technique identical to the checkpointing of a register rename table. To accomplish the latter, we augment the pointer fields with valid bits, which are checkpointed with RCTs on branch predictions and restored on misprediction events</figDesc><table>ptr val 
+
+ptr val 
+ptr val 
+
+ptr val 
+
+ptr val 
+
+next 
+
+value 
+
+Pending Queue 
+
+Bank Transfer Queue 
+
+To/From DQ 
+
+1 
+// Handle pending queue 
+2 
+if next == NULL: 
+3 
+next = in.ptr 
+4 
+value = in.val 
+5 
+in.pop() 
+6 
+7 
+if next == NULL: 
+8 
+return // No work to do 
+9 
+10 
+// Try to issue, if possible 
+11 
+if type(next) != Dest &amp;&amp; 
+12 
+dq[next].otherval.isPresent: 
+13 
+val2 = dq[next].otherval 
+14 
+opcode = dq[next].meta 
+15 
+if !Issue(opcode, val, val2): 
+16 
+return // Stall 
+17 
+18 
+dq[next].val = value 
+19 
+next = dq[next].ptr 
+20 
+21 
+// Handle DQ bank transfer 
+22 
+if bank(next) != bank(this): 
+23 
+out.push(next,value) 
+24 
+next = NULL </table></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_7" validated="true"><head>Table 1 . Configuration Parameters</head><label>1</label><figDesc></figDesc><table>Component 
+OoO 
+F-1 
+F-2 
+F-4 
+Window Size 
+128 
+128 (One Bank Group) 
+256 (Two Bank Groups) 
+512 (Four Bank Groups) 
+Scheduler Type 
+Hybrid [12] 
+Forwardflow 
+Scheduler Size 
+Unified 32-entry 
+Full Window 
+Functional Units 
+2xI-ALU/2xFP-ALU/ 
+2xD-MEM 
+
+2xI-ALU/2xFP-ALU/ 
+2xD-MEM 
+
+4xI-ALU/4xFP-ALU/ 
+2xD-MEM 
+
+8xI-ALU/8xFP-ALU/ 
+2xD-MEM 
+Branch Prediction 
+YAGS 4K PHT 2K Exception Table, 2KB BTB, 16-entry RAS 
+Disambiguation 
+NoSQ [28] 1024-entry predictor, 1024-entry double-buffered SSBF 
+Fetch-Dispatch Time 
+Min. 7 Cycles 
+L1-I Cache 
+32KB, 4-way, 64B line, 4-cycle pipelined, 2 lines per cycle, 2 processor-side ports 
+L1-D Cache 
+32KB, 4-way, 64B line, 4-cycle LTU, write-through, write-invalidate, included by L2 
+L2 Cache 
+1 MB, 8-way, 4 banks, 64B line, 11 (12) cycle load (store) latency, write back, private 
+L3 Cache 
+8 MB, 16-way, 8 banks, 64B line, 24 cycle latency, shared 
+Main Memory 
+2 QPI-like Links (Up to 64GB/s), 300 cycle latency 
+Coherence 
+MOESI-based Directory Protocol 
+On-Chip Interconnect 
+2D Mesh, 16B bidirectional links, one transfer per cycle, 1-cycle 5-ary routers, 5 virtual channels per link 
+
+</table></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_8" validated="false"><head>0</head><label>0</label><figDesc></figDesc><table>Norm. Runtime 
+
+OoO 
+F-1 
+F-2 
+F-4 
+
+astar 
+
+OoO 
+F-1 
+F-2 
+F-4 
+
+bzip2 
+
+OoO 
+F-1 
+F-2 
+F-4 
+
+gcc 
+
+OoO 
+F-1 
+F-2 
+F-4 
+
+gobmk 
+
+OoO 
+F-1 
+F-2 
+F-4 
+
+h264ref 
+
+OoO 
+F-1 
+F-2 
+F-4 
+
+hmmer 
+
+OoO 
+F-1 
+F-2 
+F-4 
+
+libquantum 
+
+OoO 
+F-1 
+F-2 
+F-4 
+
+mcf 
+
+OoO 
+F-1 
+F-2 
+F-4 
+
+omnetpp 
+
+OoO 
+F-1 
+F-2 
+F-4 
+
+perlbench 
+
+OoO 
+F-1 
+F-2 
+F-4 
+
+sjeng 
+
+OoO 
+F-1 
+F-2 
+F-4 
+
+xalancbmk 
+
+0.0 
+
+0.2 
+
+0.4 
+
+0.6 
+
+0.8 
+
+1.0 
+
+Norm. Runtime 
+
+OoO 
+F-1 
+F-2 
+F-4 
+
+INT 
+
+OoO 
+F-1 
+F-2 
+F-4 
+
+FP 
+
+OoO 
+F-1 
+F-2 
+F-4 
+
+COM 
+
+</table></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_9" validated="false"><head>0</head><label>0</label><figDesc></figDesc><table>Norm. MLP 
+
+OoO 
+F-1 
+F-2 
+F-4 
+
+INT 
+
+OoO 
+F-1 
+F-2 
+F-4 
+
+FP 
+
+OoO 
+F-1 
+F-2 
+F-4 
+
+COM 
+
+0 
+
+50 
+
+100 
+
+150 
+
+Window Occupancy 
+
+Completed 
+Executing 
+Waiting 
+
+OoO 
+F-1 
+F-2 
+F-4 
+
+INT 
+
+OoO 
+F-1 
+F-2 
+F-4 
+
+FP 
+
+OoO 
+F-1 
+F-2 
+F-4 
+
+COM 
+
+</table></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_11" validated="false"><head>2 ED ED 2 ED ED 2 ED ED 2</head><label></label><figDesc></figDesc><table>.0 
+
+0.2 
+
+0.4 
+
+0.6 
+
+0.8 
+
+1.0 
+
+Norm. E*D 
+
+OoO 
+F-1 
+F-2 
+F-4 
+
+INT 
+
+OoO 
+F-1 
+F-2 
+F-4 
+
+FP 
+
+OoO 
+F-1 
+F-2 
+F-4 
+
+COM 
+
+Figure 12. a) Normalized ED 
+
+0.0 
+
+0.2 
+
+0.4 
+
+0.6 
+
+0.8 
+
+1.0 
+
+Norm. E*D^2 
+
+OoO 
+F-1 
+F-2 
+F-4 
+
+INT 
+
+OoO 
+F-1 
+F-2 
+F-4 
+
+FP 
+
+OoO 
+F-1 
+F-2 
+F-4 
+
+COM 
+
+Figure 12. b) Normalized ED 
+
+1 
+1.1 
+1.2 
+1.3 
+1.4 
+4 
+
+6 
+
+8 
+
+10 
+
+12 
+
+14 
+
+16 
+
+Nomalized Power 
+
+Nomalized Performance 
+
+ammp 
+applu 
+apsi 
+equake 
+fma3d 
+galgel 
+mgrid 
+swim 
+wupwise 
+
+0.98 
+1 
+1.02 1.04 1.06 1.08 
+1.1 
+1.12 1.14 1.16 
+4 
+
+6 
+
+8 
+
+10 
+
+Nomalized Power 
+
+Nomalized Performance 
+
+apache 
+jbb 
+oltp 
+zeus 
+
+</table></figure>
+		</body>
+		<back>
+
+			<div type="acknowledgement">
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>ACKNOWLEDGEMENTS</head><p>This work is supported in part by the National Science Foundation (NSF), with grants CCR-0324878, CNS-0551401, CNS-0720565, and CCF-0916725, as well as donations from Microsoft and Sun Microsystems/Oracle. The views expressed herein are not necessarily those of the NSF, Microsoft or Sun Microsystems/Oracle. Prof. Wood has a significant financial interest in Microsoft. The authors would like to acknowledge Mark Hill, Yasuko Watanabe, Natalie Enright Jerger, and members of the Multifacet and Multiscalar research groups (past and present), for encouragement, advice, and support. We further acknowledge the attendees of the UW Computer Architecture Affiliates conference for spirited discussion and suggestions, and our anonymous reviewers for their very useful remarks.</p></div>
+			</div>
+
+			<div type="references">
+
+				<listBibl>
+
+<biblStruct xml:id="b0">
+	<analytic>
+		<title level="a" type="main">Evaluating Non-deterministic Multi-threaded Commercial Workloads</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><forename type="middle">R</forename><surname>Alameldeen</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><forename type="middle">J</forename><surname>Mauer</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Xu</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><forename type="middle">J</forename><surname>Harper</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><forename type="middle">M K</forename><surname>Martin</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><forename type="middle">J</forename><surname>Sorin</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><forename type="middle">D</forename><surname>Hill</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><forename type="middle">A</forename><surname>Wood</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of the 5th Workshop on Computer Architecture Evaluation Using Commercial Workloads</title>
+		<meeting>of the 5th Workshop on Computer Architecture Evaluation Using Commercial Workloads</meeting>
+		<imprint>
+			<date type="published" when="2002-02" />
+			<biblScope unit="page" from="30" to="38" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b1">
+	<analytic>
+		<title level="a" type="main">Dynamically tuning processor resources with adaptive processing</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Albonesi</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Balasubramonian</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Dropsbo</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Dwarkadas</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">F</forename><surname>Friedman</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Huang</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">V</forename><surname>Kursun</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">G</forename><surname>Magklis</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Scott</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">G</forename><surname>Semeraro</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>Bose</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Buyuktosunoglu</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>Cook</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Schuster</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">IEEE Computer</title>
+		<imprint>
+			<biblScope unit="volume">36</biblScope>
+			<biblScope unit="issue">2</biblScope>
+			<biblScope unit="page" from="49" to="58" />
+			<date type="published" when="2003-12" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b2">
+	<analytic>
+		<title level="a" type="main">Executing a Program on the MIT Tagged-Token Dataflow Architecture</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">K</forename><surname>Arvind</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><forename type="middle">S</forename><surname>Nikhil</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">IEEE Transactions on Computers</title>
+		<imprint>
+			<biblScope unit="page" from="300" to="318" />
+			<date type="published" when="1990-03" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b3">
+	<analytic>
+		<title level="a" type="main">SPEComp: A New Benchmark Suite for Measuring Parallel Computer Performance</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">V</forename><surname>Aslot</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Domeika</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Eigenmann</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">G</forename><surname>Gaertner</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">W</forename><surname>Jones</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">B</forename><surname>Parady</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Workshop on OpenMP Applications and Tools</title>
+		<imprint>
+			<date type="published" when="2001-07" />
+			<biblScope unit="page" from="1" to="10" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b4">
+	<analytic>
+		<title level="a" type="main">Wattch: A Framework for Architectural-Level Power Analysis and Optimizations</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Brooks</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">V</forename><surname>Tiwari</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Martonosi</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of the 27th Annual Intnl. Symp. on Computer Architecture</title>
+		<meeting>of the 27th Annual Intnl. Symp. on Computer Architecture</meeting>
+		<imprint>
+			<date type="published" when="2000-06" />
+			<biblScope unit="page" from="83" to="94" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b5">
+	<analytic>
+		<title level="a" type="main">Computation Spreading: Employing Hardware Migration to Specialize CMP Cores On-the-fly</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">K</forename><surname>Chakraborty</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><forename type="middle">M</forename><surname>Wells</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">G</forename><forename type="middle">S</forename><surname>Sohi</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of the 12th Intnl. Conf. on Architectural Support for Programming Languages and Operating Systems</title>
+		<meeting>of the 12th Intnl. Conf. on Architectural Support for Programming Languages and Operating Systems</meeting>
+		<imprint>
+			<date type="published" when="2006-10" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b6">
+	<analytic>
+		<title level="a" type="main">Improving Data Cache Performance by Pre-Executing Instructions Under a Cache Miss</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Dundas</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">T</forename><surname>Mudge</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of the 1997 Intnl. Conf. on Supercomputing</title>
+		<meeting>of the 1997 Intnl. Conf. on Supercomputing</meeting>
+		<imprint>
+			<date type="published" when="1997-07" />
+			<biblScope unit="page" from="68" to="75" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b7">
+	<analytic>
+		<title/>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">I</forename><forename type="middle">T R</forename><surname>For Semiconductors</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><surname>Itrs</surname></persName>
+		</author>
+		<ptr target="http://www.itrs.net/Links/2006Update/2006UpdateFinal.htm" />
+	</analytic>
+	<monogr>
+		<title level="j">Update. Semiconductor Industry Association</title>
+		<imprint>
+			<date type="published" when="2006" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b8">
+	<analytic>
+		<title level="a" type="main">SPEC CPU2006 Benchmark Descriptions</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><forename type="middle">L</forename><surname>Henning</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Computer Architecture News</title>
+		<imprint>
+			<biblScope unit="volume">34</biblScope>
+			<biblScope unit="issue">4</biblScope>
+			<biblScope unit="page" from="1" to="17" />
+			<date type="published" when="2006" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b9">
+	<monogr>
+		<title level="m" type="main">US Patent #6,557,095: Scheduling operations using a dependency matrix</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Henstrom</surname></persName>
+		</author>
+		<imprint>
+			<date type="published" when="1999-12" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b10">
+	<analytic>
+		<title level="a" type="main">Amdahl&apos;s Law in the Multicore Era</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><forename type="middle">D</forename><surname>Hill</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><forename type="middle">R</forename><surname>Marty</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">IEEE Computer</title>
+		<imprint>
+			<biblScope unit="page" from="33" to="38" />
+			<date type="published" when="2008-07" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b11">
+	<analytic>
+		<title level="a" type="main">Energy-efficient hybrid wakeup logic</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Huang</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Renau</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Torrellas</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">ISLPED &apos;02: Proceedings of the 2002 international symposium on Low power electronics and design</title>
+		<meeting><address><addrLine>New York, NY, USA</addrLine></address></meeting>
+		<imprint>
+			<publisher>ACM</publisher>
+			<date type="published" when="2002" />
+			<biblScope unit="page" from="196" to="201" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b12">
+	<monogr>
+				<ptr target="http://www.intel.com/technol-ogy/architecture-silicon/next-gen/whitepaper.pd%f" />
+		<title level="m">Now the Tock: Next Generation IntelAE Microarchitecture</title>
+		<meeting><address><addrLine>Nehalem</addrLine></address></meeting>
+		<imprint>
+			<date type="published" when="2008" />
+		</imprint>
+	</monogr>
+	<note>Intel. First the Tick</note>
+</biblStruct>
+
+<biblStruct xml:id="b13">
+	<monogr>
+		<title level="m" type="main">Intel and Core i7 (Nehalem) Dynamic Power Management</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><surname>Intel</surname></persName>
+		</author>
+		<imprint>
+			<date type="published" when="2008" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b14">
+	<analytic>
+		<title level="a" type="main">Core Fusion: Accomodating Software Diversity in Chip Multiprocessors</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">E</forename><surname>Ipek</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Kirman</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">N</forename><surname>Kirman</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><forename type="middle">F</forename><surname>Martinez</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of the 34th Annual Intnl. Symp. on Computer Architecture</title>
+		<meeting>of the 34th Annual Intnl. Symp. on Computer Architecture</meeting>
+		<imprint>
+			<date type="published" when="2007-06" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b15">
+	<analytic>
+		<title level="a" type="main">Composable Lightweight Processors</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Kim</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Sethumadhavan</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><forename type="middle">S</forename><surname>Govindan</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">N</forename><surname>Ranganathan</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Gulati</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Burger</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><forename type="middle">W</forename><surname>Keckler</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of the</title>
+		<meeting>of the</meeting>
+		<imprint>
+			<biblScope unit="page">40</biblScope>
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b16">
+	<analytic>
+		<title/>
+	</analytic>
+	<monogr>
+		<title level="j">Annual IEEE/ACM International Symp. on Microarchitecture</title>
+		<imprint>
+			<date type="published" when="2007-12" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b17">
+	<analytic>
+		<title level="a" type="main">Half-price architecture</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">I</forename><surname>Kim</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><forename type="middle">H</forename><surname>Lipasti</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of the 30th Annual Intnl. Symp. on Computer Architecture</title>
+		<meeting>of the 30th Annual Intnl. Symp. on Computer Architecture</meeting>
+		<imprint>
+			<date type="published" when="2003-06" />
+			<biblScope unit="page" from="28" to="38" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b18">
+	<analytic>
+		<title level="a" type="main">A Large, Fast Instruction Window for Tolerating Cache Misses</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><forename type="middle">R</forename><surname>Lebeck</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">T</forename><surname>Li</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">E</forename><surname>Rotenberg</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Koppanalil</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><forename type="middle">P</forename><surname>Patwardhan</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of the 29th Annual Intnl. Symp. on Computer Architecture</title>
+		<meeting>of the 29th Annual Intnl. Symp. on Computer Architecture</meeting>
+		<imprint>
+			<date type="published" when="2002-05" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b19">
+	<analytic>
+		<title level="a" type="main">Simics: A Full System Simulation Platform</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><forename type="middle">S</forename><surname>Magnusson</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">IEEE Computer</title>
+		<imprint>
+			<biblScope unit="volume">35</biblScope>
+			<biblScope unit="issue">2</biblScope>
+			<biblScope unit="page" from="50" to="58" />
+			<date type="published" when="2002-02" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b20">
+	<analytic>
+		<title level="a" type="main">Multifacet&apos;s General Execution-driven Multiprocessor Simulator (GEMS) Toolset</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><forename type="middle">M K</forename><surname>Martin</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><forename type="middle">J</forename><surname>Sorin</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">B</forename><forename type="middle">M</forename><surname>Beckmann</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><forename type="middle">R</forename><surname>Marty</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Xu</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><forename type="middle">R</forename><surname>Alameldeen</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">K</forename><forename type="middle">E</forename><surname>Moore</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><forename type="middle">D</forename><surname>Hill</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><forename type="middle">A</forename><surname>Wood</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Computer Architecture News</title>
+		<imprint>
+			<biblScope unit="page" from="92" to="99" />
+			<date type="published" when="2005-09" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b21">
+	<analytic>
+		<title level="a" type="main">Runahead Execution: An Effective Alternative to Large Instruction Windows</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">O</forename><surname>Mutlu</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Stark</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Wilkerson</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Y</forename><forename type="middle">N</forename><surname>Patt</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">IEEE Micro</title>
+		<imprint>
+			<biblScope unit="volume">23</biblScope>
+			<biblScope unit="issue">6</biblScope>
+			<biblScope unit="page" from="20" to="25" />
+			<date type="published" when="2003-12" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b22">
+	<analytic>
+		<title level="a" type="main">Complexity-Effective Superscalar Processors</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Palacharla</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><forename type="middle">E</forename><surname>Smith</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of the 24th Annual Intnl. Symp. on Computer Architecture</title>
+		<meeting>of the 24th Annual Intnl. Symp. on Computer Architecture</meeting>
+		<imprint>
+			<date type="published" when="1997-06" />
+			<biblScope unit="page" from="206" to="218" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b23">
+	<analytic>
+		<title level="a" type="main">A scalable instruction queue design using dependence chains</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><forename type="middle">E</forename><surname>Raasch</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">N</forename><forename type="middle">L</forename><surname>Binkert</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><forename type="middle">K</forename><surname>Reinhardt</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of the 29th Annual Intnl. Symp. on Computer Architecture</title>
+		<meeting>of the 29th Annual Intnl. Symp. on Computer Architecture</meeting>
+		<imprint>
+			<date type="published" when="2002-05" />
+			<biblScope unit="page" from="318" to="329" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b24">
+	<analytic>
+		<title level="a" type="main">Direct Instruction Wakeup for Out-of-Order Processors</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><forename type="middle">A</forename><surname>Ramirez</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Cristal</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><forename type="middle">V</forename><surname>Veidenbaum</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">L</forename><surname>Villa</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Valero</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">IWIA &apos;04: Proceedings of the Innovative Architecture for Future Generation High-Performance Processors and Systems (IWIA&apos;04)</title>
+		<meeting><address><addrLine>Washington, DC, USA</addrLine></address></meeting>
+		<imprint>
+			<publisher>IEEE Computer Society</publisher>
+			<date type="published" when="2004" />
+			<biblScope unit="page" from="2" to="9" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b25">
+	<analytic>
+		<title level="a" type="main">Exploiting ILP, TLP, and DLP with the Polymorphous TRIPS Architecture</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">K</forename><surname>Sankaralingam</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Nagarajan</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">H</forename><surname>Liu</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Kim</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Huh</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Burger</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><forename type="middle">W</forename><surname>Keckler</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Moore</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the 30th Annual International Symposium on Computer Architecture</title>
+		<meeting>the 30th Annual International Symposium on Computer Architecture</meeting>
+		<imprint>
+			<date type="published" when="2003-06" />
+			<biblScope unit="page" from="422" to="433" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b26">
+	<analytic>
+		<title level="a" type="main">ReSlice: Selective Re-Execution of Long-Retired Misspeculated Instructions Using Forward Slicing</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><forename type="middle">R</forename><surname>Sarangi</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">W</forename><surname>Liu</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Torrellas</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Y</forename><surname>Zhou</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of the</title>
+		<meeting>of the</meeting>
+		<imprint>
+			<biblScope unit="page">38</biblScope>
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b27">
+	<analytic>
+		<title/>
+	</analytic>
+	<monogr>
+		<title level="j">Annual IEEE/ACM International Symp. on Microarchitecture</title>
+		<imprint>
+			<date type="published" when="2005-11" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b28">
+	<analytic>
+		<title level="a" type="main">Matrix Scheduler Reloaded</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>Sassone</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><forename type="middle">R</forename><surname>Ii</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">E</forename><surname>Brekelbaum</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">G</forename><surname>Loh</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">B</forename><surname>Black</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of the 34th Annual Intnl. Symp. on Computer Architecture</title>
+		<meeting>of the 34th Annual Intnl. Symp. on Computer Architecture</meeting>
+		<imprint>
+			<date type="published" when="2007-06" />
+			<biblScope unit="page" from="335" to="346" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b29">
+	<analytic>
+		<title level="a" type="main">NoSQ: Store-Load Communication without a Store Queue</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">T</forename><surname>Sha</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><forename type="middle">M K</forename><surname>Martin</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Roth</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of the</title>
+		<meeting>of the</meeting>
+		<imprint>
+			<biblScope unit="page">39</biblScope>
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b30">
+	<analytic>
+		<title/>
+	</analytic>
+	<monogr>
+		<title level="j">Annual IEEE/ACM International Symp. on Microarchitecture</title>
+		<imprint>
+			<biblScope unit="page" from="285" to="296" />
+			<date type="published" when="2006-12" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b31">
+	<monogr>
+		<title/>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">T</forename><surname>Shyamkumar</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">N</forename><surname>Muralimanohar</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><forename type="middle">H</forename><surname>Ahn</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">N</forename><forename type="middle">P</forename><surname>Jouppi</surname></persName>
+		</author>
+		<idno>HPL-2008-20</idno>
+		<imprint>
+			<date type="published" when="2008" />
+		</imprint>
+		<respStmt>
+			<orgName>Hewlett Packard Labs</orgName>
+		</respStmt>
+	</monogr>
+<note type="report_type">CACTI 5.1. Technical Report</note>
+</biblStruct>
+
+<biblStruct xml:id="b32">
+	<analytic>
+		<title level="a" type="main">Instruction Issue Logic for High-Performance Interruptable Pipelined Processors</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">G</forename><forename type="middle">S</forename><surname>Sohi</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Vajapeyam</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of the 14th Annual Intnl. Symp. on Computer Architecture</title>
+		<meeting>of the 14th Annual Intnl. Symp. on Computer Architecture</meeting>
+		<imprint>
+			<date type="published" when="1987-06" />
+			<biblScope unit="page" from="27" to="34" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b33">
+	<analytic>
+		<title level="a" type="main">Continual Flow Pipelines</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><forename type="middle">T</forename><surname>Srinivasan</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Rajwar</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">H</forename><surname>Akkary</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Gandhi</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Upton</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of the</title>
+		<meeting>of the</meeting>
+		<imprint>
+			<biblScope unit="page">11</biblScope>
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b34">
+	<monogr>
+				<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><surname>Intnl</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><surname>Conf</surname></persName>
+		</author>
+		<title level="m">on Architectural Support for Programming Languages and Operating Systems</title>
+		<imprint>
+			<date type="published" when="2004-10" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b35">
+	<analytic>
+		<title level="a" type="main">A Third-Generation 65nm 16-Core 32-Thread Plus 32-Scout-Thread CMT SPARC Processor</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Tremblay</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Chaudhry</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">ISSCC Conference Proceedings</title>
+		<imprint>
+			<date type="published" when="2008" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b36">
+	<analytic>
+		<title level="a" type="main">Exploiting Choice: Instruction Fetch and Issue on an Implementable Simultaneous Multithreading Processor</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><forename type="middle">M</forename><surname>Tullsen</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><forename type="middle">J</forename><surname>Eggers</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><forename type="middle">S</forename><surname>Emer</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">H</forename><forename type="middle">M</forename><surname>Levy</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><forename type="middle">L</forename><surname>Lo</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><forename type="middle">L</forename><surname>Stamm</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of the 23th Annual Intnl. Symp. on Computer Architecture</title>
+		<meeting>of the 23th Annual Intnl. Symp. on Computer Architecture</meeting>
+		<imprint>
+			<date type="published" when="1996-05" />
+			<biblScope unit="page" from="191" to="202" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b37">
+	<analytic>
+		<title level="a" type="main">Conservation Cores: Reducing the Energy of Mature Computations</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">G</forename><surname>Venkatesh</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Sampson</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">N</forename><surname>Goulding</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Garcia</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">V</forename><surname>Bryksin</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Lugo-Martinez</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Swanson</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><forename type="middle">B</forename><surname>Taylor</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of the 9th Intnl. Conf. on Architectural Support for Programming Languages and Operating Systems</title>
+		<meeting>of the 9th Intnl. Conf. on Architectural Support for Programming Languages and Operating Systems</meeting>
+		<imprint>
+			<date type="published" when="2000-11" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b38">
+	<analytic>
+		<title level="a" type="main">A scalable low power issue queue for large instruction window processors</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Vivekanandham</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">B</forename><surname>Amrutur</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Govindarajan</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of the 20th Intnl. Conf. on Supercomputing</title>
+		<meeting>of the 20th Intnl. Conf. on Supercomputing</meeting>
+		<imprint>
+			<date type="published" when="2006-06" />
+			<biblScope unit="page" from="167" to="176" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b39">
+	<analytic>
+		<title level="a" type="main">The MIPS R10000 Superscalar Microprocessor</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">K</forename><forename type="middle">C</forename><surname>Yeager</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">IEEE Micro</title>
+		<imprint>
+			<biblScope unit="volume">16</biblScope>
+			<biblScope unit="issue">2</biblScope>
+			<biblScope unit="page" from="28" to="40" />
+			<date type="published" when="1996-04" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+				</listBibl>
+			</div>
+		</back>
+	</text>
+</TEI>

@@ -1,0 +1,238 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>Illuminating the Security Issues with Lights-Out Server Management</p>
+    <p>Anthony J. Bonkoski J. Alex Halderman</p>
+    <p>University of Michigan</p>
+  </div>
+  <div class="page">
+    <p>What is IPMI?</p>
+    <p>Image Copyright: Ulfbastel, License: GFDL 1.2+/CC BY-SA 3.0</p>
+    <p>OEM Names: HP iLo</p>
+    <p>Dell iDrac</p>
+    <p>Oracle iLOM</p>
+    <p>Lenovo/IBM IMM</p>
+    <p>SuperMicro IPMI</p>
+    <p>ATEN IPMI</p>
+    <p>MegaRAC</p>
+    <p>Avocent IPMI</p>
+    <p>Need to manage a massive cluster of servers? OS installs, monitoring, power-cycle, etc. How?</p>
+    <p>Intel introduces Intelligent Platform Management Interface (IPMI) Specification: Adds a second computer Always on Integrated directly into the system buses (e.g. I2C)</p>
+  </div>
+  <div class="page">
+    <p>What is IPMI?</p>
+    <p>Image Copyright: U. Vezzani, License: CC BY-SA 3.0</p>
+    <p>Baseboard Management Controller (BMC) The embedded micro-controller: the second CPU</p>
+  </div>
+  <div class="page">
+    <p>System Embedded on Motherboard or Expansion card CPU: ARM/MIPS or other low power embedded CPU OS: Linux is common</p>
+    <p>Extra OEM Features Remote Virtual Console Remote Media High network connectivity incl. HTTP and SSH.</p>
+    <p>Typical IPMI Implementation</p>
+  </div>
+  <div class="page">
+    <p>In short: IPMI is the perfect spying backdoor Always on and often pre-enabled. NIC failover* Powerful Remote Tools Widespread deployment: 100,000+ on public IPs</p>
+    <p>Its an embedded system... ...often, security is an after-thought!</p>
+    <p>Why do we care?</p>
+    <p>*As seen on our SuperMicro ATEN-based IPMI</p>
+  </div>
+  <div class="page">
+    <p>Known Problems</p>
+    <p>Authentication Risks: Many vendors ship default passwords</p>
+    <p>root/calvin</p>
+    <p>Anonymous undocumented accounts*</p>
+    <p>Passwords stored in plain-text*</p>
+    <p>* SuperMicro ATEN-based IPMI  Dell iDRAC</p>
+  </div>
+  <div class="page">
+    <p>Dan Farmer January 2013: Starts publicly denouncing IPMI Criticisms are largely just conjectures</p>
+    <p>Finds some negligent flaws: Hidden backdoor debugging web page on Dell iDRAC Could gain root over ssh</p>
+    <p>Recent Developments</p>
+  </div>
+  <div class="page">
+    <p>Is IPMI security actually a problem?</p>
+    <p>Our Work</p>
+  </div>
+  <div class="page">
+    <p>Supermicro IPMI</p>
+    <p>Supermicro SYS-5017C-LF</p>
+    <p>Nuvoton WPCM450 ARM-based BMC</p>
+    <p>Linux 2.6.17</p>
+    <p>HTML / JavaScript</p>
+    <p>CGI (written in C)</p>
+    <p>IPMI Firmware by ATEN Technology</p>
+    <p>Firmware version 1.86 (build date: 11-14-2012)</p>
+  </div>
+  <div class="page">
+    <p>Supermicro Web Interface</p>
+  </div>
+  <div class="page">
+    <p>Supermicro SSH Interface</p>
+    <p>Backend: Highly modified fork of Dropbear Frontend: Systems Management Architecture for Server Hardware CommandLine Protocol (SMASH)* Notice: a system admin has no access to underlying Unix shell</p>
+    <p>*Distributed Management Task Force (DMTF) specification: dmtf.org/standards/smash</p>
+  </div>
+  <div class="page">
+    <p>Reverse Engineering Approach</p>
+    <p>Fetch firmware from OEM website. Scan and unpack: binwalk</p>
+    <p>Mount filesystems Objdump and IDA Pro</p>
+  </div>
+  <div class="page">
+    <p>What to Look For?</p>
+    <p>Begin with Classics: 1. Insecure Input Validation 2. Shell Injection 3. Buffer Overflows</p>
+  </div>
+  <div class="page">
+    <p>function PrivilegeCallBack(Privilege){</p>
+    <p>// full access</p>
+    <p>if(Privilege == '04'){</p>
+    <p>isSuperUser = 1;</p>
+    <p>}</p>
+    <p>// only view</p>
+    <p>else if(Privilege == '03') {</p>
+    <p>var_save_btn.disabled = true;</p>
+    <p>}</p>
+    <p>// no access</p>
+    <p>else {</p>
+    <p>alert(lang.LANG_NOPRIVI);</p>
+    <p>}</p>
+    <p>}</p>
+    <p>Input Validation</p>
+    <p>All input validation is done in client-side javascript ...</p>
+    <p>and so is permission checking:</p>
+    <p>Server-side? No permission checking. No escaping of input passed to shell. No string length checking in CGI.</p>
+  </div>
+  <div class="page">
+    <p>Shell Injection</p>
+    <p>Confirmed shell injection in config_date_time.cgi:</p>
+  </div>
+  <div class="page">
+    <p>Shell Injection</p>
+    <p>Confirmed shell injection in config_date_time.cgi:</p>
+    <p>Getting command output Redirect to /nv/system_log. Issue GET request to system_log.cgi.</p>
+    <p>Create a psuedo-terminal Wraps GET ands POST request in a python script.</p>
+    <p>root@localhost #</p>
+  </div>
+  <div class="page">
+    <p>Server backend:  CGI programs.  written in C.  running as root.</p>
+    <p>Buffer Overflows</p>
+  </div>
+  <div class="page">
+    <p>Server backend:  CGI programs.  written in C.  running as root.</p>
+    <p>Buffer Overflows</p>
+    <p>// login.cgi int main(void) { char name[128], pwd[24]; char *temp ; // ... initialize ... temp = cgiGetVariable(&quot;name&quot;); strcpy(name, temp); temp = cgiGetVariable(&quot;pwd&quot;); strcpy(pwd, temp); // ... authenticate user ... }</p>
+  </div>
+  <div class="page">
+    <p>Server backend:  CGI programs.  written in C.  running as root.</p>
+    <p>Buffer Overflows</p>
+    <p>// login.cgi int main(void) { char name[128], pwd[24]; char *temp ; // ... initialize ... temp = cgiGetVariable(&quot;name&quot;); strcpy(name, temp); temp = cgiGetVariable(&quot;pwd&quot;); strcpy(pwd, temp); // ... authenticate user ... }</p>
+  </div>
+  <div class="page">
+    <p>Buffer Overflows</p>
+    <p>No length validation?</p>
+  </div>
+  <div class="page">
+    <p>Buffer Overflows</p>
+    <p>No length validation?</p>
+  </div>
+  <div class="page">
+    <p>Buffer Overflows</p>
+    <p>No length validation?</p>
+  </div>
+  <div class="page">
+    <p>Buffer-overflow defenses?</p>
+    <p>Buffer Overflow Exploitability</p>
+    <p>No DEP (Stack and Heap are executable).</p>
+    <p>No Stack Canaries.</p>
+    <p>Limited ASLR. (Stack/Heap base addresses are randomized, but dynamic libraries are not. Return-to-libc works.)</p>
+  </div>
+  <div class="page">
+    <p>Stack is randomized (ASLR). ...but, only 12 bits are random. Just 4096 possibilities.</p>
+    <p>Exploitation Challenges</p>
+    <p>We gain control on the return from main(). Stack is small: shellcode must be compact.</p>
+    <p>BMC crashes and reboots if pounded too hard with requests.</p>
+  </div>
+  <div class="page">
+    <p>Buffer Overflow Exploit</p>
+    <p>Solutions Store the shell command in the name buffer. Brute force through the stack randomization. Limit the time between brute-force iterations.</p>
+    <p>Avg. search time: ~7 min.</p>
+    <p>Payload Fetch (wget) and install modified SSH daemon. Forks root shell on incorrect password.</p>
+    <p>Only 2 instructions changed!</p>
+    <p>root@localhost #</p>
+  </div>
+  <div class="page">
+    <p>Vulnerable Models?</p>
+    <p>Cursory check of all Supermicro IPMI firmware downloads as of May 23, 2013.</p>
+    <p>Supermicro says theyre working on a fix.</p>
+    <p>Possibly affects other ATEN-based products.</p>
+  </div>
+  <div class="page">
+    <p>So, rooting this device is easy! But, what are the implications?</p>
+    <p>Yet another broken embedded system?</p>
+    <p>The Impact</p>
+  </div>
+  <div class="page">
+    <p>Only as secure as our weakest component. Entire system is now vulnerable! Adding an entire computer only weakens.</p>
+    <p>The Impact</p>
+  </div>
+  <div class="page">
+    <p>BMC-based spyware and botnets</p>
+    <p>Rooted BMC  Rooted host system Mount a custom OS and reboot.</p>
+    <p>Rooted host system  Rooted BMC Re-flash the BMC with malicious code.</p>
+    <p>BMC rootkits A backdoor that survives potentially forever.</p>
+    <p>A scary thought IPMI meets Matrix  Is your IPMI just emulated? How do you know?</p>
+    <p>IPMI for Evil</p>
+  </div>
+  <div class="page">
+    <p>Scanned all public IPs on May 7, 2013 using ZMap*. Downloaded all X.509 certs from HTTPS servers.</p>
+    <p>Used identifying characteristics of default certificates.</p>
+    <p>Network Measurements</p>
+    <p>* ZMap: Fast Internet-wide Scanning and its Security Applications. Paper and tool coming this FRIDAY at Usenix Security.  Details on identifying characteristics may be found in our paper</p>
+    <p>Could root all these in parallel in minutes!</p>
+  </div>
+  <div class="page">
+    <p>For System Operators</p>
+    <p>Never attach your IPMI device directly to the Internet. Use an isolated management network or VLAN.</p>
+    <p>Change default passwords and certificates.</p>
+    <p>Disable IPMI if you dont need it.</p>
+    <p>Unfortunately: were at the will of the Vendor</p>
+    <p>Defenses</p>
+  </div>
+  <div class="page">
+    <p>For IPMI Vendors These are textbook vulns. You have to do better.</p>
+    <p>Apply security engineering practices.</p>
+    <p>Sign and verify firmware when flashing.</p>
+    <p>Make devices hard to deploy on public IPs.</p>
+    <p>Defenses</p>
+  </div>
+  <div class="page">
+    <p>Lessons</p>
+    <p>A Culture Clash?</p>
+    <p>Embedded Internet</p>
+    <p>IPMI: hopefully a climax</p>
+  </div>
+  <div class="page">
+    <p>Analysis of other vendors implementations Dell, HP, Lenovo, Oracle, etc.</p>
+    <p>Firmware update exploitation Can an attacker inject a backdoor that persists? Across BMC reboot? Across BMC flashes? Forever?</p>
+    <p>IPMI honeypot Unclear whether attackers are exploiting these devices in the wild. Some anecdotal evidence of their use as spambots. Are they being used for other malicious purposes?</p>
+    <p>Future Work</p>
+  </div>
+  <div class="page">
+    <p>IPMI serves a vital role for system management.</p>
+    <p>Carries elevated risks, potential for powerful attacks.</p>
+    <p>At least some vendors are getting it badly wrong.</p>
+    <p>Farmer is correct: IPMI is a serious concern.</p>
+    <p>Our work: A call to arms .</p>
+    <p>Conclusions</p>
+  </div>
+  <div class="page">
+    <p>Illuminating the Security Issues with Lights-Out Server Management</p>
+    <p>Anthony J. Bonkoski J. Alex Halderman abonkosk@umich.edu jhalderm@umich.edu</p>
+    <p>University of Michigan</p>
+  </div>
+  <div class="page">
+    <p>Zmap Scan Details</p>
+    <p>Vendor Identifying Characteristics</p>
+    <p>SuperMicro Subjects containing linda.wu@supermicro.com or doris@aten.com.tw</p>
+    <p>Dell Subject containing iDRAC</p>
+    <p>HP Subjects containing CN=ILO and issuers containing iLO3 Default Issuer or Hewlett Packard</p>
+    <p>*Landing pages spot-checked for false positives</p>
+  </div>
+</Presentation>

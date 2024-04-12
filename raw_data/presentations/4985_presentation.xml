@@ -1,0 +1,261 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>Memory Buddies: Exploiting Page Sharing for Smart Colocation in</p>
+    <p>Virtualized Data Centers</p>
+    <p>Timothy Wood, Gabriel Tarasuk-Levin, Prashant Shenoy, Peter Desnoyers*,</p>
+    <p>Emmanuel Cecchet, and Mark D. Corner</p>
+    <p>University of Massachusetts, Amherst</p>
+    <p>*Northeastern University</p>
+  </div>
+  <div class="page">
+    <p>Server Placement in Data Centers</p>
+    <p>Virtualization improves resource utilization by consolidating servers</p>
+    <p>But how to determine which servers to place together?</p>
+    <p>Must consider many resource constraints:  CPU, Disk, Network, Memory</p>
+  </div>
+  <div class="page">
+    <p>Why Memory?  CPU scheduling is fine grain</p>
+    <p>Easily share among many users  Work conserving, so no waste</p>
+    <p>Memory is much less flexible  Allocated on a large time scales  Being wrong (paging) is disastrous</p>
+    <p>Memory is an expensive resource</p>
+    <p>Memory capacity is increasing slower than CPU power</p>
+  </div>
+  <div class="page">
+    <p>HypervisorPhysical RAM</p>
+    <p>FREE</p>
+    <p>D</p>
+    <p>FREE</p>
+    <p>Content Based Page Sharing</p>
+    <p>VM 1 Page Table</p>
+    <p>A B CB</p>
+    <p>C</p>
+    <p>A</p>
+    <p>A</p>
+    <p>D</p>
+    <p>B</p>
+    <p>VM 2 Page Table</p>
+    <p>A D B</p>
+    <p>If two VMs have an identical pages in memory, just keep one copy</p>
+    <p>Supported by VMware ESX platform  Experimental tests in Xen,</p>
+    <p>further support planned</p>
+    <p>Potential benefits  33% in VMware ESX paper</p>
+    <p>65% with subpage sharing (Difference Engine) 1) Hypervisor detects identical</p>
+    <p>pages</p>
+  </div>
+  <div class="page">
+    <p>But what if.</p>
+    <p>Pages change over time, breaking sharing</p>
+    <p>If memory is being overcommitted, this can lead to hotspots</p>
+    <p>Physical RAM</p>
+    <p>FREE</p>
+    <p>D</p>
+    <p>FREE</p>
+    <p>B</p>
+    <p>C</p>
+    <p>A</p>
+    <p>VM 1 Page Table</p>
+    <p>A B C</p>
+    <p>VM 2 Page Table</p>
+    <p>A D B</p>
+    <p>A*</p>
+    <p>A*</p>
+  </div>
+  <div class="page">
+    <p>Physical RAM</p>
+    <p>Whats the problem?</p>
+    <p>VM 4 Page Table</p>
+    <p>A B CB</p>
+    <p>C</p>
+    <p>A</p>
+    <p>FREE</p>
+    <p>D</p>
+    <p>FREE</p>
+    <p>E</p>
+    <p>D</p>
+    <p>F</p>
+    <p>VM 3 Page Table</p>
+    <p>E D F</p>
+    <p>Only get a benefit if VMs on a machine actually have pages to share!</p>
+    <p>Physical RAM</p>
+    <p>VM 2 Page Table</p>
+    <p>A B CB</p>
+    <p>C</p>
+    <p>A</p>
+    <p>FREE</p>
+    <p>D</p>
+    <p>FREE</p>
+    <p>E</p>
+    <p>D</p>
+    <p>F</p>
+    <p>VM 1 Page Table</p>
+    <p>E D F</p>
+    <p>Host 1 Host 2</p>
+  </div>
+  <div class="page">
+    <p>Where to place a VM?  How do you figure out which</p>
+    <p>VMs to place together?  Meet resource constraints  Maximize sharing</p>
+    <p>Why placement is hard in large data centers?  Many applications from</p>
+    <p>different clients  Many software stacks /</p>
+    <p>platforms  Workloads change over time</p>
+    <p>Here or there?</p>
+    <p>Or there or there or there?</p>
+    <p>?</p>
+  </div>
+  <div class="page">
+    <p>Memory Buddies Goals</p>
+    <p>Efficiently analyze the memory contents of multiple VMs to determine sharing potential</p>
+    <p>Find more compact VM placement schemes</p>
+    <p>Respond quickly to changing conditions to prevent memory hotspots</p>
+    <p>Bonus! Traces released at traces.cs.umass.eduBonus! Traces released at traces.cs.umass.edu</p>
+  </div>
+  <div class="page">
+    <p>Outline</p>
+    <p>Motivation</p>
+    <p>Memory Fingerprinting &amp; Comparison</p>
+    <p>Sharing-aware Colocation</p>
+    <p>Hotspot Mitigation</p>
+    <p>Implementation &amp; Evaluation</p>
+    <p>Related Work &amp; Summary</p>
+  </div>
+  <div class="page">
+    <p>Memory Fingerprints  Hypervisor creates hash for each page</p>
+    <p>Check hash table to see if page is sharable  Record these hashes to create fingerprint</p>
+    <p>Hash lists are big  32bits per 4K page = 1MB per 1GB of RAM  Need to forward fingerprint to other hosts</p>
+    <p>Comparisons of lists is relatively slow</p>
+    <p>VM 1</p>
+    <p>A B</p>
+  </div>
+  <div class="page">
+    <p>Bloom Filter Fingerprints  Bloom filter is a probabilistic data structure</p>
+    <p>Stores keys by setting some bits to 1</p>
+    <p>False positive chance at lookup from hash collisions</p>
+    <p>Very space efficient</p>
+    <p>Tradeoff between filter size and accuracy</p>
+    <p>M bits</p>
+    <p>Insert(key) --&gt; set h1(key)=1 and h2(key)=1 VM 1</p>
+  </div>
+  <div class="page">
+    <p>Fingerprint Comparison</p>
+    <p>Hash list comparison  Sort each list and then step through</p>
+    <p>Bloom Filter  Simple method: Dot product of bit vectors</p>
+    <p>Bloom Sharing Equation  Corrects for the expected number of false</p>
+    <p>matches in each filter  Impressively accurate!</p>
+  </div>
+  <div class="page">
+    <p>Eval: Fingerprinting</p>
+    <p>4GB RAM VMs  Hash: 4 sec</p>
+    <p>Sorted: 0.3 sec</p>
+    <p>Bloom: 0.02 sec</p>
+    <p>Bloom Fingerprint 10% the size, still &lt; 1% error</p>
+    <p>Bloom filters are smaller and 10 to 100 times fasterBloom filters are smaller and 10 to 100 times faster</p>
+  </div>
+  <div class="page">
+    <p>Outline</p>
+    <p>Motivation</p>
+    <p>Memory Fingerprinting &amp; Comparison</p>
+    <p>Sharing-aware Colocation</p>
+    <p>Hotspot Mitigation</p>
+    <p>Implementation &amp; Evaluation</p>
+    <p>Related Work &amp; Summary</p>
+  </div>
+  <div class="page">
+    <p>Sharing Aware Placement  Where to place a freshly started VM?  Use staging area to find initial placement</p>
+    <p>Find feasible hosts</p>
+    <p>Estimate sharing potential</p>
+    <p>Migrate VM</p>
+    <p>Done! Staging Host</p>
+    <p>Host 1</p>
+    <p>Host 3 Host 2</p>
+    <p>Compare</p>
+  </div>
+  <div class="page">
+    <p>Consolidation &amp; Hotspot Mitigation</p>
+    <p>Resource usage changes over time  Sharing may not last forever</p>
+    <p>Periodically consolidate servers  Identify candidates (least loaded hosts)  Match to destinations (hosts with best sharing)  Migrate VMs  Disable unnecessary servers</p>
+    <p>Hotspot Mitigation  Monitor memory usage to detect hotspots  VMs may run out of memory if sharing stops  Redistribute VMs to rebalance</p>
+  </div>
+  <div class="page">
+    <p>Offline Planning Tool</p>
+    <p>Offline Planning Tool</p>
+    <p>Host resources Resource Traces Memory Fingerprints</p>
+    <p>Dynamic programming based bin-packing tool</p>
+    <p>Finds subsets of VMs that can be placed together and</p>
+    <p>maximize sharing</p>
+    <p>Host 1</p>
+    <p>Host N</p>
+    <p>Number of hosts required = X VM to host mapping</p>
+    <p>Estimated sharing per host = Y</p>
+  </div>
+  <div class="page">
+    <p>Outline</p>
+    <p>Motivation</p>
+    <p>Memory Fingerprinting &amp; Comparison</p>
+    <p>Sharing-aware Colocation</p>
+    <p>Hotspot Mitigation</p>
+    <p>Implementation &amp; Evaluation</p>
+    <p>Related Work &amp; Summary</p>
+  </div>
+  <div class="page">
+    <p>Implementation</p>
+    <p>Memory Tracer  Tool used to gather data for trace study</p>
+    <p>Runs on Linux, OS X, and Windows</p>
+    <p>Calculates 32bit hashes for each page in memory</p>
+    <p>Sends either a hash list or Bloom filter to control node</p>
+    <p>Works on physical systems or in VMs</p>
+  </div>
+  <div class="page">
+    <p>Implementation  Nucleus</p>
+    <p>Collects memory fingerprints for each VM</p>
+    <p>Sends data to control plane</p>
+    <p>Control Plane  Gathers VM statistics and makes migration decisions</p>
+    <p>based on sharing  Interacts with VMware Virtual Infrastructure to</p>
+    <p>manage VMs</p>
+  </div>
+  <div class="page">
+    <p>Eval: Trace Study System Mix</p>
+    <p>Total Memory MB</p>
+    <p>% Sharable Used Mem MB (with sharing)</p>
+    <p>Linux 2.6.9 Darwin 9.0</p>
+    <p>Windows XP 4223 13.2% 3666</p>
+    <p>Darwin 9.0 Darwin 9.4</p>
+    <p>Windows XP 5248 35.3% 3397</p>
+    <p>Darwin 9.0 Darwin 9.2 Darwin 9.4</p>
+    <p>Windows XP</p>
+    <p>Darwin 9.4 (3 MacBook + iMac)</p>
+  </div>
+  <div class="page">
+    <p>Eval: App Placement  Try to place as many VMs onto a set of 4 hosts</p>
+    <p>Sharing Oblivious: Place on first host with sufficient capacity</p>
+    <p>Four app types -- data contents different for each VM instance</p>
+    <p>Sharing Oblivious</p>
+    <p>Sharing Aware</p>
+    <p>TPC-W</p>
+    <p>OFBiz</p>
+    <p>RUBiS</p>
+    <p>SpecJBB</p>
+  </div>
+  <div class="page">
+    <p>Outline</p>
+    <p>Motivation</p>
+    <p>Memory Fingerprinting &amp; Comparison</p>
+    <p>Sharing-aware Colocation</p>
+    <p>Hotspot Mitigation</p>
+    <p>Implementation &amp; Evaluation</p>
+    <p>Related Work &amp; Summary</p>
+  </div>
+  <div class="page">
+    <p>Related Work</p>
+    <p>Waldspurger, OSDI 2002  CBPS in VMware ESX Server</p>
+    <p>Gupta, et al., OSDI 2008  Increase sharing potential by looking at</p>
+    <p>parts of pages</p>
+    <p>VM Memory provisioning  Zhao &amp; Wang (yesterday) has a good list!</p>
+  </div>
+  <div class="page">
+    <p>Summary  Hypervisors already support page sharing</p>
+    <p>Memory Buddies makes it more useful  Identifies sharing opportunities across data center  Migrates VMs to maximize sharing  Uses efficient memory fingerprinting techniques to</p>
+    <p>scale to large data centers</p>
+    <p>Traces will be online (soon) at:  http://traces.cs.umass.edu  Macbooks, Linux servers, and more!</p>
+    <p>Questions? twood@cs.umass.edu</p>
+  </div>
+</Presentation>

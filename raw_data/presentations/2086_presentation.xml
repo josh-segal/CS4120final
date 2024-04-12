@@ -1,0 +1,139 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>Durability Semantics for Lock-based Multithreaded Programs Dhruva R. Chakrabarti, Hans-J. Boehm Hewlett-Packard Laboratories</p>
+  </div>
+  <div class="page">
+    <p>Do we need a separate durable data representation?  Conventional durability techniques</p>
+    <p>Separate object and persistent formats  Translation code  Programmability and performance issues</p>
+    <p>In-memory durability  Enabled by non-volatile memory or NVRAM</p>
+    <p>(such as memristors, PCM, etc.)  In-memory objects are durable throughout  Byte-addressability simplifies programmability  Low load/store latencies offer high</p>
+    <p>performance</p>
+    <p>Inmemor</p>
+    <p>y objects</p>
+    <p>File or Database</p>
+    <p>Serialize</p>
+    <p>Deserialize</p>
+    <p>CPU</p>
+    <p>CACHES</p>
+    <p>DRAM NVRAM</p>
+  </div>
+  <div class="page">
+    <p>Programming Model</p>
+    <p>pr = find_or_create_persistent_region(name); persistent_data = get_root_pointer(pr); if (persistent_data) {</p>
+    <p>// restart code } else {</p>
+    <p>// initialize persistent_data } // use persistent_data</p>
+    <p>Use persistent regions (PR) instead of flat files</p>
+    <p>PR</p>
+    <p>Root</p>
+    <p>Data not in a PR is considered transient</p>
+  </div>
+  <div class="page">
+    <p>Motivating Observations</p>
+    <p>Reuse durable data structures after process termination  Reusable data structures must be consistent across failures</p>
+    <p>Invariants must be preserved  How are invariants identified in a lock-based multithreaded program?</p>
+    <p>No explicit association between a shared datum and the protecting lock  Lock acquires can be nested</p>
+    <p>Time</p>
+    <p>T2</p>
+    <p>T1 C1 C2 C3 C4</p>
+    <p>C5 C6 C7</p>
+  </div>
+  <div class="page">
+    <p>Contributions</p>
+    <p>Consistency semantics for durable data at intermediate program points  In spite of arbitrary lock nesting  Largely unchanged code  Relationship with transactional semantics</p>
+    <p>Optimizations  Initial idea of overheads</p>
+  </div>
+  <div class="page">
+    <p>Notion of Consistent Program Points</p>
+    <p>Unlocked program points are thread-consistent  Critical sections indicators of consistent states</p>
+    <p>If no locks are held, all data structures should be in a consistent state  Some restrictions:</p>
+    <p>Client provided locks  Serial programs</p>
+  </div>
+  <div class="page">
+    <p>Notion of Failure-Atomic Update Units</p>
+    <p>Outermost Critical Sections (OCS) are failure-atomic</p>
+    <p>Time</p>
+    <p>T2</p>
+    <p>T1</p>
+    <p>: OCS : Inner critical sections</p>
+  </div>
+  <div class="page">
+    <p>Notion of Durability-related Dependences among OCSes A completed OCS may depend on an incomplete OCS</p>
+    <p>Cause: Isolation and durability boundaries may not match  Effect: The durable effects of a completed OCS may have to be</p>
+    <p>undone  Happens only with nesting x, y are persistent and initially x=y=0</p>
+    <p>T1 T2 1:  1': lock(l2)</p>
+    <p>. 2': lock(l1) . 3': x = 1 . 4': unlock(l1) . 5:</p>
+    <p>o1</p>
+    <p>o2</p>
+    <p>If the program crashes, can the effects of o1 be made durable when those of o2 are not? NO! y=1, x=0 is not a consistent state.</p>
+    <p>hb</p>
+    <p>OCS-hb</p>
+  </div>
+  <div class="page">
+    <p>OCS-hb relation may be cyclic</p>
+    <p>Time</p>
+    <p>T2</p>
+    <p>T1</p>
+    <p>All effects in the involved OCSes must appear to be visible in persistent memory at the same time</p>
+    <p>Inner critical sections can cause cyclic OCS-hb</p>
+    <p>: OCS : Inner critical sections</p>
+  </div>
+  <div class="page">
+    <p>An Implementation Overview</p>
+    <p>All lock operations and writes to persistent memory locations logged  hb-relations between lock releases and acquires captured in the log  Logs maintained in non-volatile memory  Unnecessary log entries periodically pruned  Some optimizations implemented  Cache lines flushed at appropriate points</p>
+  </div>
+  <div class="page">
+    <p>Some Preliminary Experimental Results</p>
+    <p>NVRAM-based programs 2-3 orders of magnitude faster than disk-based ones</p>
+    <p>But whats the overhead of adding durability to transient data structures?</p>
+    <p>Apps</p>
+    <p>Slowdown (num_threads=4)</p>
+    <p>Statistics (num_threads=4)</p>
+    <p>nvram nvram-nf #OCSes #store s</p>
+    <p>#logs</p>
+    <p>Dedup 50% 33% 260K 900K 1.4M</p>
+    <p>Memcached 160% 60% 4M 22M 30M</p>
+    <p>nvram: durable version nvram-nf: durable version without cache line flushes #OCSes: Total number of OCSes encountered dynamically #stores: Total number of dynamic store operations in NVRAM #logs: total number of log entries created in NVRAM</p>
+    <p>Dedup: A deduplication kernel from the PARSEC benchmark suite. The hashtable maintaining unique key-value pairs of chunks of input stream is made durable. Memcached: Starting with the original key-value cache implementation, the cache, LRU lists, and the slab allocator information are made durable.</p>
+  </div>
+  <div class="page">
+    <p>Conclusions</p>
+    <p>Presented a technique for identifying intermediate application-wide consistent states in a lock-based program</p>
+    <p>NVRAM enables an efficient implementation</p>
+  </div>
+  <div class="page">
+    <p>Backup</p>
+  </div>
+  <div class="page">
+    <p>Optimizations/Pitfalls</p>
+    <p>Is log elision applicable to durable updates outside an OCS?  Is it mandatory to track every OCS-hb, specifically ones that involve</p>
+    <p>OCSes with updates to transient locations alone?</p>
+  </div>
+  <div class="page">
+    <p>Optimizing thread-consistent updates</p>
+    <p>T0 a1: lock(l1) a2: t = ready a3: unlock(l1) 4: if (t) 5: y = x</p>
+    <p>T1 b11: lock(l2) b12: p = q b13: unlock(l2) 14: x = 1 c15: lock(l1) c16: ready = 1 c17: unlock(l1)</p>
+    <p>T2 d21: lock(l3) d22: lock(l2) d23: q = 1 d24: unlock(l2) d25: m = 1 d26: unlock(l3)</p>
+    <p>d</p>
+    <p>b</p>
+    <p>c</p>
+    <p>a</p>
+    <p>OCS level hb-relations</p>
+    <p>Elide logging of line 14 since OCS b will not be undone. Elide logging of line 5 since OCS a will not be undone.</p>
+    <p>Elide logging outside an OCS, if possible</p>
+  </div>
+  <div class="page">
+    <p>Every hb-relation must be captured</p>
+    <p>x, y, m, p, and q are shared and persistent. t is local, ready is shared. Both are transient. Initially x = y = m = p = q = t = ready = 0</p>
+    <p>T0 a1: lock(l1) a2: t = ready a3: unlock(l1) 4: if (t) 5: y = x</p>
+    <p>T1 b11: lock(l2) b12: p = q b13: unlock(l2) 14: x = 1 c15: lock(l1) c16: ready = 1 c17: unlock(l1)</p>
+    <p>T2 d21: lock(l3) d22: lock(l2) d23: q = 1 d24: unlock(l2) d25: m = 1 d26:</p>
+    <p>d</p>
+    <p>b</p>
+    <p>c</p>
+    <p>a</p>
+    <p>OCS level hb-relations</p>
+    <p>If OCS d fails but all hb-relations are not captured, y = 1 while others are 0, an inconsistent state</p>
+    <p>If OCS d fails but all hb-relations are captured, all values are reset to a consistent state</p>
+  </div>
+</Presentation>

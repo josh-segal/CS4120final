@@ -1,0 +1,685 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>Floem: Programming System for NIC-Accelerated Network Applications</p>
+    <p>Phitchaya Mangpo Phothilimthana University of California, Berkeley</p>
+    <p>Ming Liu, Antoine Kaufmann, Ras Bodik, Tom Anderson University of Washington</p>
+    <p>Simon Peter UT Austin</p>
+  </div>
+  <div class="page">
+    <p>Ethernet vs. CPU</p>
+    <p>Data-Center Network</p>
+  </div>
+  <div class="page">
+    <p>Ethernet vs. CPU</p>
+    <p>Data-Center Network 100x 1 Gbps  100 Gbps</p>
+  </div>
+  <div class="page">
+    <p>Ethernet vs. CPU</p>
+    <p>&lt; 2X 3 GHz  5 GHz</p>
+    <p>Data-Center Network</p>
+  </div>
+  <div class="page">
+    <p>Network Card (NIC)</p>
+    <p>Data-Center Network</p>
+    <p>Wimpy multi-core processor  Cavium LiquidIO  Netronome Agilio  Mellanox BlueField</p>
+    <p>Field-programmable gate array (FPGA)  Microsoft Catapult  NetFPGA</p>
+    <p>Reconfigurable Match Table (RMT)  Bosshart et al. 2013  Kaufmann et al. 2015</p>
+  </div>
+  <div class="page">
+    <p>NIC Offload</p>
+    <p>Data-Center Network</p>
+    <p>Offload Computation  Fast path processing:</p>
+    <p>filtering, classifying, caching, etc.  Transformation:</p>
+    <p>encryption/decryption, compression, etc.</p>
+    <p>Steering  Congestion control</p>
+  </div>
+  <div class="page">
+    <p>Problem 2: Packet Marshaling</p>
+    <p>Offloading computation to a NIC requires a large amount of effort.</p>
+  </div>
+  <div class="page">
+    <p>PCIe CPU memory</p>
+    <p>DMA engine</p>
+    <p>No cache coherence. NIC can access CPU memory via PCIe.</p>
+    <p>Programming Platform</p>
+    <p>Cavium LiquidIO Slower cores Lower power No floating-point Encryption co-processor L1/L2 cache, DRAM, host memory</p>
+    <p>Intel Xeon Faster cores Higher power Floating-point support HW-accelerated instructions L1/L2/L3 cache, DRAM, disk</p>
+  </div>
+  <div class="page">
+    <p>KVS</p>
+    <p>to network PCIe CPU memory</p>
+    <p>KVS</p>
+    <p>KVS</p>
+    <p>hash &amp; steer pkt</p>
+    <p>prepare response to network PCIe CPU</p>
+    <p>memory</p>
+    <p>Key-based steering  30-45% higher</p>
+    <p>throughput  Require: multiple</p>
+    <p>CPU cores  [Kaufmann et al. 2016]</p>
+    <p>KVS cache</p>
+    <p>update cache</p>
+    <p>Using NIC as Cache  3x power efficiency  Require: enough</p>
+    <p>memory on NIC  [Li et al. 2017]</p>
+    <p>N threads</p>
+    <p>Space of Offload Designs Example: Key-value store</p>
+  </div>
+  <div class="page">
+    <p>Problem 2: Packet Marshaling</p>
+    <p>No one-size-fit-all offload. Non-trivial to predict which offload is best.</p>
+  </div>
+  <div class="page">
+    <p>hash create item</p>
+    <p>update table</p>
+    <p>hash, key, value, keylen, vallen</p>
+    <p>hash create item</p>
+    <p>update table</p>
+    <p>item pointer</p>
+    <p>Challenge: Packet Marshaling // Define what fields to send struct set_request_entry {</p>
+    <p>uint16_t flags; uint16_t len; uint32_t hash; uint32_t keylen; uint32_t vallen; uint8_t other[];</p>
+    <p>}</p>
+    <p>// Copy those fields extra = it-&gt;keylen + it-&gt;vallen; entry = queue_alloc(sizeof(*entry) + extra, SET); entry-&gt;hash = hash; entry-&gt;keylen = it-&gt;keylen; entry-&gt;vallen = it-&gt;vallen; memcpy(entry-&gt;other, it-&gt;key, extra);</p>
+    <p>struct set_request_entry { uint16_t flags; uint16_t len; uint64_t item;</p>
+    <p>}</p>
+    <p>entry = queue_alloc(sizeof(*entry), SET); entry-&gt;item = ialloc_to_offset(item);</p>
+    <p>Example: Key-value store</p>
+    <p>tedious &amp; error-prone</p>
+  </div>
+  <div class="page">
+    <p>KVS</p>
+    <p>KVS</p>
+    <p>hash &amp; steer pkt</p>
+    <p>Key-based steering</p>
+    <p>KVS</p>
+    <p>KVS</p>
+    <p>hash &amp; steer pkt</p>
+    <p>No steering</p>
+    <p>KVS</p>
+    <p>KVS</p>
+    <p>hash &amp; steer pkt</p>
+    <p>Separate GET &amp; SET</p>
+    <p>Challenge: Communication Strategies Example: Key-value store</p>
+  </div>
+  <div class="page">
+    <p>Problem 2: Packet Marshaling</p>
+    <p>Exploring different offload designs requires a large amount of effort.</p>
+  </div>
+  <div class="page">
+    <p>Floem DSL makes it easy to explore alternative offloads.</p>
+    <p>Compiler minimizes communication and generates efficient code. Runtime manages data transfer over PCIe.</p>
+  </div>
+  <div class="page">
+    <p>Language Overview</p>
+    <p>Data-flow programming model</p>
+  </div>
+  <div class="page">
+    <p>app.c</p>
+    <p>Goal: Explore offload designs</p>
+    <p>Goal: Integration with existing app</p>
+    <p>Data-flow programming model</p>
+    <p>Extend to support:  Heterogeneity  Parallelism</p>
+    <p>Contributions</p>
+    <p>Language Overview</p>
+  </div>
+  <div class="page">
+    <p>Compiler &amp; Runtime</p>
+    <p>HostNIC</p>
+    <p>Floem queue library</p>
+    <p>host memoryNIC memory</p>
+    <p>Floem queue library</p>
+    <p>Floem queue synchronization</p>
+    <p>Cavium DMA primitives</p>
+    <p>GCC</p>
+    <p>external program thrd</p>
+    <p>external program thread</p>
+    <p>Floem host process</p>
+    <p>worker thrdworker thrdworker thread</p>
+    <p>runtime thread</p>
+    <p>Cavium SDK</p>
+    <p>worker thrd</p>
+    <p>Floem NIC process</p>
+    <p>worker thrdworker thread</p>
+    <p>Floem compiler</p>
+    <p>CPU C code</p>
+    <p>NIC C code</p>
+    <p>Floem program</p>
+    <p>External C program</p>
+    <p>Cache expansion  Infer data transfer  Data-flow to C</p>
+  </div>
+  <div class="page">
+    <p>app.c</p>
+    <p>Goal: Explore offload designs</p>
+    <p>Goal: Integration with existing app</p>
+    <p>Data-flow programming model</p>
+    <p>Extend to support:  Heterogeneity  Parallelism</p>
+    <p>Contributions</p>
+    <p>Data-Flow Model</p>
+  </div>
+  <div class="page">
+    <p>Data-Flow Model: Key-Value Store</p>
+    <p>from_net</p>
+    <p>hash</p>
+    <p>classify</p>
+    <p>hasht_get</p>
+    <p>get_resp</p>
+    <p>create_item</p>
+    <p>set_resp</p>
+    <p>to_net</p>
+    <p>hasht_put</p>
+    <p>GET request SET request</p>
+    <p>class Classify(Element): def configure(self):</p>
+    <p>self.inp = Input(pointer(kvs_message)) self.get = Output(pointer(kvs_message)) self.set = Output(pointer(kvs_message))</p>
+    <p>def impl(self): self.run_c(r'''</p>
+    <p>// C code kvs_message *p = inp(); uint8_t cmd = p-&gt;mcr.request.opcode; output switch {</p>
+    <p>// switch --&gt; emit one output port case (cmd == PROTOCOL_BINARY_CMD_GET): get(p); case (cmd == PROTOCOL_BINARY_CMD_SET): set(p);</p>
+    <p>}''')</p>
+    <p>classify = Classify() # Instantiate an element</p>
+    <p>Element</p>
+  </div>
+  <div class="page">
+    <p>Data-Flow Model: Key-Value Store</p>
+    <p>from_net</p>
+    <p>hash</p>
+    <p>classify</p>
+    <p>hasht_get</p>
+    <p>get_resp</p>
+    <p>create_item</p>
+    <p>set_resp</p>
+    <p>to_net</p>
+    <p>hasht_put</p>
+    <p>GET request SET request</p>
+    <p>class Classify(Element): def configure(self):</p>
+    <p>self.inp = Input(pointer(kvs_message)) self.get = Output(pointer(kvs_message)) self.set = Output(pointer(kvs_message))</p>
+    <p>def impl(self): self.run_c(r'''</p>
+    <p>// C code kvs_message *p = inp(); uint8_t cmd = p-&gt;mcr.request.opcode; output switch {</p>
+    <p>// switch --&gt; emit one output port case (cmd == PROTOCOL_BINARY_CMD_GET): get(p); case (cmd == PROTOCOL_BINARY_CMD_SET): set(p);</p>
+    <p>}''')</p>
+    <p>classify = Classify() # Instantiate an element</p>
+    <p>Element</p>
+  </div>
+  <div class="page">
+    <p>Data-Flow Model</p>
+    <p>from_net</p>
+    <p>hash</p>
+    <p>classify</p>
+    <p>hasht_get</p>
+    <p>get_resp</p>
+    <p>create_item</p>
+    <p>set_resp</p>
+    <p>to_net</p>
+    <p>hasht_put</p>
+    <p>GET request SET request</p>
+    <p>@CPU</p>
+    <p>class Seg1(Segment): def impl(self):</p>
+    <p>from_net &gt;&gt; hash &gt;&gt; classify classify.get &gt;&gt; hasht_get &gt;&gt; get_resp &gt;&gt; to_net classify.set &gt;&gt; item &gt;&gt; hasht_put &gt;&gt; set_resp \\</p>
+    <p>&gt;&gt; to_net</p>
+    <p>s1 = Seg1()</p>
+    <p>Segment</p>
+  </div>
+  <div class="page">
+    <p>Data Parallelism</p>
+    <p>from_net</p>
+    <p>hash</p>
+    <p>classify</p>
+    <p>hasht_get</p>
+    <p>get_resp</p>
+    <p>create_item</p>
+    <p>set_resp</p>
+    <p>to_net</p>
+    <p>hasht_put</p>
+    <p>GET request SET request</p>
+    <p>@CPU</p>
+    <p>Seg1(cores=[0,1,2,3])</p>
+  </div>
+  <div class="page">
+    <p>Pipeline Parallelism</p>
+    <p>from_net</p>
+    <p>hash</p>
+    <p>classify</p>
+    <p>hasht_get</p>
+    <p>get_resp</p>
+    <p>create_item</p>
+    <p>set_resp</p>
+    <p>to_net</p>
+    <p>hasht_put</p>
+    <p>Q1</p>
+    <p>Q2</p>
+    <p>GET request</p>
+    <p>SET request</p>
+    <p>Multiple Insert</p>
+    <p>queues</p>
+    <p>MultipleMultipleMultiple</p>
+    <p>segments</p>
+  </div>
+  <div class="page">
+    <p>NIC Offload</p>
+    <p>from_net</p>
+    <p>hash</p>
+    <p>classify</p>
+    <p>hasht_get</p>
+    <p>get_resp</p>
+    <p>create_item</p>
+    <p>set_resp</p>
+    <p>to_net</p>
+    <p>hasht_put</p>
+    <p>Q1</p>
+    <p>Q2</p>
+    <p>@NIC</p>
+    <p>@NIC</p>
+    <p>@CPU</p>
+    <p>GET request</p>
+    <p>SET request Seg1(device=NIC)</p>
+    <p>Seg2(device=CPU)</p>
+    <p>Seg3(device=NIC)</p>
+  </div>
+  <div class="page">
+    <p>app.c</p>
+    <p>Goal: Explore offload designs</p>
+    <p>Goal: Integration with existing app</p>
+    <p>Data-flow programming model</p>
+    <p>Extend to support:  Heterogeneity  Parallelism</p>
+    <p>Contributions</p>
+    <p>Inferred Data Transfer</p>
+  </div>
+  <div class="page">
+    <p>Per-packet state: a packet and its metadata can be accessed anywhere in the program. Compiler infers which fields of packet and metadata to send.</p>
+    <p>Solution: Infer Fields to Send</p>
+    <p>from_net</p>
+    <p>hash</p>
+    <p>classify</p>
+    <p>hasht_get</p>
+    <p>create_item</p>
+    <p>hasht_put</p>
+    <p>Q1</p>
+    <p>Virtual Channel C1 uint32_t hash; uint16_t keylen; uint8_t key[]; Virtual Channel C2</p>
+    <p>item* it;</p>
+    <p>GET request SET request</p>
+  </div>
+  <div class="page">
+    <p>app.c</p>
+    <p>Goal: Explore offload designs</p>
+    <p>Goal: Integration with existing app</p>
+    <p>Data-flow programming model</p>
+    <p>Extend to support:  Heterogeneity  Parallelism</p>
+    <p>Contributions</p>
+    <p>Logical-to-Physical Queue Mapping</p>
+  </div>
+  <div class="page">
+    <p>Observation: Different communication strategies can be expressed by mapping logical queues to physical queues.  Degrees of resource sharing  Dynamic packet steering  Packet ordering</p>
+    <p>Solution: Queue construct with explicit logical-to-physical queue mapping.</p>
+    <p>Queue Construct</p>
+    <p>Queue(channels=2,instances=3) logical queues physical queues</p>
+  </div>
+  <div class="page">
+    <p>No Steering</p>
+    <p>KVS</p>
+    <p>KVS</p>
+    <p>hash &amp; steer pkt</p>
+    <p>No steering</p>
+    <p>class Seg2(Segment): def impl(self):</p>
+    <p>Q1.deq[0] &gt;&gt; hasht_get &gt;&gt; ... Q1.deq[1] &gt;&gt; hasht_put &gt;&gt; ...</p>
+    <p>hasht_get hasht_put</p>
+    <p>Q1</p>
+    <p>classify</p>
+    <p>create_item</p>
+    <p>GET request</p>
+    <p>SET request</p>
+    <p>Strategy:</p>
+    <p>Program:</p>
+  </div>
+  <div class="page">
+    <p>Key-Based Steering</p>
+    <p>class Seg2(Segment): def impl(self):</p>
+    <p>Q1.deq[0] &gt;&gt; hasht_get &gt;&gt; ... Q1.deq[1] &gt;&gt; hasht_put &gt;&gt; ...</p>
+    <p>hasht_get hasht_put</p>
+    <p>Q1</p>
+    <p>classify</p>
+    <p>create_item</p>
+    <p>GET request</p>
+    <p>SET request</p>
+    <p>Program:</p>
+    <p>KVS</p>
+    <p>KVS</p>
+    <p>hash &amp; steer pkt</p>
+    <p>Key-based steeringStrategy:</p>
+  </div>
+  <div class="page">
+    <p>KVS</p>
+    <p>KVS</p>
+    <p>hash &amp; steer pkt</p>
+    <p>Key-based steering</p>
+    <p>Key-Based Steering</p>
+    <p>hasht_get hasht_put</p>
+    <p>Q1</p>
+    <p>classify</p>
+    <p>create_item</p>
+    <p>GET request</p>
+    <p>SET request</p>
+    <p>class Seg2(Segment): def impl(self): self.core_id &gt;&gt; Q1.qid Q1.deq[0] &gt;&gt; hasht_get &gt;&gt; ... Q1.deq[1] &gt;&gt; hasht_put &gt;&gt; ...</p>
+    <p>Key-based steering: state.qid = state.hv % 2</p>
+    <p>Strategy:</p>
+    <p>Program:</p>
+    <p>queue_id</p>
+  </div>
+  <div class="page">
+    <p>app.c 4. Interface to external programs</p>
+    <p>Goal: Explore offload designs</p>
+    <p>Goal: Integration with existing app</p>
+    <p>Data-flow programming model</p>
+    <p>Extend to support:  Heterogeneity  Parallelism</p>
+    <p>Contributions</p>
+    <p>Caching Construct</p>
+  </div>
+  <div class="page">
+    <p>Caching Construct</p>
+    <p>Difficult to implement a complete cache protocol:  Maintain consistency of data</p>
+    <p>on NIC and CPU  High performance</p>
+    <p>from_net</p>
+    <p>hash</p>
+    <p>classify</p>
+    <p>hasht_get</p>
+    <p>get_resp</p>
+    <p>create_item</p>
+    <p>set_resp</p>
+    <p>to_net</p>
+    <p>hasht_put</p>
+    <p>GET request SET request</p>
+    <p>Q1</p>
+    <p>Q2</p>
+    <p>@NIC</p>
+    <p>@NIC</p>
+    <p>@CPU</p>
+    <p>get_start</p>
+    <p>get_end</p>
+    <p>cache hit</p>
+    <p>set_start</p>
+    <p>set_end</p>
+    <p>Cache lookup</p>
+    <p>get query set query</p>
+  </div>
+  <div class="page">
+    <p>Get Expansion</p>
+    <p>get query</p>
+    <p>get_start</p>
+    <p>get_end</p>
+    <p>before get</p>
+    <p>after get</p>
+    <p>before get</p>
+    <p>cache get</p>
+    <p>get query hit</p>
+    <p>miss</p>
+    <p>cache set</p>
+    <p>after get</p>
+    <p>Users program Write-through Write-back</p>
+    <p>before get</p>
+    <p>cache get get query</p>
+    <p>hit</p>
+    <p>miss</p>
+    <p>cache set</p>
+    <p>after get</p>
+    <p>evict?</p>
+    <p>set query</p>
+    <p>yes no</p>
+    <p>OR</p>
+  </div>
+  <div class="page">
+    <p>Set Expansion</p>
+    <p>Users program Write-through Write-back</p>
+    <p>set query</p>
+    <p>set_start</p>
+    <p>set_end</p>
+    <p>before set</p>
+    <p>after set</p>
+    <p>before set</p>
+    <p>cache del</p>
+    <p>set query</p>
+    <p>cache setafter set</p>
+    <p>exe both</p>
+    <p>before set</p>
+    <p>cache set</p>
+    <p>evict?</p>
+    <p>set query</p>
+    <p>after set</p>
+    <p>yes</p>
+    <p>no</p>
+    <p>OR</p>
+  </div>
+  <div class="page">
+    <p>Runtime &amp; Communication</p>
+  </div>
+  <div class="page">
+    <p>Queue Implementation Challenge</p>
+    <p>Host memoryNIC memory</p>
+    <p>PCIe Q1 Q2 Q1 Q2</p>
+    <p>DMA</p>
+    <p>For performance, require:  I/O batching  overlapping DMA operations with</p>
+    <p>useful computation</p>
+  </div>
+  <div class="page">
+    <p>Host memoryNIC memory</p>
+    <p>P1</p>
+    <p>P1</p>
+    <p>P3</p>
+    <p>P3 P2</p>
+    <p>Queue Implementation Challenge</p>
+    <p>Q1 Q2 Q1 Q2 PCIe</p>
+    <p>DMA</p>
+  </div>
+  <div class="page">
+    <p>Host memoryNIC memory</p>
+    <p>Queue Implementation Challenge</p>
+    <p>Q1 Q2 Q1 Q2</p>
+    <p>Queue library + data sync</p>
+    <p>DMA primitives DMA</p>
+    <p>PCIe</p>
+    <p>Queue library</p>
+    <p>P2 P1 P3</p>
+  </div>
+  <div class="page">
+    <p>Host memoryNIC memory</p>
+    <p>P2</p>
+    <p>Queue Implementation Challenge</p>
+    <p>Q1 Q2 Q1 Q2</p>
+    <p>P1 P3</p>
+    <p>Queue sync</p>
+    <p>DMA primitives DMA</p>
+    <p>PCIe</p>
+    <p>Queue library Queue library</p>
+  </div>
+  <div class="page">
+    <p>Evaluation Does Floem help programmers explore</p>
+    <p>different offload designs?</p>
+  </div>
+  <div class="page">
+    <p>Server Setup</p>
+    <p>With Smart NIC</p>
+    <p>Without Smart NIC 6-core Intel X5650</p>
+    <p>Cavium LiquidIO NIC  two 10Gbps ports  12-core 1.20GHz</p>
+    <p>cnMIPS64 processor  4GB memory</p>
+    <p>Intel X710 NICs  two 10Gbps ports  DPDK (bypass OS</p>
+    <p>networking stack)</p>
+  </div>
+  <div class="page">
+    <p>Case Study: Key-Value Store</p>
+    <p>Workload  100,000 key-value pairs  32-byte keys and 64-byte values  Zipf distribution (s = 0.9)  90% GET and 10% SET</p>
+    <p>Higher is better.</p>
+    <p>ro ug</p>
+    <p>ht pu</p>
+    <p>t ( G</p>
+    <p>bi ts</p>
+    <p>/s )</p>
+    <p>CPU Split CPU-NIC</p>
+    <p>cache-WT-90% cache-WB-97%</p>
+    <p>CPU-only</p>
+  </div>
+  <div class="page">
+    <p>Higher is better.</p>
+    <p>ro ug</p>
+    <p>ht pu</p>
+    <p>t ( G</p>
+    <p>bi ts</p>
+    <p>/s )</p>
+    <p>CPU Split CPU-NIC</p>
+    <p>cache-WT-90% cache-WB-97%</p>
+    <p>CPU-only</p>
+    <p>Case Study: Key-Value Store</p>
+    <p>from_net</p>
+    <p>hash</p>
+    <p>classify</p>
+    <p>hasht_get</p>
+    <p>get_resp</p>
+    <p>create_item</p>
+    <p>set_resp</p>
+    <p>to_net</p>
+    <p>hasht_put</p>
+    <p>Q1</p>
+    <p>Q2</p>
+    <p>@NIC</p>
+    <p>@NIC</p>
+    <p>@CPU</p>
+    <p>GET request</p>
+    <p>SET request</p>
+    <p>Split CPU-NIC</p>
+    <p>Code relevant to communication</p>
+    <p>C program + 240 lines</p>
+    <p>Floem program 15 lines</p>
+  </div>
+  <div class="page">
+    <p>Higher is better.</p>
+    <p>ro ug</p>
+    <p>ht pu</p>
+    <p>t ( G</p>
+    <p>bi ts</p>
+    <p>/s )</p>
+    <p>CPU Split CPU-NIC</p>
+    <p>cache-WT-90% cache-WB-97%</p>
+    <p>split CPU-NIC</p>
+    <p>CPU-only</p>
+    <p>Case Study: Key-Value Store</p>
+    <p>from_net</p>
+    <p>hash</p>
+    <p>classify</p>
+    <p>hasht_get</p>
+    <p>get_resp</p>
+    <p>create_item</p>
+    <p>set_resp</p>
+    <p>to_net</p>
+    <p>hasht_put</p>
+    <p>Q1</p>
+    <p>Q2</p>
+    <p>@NIC</p>
+    <p>@NIC</p>
+    <p>@CPU</p>
+    <p>GET request</p>
+    <p>SET request</p>
+    <p>Split CPU-NIC</p>
+    <p>Code relevant to communication</p>
+    <p>C program + 240 lines</p>
+    <p>Floem program 15 lines</p>
+  </div>
+  <div class="page">
+    <p>Higher is better.</p>
+    <p>ro ug</p>
+    <p>ht pu</p>
+    <p>t ( G</p>
+    <p>bi ts</p>
+    <p>/s )</p>
+    <p>CPU Split CPU-NIC</p>
+    <p>cache-WT-90% cache-WB-97%</p>
+    <p>split CPU-NIC</p>
+    <p>CPU-only</p>
+    <p>Case Study: Key-Value Store</p>
+    <p>Caching on NIC from_net</p>
+    <p>hash</p>
+    <p>classify</p>
+    <p>hasht_get</p>
+    <p>get_resp</p>
+    <p>create_item</p>
+    <p>set_resp</p>
+    <p>to_net</p>
+    <p>hasht_put</p>
+    <p>GET request SET request</p>
+    <p>Q1</p>
+    <p>Q2</p>
+    <p>get_start set_start</p>
+    <p>get_end set_end</p>
+    <p>@NIC</p>
+    <p>@NIC</p>
+    <p>@CPUAdd cache in Floem 40 lines</p>
+  </div>
+  <div class="page">
+    <p>Higher is better.</p>
+    <p>ro ug</p>
+    <p>ht pu</p>
+    <p>t ( G</p>
+    <p>bi ts</p>
+    <p>/s )</p>
+    <p>CPU Split CPU-NIC</p>
+    <p>cache-WT-90% cache-WB-97%</p>
+    <p>write-through cache split CPU-NIC</p>
+    <p>CPU-only</p>
+    <p>Case Study: Key-Value Store</p>
+    <p>Caching on NIC from_net</p>
+    <p>hash</p>
+    <p>classify</p>
+    <p>hasht_get</p>
+    <p>get_resp</p>
+    <p>create_item</p>
+    <p>set_resp</p>
+    <p>to_net</p>
+    <p>hasht_put</p>
+    <p>GET request SET request</p>
+    <p>Q1</p>
+    <p>Q2</p>
+    <p>get_start set_start</p>
+    <p>get_end set_end</p>
+    <p>@NIC</p>
+    <p>@NIC</p>
+    <p>@CPUAdd cache in Floem 40 lines</p>
+  </div>
+  <div class="page">
+    <p>Case Study: Key-Value Store</p>
+    <p>Change policy parameter 1 line</p>
+    <p>Higher is better.</p>
+    <p>ro ug</p>
+    <p>ht pu</p>
+    <p>t ( G</p>
+    <p>bi ts</p>
+    <p>/s )</p>
+    <p>CPU Split CPU-NIC</p>
+    <p>cache-WT-90% cache-WB-97%</p>
+    <p>write-back cache write-through cache</p>
+    <p>split CPU-NIC</p>
+    <p>CPU-only</p>
+    <p>Caching on NIC from_net</p>
+    <p>hash</p>
+    <p>classify</p>
+    <p>hasht_get</p>
+    <p>get_resp</p>
+    <p>create_item</p>
+    <p>set_resp</p>
+    <p>to_net</p>
+    <p>hasht_put</p>
+    <p>GET request SET request</p>
+    <p>Q1</p>
+    <p>Q2</p>
+    <p>get_start set_start</p>
+    <p>get_end set_end</p>
+    <p>@NIC</p>
+    <p>@NIC</p>
+    <p>@CPU</p>
+  </div>
+  <div class="page">
+    <p>Evaluation: Other Applications</p>
+    <p>Distributed real-time data analytics (Storm)  First offload: worse than CPU-only  Second offload: 96% improvement with 23 lines of code</p>
+    <p>Encryption AES-CBC-128</p>
+    <p>Flow classification Use a count-min sketch on the header 5-tuple</p>
+    <p>Network sequencer Use a group lock</p>
+  </div>
+  <div class="page">
+    <p>github.com/mangpo/floem</p>
+    <p>Conclusion</p>
+    <p>Takeaway: high-level programming abstractions  control implementation strategies  avoid low-level details</p>
+    <p>Result: minimal changes to explore different designs</p>
+  </div>
+</Presentation>

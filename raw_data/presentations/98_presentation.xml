@@ -1,0 +1,263 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>How to find lots of bugs by checking program belief systems</p>
+    <p>Dawson Engler David Chen, Seth Hallem, Ben Chelf, Andy</p>
+    <p>Chou Stanford University</p>
+    <p>This talk I s about how to find lots of error s in real coe. The way we are going to do this is a bit unusual. Rather than undertand what rules the systemmust follow or swhat state it is in, both of which are hard. Instead we are going to do omething much easier; we will infer what rules it believes it must obey and what state it cbelieve it is in and cross check thee believes for contradictions. The great thing this buys us is that now we can find lots of errors in coe we do no t unederstand.</p>
+    <p>This talk I s about how to find lots of error s in real coe. The way we are going to do this is a bit unusual. Rather than undertand what rules the systemmust follow or swhat state it is in, both of which are hard. Instead we are going to do omething much easier; we will infer what rules it believes it must obey and what state it cbelieve it is in and cross check thee believes for contradictions. The great thing this buys us is that now we can find lots of errors in coe we do no t unederstand.</p>
+  </div>
+  <div class="page">
+    <p>Systems have many ad hoc correctness rules  acquire lock l before modifying x, cli() must be</p>
+    <p>paired with sti(), dont block with interrupts disabled</p>
+    <p>One error = crashed machine</p>
+    <p>If we know rules, can check with extended compiler  Rules map to simple source constructs  Use compiler extensions to express them</p>
+    <p>Nice: scales, precise, statically find 1000s of errors</p>
+    <p>Context: finding OS bugs w/ compilers</p>
+    <p>Reduced to using grep on millions of line of code, or documentation, hoping you can find all cases</p>
+    <p>Reduced to using grep on millions of line of code, or documentation, hoping you can find all cases</p>
+    <p>lock_kernel(); if (!de-&gt;count) { printk(&quot;free!\n&quot;); return; } unlock_kernel();</p>
+    <p>Linux fs/proc/ inode.c</p>
+    <p>GNU C compiler</p>
+    <p>Lock checker missing unlock!</p>
+  </div>
+  <div class="page">
+    <p>Problem: what are the rules?!?!  100-1000s of rules in 100-1000s of subsystems.  To check, must answer: Must a() follow b()? Can</p>
+    <p>foo() fail? Does bar(p) free p? Does lock l protect x?</p>
+    <p>Manually finding rules is hard. So dont. Instead infer what code believes, cross check for contradiction</p>
+    <p>Intuition: how to find errors without knowing truth?  Contradiction. To find lies: cross-examine. Any</p>
+    <p>contradiction is an error.  Deviance. To infer correct behavior: if 1 person</p>
+    <p>does X, might be right or a coincidence. If 1000s do X and 1 does Y, probably an error.</p>
+    <p>Crucial: we know contradiction is an error without knowing the correct belief!</p>
+    <p>Goal: find as many serious bugs as possible</p>
+    <p>Reduced to using grep on millions of line of code, or documentation, hoping you can find all cases</p>
+    <p>Reduced to using grep on millions of line of code, or documentation, hoping you can find all cases</p>
+  </div>
+  <div class="page">
+    <p>MUST beliefs:  Inferred from acts that imply beliefs code *must*</p>
+    <p>have.</p>
+    <p>Check using internal consistency: infer beliefs at different locations, then cross-check for contradiction</p>
+    <p>MAY beliefs: could be coincidental  Inferred from acts that imply beliefs code *may*</p>
+    <p>have</p>
+    <p>Check as MUST beliefs; rank errors by belief confidence.</p>
+    <p>Cross-checking program belief systems</p>
+    <p>x = *p / z; // MUST belief: p not null // MUST: z != 0 unlock(l); // MUST: l acquired x++; // MUST: x not protected by l</p>
+    <p>// MAY: A() and B() // must be paired</p>
+    <p>Specification = checkable redundancy. Can cross check code against itself for same effect. Others: that</p>
+    <p>x was not already equal to value.</p>
+    <p>Specification = checkable redundancy. Can cross check code against itself for same effect. Others: that</p>
+    <p>x was not already equal to value.</p>
+    <p>B(); // MUST: B() need not // be preceded by A()</p>
+    <p>A();  B();</p>
+    <p>A();  B();</p>
+    <p>A();  B();</p>
+    <p>A();  B();</p>
+  </div>
+  <div class="page">
+    <p>Trivial consistency: NULL pointers  *p implies MUST belief:</p>
+    <p>p is not null</p>
+    <p>A check (p == NULL) implies two MUST beliefs:  POST: p is null on true path, not null on false path  PRE: p was unknown before check</p>
+    <p>Cross-check these for three different error types.  Check-then-use (79 errors, 26 false pos)</p>
+    <p>/* 2.4.1: drivers/isdn/svmb1/capidrv.c */ if(!card) printk(KERN_ERR, capidrv-%d: , card-&gt;contrnr)</p>
+    <p>Show because it is one of the simplest possible checkers, and because it finds hundreds of errors.</p>
+    <p>Show because it is one of the simplest possible checkers, and because it finds hundreds of errors.</p>
+  </div>
+  <div class="page">
+    <p>Null pointer fun  Use-then-check: 102 bugs, 4 false</p>
+    <p>Contradiction/redundant checks (24 bugs, 10 false)</p>
+    <p>/* 2.4.7: drivers/char/mxser.c */ struct mxser_struct *info = tty-&gt;driver_data; unsigned flags; if(!tty || !info-&gt;xmit_buf)</p>
+    <p>return 0;</p>
+    <p>/* 2.4.7/drivers/video/tdfxfb.c */ fb_info.regbase_virt = ioremap_nocache(...); if(!fb_info.regbase_virt) return -ENXIO; fb_info.bufbase_virt = ioremap_nocache(...); /* [META: meant fb_info.bufbase_virt!] */ if(!fb_info.regbase_virt) { iounmap(fb_info.regbase_virt);</p>
+    <p>Can look for redundancy in general: deadcode elim is an error finder. Can look for: writes never read, lock acquired that protects nothing,</p>
+    <p>Can look for redundancy in general: deadcode elim is an error finder. Can look for: writes never read, lock acquired that protects nothing,</p>
+  </div>
+  <div class="page">
+    <p>Redundancy checking  Assume: code supposed to be useful</p>
+    <p>Useless actions = conceptual confusion. Like type systems, high level bugs map to low-level redundancies</p>
+    <p>Identity operations: x = x, 1 * y, x &amp; x, x | x</p>
+    <p>Assignments that are never read:</p>
+    <p>/* 2.4.5-ac8/net/appletalk/aarp.c */ da.s_node = sa.s_node; da.s_net = da.s_net;</p>
+    <p>for(entry=priv-&gt;lec_arp_tables[i];entry != NULL; entry=next){</p>
+    <p>next = entry-&gt;next; if () lec_arp_remove(priv-&gt;lec_arp_tables, entry); lec_arp_unlock(priv); return 0; }</p>
+    <p>Can look for redundancy in general: deadcode elim is an error finder. Can look for: writes never read, lock acquired that protects nothing. Redundant transition means were missing something with analysis.</p>
+    <p>Can look for redundancy in general: deadcode elim is an error finder. Can look for: writes never read, lock acquired that protects nothing. Redundant transition means were missing something with analysis.</p>
+    <p>Critical sections that have no shared state, contradictory booleans  in general look at deadcode elim and CSE as error signalers</p>
+    <p>Critical sections that have no shared state, contradictory booleans  in general look at deadcode elim and CSE as error signalers</p>
+  </div>
+  <div class="page">
+    <p>Internal Consistency: finding security holes</p>
+    <p>Applications are bad:  Rule: do not dereference user pointer &lt;p&gt;  One violation = security hole  Detect with static analysis if we knew which were</p>
+    <p>bad  Big Problem: which are the user pointers???</p>
+    <p>Soln: forall pointers, cross-check two OS beliefs  *p implies safe kernel pointer  copyin(p)/copyout(p) implies dangerous user</p>
+    <p>pointer  Error: pointer p has both beliefs.  Implemented as a two pass global checker</p>
+    <p>Result: 24 security bugs in Linux, 18 in OpenBSD  (about 1 bug to 1 false positive)</p>
+    <p>First pass: mark all pointers treated as user pointers. Second pass: make sure they are never dereferenced.</p>
+    <p>First pass: mark all pointers treated as user pointers. Second pass: make sure they are never dereferenced.</p>
+  </div>
+  <div class="page">
+    <p>Still alive in linux 2.4.4:</p>
+    <p>Tainting marks rt as a tainted pointer, checking warns that rt is passed to a routine that dereferences it</p>
+    <p>2 other examples in same routine</p>
+    <p>/* drivers/net/appletalk/ipddp.c:ipddp_ioctl */ case SIOCADDIPDDPRT: return ipddp_create(rt); case SIOCDELIPDDPRT: return ipddp_delete(rt); case SIOFCINDIPDDPRT:</p>
+    <p>if(copy_to_user(rt, ipddp_find_route(rt), sizeof(struct ipddp_route)))</p>
+    <p>return EFAULT;</p>
+    <p>An example Marked as tainted because passed as the first argument to copy_to_user, which is used</p>
+    <p>to access potentientially bad user pointers. Does global analysis to detect that the pointer will be dereferenced by ippd_</p>
+    <p>Marked as tainted because passed as the first argument to copy_to_user, which is used to access potentientially bad user pointers. Does global analysis to detect that the</p>
+    <p>pointer will be dereferenced by ippd_</p>
+  </div>
+  <div class="page">
+    <p>Common: multiple implementations of same interface.  Beliefs of one implementation can be checked</p>
+    <p>against those of the others!</p>
+    <p>User pointer (3 errors): If one implementation taints its argument, all</p>
+    <p>others must  How to tell? Routines assigned to same function</p>
+    <p>pointer</p>
+    <p>More general: infer execution context, arg preconditions</p>
+    <p>Interesting q: what spec properties can be inferred?</p>
+    <p>Cross checking beliefs related abstractly</p>
+    <p>Parameter features: Can a param be null? What are legal values of integer parameter Return code: What are allowable error code to return &amp; when? Execution context: Are interrupts off or on when code runs? When it exits? Does it run concurrently?</p>
+    <p>Parameter features: Can a param be null? What are legal values of integer parameter Return code: What are allowable error code to return &amp; when? Execution context: Are interrupts off or on when code runs? When it exits? Does it run concurrently?</p>
+    <p>foo_write(void *p, void *arg,){ copy_from_user(p, arg, 4); disable();  do something  enable(); return 0; }</p>
+    <p>bar_write(void *p, void *arg,){ *p = *(int *)arg;  do something  disable(); return 0; }If one does it right, we can cross check all: if</p>
+    <p>one dev gets it right we are in great shape.</p>
+    <p>If one does it right, we can cross check all: if one dev gets it right we are in great shape.</p>
+  </div>
+  <div class="page">
+    <p>Handling MAY beliefs  MUST beliefs: only need a single contradiction  MAY beliefs: need many examples to separate fact</p>
+    <p>from coincidence  Conceptually:</p>
+    <p>Assume MAY beliefs are MUST beliefs  Record every successful check with a check</p>
+    <p>message  Every unsuccessful check with an error message  Use the test statistic to rank errors based on ratio</p>
+    <p>of checks (n) to errors (err)</p>
+    <p>Intuition: the most likely errors are those where n is large, and err is small.</p>
+    <p>z(n, err) = ((n-err)/n-p0)/sqrt(p0*(1-p0)/n)</p>
+  </div>
+  <div class="page">
+    <p>Statistical: Deriving deallocation routines  Use-after free errors are horrible.</p>
+    <p>Problem: lots of undocumented sub-system free functions</p>
+    <p>Soln: derive behaviorally: pointer p not used after call foo(p) implies MAY belief that foo is a free function</p>
+    <p>Conceptually: Assume all functions free all arguments  (in reality: filter functions that have suggestive names)  Emit a check message at every call site.  Emit an error message at every use</p>
+    <p>Rank errors using z test statistic: z(checks, errors)  E.g., foo.z(3, 3) &lt; bar.z(3, 1) so rank bars error first  Results: 23 free errors, 11 false positives</p>
+    <p>foo(p); *p = x;</p>
+    <p>foo(p); *p = x;</p>
+    <p>foo(p); *p = x;</p>
+    <p>bar(p); p = 0;</p>
+    <p>bar(p); p = 0;</p>
+    <p>bar(p); *p = x;</p>
+    <p>Can cross-correlate: free is on error path, has dealloc in name, etc, bump up ranking. Foo has 3 errors, and 3 checks. Bar, 3 checks, one error. Essentially every passed check implies belief held, every error =</p>
+    <p>not held</p>
+    <p>Can cross-correlate: free is on error path, has dealloc in name, etc, bump up ranking. Foo has 3 errors, and 3 checks. Bar, 3 checks, one error. Essentially every passed check implies belief held, every error =</p>
+    <p>not held</p>
+  </div>
+  <div class="page">
+    <p>A bad free error</p>
+    <p>/* drivers/block/cciss.c:cciss_ioctl */ if (iocommand.Direction == XFER_WRITE){</p>
+    <p>if (copy_to_user(...)) { cmd_free(NULL, c); if (buff != NULL) kfree(buff); return( -EFAULT); } } if (iocommand.Direction == XFER_READ) { if (copy_to_user(...)) { cmd_free(NULL, c); kfree(buff); } } cmd_free(NULL, c); if (buff != NULL) kfree(buff);</p>
+  </div>
+  <div class="page">
+    <p>Traditional:  Use global analysis to track which routines return NULL  Problem: false positives when pre-conditions hold,</p>
+    <p>difficult to tell statically (return p-&gt;next?)</p>
+    <p>Instead: see how often programmer checks.  Rank errors based on number of checks to non-checks.</p>
+    <p>Algorithm: Assume *all* functions can return NULL  If pointer checked before use, emit check message  If pointer used before check, emit error</p>
+    <p>Sort errors based on ratio of checks to errors</p>
+    <p>Result: 152 bugs, 16 false.</p>
+    <p>Statistical: deriving routines that can fail</p>
+    <p>P = foo(); *p = x;</p>
+    <p>p = bar(); If(!p) return; *p = x;</p>
+    <p>p = bar(); If(!p) return; *p = x;</p>
+    <p>p = bar(); If(!p) return; *p = x;</p>
+    <p>p = bar(); *p = x;</p>
+    <p>Can also use consistency: if a routine calls a routine that fails, then it to can fail. Similarly, if a routine checks foo for failure, but calls bar, which does not, is a type error. (In a sense can use witnesses: take good code and see what it does, reapply to unknown code)</p>
+    <p>Can also use consistency: if a routine calls a routine that fails, then it to can fail. Similarly, if a routine checks foo for failure, but calls bar, which does not, is a type error. (In a sense can use witnesses: take good code and see what it does, reapply to unknown code)</p>
+  </div>
+  <div class="page">
+    <p>The worst bug  Starts with weird way of checking failure:</p>
+    <p>So why are we looking for seg_alloc? /* ipc/shm.c:750:newseg: */ if (!(shp = seg_alloc(...)) return -ENOMEM; id = shm_addid(shp);</p>
+    <p>/* 2.3.99: ipc/shm.c:1745:map_zero_setup */ if (IS_ERR(shp = seg_alloc(...))) return PTR_ERR(shp);</p>
+    <p>static inline long IS_ERR(const void *ptr) { return (unsigned long)ptr &gt; (unsigned long)-1000L; }</p>
+    <p>int ipc_addid(* new) { ... new-&gt;cuid = new-&gt;uid =; new-&gt;gid = new-&gt;cgid =  ids-&gt;entries[id].p = new;</p>
+  </div>
+  <div class="page">
+    <p>Deriving A() must be followed by B()  a();  b(); implies MAY belief that a() follows b()</p>
+    <p>Programmer may believe a-b paired, or might be a coincidence.</p>
+    <p>Algorithm:  Assume every a-b is a valid pair (reality: prefilter</p>
+    <p>functions that seem to be plausibly paired)  Emit check for each path that has a() then b()  Emit error for each path that has a() and no b()</p>
+    <p>Rank errors for each pair using the test statistic  z(foo.check, foo.error) = z(2, 1)</p>
+    <p>Results: 23 errors, 11 false positives.</p>
+    <p>foo(p, ) bar(p, );</p>
+    <p>check foo-bar</p>
+    <p>x(); y();</p>
+    <p>check x-y</p>
+    <p>foo(p, );</p>
+    <p>error:foo, no bar!</p>
+  </div>
+  <div class="page">
+    <p>Checking derived lock functions  Evilest:</p>
+    <p>And the award for best effort:</p>
+    <p>/* 2.4.1: drivers/sound/trident.c: trident_release: lock_kernel(); card = state-&gt;card; dmabuf = &amp;state-&gt;dmabuf; VALIDATE_STATE(state);</p>
+    <p>/* 2.4.0:drivers/sound/cmpci.c:cm_midi_release: */ lock_kernel(); if (file-&gt;f_mode &amp; FMODE_WRITE) { add_wait_queue(&amp;s-&gt;midi.owait, &amp;wait); ... if (file-&gt;f_flags &amp; O_NONBLOCK) { remove_wait_queue(&amp;s-&gt;midi.owait, &amp;wait); set_current_state(TASK_RUNNING); return EBUSY;  unlock_kernel();</p>
+  </div>
+  <div class="page">
+    <p>Key ideas:  Check code beliefs: find errors without knowing</p>
+    <p>truth.  Beliefs code MUST have: Contradictions = errors  Beliefs code MAY have: check as MUST beliefs and</p>
+    <p>rank errors by belief confidence</p>
+    <p>Secondary ideas:  Check for errors by flagging redundancy.  Analyze client code to infer abstract features</p>
+    <p>rather than just implementation.  Spec = checkable redundancy. Can use code for</p>
+    <p>same.</p>
+    <p>Summary: Belief Analysis</p>
+  </div>
+  <div class="page">
+    <p>Example free checker</p>
+    <p>sm free_checker { state decl any_pointer v; decl any_pointer x; start: { kfree(v); }  v.freed ; v.freed: { v == x } | { v != x }  { /* suppress fp */ } | { v }  { err(Use after free!); ; }</p>
+    <p>start</p>
+    <p>v.freed</p>
+    <p>error</p>
+    <p>use(v)</p>
+    <p>kfree(v)</p>
+    <p>Simple. Have had freshman write these and post bugs to linux groups.</p>
+    <p>Three parts: start state. Pattern; raw c coede or wildcards., match does a transition, callouts. Scales with sophistication of analysis.</p>
+    <p>System will kill variable, track when assigned to others.</p>
+    <p>Simple. Have had freshman write these and post bugs to linux groups.</p>
+    <p>Three parts: start state. Pattern; raw c coede or wildcards., match does a transition, callouts. Scales with sophistication of analysis.</p>
+    <p>System will kill variable, track when assigned to others.</p>
+  </div>
+  <div class="page">
+    <p>Example inferring free checker</p>
+    <p>sm free_checker { state decl any_pointer v; decl any_pointer x; decl any_fn_call call; decl any_args args; start: { call(v) }  { char *n = mc_identifier(call); if(strstr(n, free) || strstr(n, dealloc) ||  ) { mc_v_set_state(v, freed); mc_v_set_data(v, n); note(NOTE: %s, n); } }; v.freed: { v == x } | { v != x }  { /* suppress fp */ } | { v }  { err(Use after free %s!, mc_v_get_data(v)); ;</p>
+    <p>Simple. Have had freshman write these and post bugs to linux groups.</p>
+    <p>Three parts: start state. Pattern, match does a transition, callouts. Scales with sophistication of analysis.</p>
+    <p>Simple. Have had freshman write these and post bugs to linux groups.</p>
+    <p>Three parts: start state. Pattern, match does a transition, callouts. Scales with sophistication of analysis.</p>
+  </div>
+  <div class="page">
+    <p>Systems software has many ad-hoc restrictions:  reenable disabled interrupts, hold lock l before</p>
+    <p>using x  Lots of rules; one bug = crashed system</p>
+    <p>Our approach: system-specific extensions check rules</p>
+    <p>Scalable: handles millions of lines of code  Precise: says exactly what error was  Static: does not require running code  Effective: 1500+ errors in Linux source code</p>
+    <p>Context: finding OS bugs w/ static analysis</p>
+    <p>lock_kernel(); if (!de-&gt;count) { printk(&quot;free!\n&quot;); return; } unlock_kernel();</p>
+    <p>Linux fs/proc/ inode.c</p>
+    <p>GNU C compiler</p>
+    <p>Lock checker missing unlock!</p>
+    <p>Follow paths in code to see that they satisfy a partial order, or do not overcommit resources, or obey temporal orderings: key abstract rules map pretty clearly to source code.</p>
+    <p>Follow paths in code to see that they satisfy a partial order, or do not overcommit resources, or obey temporal orderings: key abstract rules map pretty clearly to source code.</p>
+  </div>
+  <div class="page">
+    <p>*THE* problem: what are the rules?!?!  100-1000s of rules in 100-1000s of subsystems.  To check, must answer: Must a() follow b()? Can</p>
+    <p>foo() fail? Does bar(p) free p? Does lock l protect x?</p>
+    <p>Manually finding rules is hard. So dont. Instead infer what code believes, cross check for contradiction</p>
+    <p>Intuition: how to find errors without knowing truth?  Contradiction. To find lies: cross-examine. Any</p>
+    <p>contradiction is an error.  Deviance. To infer correct behavior: if 1 person</p>
+    <p>does X, might be right or a coincidence. If 1000s do X and 1 does Y, probably an error.</p>
+    <p>Crucial: we know contradiction is an error without knowing the correct belief!</p>
+    <p>Goal: find as many serious bugs as possible.</p>
+    <p>Reduced to using grep on millions of line of code, or documentation, hoping you can find all cases</p>
+    <p>Reduced to using grep on millions of line of code, or documentation, hoping you can find all cases</p>
+  </div>
+  <div class="page">
+    <p>Tool-based checking  PREfix/PREfast  Slam  ESP, ASTlog</p>
+    <p>Higher level languages  TypeState, Vault  Foster et als type qualifier work.</p>
+    <p>Derivation:  Houdini to infer ESC specs  Daikon for dynamic invariants  Larus et al dynamic temporal inference</p>
+    <p>Spec extraction  Bandera  Slam</p>
+    <p>Related work</p>
+  </div>
+</Presentation>

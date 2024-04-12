@@ -1,0 +1,418 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>How the ELF ruined Christmas Alessandro Di Federico</p>
+    <p>Amat Cama Yan Shoshitaishvili</p>
+    <p>Giovanni Vigna Christopher Kruegel</p>
+    <p>UC Santa Barbara</p>
+  </div>
+  <div class="page">
+    <p>Overview</p>
+    <p>Were going to present an exploitation technique 1 able to call arbitrary library functions 2 not requiring a memory leak vulnerability 3 bypassing specific protections such as ASLR and RELRO</p>
+  </div>
+  <div class="page">
+    <p>Index</p>
+    <p>The exploit</p>
+    <p>The dynamic loader</p>
+    <p>The attacks</p>
+    <p>RELRO</p>
+    <p>Implementation</p>
+    <p>Recap &amp; countermeasures</p>
+  </div>
+  <div class="page">
+    <p>The exploitation process</p>
+  </div>
+  <div class="page">
+    <p>Our focus is on the last step</p>
+  </div>
+  <div class="page">
+    <p>The IP is not enough</p>
+    <p>Controlling the IP is not enough  The problem is then where to point execution</p>
+  </div>
+  <div class="page">
+    <p>The typical situation</p>
+    <p>Suppose the main binary is not randomized (no PIE)  Typically, to bypass ASLR, attackers...</p>
+    <p>target = addressOf(printf ) distance(printf , execve)</p>
+  </div>
+  <div class="page">
+    <p>The problem</p>
+    <p>Requires a memory leak vulnerability  Requires knowledge of the layout of the library  Requires an interaction between the victim and the attacker</p>
+  </div>
+  <div class="page">
+    <p>Lets re-think the attack</p>
+    <p>What are we trying to do?</p>
+  </div>
+  <div class="page">
+    <p>Were trying to obtain the address of an arbitrary library function</p>
+  </div>
+  <div class="page">
+    <p>But we already have an OS component for that!</p>
+  </div>
+  <div class="page">
+    <p>Introducing...</p>
+    <p>The dynamic loader</p>
+  </div>
+  <div class="page">
+    <p>Index</p>
+    <p>The exploit</p>
+    <p>The dynamic loader</p>
+    <p>The attacks</p>
+    <p>RELRO</p>
+    <p>Implementation</p>
+    <p>Recap &amp; countermeasures</p>
+  </div>
+  <div class="page">
+    <p>The dynamic loader</p>
+    <p>The role of the dynamic loader is to resolve symbols  An ELF executable imports a function from a library  The dynamic loader provides it with its address</p>
+  </div>
+  <div class="page">
+    <p>Lazy loading in ELF</p>
+    <p>The ELF standard provides a way to resolve function lazily  This means that a function is resolved only if called</p>
+  </div>
+  <div class="page">
+    <p>Calling a library function</p>
+    <p>i n t main ( ) { p r i n t f ( &quot; H e l l o w o r l d ! \ n &quot; ) ; r e t u r n 0 ;</p>
+    <p>}</p>
+  </div>
+  <div class="page">
+    <p>Calling a library function</p>
+    <p>i n t main ( ) { p r i n t f @ p l t ( &quot; H e l l o w o r l d ! \ n &quot; ) ; r e t u r n 0 ;</p>
+    <p>}</p>
+  </div>
+  <div class="page">
+    <p>printf@plt pseudocode</p>
+    <p>i n t p r i n t f @ p l t ( . . . ) { i f ( f i r s t _ c a l l ) {</p>
+    <p>/ / F i n d p r i n t f , cache i t s address i n t h e GOT / / and c a l l i t _ d l _ r u n t i m e _ r e s o l v e ( e l f _ i n f o , p r i n t f _ i n d e x ) ;</p>
+    <p>} e l s e { jmp * ( p r i n t f _ g o t _ e n t r y )</p>
+    <p>} }</p>
+  </div>
+  <div class="page">
+    <p>Relocation table</p>
+    <p>.rel.plt</p>
+    <p>Symbol table</p>
+    <p>.dynsym</p>
+    <p>String table</p>
+    <p>.dynstr</p>
+    <p>...</p>
+    <p>r offset</p>
+    <p>r info ...</p>
+    <p>r offset</p>
+    <p>r info ...</p>
+    <p>E l f R e l</p>
+    <p>E l f R e l</p>
+    <p>...</p>
+    <p>st name</p>
+    <p>st info ...</p>
+    <p>...</p>
+    <p>st name</p>
+    <p>st info ...</p>
+    <p>...</p>
+    <p>E l f S y m</p>
+    <p>E l f S y m</p>
+    <p>...</p>
+    <p>read\0 ...</p>
+    <p>printf\0 ...</p>
+    <p>dl runtime resolve(elf info, printf index)</p>
+  </div>
+  <div class="page">
+    <p>Index</p>
+    <p>The exploit</p>
+    <p>The dynamic loader</p>
+    <p>The attacks</p>
+    <p>RELRO</p>
+    <p>Implementation</p>
+    <p>Recap &amp; countermeasures</p>
+  </div>
+  <div class="page">
+    <p>The attack scenario</p>
+    <p>Suppose that:  our exploit is able to run a ROP chain  we can call _dl_runtime_resolve1</p>
+    <p>the main binary has simple gadgets to write in memory</p>
+  </div>
+  <div class="page">
+    <p>Suppose were able to force the loader to use a fake string table</p>
+  </div>
+  <div class="page">
+    <p>We can replace printf with execve, and force its resolution</p>
+  </div>
+  <div class="page">
+    <p>Symbol table</p>
+    <p>.dynsym</p>
+    <p>String table</p>
+    <p>.dynstr</p>
+    <p>Writeable area</p>
+    <p>.bss .dynamic</p>
+    <p>...</p>
+    <p>st name</p>
+    <p>st info ...</p>
+    <p>...</p>
+    <p>E l f S y m</p>
+    <p>...</p>
+    <p>read\0 printf\0 ...</p>
+    <p>...</p>
+    <p>d tag: DT STRTAB</p>
+    <p>d val ...</p>
+    <p>E l f D y n</p>
+    <p>...</p>
+    <p>read\0 execve\0</p>
+    <p>...</p>
+  </div>
+  <div class="page">
+    <p>Index</p>
+    <p>The exploit</p>
+    <p>The dynamic loader</p>
+    <p>The attacks</p>
+    <p>RELRO</p>
+    <p>Implementation</p>
+    <p>Recap &amp; countermeasures</p>
+  </div>
+  <div class="page">
+    <p>RELocation ReadOnly</p>
+    <p>RELRO is a binary hardening technique  It aims to prevent attacks as those just described  Its available in two flavors: partial and full</p>
+  </div>
+  <div class="page">
+    <p>Partial RELRO</p>
+    <p>Some fields of .dynamic must be initialized at run-time  This is the reason its not marked as read-only in the ELF  With partial RELRO2 it is marked R/O after initialization</p>
+  </div>
+  <div class="page">
+    <p>The previous attack doesnt work anymore</p>
+  </div>
+  <div class="page">
+    <p>Another idea</p>
+    <p>Relocation table</p>
+    <p>.rel.plt</p>
+    <p>Symbol table</p>
+    <p>.dynsym</p>
+    <p>String table</p>
+    <p>.dynstr</p>
+    <p>...</p>
+    <p>r offset</p>
+    <p>r info ...</p>
+    <p>r offset</p>
+    <p>r info ...</p>
+    <p>E l f R e l</p>
+    <p>E l f R e l</p>
+    <p>...</p>
+    <p>st name</p>
+    <p>st info ...</p>
+    <p>...</p>
+    <p>st name</p>
+    <p>st info ...</p>
+    <p>...</p>
+    <p>E l f S y m</p>
+    <p>E l f S y m</p>
+    <p>...</p>
+    <p>read\0 ...</p>
+    <p>printf\0 ...</p>
+    <p>dl runtime resolve(elf info, printf index)</p>
+  </div>
+  <div class="page">
+    <p>Whats after the relocation table?</p>
+    <p>$ r e a d e l f S / b i n / echo S e c t i o n Headers : [ Nr ] Name Addr F l g [ 5 ] . dynsym 08048484 A [ symbol t a b l e ] [ 6 ] . d y n s t r 080487 f 4 A [ s t r i n g t a b l e ] [ 1 0 ] . r e l . p l t 08048 b5c A [ r e l o c a t i o n t a b l e ] [ 2 1 ] . dynamic 0804 f e f c WA [ dynamic s e c t i o n ] [ 2 3 ] . g o t . p l t 0804 f f f 4 WA [GOT] [ 2 5 ] . bss 08050120 WA [ we can w r i t e here ]</p>
+  </div>
+  <div class="page">
+    <p>Relocation table</p>
+    <p>.rel.plt Writeable area</p>
+    <p>.bss</p>
+    <p>...</p>
+    <p>r info</p>
+    <p>r offset ...</p>
+    <p>E l f R e l</p>
+    <p>r info</p>
+    <p>r offset</p>
+    <p>st name</p>
+    <p>st info ...</p>
+    <p>execve\0 ...</p>
+    <p>E l f R e l</p>
+    <p>E l f S y m</p>
+    <p>dl runtime resolve(elf info, printf index)</p>
+  </div>
+  <div class="page">
+    <p>This approach does not always work</p>
+    <p>If the dynamic loader checks the boundaries  If symbol versioning and huge pages are enabled3</p>
+  </div>
+  <div class="page">
+    <p>This approach does not always work</p>
+    <p>If the dynamic loader checks the boundaries  If symbol versioning and huge pages are enabled3</p>
+  </div>
+  <div class="page">
+    <p>Another option</p>
+    <p>_dl_runtime_resolve(elf_info, printf_index);</p>
+    <p>We tried to abuse printf_index  What about elf_info?  Points to a link_map data structure  Its available in a reserved entry in the GOT</p>
+  </div>
+  <div class="page">
+    <p>Another option</p>
+    <p>link_map keeps a pointer to the dynamic string table</p>
+  </div>
+  <div class="page">
+    <p>Another option</p>
+    <p>If we tamper with it we get back to the first attack</p>
+  </div>
+  <div class="page">
+    <p>GOT</p>
+    <p>.plt.got</p>
+    <p>[heap]</p>
+    <p>String table</p>
+    <p>.dynstr</p>
+    <p>Writeable area</p>
+    <p>.bss</p>
+    <p>got[0]</p>
+    <p>got[1]</p>
+    <p>got[2]</p>
+    <p>...</p>
+    <p>... ...</p>
+    <p>l info[DT HASH]</p>
+    <p>l info[DT STRTAB]</p>
+    <p>l info[DT SYMTAB] ...</p>
+    <p>...</p>
+    <p>l i n k m a p</p>
+    <p>...</p>
+    <p>read\0 printf\0 ...</p>
+    <p>...</p>
+    <p>read\0 execve\0</p>
+    <p>...</p>
+  </div>
+  <div class="page">
+    <p>The full RELRO situation</p>
+    <p>Full RELRO4 basically disables lazy loading  All the functions are resolved at startup  Some pointers are not initialized  We lose the references to:</p>
+    <p>_dl_runtime_resolve  elf_info, i.e. the link_map data structure</p>
+  </div>
+  <div class="page">
+    <p>DT_DEBUG to the rescue</p>
+    <p>The .dynamic section has a DT_DEBUG entry  Points to a debug data structure  Its used by gdb to track the loading of new libraries</p>
+  </div>
+  <div class="page">
+    <p>It holds a pointer to link_map!</p>
+  </div>
+  <div class="page">
+    <p>What about _dl_runtime_resolve?</p>
+    <p>Full RELRO is typically applied to the main binary only  Libraries GOT still has a pointer to _dl_runtime_resolve  How can we get to the memory area of a library?</p>
+  </div>
+  <div class="page">
+    <p>Traversing link_map</p>
+    <p>link_map is part of a linked-list  If we go to the next entry we can reach libraries link_map  From there we can get to their GOT</p>
+  </div>
+  <div class="page">
+    <p>Dynamic section</p>
+    <p>.dynamic [heap] GOT</p>
+    <p>.plt.got</p>
+    <p>String table</p>
+    <p>.dynstr</p>
+    <p>Writeable area</p>
+    <p>.bss</p>
+    <p>Symbol table</p>
+    <p>.dynsym</p>
+    <p>...</p>
+    <p>d tag: DT DEBUG</p>
+    <p>d val ...</p>
+    <p>d tag: DT STRTAB</p>
+    <p>d val ...</p>
+    <p>E l f D y n</p>
+    <p>E l f D y n</p>
+    <p>...</p>
+    <p>r version</p>
+    <p>r map</p>
+    <p>... ...</p>
+    <p>...</p>
+    <p>l info[DT STRTAB] ...</p>
+    <p>l next ...</p>
+    <p>... ...</p>
+    <p>l info[DT PLTGOT] ...</p>
+    <p>...</p>
+    <p>r d e b u g</p>
+    <p>l i n k m a p</p>
+    <p>l i n k m a p</p>
+    <p>E l f D y n</p>
+    <p>GOT[0]</p>
+    <p>GOT[1]</p>
+    <p>GOT[2] ...</p>
+    <p>...</p>
+    <p>read\0 execve\0</p>
+    <p>...</p>
+    <p>...</p>
+    <p>read\0 printf\0</p>
+    <p>...</p>
+    <p>dl runtime resolve(l info, reloc index)</p>
+    <p>...</p>
+    <p>st name</p>
+    <p>st info ...</p>
+    <p>...</p>
+    <p>E l f S y m</p>
+  </div>
+  <div class="page">
+    <p>Index</p>
+    <p>The exploit</p>
+    <p>The dynamic loader</p>
+    <p>The attacks</p>
+    <p>RELRO</p>
+    <p>Implementation</p>
+    <p>Recap &amp; countermeasures</p>
+  </div>
+  <div class="page">
+    <p>leakless</p>
+    <p>leakless implements all these techniques  Automatically detects which is the best approach  Outputs:</p>
+    <p>Instructions on where to write what  If provided with gadgets, the ROP chain for the attack</p>
+    <p>Check it out at</p>
+    <p>https://github.com/ucsb-seclab/leakless</p>
+  </div>
+  <div class="page">
+    <p>Gadgets</p>
+    <p>Attack Gadget 1 2 3 4</p>
+    <p>?(destination) = value X X X X</p>
+    <p>?(?(pointer)+ offset) = value X X</p>
+    <p>?(destination) = ?(?(pointer)+ offset) X</p>
+    <p>?(stack _pointer + offset) = ?(source) X</p>
+  </div>
+  <div class="page">
+    <p>What loaders are vulnerable?</p>
+    <p>We deem vulnerable:  The GNU C Standard Library (glibc)  dietlibc, uClibc and newlib  OpenBSDs and NetBSDs loader</p>
+    <p>Not vulnerable:  Bionic (PIE-only)  musl (no lazy loading)  (FreeBSDs loader)</p>
+  </div>
+  <div class="page">
+    <p>Index</p>
+    <p>The exploit</p>
+    <p>The dynamic loader</p>
+    <p>The attacks</p>
+    <p>RELRO</p>
+    <p>Implementation</p>
+    <p>Recap &amp; countermeasures</p>
+  </div>
+  <div class="page">
+    <p>What are the advantages of leakless?</p>
+  </div>
+  <div class="page">
+    <p>It doesnt require a memory leak vulnerability  It doesnt require interaction with the victim  Offline attacks are now feasible!</p>
+  </div>
+  <div class="page">
+    <p>If feasible, the attack is deterministic  A copy of the target library is not required  Since it mostly relies on ELF features its portable  Exception: link_map, but its just minor fixes</p>
+  </div>
+  <div class="page">
+    <p>One could implement the loader in ROP  longer ROP chains  increased complexity</p>
+  </div>
+  <div class="page">
+    <p>Everything is doable with syscalls  But its usually more invasive  With leakless you can do this:</p>
+  </div>
+  <div class="page">
+    <p>Pidgin example</p>
+    <p>v o i d * p , * a ; p = p u r p l e _ p r o x y _ g e t _ s e t u p ( 0 ) ; p u r p l e _ p r o x y _ i n f o _ s e t _ h o s t ( p , &quot; l e g i t . com &quot; ) ; p u r p l e _ p r o x y _ i n f o _ s e t _ p o r t ( p , 8 0 8 0 ) ; p u r p l e _ p r o x y _ i n f o _ s e t _ t y p e ( p , PURPLE_PROXY_HTTP ) ;</p>
+    <p>a = p u r p l e _ a c c o u n t s _ f i n d ( &quot; usr@xmpp &quot; , &quot; p r p l xmpp &quot; ) ; p u r p l e _ a c c o u n t _ d i s c o n n e c t ( a ) ; p u r p l e _ a c c o u n t _ c o n n e c t ( a ) ;</p>
+  </div>
+  <div class="page">
+    <p>leakless automates most of the process  The user only needs to provide gadgets</p>
+  </div>
+  <div class="page">
+    <p>Countermeasures</p>
+    <p>Use PIE  Use full RELRO everywhere  Disable DT_DEBUG if not necessary  Make loaders data less accessible  Isolate the dynamic loader</p>
+  </div>
+  <div class="page">
+    <p>Conclusion</p>
+    <p>Binary formats and core system components should be designed, and implemented,</p>
+    <p>with security in mind</p>
+  </div>
+  <div class="page">
+    <p>Thanks</p>
+  </div>
+  <div class="page">
+    <p>License</p>
+    <p>This work is licensed under the Creative Commons Attribution-ShareAlike 3.0 Unported License. To view a copy of this license, visit http://creativecommons.org/licenses/by-sa/3.0/ or send a letter to Creative Commons, 444 Castro Street, Suite 900, Mountain View, California, 94041, USA.</p>
+  </div>
+</Presentation>

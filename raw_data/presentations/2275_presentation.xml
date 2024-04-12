@@ -1,0 +1,244 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>Understanding and Finding Crash-Consistency Bugs in Parallel File Systems</p>
+    <p>Jinghan Sun, Chen Wang, Jian Huang, and Marc Snir</p>
+    <p>University of Illinois at Urbana-Champaign</p>
+    <p>Contact: Jinghan Sun (js39@illinois.edu)</p>
+  </div>
+  <div class="page">
+    <p>PFS failures are frequent and expensive</p>
+    <p>PFS Failure Frequency</p>
+    <p>Weekly Monthly Never Not Reported</p>
+    <p>Single Day Failure Cost</p>
+    <p>&lt;$100K $100K-$500K $500K-$1M</p>
+    <p>&gt;$1M Not Reported</p>
+    <p>Source: Hyperion Research 2019</p>
+    <p>PFS Recovery Time</p>
+    <p>&lt;1 day 2-3 days 1 week &gt;1 week</p>
+  </div>
+  <div class="page">
+    <p>Introduction to parallel file systems</p>
+    <p>Parallel file system  Data striping  Separate metadata management  POSIX-compliant</p>
+    <p>Parallel I/O library  Higher level abstractions:</p>
+    <p>Datasets, groups, collective I/O APIs</p>
+    <p>HPC I/O stack is much more complex than the traditional I/O stack</p>
+  </div>
+  <div class="page">
+    <p>A PFS failure example</p>
+    <p>PFS may experience severe data loss after system-wide power outage</p>
+  </div>
+  <div class="page">
+    <p>A study of crash vulnerabilities on PFSes</p>
+    <p>Two Filesystems Seven Workloads 34 Vulnerabilities+ =</p>
+    <p>Atomic Replace via Rename</p>
+    <p>Write-ahead Logging</p>
+    <p>HDF5 create</p>
+    <p>delete</p>
+    <p>rename</p>
+    <p>resize</p>
+    <p>update</p>
+    <p>Data loss</p>
+    <p>DoS</p>
+    <p>Inaccessible dataset</p>
+  </div>
+  <div class="page">
+    <p>ARVR WAL H5-create H5-delete H5-resize H5-rename H5-write</p>
+    <p>Number of Vulnerabilities on Different Filesystems</p>
+    <p>BeeGFS OrangeFS ext4</p>
+    <p>PFS crash vulnerabilities</p>
+    <p>The complexity of PFS stack makes it more vulnerable to system crashes</p>
+    <p>Vulnerability: Parallel I/O stack may corrupt user files if crash happens in the middle of the computation (depending on the precise timing of disk accesses)</p>
+  </div>
+  <div class="page">
+    <p>Crash vulnerability example</p>
+    <p>// atomic replace via rename (ARVR) bool atomic_update(){</p>
+    <p>int fd = create(&quot;file.tmp&quot;); write(fd, new, size); close(fd); rename(&quot;file.tmp&quot;,&quot;file.txt&quot;);</p>
+    <p>}</p>
+    <p>The function tries to update a file content atomically</p>
+    <p>storage #1 metadata storage #2</p>
+    <p>BeeGFS with 2 storage and 1 metadata server</p>
+  </div>
+  <div class="page">
+    <p>Crash vulnerability example</p>
+    <p>// atomic replace via rename (ARVR) bool atomic_update(){</p>
+    <p>int fd = creat(&quot;file.tmp&quot;); write(fd, new, size); close(fd); rename(&quot;file.tmp&quot;,&quot;file.txt&quot;);</p>
+    <p>}</p>
+    <p>unlink old_chunk</p>
+    <p>unlink idfile_2</p>
+    <p>dentries/tmp</p>
+    <p>dentries/file rename</p>
+    <p>append chunk</p>
+    <p>creat chunk</p>
+    <p>creat idfile</p>
+    <p>idfile</p>
+    <p>dentries/tmp link</p>
+    <p>storage #1 metadata storage #2</p>
+    <p>beegfs-client</p>
+    <p>Persistence order  Program order!</p>
+    <p>Two vulnerabilities discovered at system crash!</p>
+    <p>unlink old_chunk</p>
+  </div>
+  <div class="page">
+    <p>Crash vulnerability example</p>
+    <p>unlink old_chunk</p>
+    <p>unlink idfile_2</p>
+    <p>dentries/tmp</p>
+    <p>dentries/file rename</p>
+    <p>append chunk</p>
+    <p>creat chunk</p>
+    <p>creat idfile</p>
+    <p>idfile</p>
+    <p>dentries/tmp link</p>
+    <p>storage #1 metadata storage #2</p>
+    <p>Inconsistency No.1</p>
+    <p>Cause rename() persisted before append()</p>
+    <p>Ordering Cross-node dependency</p>
+    <p>Consequence Data loss</p>
+    <p>Fixed by fsck? No</p>
+    <p>op param</p>
+    <p>op param Persisted operations</p>
+    <p>Non-persisted operations</p>
+    <p>unlink old_chunk</p>
+  </div>
+  <div class="page">
+    <p>Crash vulnerability example</p>
+    <p>unlink idfile_2</p>
+    <p>dentries/tmp</p>
+    <p>dentries/file rename</p>
+    <p>append chunk</p>
+    <p>creat chunk</p>
+    <p>creat idfile</p>
+    <p>idfile</p>
+    <p>dentries/tmp link</p>
+    <p>storage #1 metadata storage #2</p>
+    <p>Inconsistency No.2</p>
+    <p>Cause unlink() persisted before rename()</p>
+    <p>Ordering Cross-node dependency</p>
+    <p>Consequence Data loss</p>
+    <p>Fixed by fsck? No</p>
+    <p>op param</p>
+    <p>op param Persisted operations</p>
+    <p>Non-persisted operations</p>
+    <p>unlink old_chunk unlink old_chunk</p>
+  </div>
+  <div class="page">
+    <p>Crash vulnerability example</p>
+    <p>unlink idfile_2</p>
+    <p>dentries/tmp</p>
+    <p>dentries/file rename</p>
+    <p>append chunk</p>
+    <p>creat chunk</p>
+    <p>creat idfile</p>
+    <p>idfile</p>
+    <p>dentries/tmp link</p>
+    <p>storage #1 metadata storage #2</p>
+    <p>Inconsistency No.3</p>
+    <p>Cause unlink() persisted before rename()</p>
+    <p>Ordering Intra-node dependency</p>
+    <p>Consequence Data loss</p>
+    <p>Fixed by fsck? Yes</p>
+    <p>op param</p>
+    <p>op param Persisted operations</p>
+    <p>Non-persisted operations</p>
+    <p>unlink old_chunk unlink old_chunk</p>
+  </div>
+  <div class="page">
+    <p>crash state</p>
+    <p>legal state</p>
+    <p>workload checker</p>
+    <p>passed</p>
+    <p>failedcrash state</p>
+    <p>crash state</p>
+    <p>filesystem &amp; app-level recovery</p>
+    <p>client-side traces</p>
+    <p>server-side traces</p>
+    <p>Legal replay</p>
+    <p>Crash</p>
+    <p>Record</p>
+    <p>Test Classification</p>
+    <p>File system images that satisfy the given consistency modelconsistency model</p>
+    <p>legal state legal state</p>
+    <p>Report</p>
+    <p>PFSCheck design</p>
+    <p>Discovering PFS crash vulnerabilities systematically &amp; efficiently</p>
+  </div>
+  <div class="page">
+    <p>crash state</p>
+    <p>legal state</p>
+    <p>workload checker</p>
+    <p>passed</p>
+    <p>failedcrash state</p>
+    <p>crash state</p>
+    <p>filesystem &amp; app-level recovery</p>
+    <p>client-side traces</p>
+    <p>server-side traces</p>
+    <p>Legal replay</p>
+    <p>Crash</p>
+    <p>Record</p>
+    <p>Test Classification</p>
+    <p>File system images that satisfy the given consistency modelconsistency model</p>
+    <p>legal state legal state</p>
+    <p>Report</p>
+    <p>Automated workload generation</p>
+    <p>Unified API for I/O libraries</p>
+    <p>Joint server-side &amp; client-side I/O calls tracing</p>
+    <p>Network packet tracing</p>
+    <p>Correlation between server &amp; client operations</p>
+    <p>The PFSCheck design</p>
+  </div>
+  <div class="page">
+    <p>crash state</p>
+    <p>legal state</p>
+    <p>workload checker</p>
+    <p>passed</p>
+    <p>failedcrash state</p>
+    <p>crash state</p>
+    <p>filesystem &amp; app-level recovery</p>
+    <p>client-side traces</p>
+    <p>server-side traces</p>
+    <p>Legal replay</p>
+    <p>Crash</p>
+    <p>Record</p>
+    <p>Test Classification</p>
+    <p>File system images that satisfy the given consistency modelconsistency model</p>
+    <p>legal state legal state</p>
+    <p>Report</p>
+    <p>Automated crash state generation via trace permutation</p>
+    <p>Perform necessary post-crash recovery</p>
+    <p>Workload-specific consistency checker</p>
+    <p>The PFSCheck design</p>
+  </div>
+  <div class="page">
+    <p>crash state</p>
+    <p>legal state</p>
+    <p>workload checker</p>
+    <p>passed</p>
+    <p>failedcrash state</p>
+    <p>crash state</p>
+    <p>filesystem &amp; app-level recovery</p>
+    <p>client-side traces</p>
+    <p>server-side traces</p>
+    <p>Legal replay</p>
+    <p>Crash</p>
+    <p>Record</p>
+    <p>Test Classification</p>
+    <p>File system images that satisfy the given consistency modelconsistency model</p>
+    <p>legal state legal state</p>
+    <p>Report</p>
+    <p>Crash consistency model specifies the legitimate crash states of the parallel file system</p>
+    <p>If a vulnerable crash state is not a legal state, we attribute it to PFS</p>
+    <p>Otherwise, I/O libraries are blamed</p>
+    <p>The PFSCheck design</p>
+  </div>
+  <div class="page">
+    <p>Conclusion  Motivation: crash vulnerabilities could be exacerbated on PFSes, due to the</p>
+    <p>complexity of the parallel I/O stack</p>
+    <p>Study:  the number of crash consistency bugs on BeeGFS and OrangeFS is higher than local filesystem  the workload can fail in more ways on PFSes  the consistency relies on persistency reordering across nodes</p>
+    <p>Proposed framework: PFS-specific crash consistency checker with a focus on automation and efficiency</p>
+  </div>
+  <div class="page">
+    <p>Thankyou!</p>
+    <p>Contact: Jinghan Sun (js39@illinois.edu)</p>
+  </div>
+</Presentation>

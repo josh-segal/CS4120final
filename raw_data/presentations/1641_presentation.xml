@@ -1,0 +1,476 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>Read as Needed: Building WiSER, a Flash-Optimized Search Engine</p>
+    <p>Jun He1, Kan Wu, Sudarsun Kannan#, Andrea C. Arpaci-Dusseau, Remzi H. Arpaci-Dusseau</p>
+    <p>Department of Computer Sciences, University of Wisconsin - Madison # Department of Computer Science, Rutgers University</p>
+  </div>
+  <div class="page">
+    <p>SSDs are Fast  Sequential read: 3.5GB/s</p>
+    <p>Random read: 500,000 IOPS</p>
+    <p>0.17 dollar/GB</p>
+    <p>*Not an endorsement for any brand</p>
+  </div>
+  <div class="page">
+    <p>Many applications/systems have been optimized for SSDs</p>
+    <p>Key-value stores - RocksDb, Wisckey,</p>
+    <p>Graph stores - FlashGraph, Mosaic,</p>
+    <p>File systems - SFS, F2FS,</p>
+  </div>
+  <div class="page">
+    <p>Search engines are overlooked Search engines are important and widely used</p>
+    <p>- Wikipedia - Github - Uber -</p>
+  </div>
+  <div class="page">
+    <p>Search engines are challenging for storage systems</p>
+    <p>Low data latency - queries are interactive</p>
+    <p>High data throughput - engines retrieve info from a large amount of data</p>
+    <p>High scalability - data grows over time</p>
+  </div>
+  <div class="page">
+    <p>Just use more RAM? RAM is critical in existing search engines</p>
+    <p>- your RAM will limit all other resources  an Elasticsearch user</p>
+    <p>OK at small scale - total cost is low</p>
+    <p>Cost prohibitive at large scale - data grows fast - may waste bandwidth: rarely read and process 100GB/s</p>
+  </div>
+  <div class="page">
+    <p>Can search engines perform well with a small memory and a fast SSD?</p>
+    <p>RAM</p>
+    <p>Working setDataset</p>
+  </div>
+  <div class="page">
+    <p>Yes Built an engine that performs well on small memory</p>
+    <p>- could outperform other engine with entire dataset in memory Our philosophy: read as needed</p>
+    <p>- use small memory - read data from SSDs as needed - do not attempt to cache data in memory - attempt to read data from SSDs efficiently</p>
+    <p>SSDs have high read bandwidth and IOPS - read an entire drive (1TB) in 5 minutes - higher bandwidth is possible with RAID</p>
+    <p>Computation/network is more likely to be the bottleneck</p>
+  </div>
+  <div class="page">
+    <p>To optimize a read-as-needed system, we must:</p>
+    <p>Reduce read amplification - SSD bandwidth is still limited</p>
+    <p>Hide I/O latency - SSD latency is still high</p>
+    <p>Use large requests to improve device efficiency - SSDs favor large requests</p>
+  </div>
+  <div class="page">
+    <p>We apply four techniques to build a read-as-needed search engine</p>
+  </div>
+  <div class="page">
+    <p>Our Contributions Four techniques to improve search engine performance</p>
+    <p>- small memory, large dataset, fast SSDs An open-source flash-optimized search engine from scratch (WiSER)</p>
+    <p>- 11,000 lines of C++ A benchmark for evaluating search engines</p>
+    <p>- based on Wikipedia - a variety of queries for stressing the system</p>
+    <p>Better performance than the state-of-the-art Elasticsearch - increase end-to-end query throughput by up to 2.7x - reduce end-to-end latency by up to 16x</p>
+  </div>
+  <div class="page">
+    <p>Overview Techniques Evaluation Final Thoughts</p>
+    <p>Outline</p>
+  </div>
+  <div class="page">
+    <p>Techniques 1. Cross-stage Data Grouping 2. Two-way Cost-aware Bloom Filters 3. Adaptive Prefetching 4. Trade Disk Space for I/O</p>
+    <p>Guided by the Wikipedia dataset</p>
+  </div>
+  <div class="page">
+    <p>Techniques 1. Cross-stage Data Grouping 2. Two-way Cost-aware Bloom Filters 3. Adaptive Prefetching 4. Trade Disk Space for I/O</p>
+  </div>
+  <div class="page">
+    <p>Background: stages of a search query</p>
+    <p>Index Doc IDs</p>
+    <p>Blair Tugman is an American mixed martial artist</p>
+    <p>tugman</p>
+    <p>Byte 6</p>
+    <p>Byte 11</p>
+    <p>Term Frequencies</p>
+    <p>Term Positions</p>
+    <p>Term Byte Offsets</p>
+  </div>
+  <div class="page">
+    <p>File 1 File 3File 2</p>
+    <p>Data in Elasticsearch is grouped by stage</p>
+    <p>Doc IDs Term Frequencies Term Byte</p>
+    <p>Offsets Term</p>
+    <p>Positionstugman Doc IDs Term Frequencies</p>
+    <p>Term Positions</p>
+    <p>Term Byte Offsets</p>
+    <p>Doc IDs Term Frequencies Term</p>
+    <p>Positions Term Byte</p>
+    <p>Offsets (previous term)</p>
+    <p>(next term)</p>
+  </div>
+  <div class="page">
+    <p>How much I/O is needed for tugman?</p>
+    <p>Doc IDs Term Frequencies Term Byte</p>
+    <p>Offsets</p>
+    <p>File 1 File 2 File 3</p>
+    <p>CPUI/O Count: 0123</p>
+    <p>Doc IDs Term Frequencies Term</p>
+    <p>Positions Term Byte</p>
+    <p>Offsets</p>
+    <p>Doc IDs Term Frequencies Term</p>
+    <p>Positions Term Byte</p>
+    <p>Offsets</p>
+    <p>Doc IDs Term Frequencies Term</p>
+    <p>Positions Term</p>
+    <p>Positions Term Byte</p>
+    <p>Offsets</p>
+    <p>(previous term)</p>
+    <p>tugman</p>
+    <p>(next term)</p>
+  </div>
+  <div class="page">
+    <p>Transferred data is often wasted</p>
+    <p>tugman Doc IDs Term</p>
+    <p>Frequencies Term Byte</p>
+    <p>Offsets</p>
+    <p>File 1 File 2 File 3</p>
+    <p>Doc IDs Term Frequencies Term</p>
+    <p>Positions Term Byte</p>
+    <p>Offsets</p>
+    <p>Doc IDs Term Frequencies Term</p>
+    <p>Positions Term Byte</p>
+    <p>Offsets</p>
+    <p>Term Positions ~30 bytes</p>
+    <p>I/O Count: 3, Size: 12 KB Data of tugman can fit in 4KB Small term is common</p>
+    <p>- 99% of Wikipedia terms can fit in 4 KB</p>
+    <p>(previous term)</p>
+    <p>(next term)</p>
+  </div>
+  <div class="page">
+    <p>WiSER groups data by term</p>
+    <p>File 1 File 2 File 3</p>
+    <p>Doc IDs Term Frequencies Term</p>
+    <p>Positions Term Byte</p>
+    <p>Offsets</p>
+    <p>Doc IDs Term Frequencies</p>
+    <p>Doc IDs Term Frequencies</p>
+    <p>Term Positions</p>
+    <p>Term Positions</p>
+    <p>Term Byte Offsets</p>
+    <p>Term Byte Offsets</p>
+    <p>tugman</p>
+    <p>(previous term)</p>
+    <p>(next term)</p>
+  </div>
+  <div class="page">
+    <p>File</p>
+    <p>Doc IDs Term Frequencies Term</p>
+    <p>Positions Term Byte</p>
+    <p>Offsets Doc IDs Term</p>
+    <p>Frequencies Term</p>
+    <p>Positions Term Byte</p>
+    <p>Offsets Doc IDs Term</p>
+    <p>Frequencies Term</p>
+    <p>Positions Term Byte</p>
+    <p>Offsets</p>
+    <p>(previous term)</p>
+    <p>tugman</p>
+    <p>(next term) File 1 File 2 File 3</p>
+    <p>WiSER groups data by term</p>
+  </div>
+  <div class="page">
+    <p>File</p>
+    <p>How much I/O does WiSER need for tugman?</p>
+    <p>Doc IDs Term Frequencies Term</p>
+    <p>Positions Term Byte</p>
+    <p>Offsets Doc IDs Term</p>
+    <p>Frequencies Term</p>
+    <p>Positions Term Byte</p>
+    <p>Offsets Doc IDs Term</p>
+    <p>Frequencies Term</p>
+    <p>Positions Term Byte</p>
+    <p>Offsets</p>
+    <p>(previous term) tugman (next term)</p>
+    <p>CPU</p>
+    <p>Doc IDs Term Frequencies Term</p>
+    <p>Positions Term Byte</p>
+    <p>Offsets4KB</p>
+    <p>I/O Count: 01</p>
+    <p>Reduce I/O by up to 3x</p>
+  </div>
+  <div class="page">
+    <p>Techniques 1. Cross-stage Data Grouping 2. Two-way Cost-aware Bloom Filters 3. Adaptive Prefetching 4. Trade Disk Space for I/O</p>
+  </div>
+  <div class="page">
+    <p>The spokesman of united airlines states that</p>
+    <p>The United States president</p>
+    <p>Background: phrase queries offer high accuracy</p>
+    <p>Search united AND statesSearch phrase: united states</p>
+  </div>
+  <div class="page">
+    <p>united Term Position</p>
+    <p>states</p>
+    <p>But demand a lot more data</p>
+    <p>Background: phrase queries offer high accuracy</p>
+    <p>Our United States president</p>
+    <p>,X,X,X,X,X,X</p>
+    <p>,X,X,X,X,X,X</p>
+    <p>,X,X,X,X,X,X</p>
+    <p>,X,X,X,X,X,X</p>
+    <p>Position 4</p>
+    <p>The spokesman of united airlines states that</p>
+  </div>
+  <div class="page">
+    <p>Tried regular Bloom filters, it doesnt work</p>
+  </div>
+  <div class="page">
+    <p>after states</p>
+    <p>bloom filter</p>
+    <p>president</p>
+    <p>airline that</p>
+    <p>of</p>
+    <p>our before</p>
+    <p>united</p>
+    <p>airlines</p>
+    <p>bloom filter</p>
+    <p>WiSER adds two Bloom filters to enable two-way filtering</p>
+    <p>Check if united states is a phrase in a document by: 1. Checking if states is in united.after 2. Or, checking if united is in states.before.</p>
+    <p>Why adding two filters?</p>
+    <p>united Term</p>
+    <p>states</p>
+    <p>united states</p>
+    <p>Position 2 3</p>
+    <p>The spokesman of united airlines states that</p>
+    <p>Our United States president</p>
+  </div>
+  <div class="page">
+    <p>WiSER dynamically chooses the smaller filter for filtering (two-way)</p>
+  </div>
+  <div class="page">
+    <p>Filters</p>
+    <p>WiSER dynamically chooses the smaller filter for filtering (two-way)</p>
+    <p>Positionsunited</p>
+    <p>states Positions</p>
+    <p>Filters.after</p>
+    <p>Filters</p>
+    <p>Filters.before</p>
+    <p>before after</p>
+  </div>
+  <div class="page">
+    <p>WiSER only uses filters when it can reduce I/O (cost-aware)</p>
+  </div>
+  <div class="page">
+    <p>WiSER only uses filters when it can reduce I/O (cost-aware)</p>
+    <p>Positionsunited</p>
+    <p>states</p>
+    <p>Check if united is before states</p>
+    <p>Filters.before 600 KB</p>
+    <p>Positions 200 KB</p>
+    <p>Filters.after 600 KB</p>
+    <p>Filters.before 600 KB</p>
+    <p>Not worth it</p>
+    <p>Not worth it</p>
+  </div>
+  <div class="page">
+    <p>Techniques 1. Cross-stage Data Grouping 2. Two-way Cost-aware Bloom Filters 3. Adaptive Prefetching 4. Trade Disk Space for I/O</p>
+  </div>
+  <div class="page">
+    <p>Elasticsearch relies on the OS to prefetching</p>
+  </div>
+  <div class="page">
+    <p>WiSER adaptively prefetches frequently-used data to hide I/O latency</p>
+  </div>
+  <div class="page">
+    <p>File</p>
+    <p>WiSER adaptively prefetches frequently-used data to hide I/O latency</p>
+    <p>Term Byte Offsets Doc IDs Term Frequencies Term Positions Term Byte Offsets Doc IDs TFFilters Filters</p>
+    <p>Index</p>
+    <p>cheese</p>
+    <p>File offset</p>
+    <p>File offset</p>
+    <p>File offset</p>
+    <p>Prefetch size</p>
+    <p>tugman Prefetch size</p>
+    <p>Prefetch size</p>
+  </div>
+  <div class="page">
+    <p>Techniques 1. Cross-stage Data Grouping 2. Two-way Cost-aware Bloom Filters 3. Adaptive Prefetching 4. Trade Disk Space for I/O</p>
+  </div>
+  <div class="page">
+    <p>WiSER compresses documents individually to reduce read amplification</p>
+    <p>Doc1 Doc2 Doc3 Doc4</p>
+    <p>Compress</p>
+    <p>Doc1 Doc2 Doc3 Doc4</p>
+    <p>Compress</p>
+    <p>Read Read</p>
+    <p>Elasticsearch WiSER</p>
+    <p>Slightly larger (the tradeoff)</p>
+  </div>
+  <div class="page">
+    <p>Techniques 1. Cross-stage Data Grouping 2. Two-way Cost-aware Bloom Filters 3. Adaptive Prefetching 4. Trade Disk Space for I/O</p>
+  </div>
+  <div class="page">
+    <p>Overview Techniques Evaluation Final Thoughts</p>
+    <p>Outline</p>
+  </div>
+  <div class="page">
+    <p>Evaluate with WSBench Dataset: Wikipedia</p>
+    <p>- 6 million documents, 6 million terms, 18GB Queries</p>
+    <p>- single term queries, and queries, phrase queries, real queries - vary term popularities in wikipedia</p>
+    <p>Machine - 16 cores - NVMe SSD: peak read 2 GB/s, 200,000 IOPS - Linux container with 512-MB RAM - how well each search engine can scale up to large working sets that do not fit in main memory?</p>
+  </div>
+  <div class="page">
+    <p>How much read traffic can grouping by term (technique 1) reduce?</p>
+  </div>
+  <div class="page">
+    <p>IO T</p>
+    <p>ra ffi</p>
+    <p>c (N</p>
+    <p>or m</p>
+    <p>al iz</p>
+    <p>ed )</p>
+    <p>es_no_pref wiser</p>
+    <p>How much read traffic can grouping by term (technique 1) reduce?</p>
+    <p>Less common terms</p>
+    <p>Elasticsearch WiSER</p>
+    <p>More common terms (single term query)</p>
+  </div>
+  <div class="page">
+    <p>WiSER</p>
+    <p>IO T</p>
+    <p>ra ffi</p>
+    <p>c (N</p>
+    <p>or m</p>
+    <p>al iz</p>
+    <p>ed )</p>
+    <p>es_no_pref wiser</p>
+    <p>How much read traffic can grouping by term (technique 1) reduce?</p>
+    <p>Less common terms</p>
+    <p>Elasticsearch</p>
+    <p>More common terms (single term query)</p>
+    <p>WiSER</p>
+  </div>
+  <div class="page">
+    <p>How much query throughput can grouping by term(technique 1) increase?</p>
+  </div>
+  <div class="page">
+    <p>How much query throughput can grouping by term(technique 1) increase?</p>
+    <p>N or</p>
+    <p>m al</p>
+    <p>iz ed</p>
+    <p>T hr</p>
+    <p>ou gh</p>
+    <p>pu t (</p>
+    <p>Q P</p>
+    <p>S )</p>
+    <p>es_no_pref wiserElasticsearch WiSER</p>
+  </div>
+  <div class="page">
+    <p>How much read traffic can two-way costaware Bloom filters (technique 2) reduce?</p>
+  </div>
+  <div class="page">
+    <p>N or</p>
+    <p>m al</p>
+    <p>iz ed</p>
+    <p>IO T</p>
+    <p>ra ffi</p>
+    <p>c es wiser wiser_bf</p>
+    <p>(phrase query)</p>
+    <p>Elasticsearch WiSER WiSER with filter</p>
+    <p>Less common+Common Common+Common</p>
+    <p>How much read traffic can two-way costaware Bloom filters (technique 2) reduce?</p>
+  </div>
+  <div class="page">
+    <p>N or</p>
+    <p>m al</p>
+    <p>iz ed</p>
+    <p>IO T</p>
+    <p>ra ffi</p>
+    <p>c es wiser wiser_bf</p>
+    <p>(phrase query)</p>
+    <p>Elasticsearch WiSER WiSER with filter</p>
+    <p>Less common+Common Common+Common</p>
+    <p>How much read traffic can two-way costaware Bloom filters (technique 2) reduce?</p>
+  </div>
+  <div class="page">
+    <p>N or</p>
+    <p>m al</p>
+    <p>iz ed</p>
+    <p>IO T</p>
+    <p>ra ffi</p>
+    <p>c es wiser wiser_bf</p>
+    <p>(phrase query)</p>
+    <p>Elasticsearch WiSER WiSER with filter</p>
+    <p>Less common+Common Common+Common</p>
+    <p>How much read traffic can two-way costaware Bloom filters (technique 2) reduce?</p>
+  </div>
+  <div class="page">
+    <p>N or</p>
+    <p>m al</p>
+    <p>iz ed</p>
+    <p>IO T</p>
+    <p>ra ffi</p>
+    <p>c es wiser wiser_bf</p>
+    <p>(phrase query)</p>
+    <p>Elasticsearch WiSER WiSER with filter</p>
+    <p>Less common+Common Common+Common</p>
+    <p>How much read traffic can two-way costaware Bloom filters (technique 2) reduce?</p>
+  </div>
+  <div class="page">
+    <p>N or</p>
+    <p>m al</p>
+    <p>iz ed</p>
+    <p>IO T</p>
+    <p>ra ffi</p>
+    <p>c es wiser wiser_bf</p>
+    <p>(phrase query)</p>
+    <p>Elasticsearch WiSER WiSER with filter</p>
+    <p>Less common+Common Common+Common</p>
+    <p>How much read traffic can two-way costaware Bloom filters (technique 2) reduce?</p>
+  </div>
+  <div class="page">
+    <p>How much query throughput can two-way cost-aware filtering (technique 2) increase?</p>
+    <p>N or</p>
+    <p>m al</p>
+    <p>iz ed</p>
+    <p>T hr</p>
+    <p>ou gh</p>
+    <p>pu t</p>
+    <p>es_no_pref wiser wiser_bf</p>
+    <p>Elasticsearch WiSER WiSER with filter</p>
+  </div>
+  <div class="page">
+    <p>How does small-memory performance compare with larger-memory performance?</p>
+    <p>phrase single.high</p>
+    <p>Q P S</p>
+    <p>es</p>
+    <p>wiser_base</p>
+    <p>wiser_finalElasticsearch</p>
+    <p>phrase single.high</p>
+    <p>Q P S</p>
+    <p>es</p>
+    <p>wiser_base</p>
+    <p>wiser_final</p>
+    <p>WiSER</p>
+    <p>phrase single.high</p>
+    <p>B</p>
+    <p>B</p>
+    <p>B</p>
+    <p>R ea</p>
+    <p>d Tr</p>
+    <p>af fic</p>
+    <p>( G</p>
+    <p>B )</p>
+    <p>Memory size Phrase query</p>
+    <p>Single term query</p>
+    <p>phrase single.high</p>
+    <p>Q P S</p>
+    <p>Memory size</p>
+    <p>Phrase query Single term</p>
+    <p>query Bounded by IOPS</p>
+    <p>(Our SSD: 200,000 IOPS)</p>
+    <p>Ideal</p>
+    <p>Ideal</p>
+    <p>Faster SSD</p>
+    <p>Faster SSD</p>
+  </div>
+  <div class="page">
+    <p>More results are in the paper</p>
+  </div>
+  <div class="page">
+    <p>Final Thoughts</p>
+    <p>Does your application really need large cache/RAM?</p>
+    <p>Will your application works just fine if it reads data as needed from fast SSDs?</p>
+  </div>
+  <div class="page">
+    <p>Q &amp; A Ask as Needed</p>
+  </div>
+</Presentation>

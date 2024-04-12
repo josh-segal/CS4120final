@@ -1,0 +1,307 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>The Atomos Transactional Programming Language Brian D. Carlstrom</p>
+    <p>The Atomos Transactional</p>
+    <p>Programming Language</p>
+    <p>Brian D. Carlstrom, Austen McDonald, Hassan Chafi,</p>
+    <p>JaeWoong Chung, Chi Cao Minh,</p>
+    <p>Christos Kozyrakis, Kunle Olukotun</p>
+    <p>Computer Systems Laboratory</p>
+    <p>Stanford University</p>
+    <p>http://tcc.stanford.edu</p>
+  </div>
+  <div class="page">
+    <p>The Atomos Transactional Programming Language 2</p>
+    <p>Transactional Memory</p>
+    <p>Reasons to use Transactional Memory (TM)</p>
+    <p>Replace mutual exclusion with concurrent transactions</p>
+    <p>Remove challenges to programming with locks</p>
+    <p>Challenges</p>
+    <p>Long running transactions without lower level violations</p>
+    <p>Easier to use one big transaction than having to split into chunks</p>
+    <p>Application libraries and runtimes want to update encapsulated state</p>
+    <p>Transactional conditional waiting with hardware support</p>
+    <p>Software transactional memory (STM) systems have an arbitrary</p>
+    <p>number of transactional contexts in memory, allowing some to be idle</p>
+    <p>Hardware transactional memory (HTM) systems have a fixed number</p>
+    <p>of transactional contexts in silicon, dont want to busy wait</p>
+  </div>
+  <div class="page">
+    <p>The Atomos Transactional Programming Language 3</p>
+    <p>The Atomos Programming Language</p>
+    <p>Atomos derived from Java</p>
+    <p>atomic replaces synchronized</p>
+    <p>retry replaces wait/notify/notifyAll</p>
+    <p>Atomos design features</p>
+    <p>Open nested transactions  open blocks committing nested child transaction before parent</p>
+    <p>Useful for language implementation but also available for applications</p>
+    <p>Watch Sets  Extension to retry for efficient conditional waiting on HTM systems</p>
+    <p>Atomos implementation features</p>
+    <p>Violation handlers</p>
+    <p>Handle expected violations without rolling back in all cases</p>
+    <p>Not part of the language, only used in language implementation</p>
+  </div>
+  <div class="page">
+    <p>The Atomos Transactional Programming Language 4</p>
+    <p>synchronized versus atomic</p>
+    <p>Java ...</p>
+    <p>synchronized (hashMap){</p>
+    <p>hashMap.put(key,value);</p>
+    <p>}</p>
+    <p>...</p>
+    <p>Atomos ...</p>
+    <p>atomic {</p>
+    <p>hashMap.put(key,value);</p>
+    <p>}</p>
+    <p>...</p>
+    <p>Transactional memory advantages</p>
+    <p>No association between a lock and shared data</p>
+    <p>Non-conflicting operations can proceed in parallel</p>
+  </div>
+  <div class="page">
+    <p>The Atomos Transactional Programming Language 5</p>
+    <p>The counter problem</p>
+    <p>Application atomic {</p>
+    <p>...</p>
+    <p>this.id = getUID();</p>
+    <p>...</p>
+    <p>}</p>
+    <p>static long getUID () {</p>
+    <p>atomic {</p>
+    <p>globalCounter++;</p>
+    <p>}}</p>
+    <p>JIT Compiler // method prolog</p>
+    <p>...</p>
+    <p>invocationCounter++;</p>
+    <p>...</p>
+    <p>// method body</p>
+    <p>...</p>
+    <p>// method epilogue</p>
+    <p>...</p>
+    <p>Lower-level updates to global data can lead to violations</p>
+    <p>General problem not confined to counters:</p>
+    <p>Application level caching</p>
+    <p>Cooperative scheduling in virtual machine</p>
+  </div>
+  <div class="page">
+    <p>The Atomos Transactional Programming Language 6</p>
+    <p>Open nested solution to the counter problem</p>
+    <p>Benefits</p>
+    <p>Violation of counter just replays open</p>
+    <p>nested transaction</p>
+    <p>Open nested commit discards childs</p>
+    <p>read-set preventing later violations</p>
+    <p>Issues</p>
+    <p>What happens if parent rolls back</p>
+    <p>after child commits?</p>
+    <p>Okay for statistical counters and UID</p>
+    <p>Not okay for SPECjbb2000 object</p>
+    <p>allocation counters</p>
+    <p>Need to some way to compensate if</p>
+    <p>parent rolls back</p>
+    <p>Solution</p>
+    <p>Wrap counter update in open nested transaction</p>
+    <p>atomic {</p>
+    <p>...</p>
+    <p>this.id = getUID();</p>
+    <p>...</p>
+    <p>}</p>
+    <p>static long getUID () {</p>
+    <p>open {</p>
+    <p>globalCounter++;</p>
+    <p>}</p>
+    <p>}</p>
+  </div>
+  <div class="page">
+    <p>The Atomos Transactional Programming Language 7</p>
+    <p>Transaction Commit and Abort Handlers</p>
+    <p>Programs can specify callbacks at end of transaction</p>
+    <p>Separate interfaces for commit and abort outcomes public interface CommitHandler { boolean onCommit();}</p>
+    <p>public interface AbortHandler { boolean onAbort ();}</p>
+    <p>DB technique for delaying non-transactional operations</p>
+    <p>Harris brought the technique to STM for solving I/O problem</p>
+    <p>See Exceptions and side-effects in atomic blocks.</p>
+    <p>Buffer output until commit, rewind input on abort</p>
+    <p>In Atomos, commit of open nested transaction can register</p>
+    <p>abort handler for parent transaction</p>
+    <p>This allows for compensating transaction for object counter example</p>
+  </div>
+  <div class="page">
+    <p>The Atomos Transactional Programming Language 8</p>
+    <p>wait/notifyAll versus retry</p>
+    <p>Java public int get (){</p>
+    <p>synchronized (this) {</p>
+    <p>while (!available)</p>
+    <p>wait();</p>
+    <p>available = false;</p>
+    <p>notifyAll();</p>
+    <p>return contents;}}</p>
+    <p>Atomos public int get (){</p>
+    <p>atomic {</p>
+    <p>if (!available)</p>
+    <p>retry;</p>
+    <p>available = false;</p>
+    <p>return contents;}}</p>
+    <p>Transactional memory advantages</p>
+    <p>Automatic reevaluation of available condition</p>
+    <p>No need for explicit notifyAll</p>
+  </div>
+  <div class="page">
+    <p>The Atomos Transactional Programming Language 9</p>
+    <p>Transactional Conditional Waiting</p>
+    <p>When condition false, wait until</p>
+    <p>read set violated</p>
+    <p>Leverage violation detection for</p>
+    <p>efficient wakeup</p>
+    <p>When violation happens</p>
+    <p>Rollback waiting transaction</p>
+    <p>Move thread from waiting to ready</p>
+    <p>Approach scales well in STM</p>
+    <p>No practical limit on number of</p>
+    <p>transactional contexts</p>
+    <p>However HTM has limited</p>
+    <p>number of hardware contexts</p>
+    <p>Can we overcome this issue?</p>
+    <p>Consumer Producer</p>
+    <p>available? No</p>
+    <p>available=true</p>
+    <p>commit</p>
+    <p>available? Yes!</p>
+    <p>violation</p>
+    <p>rollback</p>
+  </div>
+  <div class="page">
+    <p>The Atomos Transactional Programming Language 10</p>
+    <p>xfer read-set</p>
+    <p>Hardware Transactional Conditional Waiting</p>
+    <p>Instead of using one HW context per waiting transaction</p>
+    <p>Merge waiting read sets into one shared context</p>
+    <p>Our VM already has dedicated VM scheduler thread</p>
+    <p>Use as shared context</p>
+    <p>Challenges</p>
+    <p>How can we communicate read set between threads?</p>
+    <p>How can shared context handle violations for others?</p>
+    <p>SchedulerConsumer Producer</p>
+    <p>available? No</p>
+    <p>a v a i l a b l e = t r u e</p>
+    <p>c o m m i t</p>
+    <p>available? Yes!</p>
+    <p>violation</p>
+    <p>rollback</p>
+    <p>B</p>
+    <p>A</p>
+    <p>A</p>
+    <p>reschedule A</p>
+  </div>
+  <div class="page">
+    <p>The Atomos Transactional Programming Language 11</p>
+    <p>Violation Handlers</p>
+    <p>Violation Handlers solve both challenges</p>
+    <p>Thread can register handler for violation callbacks public interface ViolationHandler {</p>
+    <p>boolean onViolation (Address violatedAddress);}</p>
+    <p>How can we communicate read set between threads?</p>
+    <p>Use open nested transaction to send command to scheduler</p>
+    <p>Scheduler ViolationHandler receives commands</p>
+    <p>How can shared context handle violations for others?</p>
+    <p>Scheduler maintains map of addresses to interested threads</p>
+    <p>non-command violation moves threads from waiting to ready</p>
+  </div>
+  <div class="page">
+    <p>The Atomos Transactional Programming Language 12</p>
+    <p>Common case transactional waiting</p>
+    <p>Issues with transferring the</p>
+    <p>read-set on retry</p>
+    <p>Need HW interface to</p>
+    <p>enumerate read-set</p>
+    <p>Want to minimize size the</p>
+    <p>number of addresses</p>
+    <p>Want to prevent overflow of</p>
+    <p>HW transactional context</p>
+    <p>Solution</p>
+    <p>Program usually only cares</p>
+    <p>about changes to a small</p>
+    <p>subset of its read-set</p>
+    <p>This watch-set will usually</p>
+    <p>only be a single address</p>
+    <p>public int get (){</p>
+    <p>atomic {</p>
+    <p>if (!available){</p>
+    <p>watch available;</p>
+    <p>retry;}</p>
+    <p>available = false;</p>
+    <p>return contents;}}</p>
+  </div>
+  <div class="page">
+    <p>The Atomos Transactional Programming Language 13</p>
+    <p>Hardware and Software Environment</p>
+    <p>The simulated chip multiprocessor TCC Hardware (See PACT 2005)</p>
+    <p>For detailed semantics of open nesting, handlers, etc., see ISCA 2006</p>
+    <p>Atomos built on top of Jikes RVM</p>
+    <p>Derived from Jikes RVM 2.4.2+CVS using GNU Classpath 0.19</p>
+    <p>All necessary code precompiled before measurement</p>
+    <p>Virtual machine startup excluded from measurement</p>
+  </div>
+  <div class="page">
+    <p>The Atomos Transactional Programming Language 14</p>
+    <p>Transactions keep data structures simple</p>
+    <p>TestHashtable</p>
+    <p>50%-50% mix of reads and write to Map implementations</p>
+    <p>Comparison of Map performance</p>
+    <p>Java HashMap  No built in synchronization</p>
+    <p>Collections.synchronizedMap</p>
+    <p>Java Hashtable  Singe coarse lock</p>
+    <p>Java ConcurrentHashMap  Fine grained locking</p>
+    <p>Atomos HashMap  Simple HashMap with transactions</p>
+    <p>scales better than than ConcurrentHashMap</p>
+    <p>CPUs</p>
+    <p>S p e e d u p</p>
+    <p>Atomos HashMap Java ConcurrentHashMap</p>
+    <p>Java HashMap Java Hashtable</p>
+    <p>`</p>
+  </div>
+  <div class="page">
+    <p>The Atomos Transactional Programming Language 15</p>
+    <p>Transactional conditional waiting evaluation</p>
+    <p>TestWait benchmark</p>
+    <p>Pass tokens in circle</p>
+    <p>Uses blocking queues</p>
+    <p>32 CPUs, vary token count</p>
+    <p>Purpose</p>
+    <p>Used by Harris and Fraser to</p>
+    <p>measure Conditional Critical</p>
+    <p>Region (CCR) performance</p>
+    <p>Results</p>
+    <p>Atomos similar scalability to</p>
+    <p>Java with few tokens</p>
+    <p>As token count nears CPU</p>
+    <p>count, violation detection short</p>
+    <p>circuits wait code, avoiding</p>
+    <p>context switch overhead</p>
+    <p>Tokens</p>
+    <p>S p e e d u p</p>
+    <p>Atomos Java</p>
+    <p>`</p>
+  </div>
+  <div class="page">
+    <p>The Atomos Transactional Programming Language 16</p>
+    <p>The Atomos Programming Language</p>
+    <p>Atomos derived from Java</p>
+    <p>Transactional Memory for concurrency  atomic blocks define basic nested transactions</p>
+    <p>Removed synchonized</p>
+    <p>Transaction based conditional waiting  Derivative of Conditional Critical Regions and Harris retry</p>
+    <p>Removed wait, notify, and notifyAll</p>
+    <p>Watch sets for efficient implementation on HTM systems</p>
+    <p>Open nested transactions  open blocks committing nested child transaction before parent</p>
+    <p>Useful for language implementation but also available for applications</p>
+    <p>Violation handlers</p>
+    <p>Handle expected violations without rolling back in all cases</p>
+    <p>Not part of the language, only used in language implementation</p>
+    <p>Finally, atomos is the classical Greek word for indivisible</p>
+    <p>a prefix means not and tomos root means cuttable</p>
+  </div>
+  <div class="page">
+    <p>The Atomos Transactional Programming Language Brian D. Carlstrom</p>
+    <p>Questions?</p>
+  </div>
+</Presentation>

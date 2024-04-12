@@ -1,0 +1,771 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>mOS: A Reusable Networking Stack for</p>
+    <p>Flow Monitoring Middleboxes</p>
+    <p>M. Asim Jamshed, YoungGyoun Moon, Donghwi Kim,</p>
+    <p>Dongsu Han, KyoungSoo Park</p>
+  </div>
+  <div class="page">
+    <p>Web security gateway</p>
+    <p>Mail security gateway</p>
+    <p>Web application firewall</p>
+    <p>Virtual Appliances Deployed in Service Provider Data Centers</p>
+    <p>Most Middleboxes Deal with TCP Traffic</p>
+    <p>TCP dominates the Internet</p>
+    <p>95+% of traffic is TCP</p>
+    <p>Top 3 middleboxes in service providers rely on L4/L7 semantics</p>
+    <p>[1] TCP</p>
+    <p>UDP</p>
+    <p>etc</p>
+    <p>[1] Comparison of Caching Strategies in Modern Cellular Backhaul Networks, ACM MobiSys 2013.</p>
+    <p>[2] IHS Infonetics Cloud &amp; Data Center Security Strategies &amp; Vendor Leadership: Global Service Provider Survey, Dec. 2014.</p>
+    <p>[2]</p>
+  </div>
+  <div class="page">
+    <p>Custom middlebox application</p>
+    <p>No open source solution</p>
+    <p>Data Accounting System</p>
+    <p>Cellular Core Network</p>
+    <p>Internet</p>
+    <p>Example: Cellular Accounting System</p>
+    <p>Client</p>
+    <p>$ $</p>
+  </div>
+  <div class="page">
+    <p>Challenges in Building Flow-level Middleboxes</p>
+    <p>The main logic for a cellular accounting system</p>
+    <p>No charge for TCP retransmission, only if payloads match.</p>
+    <p>For every IP packet, p p is retransmitted</p>
+    <p>no yes</p>
+    <p>ps payload == original payload charge for p</p>
+    <p>yes</p>
+    <p>skip accounting TCP tunneling attack!</p>
+    <p>no</p>
+    <p>Core logic itself is straightforward!</p>
+    <p>payload A seq# = 10</p>
+    <p>seq# = 10</p>
+    <p>payload A seq# = 10</p>
+    <p>payload B seq# = 10</p>
+    <p>$</p>
+    <p>payload B</p>
+  </div>
+  <div class="page">
+    <p>Challenges in Building Flow-level Middleboxes</p>
+    <p>Requires handling complex flow-level states and events</p>
+    <p>The accounting system requires:</p>
+    <p>Reassembly buffer that holds the original payload</p>
+    <p>Non-contiguous fragments that holds the original payload</p>
+    <p>Event notification on TCP retransmission</p>
+    <p>Storage for per-flow accounting metadata and statistics</p>
+  </div>
+  <div class="page">
+    <p>Challenges in Building Flow-level Middleboxes</p>
+    <p>How to implement flow-processing features beneath its core</p>
+    <p>logic?</p>
+    <p>50K~100K code lines tightly coupled with their IDS logic</p>
+    <p>Borrow code from open-source IDS (e.g., snort, suricata)</p>
+    <p>Designed for TCP end host</p>
+    <p>Different from middlebox semantics</p>
+    <p>Borrow code from open-source kernel (e.g., Linux/FreeBSD)</p>
+    <p>Complex and error-prone</p>
+    <p>Repeat it for every custom middlebox</p>
+    <p>Implement your own flow management code</p>
+  </div>
+  <div class="page">
+    <p>Difference from End-host TCP Applications</p>
+    <p>Typical end-host TCP applications</p>
+    <p>Typical flow-processing middleboxes</p>
+    <p>TCP application</p>
+    <p>Berkeley Socket API</p>
+    <p>TCP/IP stack</p>
+    <p>Nice abstraction that separates TCP/IP stack</p>
+    <p>from application</p>
+    <p>Middlebox application +</p>
+    <p>Flow-processing logic</p>
+    <p>Packet I/O stack</p>
+    <p>Developers build own flow-processing logic</p>
+    <p>from scratch (e.g., on top of PCAP, DPDK, PF_RING)</p>
+    <p>Our Goal</p>
+    <p>Build a reusable flow-processing networking stack</p>
+    <p>for modular development of middleboxes</p>
+  </div>
+  <div class="page">
+    <p>mOS Networking Stack</p>
+    <p>A reusable stack for flow-processing middleboxes</p>
+    <p>Abstraction for sub-TCP layer middlebox operations</p>
+    <p>Exposes programming abstractions</p>
+    <p>Monitoring sockets abstracting TCP flows</p>
+    <p>Flexible event system</p>
+    <p>Fine-grained resource usage</p>
+    <p>Benefits</p>
+    <p>Clean, modular development of stateful middleboxes</p>
+    <p>Developers focus on core logic rather than flow management</p>
+    <p>Highly scalable on multi-10Gbps networks</p>
+    <p>Middlebox application</p>
+    <p>mOS programming API</p>
+    <p>Flow-processing logic</p>
+  </div>
+  <div class="page">
+    <p>Key Programming Abstractions in mOS</p>
+    <p>For better reusability, mOS encourages decomposing a</p>
+    <p>complex application into a set of &lt;event, event handler&gt; pairs</p>
+    <p>One can share a well-designed set of event definitions</p>
+    <p>mOS provides two key programming abstractions:</p>
+    <p>mOS events for expressing custom flow-level conditions</p>
+    <p>mOS sockets for retrieving comprehensive flow-level features</p>
+    <p>mOS event</p>
+    <p>Event handler</p>
+    <p>mOS socket</p>
+    <p>invokes</p>
+    <p>retrieve flow state</p>
+    <p>Flow-processing logic</p>
+  </div>
+  <div class="page">
+    <p>Notable condition that merits middlebox processing</p>
+    <p>Built-in event (BE)</p>
+    <p>Events that happen naturally in TCP processing</p>
+    <p>e.g., packet arrival, TCP connection start/teardown, retransmission</p>
+    <p>User-defined event (UDE)</p>
+    <p>User can define their own event (= base event + filter function)</p>
+    <p>Key Abstraction: mOS Events</p>
+    <p>New data</p>
+    <p>arrival</p>
+    <p>Packet</p>
+    <p>arrival</p>
+    <p>Filter (HTTP request)</p>
+    <p>Built-in event</p>
+    <p>Filter (ACK packet)</p>
+    <p>HTTP request</p>
+    <p>arrival</p>
+    <p>ACK packet</p>
+    <p>arrival</p>
+    <p>User-defined event</p>
+    <p>Filter (counter)</p>
+    <p>ACK arrival</p>
+    <p>User-defined event</p>
+  </div>
+  <div class="page">
+    <p>Abstracts a non-terminating midpoint of a ongoing connection</p>
+    <p>Simultaneously manages the flow states of both end-hosts</p>
+    <p>For every incoming flow, a new mOS monitoring socket is created</p>
+    <p>To monitor fine-grained TCP-layer operations and metadata</p>
+    <p>e.g., abnormal packet retransmission, out-of-flow packet arrival,</p>
+    <p>abrupt connection termination, employment of weird TCP/IP options</p>
+    <p>Read flow-reassembled data or non-contiguous fragments</p>
+    <p>Modify/drop the last packet that raised the event</p>
+    <p>Key Abstraction: mOS Monitoring Socket</p>
+    <p>peek TCP-layer buffer Application buffer</p>
+    <p>modification drop</p>
+  </div>
+  <div class="page">
+    <p>mOS Flow Management</p>
+    <p>Dual TCP stack management</p>
+    <p>Infer the states of both client and server TCP stacks</p>
+    <p>mOS stack emulation</p>
+    <p>TCP server</p>
+    <p>Server side</p>
+    <p>TCP stack</p>
+    <p>Server side</p>
+    <p>TCP stack</p>
+    <p>TCP</p>
+    <p>state</p>
+    <p>TCP</p>
+    <p>state</p>
+    <p>SYN</p>
+    <p>LISTEN</p>
+    <p>CLOSED SYN_SENT</p>
+    <p>Client side</p>
+    <p>TCP stack</p>
+    <p>Client side</p>
+    <p>TCP stack</p>
+    <p>TCP</p>
+    <p>state</p>
+    <p>TCP</p>
+    <p>state</p>
+    <p>SYN_RCVD</p>
+    <p>ESTABLISHED</p>
+    <p>ESTABLISHED</p>
+    <p>TCP client</p>
+  </div>
+  <div class="page">
+    <p>mOS Flow Management</p>
+    <p>Dual TCP stack management</p>
+    <p>Infer the states of both client and server TCP stacks</p>
+    <p>mOS stack emulation</p>
+    <p>TCP server</p>
+    <p>Server side</p>
+    <p>TCP stack</p>
+    <p>Server side</p>
+    <p>TCP stack</p>
+    <p>TCP</p>
+    <p>state</p>
+    <p>TCP</p>
+    <p>state</p>
+    <p>SYN</p>
+    <p>SYN/ACK</p>
+    <p>LISTEN</p>
+    <p>CLOSED SYN_SENT</p>
+    <p>Client side</p>
+    <p>TCP stack</p>
+    <p>Client side</p>
+    <p>TCP stack</p>
+    <p>TCP</p>
+    <p>state</p>
+    <p>TCP</p>
+    <p>state</p>
+    <p>SYN_RCVD</p>
+    <p>ESTABLISHED</p>
+    <p>ESTABLISHED</p>
+    <p>TCP client</p>
+  </div>
+  <div class="page">
+    <p>mOS Flow Management</p>
+    <p>Dual TCP stack management</p>
+    <p>Infer the states of both client and server TCP stacks</p>
+    <p>mOS stack emulation</p>
+    <p>TCP server</p>
+    <p>Server side</p>
+    <p>TCP stack</p>
+    <p>Server side</p>
+    <p>TCP stack</p>
+    <p>TCP</p>
+    <p>state</p>
+    <p>TCP</p>
+    <p>state</p>
+    <p>SYN</p>
+    <p>SYN/ACK</p>
+    <p>LISTEN</p>
+    <p>CLOSED SYN_SENT</p>
+    <p>Client side</p>
+    <p>TCP stack</p>
+    <p>Client side</p>
+    <p>TCP stack</p>
+    <p>TCP</p>
+    <p>state</p>
+    <p>TCP</p>
+    <p>state</p>
+    <p>SYN_RCVD</p>
+    <p>ESTABLISHED</p>
+    <p>DATA/ACK</p>
+    <p>Receive</p>
+    <p>buffer</p>
+    <p>Receive</p>
+    <p>buffer</p>
+    <p>ESTABLISHED</p>
+    <p>TCP client</p>
+  </div>
+  <div class="page">
+    <p>Scalable mOS Event Management</p>
+    <p>Each flow can register/change its own set of events dynamically</p>
+    <p>Some flows may add or delete events</p>
+    <p>Some flows may change event handlers for registered events</p>
+    <p>Scalability problem</p>
+    <p>How to efficiently manage event sets for 100K+ concurrent flows?</p>
+    <p>Nave approach suffers from expensive copying of event sets</p>
+    <p>Observation: the same event sets are shared by multiple flows</p>
+    <p>Reduces management overhead</p>
+    <p>Challenge</p>
+    <p>How to efficiently find/share the same event set?</p>
+  </div>
+  <div class="page">
+    <p>Data Structures for Event Management</p>
+    <p>Each socket points to an event invocation forest that records</p>
+    <p>a set of flow events to wait on</p>
+    <p>s1 Socket</p>
+    <p>e1 ON_CONN_NEW_DATA</p>
+    <p>YouTube_event</p>
+    <p>http_event ftp_event</p>
+    <p>OnYouTubeRequest()</p>
+    <p>OnFTPEvent()</p>
+    <p>Event invocation forest</p>
+    <p>e2</p>
+    <p>e4 e5</p>
+    <p>e3</p>
+    <p>f1</p>
+    <p>f4 f5</p>
+    <p>IF1</p>
+    <p>e6</p>
+    <p>e7</p>
+    <p>f7</p>
+    <p>built-in event UDE event handler socket</p>
+  </div>
+  <div class="page">
+    <p>Dynamic Event Registration Process</p>
+    <p>Nave way</p>
+    <p>s1</p>
+    <p>built-in event UDE event handler socket</p>
+    <p>s2</p>
+    <p>e1</p>
+    <p>e2 e3</p>
+    <p>f2 f3</p>
+    <p>e4</p>
+    <p>e6</p>
+    <p>f6</p>
+    <p>IF2</p>
+    <p>e5</p>
+    <p>e1</p>
+    <p>e2 e3</p>
+    <p>f2 f3</p>
+    <p>e4</p>
+    <p>e6</p>
+    <p>f6</p>
+    <p>IF1</p>
+    <p>e5</p>
+    <p>e1</p>
+    <p>e2</p>
+    <p>f2</p>
+    <p>e4</p>
+    <p>e6</p>
+    <p>f6</p>
+    <p>IF0</p>
+    <p>e5</p>
+    <p>Problem</p>
+    <p>IF1 and IF2 are redundant!</p>
+    <p>Alternative</p>
+    <p>To reuse IF1 for s2</p>
+    <p>How does s2 find IF1?</p>
+  </div>
+  <div class="page">
+    <p>Efficient Search for Dynamic Registration</p>
+    <p>Each event invocation forest has an ID (searchable via hashtable)</p>
+    <p>id (invocation forest) = XOR sum of hash (event + event handler)</p>
+    <p>New invocation forest id after adding or deleting &lt;e, f&gt; from t</p>
+    <p>id (new forest) = id (old forest)  hash (e + f)</p>
+    <p>s1 s2</p>
+    <p>e1</p>
+    <p>e2 e3</p>
+    <p>f2 f3</p>
+    <p>e4</p>
+    <p>e6</p>
+    <p>f6</p>
+    <p>IF1</p>
+    <p>e5</p>
+    <p>e1</p>
+    <p>e2</p>
+    <p>f2</p>
+    <p>e4</p>
+    <p>e6</p>
+    <p>f6</p>
+    <p>IF0</p>
+    <p>e5</p>
+  </div>
+  <div class="page">
+    <p>Efficient Search for Dynamic Registration</p>
+    <p>Each event invocation forest has an ID (searchable via hashtable)</p>
+    <p>id (invocation forest) = XOR sum of hash (event + event handler)</p>
+    <p>New invocation forest id after adding or deleting &lt;e, f&gt; from t</p>
+    <p>id (new forest) = id (old forest)  hash (e + f)</p>
+    <p>s1 s2</p>
+    <p>e1</p>
+    <p>e2 e3</p>
+    <p>f2 f3</p>
+    <p>e4</p>
+    <p>e6</p>
+    <p>f6</p>
+    <p>IF1</p>
+    <p>e5</p>
+    <p>e1</p>
+    <p>e2</p>
+    <p>f2</p>
+    <p>e4</p>
+    <p>e6</p>
+    <p>f6</p>
+    <p>IF0</p>
+    <p>e5</p>
+    <p>s1 registers a new event &lt;e3, f3&gt;</p>
+    <p>id(IF0)  h(e3+f3) = id(IF1) shared</p>
+  </div>
+  <div class="page">
+    <p>Efficient Search for Dynamic Registration</p>
+    <p>Each event invocation forest has an ID (searchable via hashtable)</p>
+    <p>id (invocation forest) = XOR sum of hash (event + event handler)</p>
+    <p>New invocation forest id after adding or deleting &lt;e, f&gt; from t</p>
+    <p>id (new forest) = id (old forest)  hash (e + f)</p>
+    <p>s1 s2</p>
+    <p>e1</p>
+    <p>e2 e3</p>
+    <p>f2 f3</p>
+    <p>e4</p>
+    <p>e6</p>
+    <p>f6</p>
+    <p>IF1</p>
+    <p>e5</p>
+    <p>e1</p>
+    <p>e2</p>
+    <p>f2</p>
+    <p>e4</p>
+    <p>e6</p>
+    <p>f6</p>
+    <p>IF0</p>
+    <p>e5</p>
+    <p>shared</p>
+    <p>s2 unregisters the event &lt;e3, f3&gt;</p>
+    <p>id(IF1)  h(e3+f3) = id(IF0)</p>
+  </div>
+  <div class="page">
+    <p>Efficient Search for Dynamic Registration</p>
+    <p>Each event invocation forest has an ID (searchable via hashtable)</p>
+    <p>id (invocation forest) = XOR sum of hash (event + event handler)</p>
+    <p>New invocation forest id after adding or deleting &lt;e, f&gt; from t</p>
+    <p>id (new forest) = id (old forest)  hash (e + f)</p>
+    <p>s1 s2</p>
+    <p>e1</p>
+    <p>e2 e3</p>
+    <p>f2 f3</p>
+    <p>e4</p>
+    <p>e6</p>
+    <p>f6</p>
+    <p>IF1</p>
+    <p>e5</p>
+    <p>e1</p>
+    <p>e2</p>
+    <p>f2</p>
+    <p>e4</p>
+    <p>e6</p>
+    <p>f6</p>
+    <p>IF0</p>
+    <p>e5</p>
+    <p>s1 unregisters the event &lt;e3, f3&gt;</p>
+    <p>id(IF1)  h(e3+f3) = id(IF0)</p>
+    <p>shared</p>
+  </div>
+  <div class="page">
+    <p>Fine-grained Resource Management in mOS</p>
+    <p>Not all middleboxes require full features</p>
+    <p>Some middleboxes do not require flow reassembly</p>
+    <p>TCP</p>
+    <p>client</p>
+    <p>TCP</p>
+    <p>server</p>
+    <p>Client side</p>
+    <p>TCP stack</p>
+    <p>Client side</p>
+    <p>TCP stack</p>
+    <p>Receive</p>
+    <p>buffer</p>
+    <p>Receive</p>
+    <p>buffer</p>
+    <p>TCP</p>
+    <p>state</p>
+    <p>TCP</p>
+    <p>state</p>
+    <p>P</p>
+    <p>P</p>
+    <p>Server side</p>
+    <p>TCP stack</p>
+    <p>Server side</p>
+    <p>TCP stack</p>
+    <p>Receive</p>
+    <p>buffer</p>
+    <p>Receive</p>
+    <p>buffer</p>
+    <p>TCP</p>
+    <p>state</p>
+    <p>TCP</p>
+    <p>state</p>
+  </div>
+  <div class="page">
+    <p>Fine-grained Resource Management in mOS</p>
+    <p>Not all middleboxes require full features</p>
+    <p>Some middleboxes do not require flow reassembly</p>
+    <p>Some middleboxes monitor only client-side data</p>
+    <p>TCP</p>
+    <p>client</p>
+    <p>TCP</p>
+    <p>server</p>
+    <p>Client side</p>
+    <p>TCP stack</p>
+    <p>Client side</p>
+    <p>TCP stack</p>
+    <p>Receive</p>
+    <p>buffer</p>
+    <p>Receive</p>
+    <p>buffer</p>
+    <p>TCP</p>
+    <p>state</p>
+    <p>TCP</p>
+    <p>state</p>
+    <p>P</p>
+    <p>P</p>
+    <p>Server side</p>
+    <p>TCP stack</p>
+    <p>Server side</p>
+    <p>TCP stack</p>
+    <p>Receive</p>
+    <p>buffer</p>
+    <p>Receive</p>
+    <p>buffer</p>
+    <p>TCP</p>
+    <p>state</p>
+    <p>TCP</p>
+    <p>state</p>
+  </div>
+  <div class="page">
+    <p>Fine-grained Resource Management in mOS</p>
+    <p>Not all middleboxes require full features</p>
+    <p>Some middleboxes do not require flow reassembly</p>
+    <p>Some middleboxes monitor only client-side data</p>
+    <p>No more monitoring after handling certain events</p>
+    <p>TCP</p>
+    <p>client</p>
+    <p>TCP</p>
+    <p>server</p>
+    <p>Client side</p>
+    <p>TCP stack</p>
+    <p>Client side</p>
+    <p>TCP stack</p>
+    <p>Receive</p>
+    <p>buffer</p>
+    <p>Receive</p>
+    <p>buffer</p>
+    <p>TCP</p>
+    <p>state</p>
+    <p>TCP</p>
+    <p>state</p>
+    <p>P</p>
+    <p>P</p>
+    <p>Server side</p>
+    <p>TCP stack</p>
+    <p>Server side</p>
+    <p>TCP stack</p>
+    <p>Receive</p>
+    <p>buffer</p>
+    <p>Receive</p>
+    <p>buffer</p>
+    <p>TCP</p>
+    <p>state</p>
+    <p>TCP</p>
+    <p>state</p>
+    <p>Global or per-flow</p>
+    <p>manipulation</p>
+  </div>
+  <div class="page">
+    <p>Per-thread library TCP stack</p>
+    <p>~26K lines of C code (mTCP [1] : ~11K lines)</p>
+    <p>Shared nothing parallel architecture</p>
+    <p>mOS Stack Implementation</p>
+    <p>NIC</p>
+    <p>Packet I/O</p>
+    <p>Application</p>
+    <p>mOS core</p>
+    <p>Receiver</p>
+    <p>TCP stack</p>
+    <p>Sender</p>
+    <p>TCP stack</p>
+    <p>Rx</p>
+    <p>Application</p>
+    <p>mOS core</p>
+    <p>Tx</p>
+    <p>....</p>
+    <p>CPU core N CPU core 1</p>
+    <p>Symmetric RSS</p>
+    <p>[1] mTCP: a highly scalable user-level TCP stack for multicore systems, NSDI'14</p>
+  </div>
+  <div class="page">
+    <p>Evaluation</p>
+  </div>
+  <div class="page">
+    <p>mOS API Evaluation</p>
+    <p>Does the API support diverse range of middleboxes?</p>
+    <p>Snort3 (strip ~10K lines)</p>
+    <p>Snort with mOS flow management</p>
+    <p>Replaces HTTP/TCP inspection module</p>
+    <p>nDPI</p>
+    <p>L7 protocol parsing over flow content</p>
+    <p>PRADS</p>
+    <p>Signature pattern matching on flow content</p>
+    <p>Lessons learnt</p>
+    <p>mOS simplifies code</p>
+    <p>mOS patches vulnerabilities (nDPI/PRADS)</p>
+    <p>Detects signature that spans multiple segments</p>
+    <p>mOS does not degrade performance</p>
+    <p>Perform on par with respective vanilla (DPDK) versions</p>
+    <p>Snort3 nDPI PRADS</p>
+    <p>Lines Modified</p>
+    <p>Total Lines</p>
+  </div>
+  <div class="page">
+    <p>mOS API Evaluation (cont.)</p>
+    <p>Does the API support diverse range of middleboxes?</p>
+    <p>Halfback proxy (128 lines)</p>
+    <p>Low latency proxy with proactive TCP retransmissions</p>
+    <p>Abacus (561 lines vs 4,091 lines)</p>
+    <p>Secure cellular data accounting system</p>
+    <p>Parallel NAT</p>
+    <p>High performance NAT</p>
+    <p>Midstat</p>
+    <p>netstat for middleboxes</p>
+    <p>L4 firewall</p>
+    <p>Etc.</p>
+    <p>Applications ported to mOS: ~9x code line reduction</p>
+  </div>
+  <div class="page">
+    <p>Performance Evaluation</p>
+    <p>mOS applications in inline mode</p>
+    <p>Flow management and forwarding packets by their flows</p>
+    <p>2 x Intel E5-2690 (16 cores, 2.9 GHz), 20 MB L3 cache size,</p>
+    <p>132 GB RAM, 6 x 10 Gbps NICs</p>
+    <p>Six pairs of clients and servers: 60 Gbps max</p>
+    <p>Intel E3-1220 v3 (4 cores, 3.1 GHz), 8 MB L3 cache size</p>
+    <p>16 GB RAM, 1 x 10 Gbps NIC per machine</p>
+    <p>Does mOS provide high performance?</p>
+    <p>mOS</p>
+    <p>applications</p>
+    <p>Clients Servers</p>
+  </div>
+  <div class="page">
+    <p>Performance Scalability on Multicores</p>
+    <p>T h</p>
+    <p>ro u</p>
+    <p>g h</p>
+    <p>p u</p>
+    <p>t (G</p>
+    <p>b p</p>
+    <p>s )</p>
+    <p>(# of CPU cores)</p>
+    <p>Counting packets Searching for a string</p>
+    <p>File download traffic with 192K concurrent flows</p>
+    <p>Each flow downloads an X-byte content in one TCP connection</p>
+    <p>A new flow is spawned when a flow terminates</p>
+    <p>Two simple applications</p>
+    <p>Counting packets per flow (packet arrival event)</p>
+    <p>Searching for a string in flow reassembled data (full flow reassembly &amp; DPI)</p>
+  </div>
+  <div class="page">
+    <p>Performance Scalability on Multicores</p>
+    <p>T h</p>
+    <p>ro u</p>
+    <p>g h</p>
+    <p>p u</p>
+    <p>t (G</p>
+    <p>b p</p>
+    <p>s )</p>
+    <p>(# of CPU cores)</p>
+    <p>Counting packets Searching for a string</p>
+    <p>File download traffic with 192K concurrent flows</p>
+    <p>Each flow downloads an X-byte content in one TCP connection</p>
+    <p>A new flow is spawned when a flow terminates</p>
+    <p>Two simple applications</p>
+    <p>Counting packets per flow (packet arrival event)</p>
+    <p>Searching for a string in flow reassembled data (full flow reassembly &amp; DPI)</p>
+    <p>Performance linearly scales as</p>
+    <p># of cores are increased.</p>
+  </div>
+  <div class="page">
+    <p>Latency overhead by mOS applications</p>
+    <p>Direct connection Counting packets Searching for a string</p>
+    <p>F lo</p>
+    <p>w c</p>
+    <p>o m</p>
+    <p>p le</p>
+    <p>ti o</p>
+    <p>n t</p>
+    <p>im e (</p>
+    <p>u s ) 64B file 8KB file</p>
+  </div>
+  <div class="page">
+    <p>Dynamic Event Registration Evaluation</p>
+    <p>Monitor 192K concurrent flows</p>
+    <p>Flow size: 4KB</p>
+    <p>Searching for a string in flow reassembled data</p>
+    <p>Dynamically register a new event when target string found</p>
+    <p>50% client flows have target strings</p>
+    <p>Nave mOS</p>
+    <p># of event nodes in the tree</p>
+    <p>T h ro</p>
+    <p>u g h p u t</p>
+    <p>(G b p s )</p>
+  </div>
+  <div class="page">
+    <p>Software-based middleboxes have:</p>
+    <p>Modularity issues</p>
+    <p>Readability issues</p>
+    <p>Maintainability issues</p>
+    <p>mOS stack: reusable networking stack for middleboxes</p>
+    <p>Programming abstraction with socket-based API</p>
+    <p>Event-driven middlebox processing</p>
+    <p>Efficient resource usage with dynamic resource composition</p>
+    <p>mOS stack/API available @:</p>
+    <p>https://github.com/ndsl-kaist/mOS-networking-stack</p>
+    <p>Conclusion</p>
+  </div>
+  <div class="page">
+    <p>Thank You</p>
+    <p>http://mos.kaist.edu/</p>
+    <p>Questions?</p>
+    <p>https://github.com/ndsl-kaist/mOS-networking-stack</p>
+  </div>
+  <div class="page">
+    <p>Appendix</p>
+  </div>
+  <div class="page">
+    <p>Extra Slides</p>
+  </div>
+  <div class="page">
+    <p>Performance under Selective Resource Consumption</p>
+    <p>T h</p>
+    <p>ro u</p>
+    <p>g h</p>
+    <p>p u</p>
+    <p>t (G</p>
+    <p>b p</p>
+    <p>s)</p>
+    <p>File size (B)</p>
+    <p>full flow management</p>
+    <p>w/o client buf management</p>
+    <p>w/o buf management</p>
+    <p>w/o client side</p>
+    <p>w/o client side, w/o server buf mgmt.</p>
+  </div>
+  <div class="page">
+    <p>Real applications performance</p>
+    <p>Application original + pcap original + DPDK mOS port</p>
+    <p>Snort-AC 0.57 Gbps 8.18 Gbps 9.17 Gbps</p>
+    <p>Snort-DFC 0.82 Gbps 14.42 Gbps 15.21 Gbps</p>
+    <p>nDPIReader 0.66 Gbps 28.92 Gbps 28.87 Gbps</p>
+    <p>PRADS 0.42 Gbps 2.03 Gbps 1.90 Gbps</p>
+    <p>Workload: real LTE packet trace (~67 GB)  4.5x ~ 28.9x performance improvement  mOS brings code modularity &amp; correct flow management</p>
+  </div>
+  <div class="page">
+    <p>Events &amp; Available Hooks</p>
+    <p>Stream monitoring socket</p>
+    <p>Raw monitoring socket</p>
+    <p>Built-in event MOS_HK_SND MOS_HK_RCV</p>
+    <p>MOS_ON_PKT_IN O O</p>
+    <p>MOS_ON_CONN_START O O</p>
+    <p>MOS_ON_CONN_END O O</p>
+    <p>MOS_ON_TCP_STATE_CHANGE O O</p>
+    <p>MOS_ON_REXMIT O O</p>
+    <p>MOS_ON_CONN_NEW_DATA X X</p>
+    <p>MOS_ON_ORPHAN X X</p>
+    <p>Built-in event MOS_HK_SND MOS_HK_RCV</p>
+    <p>MOS_ON_PKT_IN X X</p>
+  </div>
+  <div class="page">
+    <p>Cellular Accounting with mOS Networking Stack</p>
+    <p>Core Logic + Flow Mgmt</p>
+    <p>For every IP packet, p p is retransmitted</p>
+    <p>no yes</p>
+    <p>ps payload == original payload account for p</p>
+    <p>yes</p>
+    <p>skip accounting report abuse</p>
+    <p>no</p>
+    <p>Event-action</p>
+    <p>eREX MOS_ON_REXMIT</p>
+    <p>eNEW MOS_ON_CONN_NEW_DATA</p>
+    <p>eREX eNEW</p>
+    <p>FFAKE</p>
+    <p>eFAKE</p>
+    <p>freport faccnt</p>
+    <p>Filter</p>
+    <p>Built-in events</p>
+    <p>User-defined event</p>
+    <p>Event handler (action)</p>
+    <p>FFAKE IsFakeRexmit()</p>
+    <p>eFAKE UDE_FAKE_REXMIT</p>
+    <p>freport ReportAbuse()</p>
+    <p>faccnt AccountDataUsage()</p>
+    <p>built-in event UDE event handler filter function FFAKE</p>
+  </div>
+</Presentation>

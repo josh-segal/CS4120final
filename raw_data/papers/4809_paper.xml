@@ -1,0 +1,1235 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<TEI xmlns="http://www.tei-c.org/ns/1.0" 
+xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+xsi:schemaLocation="http://www.tei-c.org/ns/1.0 /Users/atharsefid/Desktop/grobid-0.5.3/grobid-home/schemas/xsd/Grobid.xsd"
+ xmlns:xlink="http://www.w3.org/1999/xlink">
+	<teiHeader xml:lang="en">
+		<encodingDesc>
+			<appInfo>
+				<application version="0.5.3" ident="GROBID" when="2019-03-26T17:02+0000">
+					<ref target="https://github.com/kermitt2/grobid">GROBID - A machine learning software for extracting information from scholarly documents</ref>
+				</application>
+			</appInfo>
+		</encodingDesc>
+		<fileDesc>
+			<titleStmt>
+				<title level="a" type="main">Token Coherence: Decoupling Performance and Correctness</title>
+			</titleStmt>
+			<publicationStmt>
+				<publisher/>
+				<availability status="unknown"><licence/></availability>
+				<date>June 9-11, 2003</date>
+			</publicationStmt>
+			<sourceDesc>
+				<biblStruct>
+					<analytic>
+						<author>
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Milo</forename><forename type="middle">M K</forename><surname>Martin</surname></persName>
+							<affiliation key="aff0">
+								<orgName type="department">Computer Sciences Department</orgName>
+								<orgName type="institution">University of Wisconsin-Madison</orgName>
+							</affiliation>
+						</author>
+						<author role="corresp">
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Mark</forename><forename type="middle">D</forename><surname>Hill</surname></persName>
+							<email>markhill@cs.wisc.edu</email>
+							<affiliation key="aff0">
+								<orgName type="department">Computer Sciences Department</orgName>
+								<orgName type="institution">University of Wisconsin-Madison</orgName>
+							</affiliation>
+						</author>
+						<author>
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">David</forename><forename type="middle">A</forename><surname>Wood</surname></persName>
+							<affiliation key="aff0">
+								<orgName type="department">Computer Sciences Department</orgName>
+								<orgName type="institution">University of Wisconsin-Madison</orgName>
+							</affiliation>
+						</author>
+						<title level="a" type="main">Token Coherence: Decoupling Performance and Correctness</title>
+					</analytic>
+					<monogr>
+						<title level="m">Appears in the proceedings of the 30th Annual International Symposium on Computer Architecture (ISCA-30)</title>
+						<meeting> <address><addrLine>San Diego, CA</addrLine></address>
+						</meeting>
+						<imprint>
+							<date type="published">June 9-11, 2003</date>
+						</imprint>
+					</monogr>
+					<note>1</note>
+				</biblStruct>
+			</sourceDesc>
+		</fileDesc>
+		<profileDesc>
+			<abstract>
+				<p>Many future shared-memory multiprocessor servers will both target commercial workloads and use highly-integrated &quot;glueless&quot; designs. Implementing low-latency cache coherence in these systems is difficult, because traditional approaches either add indirection for common cache-to-cache misses (directory protocols) or require a totally-ordered interconnect (traditional snooping protocols). Unfortunately, totally-ordered interconnects are difficult to implement in glueless designs. An ideal coherence protocol would avoid indirections and interconnect ordering ; however, such an approach introduces numerous protocol races that are difficult to resolve. We propose a new coherence framework to enable such protocols by separating performance from correctness. A performance protocol can optimize for the common case (i.e., absence of races) and rely on the underlying correct-ness substrate to resolve races, provide safety, and prevent starvation. We call the combination Token Coherence, since it explicitly exchanges and counts tokens to control coherence permissions. This paper develops TokenB, a specific Token Coherence performance protocol that allows a glueless multiproces-sor to both exploit a low-latency unordered interconnect (like directory protocols) and avoid indirection (like snooping protocols). Simulations using commercial work-loads show that our new protocol can significantly outper-form traditional snooping and directory protocols.</p>
+			</abstract>
+		</profileDesc>
+	</teiHeader>
+	<text xml:lang="en">
+		<body>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="1">Introduction</head><p>The performance and cost of database and web servers is important because the services they provide are becoming increasingly part of our daily lives. Many of these servers are shared-memory multiprocessors. In our view, workload and technology trends point toward a new design space that provides opportunities to improve performance and cost of these multiprocessor servers.</p><p>Workload trends. Since many commercial workloads exhibit abundant thread-level parallelism, using multiple processors is an attractive approach for increasing their performance. To efficiently support the frequent communication and synchronization in these workloads <ref type="bibr" target="#b7">[8]</ref>, servers should optimize the latency of cache-to-cache misses (i.e., those misses-often caused by accessing shared datathat require data to move directly between caches).</p><p>To reduce cache-to-cache miss latency, many multiprocessor servers use snooping cache coherence. Bus-based snooping protocols exploit totally-ordered broadcasts (i.e., all processors are guaranteed to observe all broadcasts in the same order) to both satisfy cache-to-cache misses directly and resolve protocol races. Protocol races can occur, for example, when two processors request the same block at the same time.</p><p>To overcome the increasingly difficult challenge of scaling the bandwidth of shared-wire buses <ref type="bibr" target="#b12">[13]</ref>, some recent snooping designs broadcast requests on a "virtual bus" created with an indirect switched interconnect (e.g., <ref type="figure">Figure 1a</ref>). These interconnects can provide higher bandwidth than buses, at the cost of additional switch chips. The use of broadcast limits snooping's scalability, but small-to medium-sized snooping-based multiprocessors (4-16 processors) suffice for many workloads, because larger services tend to cluster machines to increase both throughput and availability.</p><p>Technology trends. The increasing number of transistors per chip predicted by Moore's Law has encouraged and will continue to encourage more integrated designs, making "glue" logic (e.g., discrete switch chips) less desirable. Many current and future systems will integrate processor(s), cache(s), coherence logic, switch logic, and memory controller(s) on a single die (e.g., Alpha 21364 <ref type="bibr" target="#b31">[32]</ref> and AMD's Hammer <ref type="bibr" target="#b4">[5]</ref>). Directly connecting these highly-integrated nodes leads to a high-bandwidth, lowcost, low-latency "glueless" interconnect (e.g., <ref type="figure">Figure 1b</ref>). These glueless interconnects are fast but do not easily provide the virtual bus behavior required by traditional snooping protocols. Instead, most such systems use directory protocols, which provide coherence without requiring broadcast or a totally-ordered interconnect. These systems maintain a directory at the home node (i.e., memory) that resolves some protocol races by ordering requests on a per-cache-block basis. Unfortunately, traditional directory protocols must first send all requests to the home node, adding an indirection to the critical path of cache-to-cache misses-a poor match for commercial workloads.</p><p>Our approach. Ideally, a coherence protocol would both avoid indirection latency for cache-to-cache misses (like snooping protocols) and not require any interconnect ordering (like directory protocols). One obvious approach is to directly send broadcasts on an unordered interconnect. This general approach has not been used, however, because it suffers from numerous race cases that are difficult to make correct (as discussed in Section 2).</p><p>Token Coherence. Rather than abandoning this fast approach, we use it to make the common case fast, but we back it up with a substrate that ensures correctness. To this end, we propose Token Coherence, which has two parts: a correctness substrate and a performance protocol.</p><p>•Correctness substrate: The substrate (as described in Section 3) provides a foundation for building correct coherence protocols on unordered interconnects by ensuring safety (i.e., guaranteeing all reads and writes are coherent) and starvation avoidance (i.e., guaranteeing all reads and writes are eventually completed). The substrate ensures safety by (1) associating a fixed number of tokens with each logical block of shared memory, and (2) ensuring that a processor may read a cache block only if it holds at least one of the block's tokens, and it may write a cache block only if it holds all of the block's tokens (allowing for a single writer or many readers, but not both). Tokens are held with copies of the block in caches and memory and exchanged using coherence messages. The substrate provides starvation freedom via persistent requests, which a processor invokes when it detects possible starvation. Persistent requests always succeed in obtaining data and tokens-even when races occur-because once activated they persist in forwarding data and tokens until the request is satisfied.</p><p>•Performance protocol: Performance protocols (as described in Section 4.1) use transient requests as "hints" to direct the correctness substrate to send data and tokens to the requesting processor. In the common case, a transient request succeeds in obtaining the requested data and tokens. However, transient requests may fail to complete, principally due to races. Since the correctness substrate prevents starvation (via persistent requests) and guarantees safety (via token counting), performance protocol bugs and various races may hurt performance, but they cannot affect correctness. Since Token Coherence never speculatively modifies memory state, it is not a speculative execution technique, and it requires no rollback or recovery mechanism.</p><p>TokenB. We target medium-sized glueless multiprocessors with unordered interconnects using a specific performance protocol called Token-Coherence-using-Broadcast or TokenB (Section 4.2). In TokenB, processors broadcast transient requests and respond like a traditional MOSI snooping protocol. TokenB directly locates the data in the common case of no races, allowing for low-latency cacheto-cache misses. When transient requests fail (due to races), the protocol reissues them until the processor times out and invokes a persistent request to prevent starvation.</p><p>For selected commercial workloads on a full-system simulation of a 16-processor system (described in Section 5), we find that (1) reissued and persistent requests are rare (3.0% and 0.2% of requests, respectively), (2) TokenB is faster than traditional snooping, because it allows use of an unordered interconnect (15-28% faster), (3) TokenB is faster than a directory protocol, because it avoids directory indirections (17-54%), and (4) a directory protocol uses less bandwidth than TokenB (21-25% for 16 processors), but this additional bandwidth may not be a significant The boxes marked "P" represent highly-integrated nodes that include a processor, caches, memory controller, and coherence controllers. The indirect broadcast tree uses discrete switches, while the torus is a directly connected interconnect. In this example, the torus has lower latency (two vs. four chip crossings on average) and does not require any glue chips; however, unlike the indirect tree, the torus provides no request total order, making it unsuitable for traditional snooping.  While TokenB provides an attractive alternative for smallto medium-sized systems, Token Coherence is a general coherence framework that enables the creation of other performance protocols (described in Section 7) that can reduce traffic for larger systems, use prediction to push data, and support hierarchy with low complexity.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="2">A Motivating Example Race</head><p>In this section, we first present a simple coherence race to illustrate that naively sending requests without an ordering point is incorrect. We then review how the race is handled by traditional snooping protocols (by ordering requests in the interconnect) and directory protocols (by ordering requests at the home node). Finally, we forecast how Token Coherence handles this and other races.</p><p>Fast (but incorrect) approach. Invalidation-based coherence protocols provide the illusion of a single memory shared by all processors by allowing either a single writer or many readers, but not both at the same time. A fast way to obtain read or write permission to a cache block would allow requesters to broadcast requests to all other processors over a low-latency unordered interconnect. Doing this naively, however, may allow a processor to erroneously read stale (or incoherent) data when processors act on racing requests in different orders.</p><p>Consider the example illustrated in <ref type="figure" target="#fig_2">Figure 2a</ref>, in which processor P 0 desires read/write access to the block (i.e., MOESI <ref type="bibr" target="#b40">[41]</ref> state modified or M), and processor P 1 desires read-only access (i.e., state shared or S). P 0 broadcasts its request at time , which the interconnect promptly delivers to P 1 at time  but belatedly to memory at time  (e.g., due to contention on the unordered interconnect).</p><p>Processor P 1 handles P 0 's request but takes no action other than an invalidation acknowledgment at time , because it lacks a valid copy. Later, at time , P 1 issues its request, which the memory quickly satisfies at time . Finally, P 0 's delayed request arrives at memory at time , and the memory satisfies the request at time . After receiving both responses, P 0 believes (erroneously) that it has a writable copy of the block, but P 1 still holds a read-only copy. If this situation arises, the memory consistency modelthe definition of memory access correctness in a multiprocessor system-may be violated.</p><p>Snooping protocols. Traditional split-transaction snooping protocols resolve this example race and other races by relying on a totally-ordered interconnect-a virtual busto provide a total order of all requests. This ordering ensures that all processors (and memories) observe requests in the same order (including their own requests, to establish their place in the total order). In our example race, request ordering was not consistent with a total order. P 1 observed its request as occurring after P 0 's request, while the memory observed P 1 's request before P 0 's request. A total order would guarantee correct operation because either P 0 's invalidation would have occurred before P 1 's request (and thus P 0 would transition to readonly and respond to P 1 's request), or P 0 's request would have arrived at P 1 after P 1 's request (invalidating P 1 's shared copy of the block). Unfortunately, interconnects that enforce a total order may have higher latency or cost.</p><p>Directory protocols. Directory protocols resolve this example race and other races without an ordered interconnect by providing a per-block ordering point at the directory. A directory protocol prevents this example race by (1) relying on the directory controller to determine which request will be satisfied first, (2) using forwarded requests, invalidations, and explicit acknowledgements to enforce ordering, and (3) possibly blocking, queuing, or negatively acknowledging requests in some cases. In our example, P 1 's request arrives at the home memory/directory first, and the memory provides data. P 0 's request arrives later, and the home forwards an invalidation message to P 1 . P 0 's request completes after receiving an acknowledgment from P 1 and data from the home, knowing that no other copies are present in the system. Unfortunately, the cost of this solution is an added level of indirection on the critical path of cache-to-cache misses.</p><p>Token Coherence. Token Coherence allows races to occur but provides correct behavior in all cases with a correctness substrate. This substrate ensures that processors only read and write coherent blocks appropriately (safety) and that processors eventually obtain a needed block (starvation avoidance). Performance protocols seek to make the common case fast with requests (or hints) for data movement that do not always succeed due to races. After describing the correctness substrate (in Section 3) and performance protocols (in Section 4), we revisit this example race in the context of Token Coherence (in Section 4.2). </p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3">Correctness Substrate</head><p>The correctness substrate uses token counting to enforce safety (do no harm), and it uses persistent requests to prevent starvation (do some good). These two mechanisms allow the substrate to move data around the system without concern for order or races, allowing processors to only read or write the block as appropriate, but still ensures that a request for a block will eventually succeed in all cases.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.1">Enforcing Safety via Token Counting</head><p>The correctness substrate uses tokens to ensure safety without requiring indirection or a totally-ordered interconnect. The system associates a fixed number of tokens with each block of shared memory, and a processor is only allowed to read a cache block when it holds at least one token, or write a cache block when holding all tokens.</p><p>During system initialization, the system assigns each block T tokens (where T is at least as large as the number of processors). Initially, the block's home memory module holds all tokens for a block. Later, tokens are held also by processor caches and coherence messages. Tokens and data are allowed to move throughout the system as long as the substrate maintains these four invariants:</p><p>•Invariant #1: At all times, each block has T tokens in the system.</p><p>•Invariant #2: A processor can write a block only if it holds all T tokens for that block.</p><p>•Invariant #3: A processor can read a block only if it holds at least one token for that block.</p><p>•Invariant #4: If a coherence message contains one or more tokens, it must contain data. Invariant #1 ensures that the substrate never creates or destroys tokens. Invariants #2 and #3 ensure that a processor will not write the block while another processor is reading it. Adding invariant #4 ensures that processors holding tokens always have a valid copy of the data block. In more familiar terms, token possession maps directly to traditional coherence states: holding all T tokens is modified (M); one to T-1 tokens is shared (S); and no tokens is invalid (I).</p><p>The token-based correctness substrate enforces these invariants directly by counting tokens. The substrate maintains these invariants by induction; the invariants hold for the initial system state, and all movements of data and tokens preserve the invariants. Thus, safety is ensured without reasoning about the interactions among non-stable protocol states, data responses, acknowledgment messages, interconnect ordering, or system hierarchy.</p><p>Token Coherence enforces a memory consistency model <ref type="bibr" target="#b3">[4]</ref>-the definition of correctness for multiprocessor systems-in a manner similar to directory protocols. The above guarantee of a "single writer" or "multiple readers with no writer" is the same property provided by traditional invalidation-based directory protocols. For example, the MIPS R10k processors <ref type="bibr" target="#b42">[43]</ref> in the Origin 2000 <ref type="bibr" target="#b22">[23]</ref> use this guarantee to provide sequential consistency, even without a global ordering point 1 . The Origin protocol uses explicit invalidation acknowledgments to provide the above guarantee. We provide the same guarantee by explicitly tracking tokens for each block. As with any coherence scheme, the processors are also intimately involved in enforcing the memory consistency model. Optimized token counting. An issue with the invariants above is that data must always travel with tokens, even when gathering tokens from shared copies. To avoid this bandwidth inefficiency, the substrate actually allows tokens to be transferred without data (similar to the dataless invalidation acknowledgment messages in a directory protocol). To enable this optimization, the substrate distinguishes a separate owner token, adds a data valid bit (distinct from the traditional tag valid bit), and maintains the following four invariants (changes in italics):</p><p>•Invariant #1': At all times, each block has T tokens in the system, one of which is the owner token.</p><p>•Invariant #2': A processor can write a block only if it holds all T tokens for that block.</p><p>•Invariant #3': A processor can read a block only if it holds at least one token for that block and has valid data.</p><p>•Invariant #4': If a coherence message contains the owner token, it must contain data. Invariants #1', #2' and #3' continue to provide safety. Invariant #4' allows coherence messages with non-owner tokens to omit data, but it still requires that messages with the owner token contain data (to prevent all processors from simultaneously discarding data). Possession of the owner token but not all other tokens maps to the familiar MOESI state owned (O). System components (processors and the home memory) maintain a valid bit, to allow components to receive and hold non-owner tokens without valid data. A component sets the valid bit when a message with data and at least one token arrives, and a component clears the valid bit when it no longer holds any tokens.</p><p>Tokens are held in processor caches (e.g., part of tag state), memory (e.g., encoded in ECC bits <ref type="bibr" target="#b16">[17,</ref><ref type="bibr" target="#b31">32,</ref><ref type="bibr" target="#b33">34]</ref>), and coherence messages 2 . Since we do not track which processors hold them but only count tokens, tokens can be stored in 2+log 2 T bits (valid bit, owner-token bit, and nonowner token count). For example, encoding 64 tokens with 64-byte blocks adds one byte of storage (1.6% overhead).</p><p>Finally, there is important freedom in what the invariants do not specify. While our invariants restrict the data and token content of coherence messages, the invariants do not restrict when or to whom the substrate can send coherence messages. For example, to evict a block (and thus tokens) from a cache, the processor simply sends all its tokens (and data if the message includes the owner token) to the memory. Likewise, anytime a processor receives a message carrying tokens (with or without data), it can either choose to accept it (e.g., if there is space in the cache) or redirect it to memory (using another virtual network to avoid deadlock). We use this freedom in three additional ways. First, we define persistent requests to prevent starvation (Section 3.2). Second, we define transient requests that allow a performance protocol to send "hints" to inform the substrate to which processor it should send data and tokens (Section 4.1). Third, this freedom enables many performance protocols (Section 4.2 and Section 7).</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.2">Avoiding Starvation via Persistent Requests</head><p>The correctness substrate provides persistent requests to prevent starvation. A processor invokes a persistent request whenever it detects possible starvation (e.g., it has failed to complete a cache miss within a timeout period). Since processors should only infrequently resort to persistent requests, persistent requests must be correct but not necessarily fast. The substrate uses persistent requests to prevent starvation by performing the following steps:</p><p>•When a processor detects possible starvation, it initiates a persistent request.</p><p>•The substrate activates at most one persistent request per block.</p><p>•System nodes remember all activated persistent requests and forward all tokens for the block-those tokens currently present and received in the future-to the initiator of the request.</p><p>•When the initiator has sufficient tokens, its performs a memory operation (e.g., a load or store instruction) and deactivates its persistent request. To guarantee starvation freedom, the system must provide a fair mechanism for activating persistent requests.</p><p>Implementation. Processors invoke a persistent request when a cache miss has not been satisfied within ten average miss times. The correctness substrate implements persistent requests with a simple arbiter state machine at each home memory module. The substrate directs persistent requests to the home node of the requested block. Requests may queue in a dedicated virtual network or at the home node. The arbiter state machine activates at most one request by informing all nodes. Each node responds with an acknowledgement (to avoid races) and remembers all active persistent requests using a hardware table. This table contains an 8-byte entry per arbiter (i.e., per home memory module). For example, a 64-node system requires only a 512-byte table at each node. While a persistent request is active, nodes must forward all tokens (and data, if they have the owner token) to the requester. The node will also forward tokens (and data) that arrive later, because the request persists until the requester explicitly deactivates it. Once the requester is satisfied, it sends a message to the arbiter at the home memory module to deactivate the request. The arbiter deactivates the request by informing all nodes, who delete the entry from their table and send an acknowledgement (again, to eliminate races). <ref type="figure" target="#fig_4">Figure 3</ref> shows the general operation of our implementation of the correctness substrate.</p><p>While this implementation of activating persistent requests is sufficient for our experiments, we are currently developing a distributed arbitration scheme that efficiently transfers highly-contended blocks directly between contending processors.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="4">Performance Protocols</head><p>This section first discusses performance protocol requirements and then presents TokenB, a performance protocol targeting medium-sized glueless multiprocessors.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="4.1">Obligations and Opportunities</head><p>Obligations. Performance protocols have no obligations, because the processors and correctness substrate ensure correctness. A null or random performance protocol would perform poorly but not incorrectly. Therefore, performance protocols may aggressively seek performance without concern for corner-case errors.</p><p>Opportunities via Transient Requests. One way in which performance protocols seek high performance is by specifying a policy for using transient requests. Transient requests are fast, unordered "hint" requests sent to one or more nodes that often succeed, but may fail to obtain a readable or writable block due to races, insufficient recipients, or being ignored by the correctness substrate. Performance protocols can detect when a request has not (yet) succeeded, because the requester has not obtained sufficient tokens (i.e., one token to read the block, and all tokens to write it). Performance protocols may reissue transient requests or do nothing (since the processor will eventually timeout and issue a persistent request).</p><p>A performance protocol also specifies a policy for how system components respond to transient requests. If a transient request for a shared block encounters data with all tokens, for example, a performance protocol can specify whether the substrate should reply with the data and one token or the data and all tokens (much like a migratory sharing optimization <ref type="bibr" target="#b11">[12,</ref><ref type="bibr" target="#b39">40]</ref>). Active persistent requests always override performance protocol policies to prevent starvation.</p><p>A good performance protocol will use transient requests to quickly satisfy most cache misses. Returning to the exam-ple from Section 2 (illustrated in <ref type="figure" target="#fig_2">Figure 2b</ref>), both processors could broadcast transient requests. Even though the requests race, frequently both processor's misses would be satisfied. In other cases, one or both may not succeed (detected by insufficient tokens and a timeout). When this occurs, the performance protocol can reissue those transient requests. In the worst case, one or both processors may time out and issue persistent requests.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="4.2">TokenB: Targeting Glueless Multiprocessors</head><p>The Token-Coherence-using-Broadcast (TokenB) performance protocol uses three policies to target glueless multiprocessors with high-bandwidth unordered interconnects.</p><p>Issuing transient requests. Processors broadcast all transient requests. This policy works well for moderate-sized systems where interconnect bandwidth is plentiful and when racing requests are rare.   3. Technically, the performance protocol asks the correctness substrate to respond on its behalf.</p><p>To optimize for common migratory sharing patterns, we implement a well-known optimization for migratory data <ref type="bibr" target="#b11">[12,</ref><ref type="bibr" target="#b39">40]</ref>. If a processor with all tokens (state M) has written the block, and it receives a shared request, it provides read/write permission to the block by responding with the data and all tokens (instead of the data and one token). We also implement an analogous optimization in all other protocols we compare against in the evaluation.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>Reissuing transient requests. If a transient request has</head><p>not completed after a reasonable interval, we reissue the transient request. We continue to reissue transient requests until the processor invokes the persistent request mechanism (approximately 4 times). We use both a small randomized exponential backoff (much like ethernet) and twice the recent average miss latency to calculate the reissue timeout. This policy adapts to the average miss latency of the system (to avoid reissuing too soon), but it also quickly reissues requests that do not succeed due to occasional races. Since races are rare, on average only 3.0% of all misses are reissued even once (for our workloads and simulation assumptions, described next).</p><p>Example. Returning to the example race in Section 2 <ref type="figure" target="#fig_2">(Figure 2b</ref>), the block has three tokens that are initially held by memory. P 1 received one token in the response at time , allowing it to read the block. Due to the race, P 0 only received two tokens in the response at time  but requires all three before it can write the block. After the specified timeout interval, TokenB reissues P 0 's request at time . P 1 responds with the missing token at time , allowing P 0 to finally complete its request.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="5">Evaluation Methods</head><p>To evaluate Token Coherence, we simulate a multiprocessor server running commercial workloads using multiple interconnection networks and coherence protocols. Our target system is a 16-processor SPARC v9 system with highly integrated nodes that each include a pipelined dynamically scheduled processor, two levels of cache, coherence protocol controllers, and a memory controller for part of the globally shared memory. The system implements sequential consistency using invalidation-based cache coherence and an aggressive, speculative processor implementation <ref type="bibr" target="#b17">[18,</ref><ref type="bibr" target="#b42">43]</ref>.</p><p>Our benchmarks consist of three commercial workloads: an online transaction processing workload (OLTP), a static web serving workload (Apache), and a Java middleware workload (SPECjbb). We refer interested readers to Alameldeen et al. <ref type="bibr" target="#b5">[6]</ref> for a more detailed description and characterization of these workloads.</p><p>We selected a number of coherence protocols, interconnection networks, latencies, bandwidths, cache sizes, and other structure sizes. <ref type="table" target="#tab_1">Table 1</ref> lists the system parameters for both the memory system and the processors, chosen to approximate the published parameters of systems like the Alpha 21364 <ref type="bibr" target="#b31">[32]</ref>. The coherence protocols and interconnection networks are described below.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="5.1">Coherence Protocols</head><p>We compare target systems using four distinct MOSI coherence protocols. They all implement the previously described migratory sharing optimization that improves the performance of all the protocols. All request, acknowledgment, invalidation, and dataless token messages are 8 bytes in size (including the 40+ bit physical address and token count if needed); data messages include this 8 byte header and 64 bytes of data. We compare the TokenB protocol (described in Section 4) with three other coherence protocols:</p><p>Snooping. We based our traditional snooping protocol on a modern protocol <ref type="bibr" target="#b10">[11]</ref>, and we added additional non-stable states to relax synchronous timing requirements. To avoid the complexity and latency of a snoop response combining tree to implement the "owner" signal, the protocol uses a single bit in memory to determine when the memory should respond to requests <ref type="bibr" target="#b15">[16]</ref>.</p><p>Directory. We use a standard full-map directory protocol inspired by the Origin 2000 <ref type="bibr" target="#b22">[23]</ref> and Alpha 21364 <ref type="bibr" target="#b31">[32]</ref>. The protocol requires no ordering in the interconnect and does not use negative acknowledgments (nacks) or retries, but it does queue requests at the directory controller in some cases. The base system stores the directory state in the main memory DRAM <ref type="bibr" target="#b16">[17,</ref><ref type="bibr" target="#b31">32,</ref><ref type="bibr" target="#b33">34]</ref>, but we also evaluate systems with "perfect" directory caches by simulating a zero cycle directory access latency.</p><p>Hammer. We use a reverse-engineered approximation of AMD's Hammer protocol <ref type="bibr" target="#b4">[5]</ref> to represent a class of recent systems whose protocols are not described in the academic literature (e.g., Intel's E8870 Scalability Port <ref type="bibr" target="#b6">[7]</ref>, IBM's Power4 <ref type="bibr" target="#b41">[42]</ref> and xSeries Summit <ref type="bibr" target="#b9">[10]</ref> systems). The protocol targets small systems (where broadcast is acceptable) with unordered interconnects (where traditional snooping is not possible), while avoiding directory state overhead and directory access latency. In this protocol, a processor first sends its request to a home node to be queued behind other requests to the same block. In parallel with the memory access, the home node broadcasts the request to all nodes who each respond to the requester with data or an acknowledgment. Finally, the requester sends a message to unblock the home node. By avoiding a directory lookup, this protocol has lower latency for cache-to-cache misses than a standard directory protocol, but it still requires indirection through the home node.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="5.2">Interconnection Networks</head><p>We selected two interconnects with high-speed point-topoint links: an ordered "virtual bus" pipelined broadcast tree (sufficient for traditional snooping) and an unordered torus. We do not consider shared-wire (multi-drop) buses, because designing high-speed buses is increasingly difficult due to electrical issues [13, section 3.4.1]. We selected the link bandwidth of 3.2 GBytes/sec (4-byte wide links at 800 Mhz) and latency of 15 ns based on descriptions of current systems (e.g., the Alpha 21364 <ref type="bibr" target="#b31">[32]</ref> and AMD's hammer <ref type="bibr" target="#b4">[5]</ref>). Messages are multiplexed over a single shared interconnect using virtual networks and channels, and broadcast messages use bandwidth-efficient treebased multicast routing [14, section 5.5].</p><p>Tree ( <ref type="figure">Figure 1a</ref>). For our totally-ordered interconnect, we use a two-level hierarchy of switches to form a pipelined broadcast tree with a fan-out of four, resulting in a message latency of four link crossings. This tree obtains the total order required for traditional snooping by using a single switch at the root. To reduce the number of pins per switch, a 16-processor system using this topology has nine switches (four incoming switches, four outgoing switches, and a single root switch).</p><p>Torus <ref type="figure">(Figure 1b</ref>). For our unordered interconnect, we use a two-dimensional, bidirectional torus like that used in the Alpha 21364 <ref type="bibr" target="#b31">[32]</ref>. A torus has reasonable latency and bisection bandwidth, especially for small to mid-sized systems. For 16-processor systems, this interconnect has an average message latency of two link crossings.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="5.3">Simulation Methods</head><p>We simulate our target systems with the Simics full-system multiprocessor simulator <ref type="bibr" target="#b25">[26]</ref>, and we extend Simics with a processor and memory hierarchy model to compute execution times <ref type="bibr" target="#b5">[6]</ref>. Simics is a system-level architectural simulator developed by Virtutech AB that can run unmodified commercial applications and operating systems. Simics is a functional simulator only, but it provides an interface to support our detailed timing simulation. We use TFsim <ref type="bibr" target="#b29">[30]</ref>, configured as described in <ref type="table" target="#tab_1">Table 1</ref>, to model superscalar processor cores that are dynamically scheduled, exploit speculative execution, and generate multiple outstanding coherence requests. Our detailed memory hierarchy simulator models the latency and bandwidth of the interconnects described above, and it also captures timing races and all state transitions (including non-stable states) of the coherence protocols. All workloads were warmed up and checkpointed to avoid system cold-start effects, and we ensure that caches are warm by restoring the cache contents captured as part of our checkpoint creation process. To address the variability in commercial workloads, we adopt the approach of simulating each design point multiple times with small, pseudo-random perturbations of request latencies to cause alternative operating system scheduling paths in our otherwise deterministic simulations <ref type="bibr" target="#b5">[6]</ref>. Error bars in our runtime results represent one standard deviation from the mean in each direction.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="6">Evaluation via Five Questions</head><p>We present evidence that Token Coherence can improve performance via five questions.</p><p>Question #1: Can the number of reissued and persistent requests be small? Answer: Yes; on average for our workloads, 97% of TokenB's cache misses are issued only once. Since reissued requests are slower and consume more bandwidth than misses that succeed on the first attempt, reissued requests must be uncommon for TokenB to perform well. Races are rare in our workloads, because-even though synchronization and sharing are common-multiple processors rarely access the same data simultaneously due to the large amount of shared data. <ref type="table" target="#tab_2">Table 2</ref> shows the percentage of all TokenB misses that are not reissued, reissued once, reissued more than once, and that eventually use persistent requests. For our workloads, on average only 3.0% of cache misses are issued more than once and only 0.2% resort to persistent requests. <ref type="table" target="#tab_2">(Table 2</ref> shows Torus interconnect results, but Tree results, not shown, are similar.)</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>Question #2: Can TokenB outperform Snooping?</head><p>Answer: Yes; with the same interconnect, TokenB and Snooping perform similarly for our workloads; however, by exploiting the lower-latency unordered Torus, TokenB on the Torus is faster than Snooping on the Tree intercon- nect (15-28% faster). <ref type="figure" target="#fig_6">Figure 4a</ref> shows the normalized runtime (smaller is better) of TokenB on the Tree and Torus interconnects and Snooping on the Tree interconnect. Snooping on the Torus is not applicable, because the Torus does not provide the required total order of requests. The dark grey bar shows the runtime when the bandwidth is changed from 3.2 GB/s to unlimited. <ref type="figure" target="#fig_6">Figure 4b</ref> shows the traffic in normalized average bytes per miss.</p><p>On the Tree interconnect, due to TokenB's occasionally reissued requests, Snooping is slightly faster than TokenB (1-5% and 1-3%) with both limited and unlimited bandwidth, respectively <ref type="figure" target="#fig_6">(Figure 4a</ref>), and both protocols use approximately the same interconnect bandwidth <ref type="figure" target="#fig_6">(Figure 4b</ref>). However, since Snooping requires a totallyordered interconnect, only TokenB can exploit a lowerlatency unordered interconnect. Thus, by using the Torus, TokenB is 26-65% faster than Snooping on Tree with limited bandwidth links, and 15-28% faster with unlimited bandwidth links. This speedup results from (1) lower latency for all misses (cache-to-cache or otherwise) due to lower average interconnect latency, and (2) lower contention in Torus (by avoiding Tree's central-root bottleneck).</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>Question #3: Can TokenB outperform Directory and</head><p>Hammer? Answer: Yes; by removing the latency of indirection through the home node from the critical path of cache-to-cache misses, TokenB is faster than both Directory and Hammer (17-54% and 8-29% faster, respectively). <ref type="figure" target="#fig_8">Figure 5a</ref> shows the normalized runtime (smaller is better) for TokenB, Hammer, and Directory on the Torus interconnect with 3.2 GB/second links (the relative performances on Tree, not shown, are similar). The light grey bars illustrate the small increase in runtime due to limited bandwidth in the interconnect. The grey striped bar for Directory illustrates the runtime increase due to the DRAM directory lookup latency.</p><p>TokenB is faster than Directory and Hammer by (1) avoiding the third interconnect traversal for cache-to-cache misses, (2) avoiding the directory lookup latency (Directory only), and (3) removing blocking states in the memory controller. Even if the directory lookup latency is reduced to zero (to approximate a fast SRAM directory or directory cache), shown by disregarding the grey striped bar in <ref type="figure" target="#fig_8">Figure 5a</ref>, TokenB is still faster than Directory by 6-18%. Hammer is 7-17% faster than Directory by avoiding the directory lookup latency (but not the third interconnect traversal), but Directory with the zero-cycle directory access latency is 2-9% faster than Hammer due to contention in the interconnect. The performance impact of TokenB's additional traffic is negligible, because (1) the interconnect has sufficient bandwidth due to high-speed point-to-point links, and (2) the additional traffic of TokenB is moderate, discussed next.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>Question #4: How does TokenB's traffic compare to</head><p>Directory and Hammer? Answer: TokenB generates less interconnect traffic than Hammer, but a moderate amount more than Directory (Hammer uses 79-90% more traffic than TokenB, Directory uses 21-25% less than TokenB). Directory's traffic on average), (2) request messages are small (8 bytes), and (3) Torus supports broadcast tree routing (as stated in Section 5.2). Hammer, which targets smaller systems, uses much more bandwidth than TokenB or Directory, because every processor acknowledges each request (shown by the light grey striped segment).</p><p>Question #5: Can the TokenB protocol scale to an unlimited number of processors? Answer: No; TokenB relies on broadcast, limiting its scalability. However, Token Coherence is not limited to always broadcasting. TokenB is more scalable than Hammer, because Hammer uses broadcast and many acknowledgment messages. TokenB is less scalable than Directory, because Directory avoids broadcast. However, TokenB can perform well for perhaps 32 or 64 processors if bandwidth is abundant (by using high-bandwidth links <ref type="bibr" target="#b19">[20]</ref> and coherence controllers with high throughput <ref type="bibr" target="#b32">[33,</ref><ref type="bibr" target="#b35">36]</ref> and low power consumption <ref type="bibr" target="#b30">[31]</ref>). Experiments (not shown) using a simple microbenchmark indicate that, for a 64 processor system, TokenB uses twice the interconnect bandwidth of Directory 4 . However, TokenB is a poor choice for larger or more bandwidth-limited systems. For this reason, the next section discusses other potential performance protocols.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="7">Other Performance Protocol Opportunities</head><p>Token Coherence enables many performance protocols beyond the broadcast-always TokenB protocol. Furthermore, since its correctness substrate guarantees safety and prevents starvation, performance protocol designers can innovate without fear of corner-case correctness errors.</p><p>Reducing traffic. We can reduce request traffic (by not broadcasting transient requests) in several ways. First, we can reduce the traffic to directory protocol-like amounts by constructing a directory-like performance protocol. Processors first send transient requests to the home node, and the home redirects the request to likely sharers and/or the owner by using a "soft state" directory <ref type="bibr" target="#b24">[25]</ref>. Second, bandwidth-adaptive techniques would allow a system to dynamically adapt between TokenB and this directory-like mode, providing high performance for multiple system sizes and workloads <ref type="bibr" target="#b28">[29]</ref>. Third, Token Coherence can use destination-set prediction <ref type="bibr" target="#b1">[2,</ref><ref type="bibr" target="#b2">3,</ref><ref type="bibr" target="#b8">9,</ref><ref type="bibr" target="#b26">27]</ref> to achieve the performance of broadcast while using less bandwidth by predicting a subset of processors to which to send requests. Previously, these proposals required complicated protocols or protocol extensions. By multicasting transient requests, Token Coherence provides a simpler implementation of these proposals, while eliminating the totally-ordered interconnect required by some proposals <ref type="bibr" target="#b8">[9,</ref><ref type="bibr" target="#b26">27]</ref> and complex races in other proposals <ref type="bibr" target="#b1">[2,</ref><ref type="bibr" target="#b2">3,</ref><ref type="bibr" target="#b8">9,</ref><ref type="bibr" target="#b26">27]</ref>.</p><p>Predictive push. The decoupling of correctness and performance provides an opportunity to reduce the number of cache misses by predictively pushing data between system components. This predictive transfer of data can be triggered by a coherence protocol predictor <ref type="bibr" target="#b0">[1,</ref><ref type="bibr" target="#b20">21,</ref><ref type="bibr" target="#b34">35]</ref>, by software (e.g., the KSR1's "poststore" <ref type="bibr" target="#b36">[37]</ref> and DASH's "deliver" <ref type="bibr" target="#b23">[24]</ref>), or by allowing the memory to push data into processor caches. Since Token Coherence allows data and tokens to be transferred between system components without affecting correctness, these schemes are easily implemented correctly as part of a performance protocol.   Θ n ( ) Hierarchical system support. Token Coherence can also accelerate hierarchical systems, an increasingly important concern with the rise of chip multiprocessors (CMPs, e.g., IBM's Power4 <ref type="bibr" target="#b41">[42]</ref>). Power4 uses extra protocol states to allow neighboring processors to respond with data, reducing traffic and average miss latency. A Token Coherence performance protocol could achieve this more simply by granting extra tokens to requesters, and allowing those processors to respond with data and tokens to neighboring processors. Other hierarchical systems connect smaller snooping based modules into larger systems (e.g., <ref type="bibr" target="#b6">[7,</ref><ref type="bibr" target="#b9">10,</ref><ref type="bibr" target="#b23">24]</ref>). Token Coherence may allow for a single protocol to more simply achieve the latency and bandwidth characteristics of these hierarchical systems, without requiring the complexity of two distinct protocols and the bridge logic between them.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="8">Related Work</head><p>Protocol and interconnect co-design. Timestamp Snooping <ref type="bibr" target="#b27">[28]</ref> adds ordering sufficient for traditional snooping to an unordered interconnect by using timestamps and reordering requests at the interconnect end points. Other approaches eschew virtual buses by using rings or a hierarchy of rings <ref type="bibr" target="#b14">[15,</ref><ref type="bibr" target="#b36">37,</ref><ref type="bibr" target="#b41">42]</ref> or race-free interconnects <ref type="bibr" target="#b21">[22]</ref>. Token Coherence addresses similar problems, but instead uses a new coherence protocol on an unordered interconnect to remove indirection in the common case.</p><p>Coherence protocols. Acacio et al. separately target readmiss latency <ref type="bibr" target="#b1">[2]</ref> and write-miss latency <ref type="bibr" target="#b2">[3]</ref> by augmenting a directory protocol with support for predicting current holders of the block. In many cases, the system grants permission without indirection, but in other cases, prediction is not allowed, requiring normal directory-based request ordering and directory indirection. In contrast, we introduce a simpler, unified approach that allows for correct direct communication in all cases, only resorting to a slower mechanism for starvation prevention. Shen et al.</p><p>[38] use term rewriting rules to create a coherence protocol that allows operations from any of several sub-protocols, forming a trivially-correct hybrid protocol. We similarly provide a correctness guarantee, but we use tokens to remove ordering overheads from the common case. The Dir 1 SW directory protocol <ref type="bibr" target="#b18">[19]</ref> keeps a count of sharers at the memory for detecting the correct use of check-in/check-out annotations, and Stenstrom <ref type="bibr" target="#b38">[39]</ref> proposes systems that use limited directory state and state in caches to track sharers. Token Coherence uses similar state in the memory and caches to count tokens, but it uses tokens to enforce high-level invariants that avoid directory indirection in the common case. Li and Hudak <ref type="bibr" target="#b24">[25]</ref> explore a protocol in which each node tracks a probable owner, allowing requests to quickly find the current owner of the line. This approach could be used to improve a performance protocol or a persistent request mechanism.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="9">Conclusions</head><p>To enable low-latency cache-to-cache misses on unordered interconnects, this paper introduces Token Coherence. Token Coherence resolves protocol races without indirection or a totally-ordered interconnect by decoupling coherence into a correctness substrate and a performance protocol. The correctness substrate guarantees correct transfer and access to blocks by tracking tokens, and it prevents starvation using persistent requests. Free from the burden of correctness, the performance protocol directly requests blocks without concern for races. We introduced TokenB, a specific performance protocol based on broadcasting transient requests and reissuing requests when occasional races occur. TokenB can outperform traditional snooping by using low-latency, unordered interconnects. TokenB outperforms directory protocols by avoiding cache-to-cache miss indirections, while using only a moderate amount of additional bandwidth.</p><p>By decoupling performance and correctness, Token Coherence may be an appealing framework for attacking other multiprocessor performance and design complexity problems. Future performance protocols may reduce request bandwidth via destination-set prediction, reduce miss frequency via predictive push, and gracefully handle hierarchical systems. By using the substrate to ensure correctness, these optimizations can be implemented with little impact on system complexity.</p></div><figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_0"><head>Figure 1 . (a) 16 -processor two-level tree interconnect and (b) 16 -processor (4x4) bi-directional torus interconnect.</head><label>11616</label><figDesc>Figure 1. (a) 16-processor two-level tree interconnect and (b) 16-processor (4x4) bi-directional torus interconnect. The boxes marked "P" represent highly-integrated nodes that include a processor, caches, memory controller, and coherence controllers. The indirect broadcast tree uses discrete switches, while the torus is a directly connected interconnect. In this example, the torus has lower latency (two vs. four chip crossings on average) and does not require any glue chips; however, unlike the indirect tree, the torus provides no request total order, making it unsuitable for traditional snooping.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_2"><head>Figure 2 .</head><label>2</label><figDesc>Figure 2. Example Race. A request for shared (ReqS) racing with a request for modified (ReqM).</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_3"><head>Responding to transient requests.</head><label></label><figDesc>Components (proces- sors and the home memory) respond 3 to transient requests as they would in most MOSI protocols. A component with no tokens (state I) ignores all requests. A component with only non-owner tokens (state S) ignores shared requests, but on an exclusive request it sends all its tokens in a data- less message (like an invalidation acknowledgment in a directory protocol). A component with the owner token but not all other tokens (state O) sends the data with one token (usually not the owner token) on a shared request, and it sends the data and all its tokens on an exclusive request. A component with all the tokens (state M) responds the same way as a component in state O, with the exception given in the next paragraph.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_4"><head>Figure 3 . Correctness substrate state transitions for the (a) processor, (b) memory, and (c) persistent request arbiter.</head><label>3</label><figDesc>Figure 3. Correctness substrate state transitions for the (a) processor, (b) memory, and (c) persistent request arbiter. As a simplification, the figure shows only tokens sent with data. The symbol t represents the current token count, and T represents all the tokens. Solid arcs are transitions in response to incoming messages. Dashed arcs are transitions a performance protocol (Section 4) can invoke at any time (e.g., when receiving a transient request). The "P" states occur when a node receives a another processor's persistent request from the arbiter. Each processor must also remember its own persistent request, not explicitly shown in this figure. The initial states are emphasized with thick borders.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_6"><head>trafficFigure 4 .</head><label>4</label><figDesc>Figure 4. Snooping v. TokenB: runtime and traffic (a) (b)</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_7"><head>4 .</head><label>4</label><figDesc>The additional cost of tree-based broadcast on Torus grows as .</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_8"><head>Figure 5 .</head><label>5</label><figDesc>Figure 5. Directory and Hammer v. TokenB: runtime and traffic (a) (b)</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_1" validated="true"><head>Table 1 . Target System Parameters</head><label>1</label><figDesc></figDesc><table>Coherent Memory System 
+split L1 I &amp; D caches 
+128kBytes, 4-way, 2ns latency 
+unified L2 cache 
+4MBytes, 4-way, 6ns latency 
+cache block size 
+64 Bytes 
+DRAM/dir. latency 
+80ns (2 GBytes of DRAM) 
+memory/dir. controllers 
+6ns latency 
+network link bandwidth 
+3.2 GBytes/sec 
+network link latency 
+15ns (incl. wire, sync. &amp; route) 
+
+Dynamically Scheduled Processors 
+clock frequency 
+1 Ghz 
+reorder buffer/scheduler 
+128/64 entries 
+pipeline width 
+4-wide fetch &amp; issue 
+pipeline stages 
+11 
+direct branch predictor 
+1kBytes YAGS 
+indirect branch predictor 64 entry (cascaded) 
+return address stack 
+64 entry </table></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_2" validated="true"><head>Table 2 . Overhead due to reissued requests</head><label>2</label><figDesc></figDesc><table>Percentage of Misses 
+
+Workload 
+
+Not 
+Reissued 
+
+Reissued 
+Once 
+
+Reissued 
+&gt; Once 
+
+Persistent 
+Requests 
+Apache 
+95.75% 
+3.25% 
+0.71% 
+0.29% 
+OLTP 
+97.57% 
+1.79% 
+0.43% 
+0.21% 
+SPECjbb 
+97.60% 
+2.03% 
+0.30% 
+0.07% 
+
+Average 
+96.97% 
+2.36% 
+0.48% 
+0.19% </table></figure>
+
+			<note place="foot" n="1">. The Origin protocol uses a directory to serialize some requests for the same block; however, since memory consistency involves the ordering relationship between different memory locations [4], using a distributed directory is not alone sufficient to implement a memory consistency. 2. Like most coherence protocols (e.g., [11, 23, 32, 42]), we assume the interconnect provides reliable message delivery.</note>
+		</body>
+		<back>
+
+			<div type="acknowledgement">
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>Acknowledgments</head><p>We thank Virtutech AB, the Wisconsin Condor group, and the Wisconsin Computer Systems Lab for their help and support. We thank Alaa Alameldeen, Allan Baum, Adam Butts, Joel Emer, Kourosh Gharachorloo, Anders Landin, Alvin Lebeck, Carl Mauer, Kevin Moore, Shubu Mukherjee, Amir Roth, Dan Sorin, Craig Zilles, the Wisconsin Multifacet group, and the Wisconsin Computer Architecture Affiliates for their comments on this work.</p></div>
+			</div>
+
+			<div type="references">
+
+				<listBibl>
+
+<biblStruct xml:id="b0">
+	<analytic>
+		<title level="a" type="main">An Evaluation of Fine-Grain Producer-Initiated Communication in Cache-Coherent Multiprocessors</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">H</forename><surname>Abdel-Shafi</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Hall</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><forename type="middle">V</forename><surname>Adve</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">V</forename><forename type="middle">S</forename><surname>Adve</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the Third IEEE Symposium on High-Performance Computer Architecture</title>
+		<meeting>the Third IEEE Symposium on High-Performance Computer Architecture</meeting>
+		<imprint>
+			<date type="published" when="1997-02" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b1">
+	<analytic>
+		<title level="a" type="main">Owner Prediction for Accelerating Cache-to-Cache Transfers in a cc-NUMA Architecture</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><forename type="middle">E</forename><surname>Acacio</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>González</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><forename type="middle">M</forename><surname>García</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Duato</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of SC2002</title>
+		<meeting>SC2002</meeting>
+		<imprint>
+			<date type="published" when="2002-11" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b2">
+	<analytic>
+		<title level="a" type="main">The Use of Prediction for Accelerating Upgrade Misses in cc-NUMA Multiprocessors</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><forename type="middle">E</forename><surname>Acacio</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>González</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><forename type="middle">M</forename><surname>García</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Duato</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the International Conference on Parallel Architectures and Compilation Techniques</title>
+		<meeting>the International Conference on Parallel Architectures and Compilation Techniques</meeting>
+		<imprint>
+			<date type="published" when="2002-09" />
+			<biblScope unit="page" from="155" to="164" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b3">
+	<analytic>
+		<title level="a" type="main">Shared Memory Consistency Models: A Tutorial</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><forename type="middle">V</forename><surname>Adve</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">K</forename><surname>Gharachorloo</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">IEEE Computer</title>
+		<imprint>
+			<biblScope unit="volume">29</biblScope>
+			<biblScope unit="issue">12</biblScope>
+			<biblScope unit="page" from="66" to="76" />
+			<date type="published" when="1996-12" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b4">
+	<analytic>
+		<title level="a" type="main">AMD Opteron Shared Memory MP Systems</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Ahmed</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>Conway</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">B</forename><surname>Hughes</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">F</forename><surname>Weber</surname></persName>
+		</author>
+		<ptr target="http://www.hotchips.org/archive/hc14/pro-gram/28_AMD_Hammer_MP_HC_v8.pdf" />
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the 14th HotChips Symposium</title>
+		<meeting>the 14th HotChips Symposium</meeting>
+		<imprint>
+			<date type="published" when="2002-08" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b5">
+	<analytic>
+		<title level="a" type="main">Simulating a $2M Commercial Server on a $2K PC</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><forename type="middle">R</forename><surname>Alameldeen</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><forename type="middle">M K</forename><surname>Martin</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><forename type="middle">J</forename><surname>Mauer</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">K</forename><forename type="middle">E</forename><surname>Moore</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Xu</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><forename type="middle">J</forename><surname>Sorin</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><forename type="middle">D</forename><surname>Hill</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><forename type="middle">A</forename><surname>Wood</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">IEEE Computer</title>
+		<imprint>
+			<biblScope unit="volume">36</biblScope>
+			<biblScope unit="issue">2</biblScope>
+			<biblScope unit="page" from="50" to="57" />
+			<date type="published" when="2003-02" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b6">
+	<analytic>
+		<title level="a" type="main">Scalability Port: A Coherent Interface for Shared Memory Multiprocessors</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Azimi</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">F</forename><surname>Briggs</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Cekleov</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Khare</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Kumar</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">L</forename><forename type="middle">P</forename><surname>Looi</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the 10th Hot Interconnects Symposium</title>
+		<meeting>the 10th Hot Interconnects Symposium</meeting>
+		<imprint>
+			<date type="published" when="2002-08" />
+			<biblScope unit="page" from="65" to="70" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b7">
+	<analytic>
+		<title level="a" type="main">Memory System Characterization of Commercial Workloads</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">L</forename><forename type="middle">A</forename><surname>Barroso</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">K</forename><surname>Gharachorloo</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">E</forename><surname>Bugnion</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the 25th Annual International Symposium on Computer Architecture</title>
+		<meeting>the 25th Annual International Symposium on Computer Architecture</meeting>
+		<imprint>
+			<date type="published" when="1998-06" />
+			<biblScope unit="page" from="3" to="14" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b8">
+	<analytic>
+		<title level="a" type="main">Multicast Snooping: A New Coherence Method Using a Multicast Address Network</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">E</forename><forename type="middle">E</forename><surname>Bilir</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><forename type="middle">M</forename><surname>Dickson</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Y</forename><surname>Hu</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Plakal</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><forename type="middle">J</forename><surname>Sorin</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><forename type="middle">D</forename><surname>Hill</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><forename type="middle">A</forename><surname>Wood</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the 26th Annual International Symposium on Computer Architecture</title>
+		<meeting>the 26th Annual International Symposium on Computer Architecture</meeting>
+		<imprint>
+			<date type="published" when="1999-05" />
+			<biblScope unit="page" from="294" to="304" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b9">
+	<analytic>
+		<title level="a" type="main">EXA Cache/Scalability Controllers</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><forename type="middle">M</forename><surname>Borkenhagen</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><forename type="middle">D</forename><surname>Hoover</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">K</forename><forename type="middle">M</forename><surname>Valk</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">IBM Enterprise X-Architecture Technology: Reaching the Summit</title>
+		<imprint>
+			<date type="published" when="2002" />
+			<biblScope unit="page" from="37" to="50" />
+		</imprint>
+	</monogr>
+	<note>International Business Machines</note>
+</biblStruct>
+
+<biblStruct xml:id="b10">
+	<analytic>
+		<title level="a" type="main">Starfire: Extending the SMP Envelope</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Charlesworth</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">IEEE Micro</title>
+		<imprint>
+			<biblScope unit="volume">18</biblScope>
+			<biblScope unit="issue">1</biblScope>
+			<biblScope unit="page" from="39" to="49" />
+			<date type="published" when="1998-02" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b11">
+	<analytic>
+		<title level="a" type="main">Adaptive Cache Coherency for Detecting Migratory Shared Data</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><forename type="middle">L</forename><surname>Cox</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><forename type="middle">J</forename><surname>Fowler</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the 20th Annual International Symposium on Computer Architecture</title>
+		<meeting>the 20th Annual International Symposium on Computer Architecture</meeting>
+		<imprint>
+			<date type="published" when="1993-05" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b12">
+	<monogr>
+		<title/>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">W</forename><forename type="middle">J</forename><surname>Dally</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><forename type="middle">W</forename><surname>Poulton</surname></persName>
+		</author>
+		<imprint>
+			<date type="published" when="1998" />
+		</imprint>
+		<respStmt>
+			<orgName>Digital Systems Engineering. Cambridge University Press</orgName>
+		</respStmt>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b13">
+	<monogr>
+		<title level="m" type="main">Interconnection Networks: An Engineering Approach</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Duato</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Yalamanchili</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">L</forename><surname>Ni</surname></persName>
+		</author>
+		<imprint>
+			<date type="published" when="2003" />
+			<publisher>Morgan Kaufmann</publisher>
+		</imprint>
+	</monogr>
+	<note>revised edition</note>
+</biblStruct>
+
+<biblStruct xml:id="b14">
+	<analytic>
+		<title level="a" type="main">Scalable Cache Consistency for Hierarchically Structured Multiprocessors</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">K</forename><surname>Farkas</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Z</forename><surname>Vranesic</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Stumm</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">The Journal of Supercomputing</title>
+		<imprint>
+			<biblScope unit="volume">8</biblScope>
+			<biblScope unit="issue">4</biblScope>
+			<date type="published" when="1995" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b15">
+	<analytic>
+		<title level="a" type="main">Tightly Coupled Multiprocessor System Speeds Memory-access</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><forename type="middle">J</forename><surname>Frank</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Times. Electronics</title>
+		<imprint>
+			<biblScope unit="volume">57</biblScope>
+			<biblScope unit="issue">1</biblScope>
+			<biblScope unit="page" from="164" to="169" />
+			<date type="published" when="1984-01" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b16">
+	<analytic>
+		<title level="a" type="main">Efficient ECCBased Directory Implementations for Scalable Multiprocessors</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">K</forename><surname>Gharachorloo</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">L</forename><forename type="middle">A</forename><surname>Barroso</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Nowatzyk</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the 12th Symposium on Computer Architecture and High-Performance Computing (SBAC-PAD 2000)</title>
+		<meeting>the 12th Symposium on Computer Architecture and High-Performance Computing (SBAC-PAD 2000)</meeting>
+		<imprint>
+			<date type="published" when="2000-10" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b17">
+	<analytic>
+		<title level="a" type="main">Two Techniques to Enhance the Performance of Memory Consistency Models</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">K</forename><surname>Gharachorloo</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Gupta</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Hennessy</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the International Conference on Parallel Processing</title>
+		<meeting>the International Conference on Parallel Processing</meeting>
+		<imprint>
+			<date type="published" when="1991-08" />
+			<biblScope unit="volume">I</biblScope>
+			<biblScope unit="page" from="355" to="364" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b18">
+	<analytic>
+		<title level="a" type="main">Cooperative Shared Memory: Software and Hardware for Scalable Multiprocessor</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><forename type="middle">D</forename><surname>Hill</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><forename type="middle">R</forename><surname>Larus</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><forename type="middle">K</forename><surname>Reinhardt</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><forename type="middle">A</forename><surname>Wood</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">ACM Transactions on Computer Systems</title>
+		<imprint>
+			<biblScope unit="volume">11</biblScope>
+			<biblScope unit="issue">4</biblScope>
+			<biblScope unit="page" from="300" to="318" />
+			<date type="published" when="1993-11" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b19">
+	<analytic>
+		<title level="a" type="main">High-Speed Electrical Signaling: Overview and Limitations</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Horowitz</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C.-K</forename><forename type="middle">K</forename><surname>Yang</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Sidiropoulos</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">IEEE Micro</title>
+		<imprint>
+			<biblScope unit="volume">18</biblScope>
+			<biblScope unit="issue">1</biblScope>
+			<date type="published" when="1998-02" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b20">
+	<analytic>
+		<title level="a" type="main">Data Forwarding in Scalable Shared-Memory Multiprocessors</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><forename type="middle">A</forename><surname>Koufaty</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">X</forename><surname>Chen</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><forename type="middle">K</forename><surname>Poulsen</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Torrellas</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the 1995 International Conference on Supercomputing</title>
+		<meeting>the 1995 International Conference on Supercomputing</meeting>
+		<imprint>
+			<date type="published" when="1995-07" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b21">
+	<analytic>
+		<title level="a" type="main">Race-Free Interconnection Networks and Multiprocessor Consistency</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Landin</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">E</forename><surname>Hagersten</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Haridi</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the 18th Annual International Symposium on Computer Architecture</title>
+		<meeting>the 18th Annual International Symposium on Computer Architecture</meeting>
+		<imprint>
+			<date type="published" when="1991-05" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b22">
+	<analytic>
+		<title level="a" type="main">The SGI Origin: A ccNUMA Highly Scalable Server</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Laudon</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Lenoski</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the 24th Annual International Symposium on Computer Architecture</title>
+		<meeting>the 24th Annual International Symposium on Computer Architecture</meeting>
+		<imprint>
+			<date type="published" when="1997-06" />
+			<biblScope unit="page" from="241" to="251" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b23">
+	<analytic>
+		<title level="a" type="main">The Stanford DASH Multiprocessor</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Lenoski</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Laudon</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">K</forename><surname>Gharachorloo</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">W.-D</forename><surname>Weber</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Gupta</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Hennessy</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Horowitz</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Lam</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">IEEE Computer</title>
+		<imprint>
+			<biblScope unit="volume">25</biblScope>
+			<biblScope unit="issue">3</biblScope>
+			<biblScope unit="page" from="63" to="79" />
+			<date type="published" when="1992-03" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b24">
+	<analytic>
+		<title level="a" type="main">Memory Coherence in Shared Virtual Memory Systems</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">K</forename><surname>Li</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>Hudak</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">ACM Transactions on Computer Systems</title>
+		<imprint>
+			<biblScope unit="volume">7</biblScope>
+			<biblScope unit="issue">4</biblScope>
+			<biblScope unit="page" from="321" to="359" />
+			<date type="published" when="1989" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b25">
+	<analytic>
+		<title level="a" type="main">Simics: A Full System Simulation Platform</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><forename type="middle">S</forename><surname>Magnusson</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">IEEE Computer</title>
+		<imprint>
+			<biblScope unit="volume">35</biblScope>
+			<biblScope unit="issue">2</biblScope>
+			<biblScope unit="page" from="50" to="58" />
+			<date type="published" when="2002-02" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b26">
+	<analytic>
+		<title level="a" type="main">Using Destination-Set Prediction to Improve the Latency/Bandwidth Tradeoff in Shared Memory Multiprocessors</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><forename type="middle">M K</forename><surname>Martin</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><forename type="middle">J</forename><surname>Harper</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><forename type="middle">J</forename><surname>Sorin</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><forename type="middle">D</forename><surname>Hill</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><forename type="middle">A</forename><surname>Wood</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the 30th Annual International Symposium on Computer Architecture</title>
+		<meeting>the 30th Annual International Symposium on Computer Architecture</meeting>
+		<imprint>
+			<date type="published" when="2003-06" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b27">
+	<analytic>
+		<title level="a" type="main">Timestamp Snooping: An Approach for Extending SMPs</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><forename type="middle">M K</forename><surname>Martin</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><forename type="middle">J</forename><surname>Sorin</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Ailamaki</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><forename type="middle">R</forename><surname>Alameldeen</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><forename type="middle">M</forename><surname>Dickson</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><forename type="middle">J</forename><surname>Mauer</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">K</forename><forename type="middle">E</forename><surname>Moore</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Plakal</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><forename type="middle">D</forename><surname>Hill</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><forename type="middle">A</forename><surname>Wood</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the Ninth International Conference on Architectural Support for Programming Languages and Operating Systems</title>
+		<meeting>the Ninth International Conference on Architectural Support for Programming Languages and Operating Systems</meeting>
+		<imprint>
+			<date type="published" when="2000-11" />
+			<biblScope unit="page" from="25" to="36" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b28">
+	<analytic>
+		<title level="a" type="main">Bandwidth Adaptive Snooping</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><forename type="middle">M K</forename><surname>Martin</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><forename type="middle">J</forename><surname>Sorin</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><forename type="middle">D</forename><surname>Hill</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><forename type="middle">A</forename><surname>Wood</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the Eighth IEEE Symposium on High-Performance Computer Architecture</title>
+		<meeting>the Eighth IEEE Symposium on High-Performance Computer Architecture</meeting>
+		<imprint>
+			<date type="published" when="2002-02" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b29">
+	<analytic>
+		<title level="a" type="main">Full System Timing-First Simulation</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><forename type="middle">J</forename><surname>Mauer</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><forename type="middle">D</forename><surname>Hill</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><forename type="middle">A</forename><surname>Wood</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the 2002 ACM Sigmetrics Conference on Measurement and Modeling of Computer Systems</title>
+		<meeting>the 2002 ACM Sigmetrics Conference on Measurement and Modeling of Computer Systems</meeting>
+		<imprint>
+			<date type="published" when="2002-06" />
+			<biblScope unit="page" from="108" to="116" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b30">
+	<analytic>
+		<title level="a" type="main">JETTY: Filtering Snoops for Reduced Power Consumption in SMP Servers</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Moshovos</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">G</forename><surname>Memik</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">B</forename><surname>Falsafi</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Choudhary</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the Seventh IEEE Symposium on High-Performance Computer Architecture</title>
+		<meeting>the Seventh IEEE Symposium on High-Performance Computer Architecture</meeting>
+		<imprint>
+			<date type="published" when="2001-01" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b31">
+	<analytic>
+		<title level="a" type="main">The Alpha 21364 Network Architecture</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><forename type="middle">S</forename><surname>Mukherjee</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>Bannon</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Lang</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Spink</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Webb</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the 9th Hot Interconnects Symposium</title>
+		<meeting>the 9th Hot Interconnects Symposium</meeting>
+		<imprint>
+			<date type="published" when="2001-08" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b32">
+	<analytic>
+		<title level="a" type="main">HighThroughput Coherence Controllers</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><forename type="middle">K</forename><surname>Nanda</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A.-T</forename><surname>Nguyen</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><forename type="middle">M</forename><surname>Michael</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><forename type="middle">J</forename><surname>Joseph</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the Sixth IEEE Symposium on High-Performance Computer Architecture</title>
+		<meeting>the Sixth IEEE Symposium on High-Performance Computer Architecture</meeting>
+		<imprint>
+			<date type="published" when="2000-01" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b33">
+	<analytic>
+		<title level="a" type="main">The S3.mp Scalable Shared Memory Multiprocessor</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Nowatzyk</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">G</forename><surname>Aybay</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Browne</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">E</forename><surname>Kelly</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Parkin</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the International Conference on Parallel Processing</title>
+		<meeting>the International Conference on Parallel Processing</meeting>
+		<imprint>
+			<date type="published" when="1995-08" />
+			<biblScope unit="volume">I</biblScope>
+			<biblScope unit="page" from="1" to="10" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b34">
+	<analytic>
+		<title level="a" type="main">Data Prefetching and Data Forwarding in Shared-Memory Multiprocessors</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Poulsen</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P.-C</forename><surname>Yew</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the International Conference on Parallel Processing</title>
+		<meeting>the International Conference on Parallel Processing</meeting>
+		<imprint>
+			<date type="published" when="1994-08" />
+			<biblScope unit="volume">II</biblScope>
+			<biblScope unit="page" from="296" to="280" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b35">
+	<analytic>
+		<title level="a" type="main">Address Partitioning in DSM Clusters with Parallel Coherence Controllers</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">I</forename><surname>Pragaspathy</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">B</forename><surname>Falsafi</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the International Conference on Parallel Architectures and Compilation Techniques</title>
+		<meeting>the International Conference on Parallel Architectures and Compilation Techniques</meeting>
+		<imprint>
+			<date type="published" when="2000-10" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b36">
+	<analytic>
+		<title level="a" type="main">The KSR1: Experimentation and Modeling of Poststore</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">E</forename><surname>Rosti</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">E</forename><surname>Smirni</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">T</forename><surname>Wagner</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Apon</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">L</forename><surname>Dowdy</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the 1993 ACM Sigmetrics Conference on Measurement and Modeling of Computer Systems</title>
+		<meeting>the 1993 ACM Sigmetrics Conference on Measurement and Modeling of Computer Systems</meeting>
+		<imprint>
+			<date type="published" when="1993-05" />
+			<biblScope unit="page" from="74" to="85" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b37">
+	<analytic>
+		<title level="a" type="main">CACHET: An Adaptive Cache Coherence Protocol for Distributed Shared-Memory Systems</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">X</forename><surname>Shen</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Arvind</forename></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">L</forename><surname>Rudolph</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the 1999 International Conference on Supercomputing</title>
+		<meeting>the 1999 International Conference on Supercomputing</meeting>
+		<imprint>
+			<date type="published" when="1998-06" />
+			<biblScope unit="page" from="135" to="144" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b38">
+	<analytic>
+		<title level="a" type="main">A Cache Consistency Protocol for Multiprocessors with Multistage Networks</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>Stenström</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the 16th Annual International Symposium on Computer Architecture</title>
+		<meeting>the 16th Annual International Symposium on Computer Architecture</meeting>
+		<imprint>
+			<date type="published" when="1989-05" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b39">
+	<analytic>
+		<title level="a" type="main">Adaptive Cache Coherence Protocol Optimized for Migratory Sharing</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>Stenström</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Brorsson</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">L</forename><surname>Sandberg</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the 20th Annual International Symposium on Computer Architecture</title>
+		<meeting>the 20th Annual International Symposium on Computer Architecture</meeting>
+		<imprint>
+			<date type="published" when="1993-05" />
+			<biblScope unit="page" from="109" to="118" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b40">
+	<analytic>
+		<title level="a" type="main">A Class of Compatible Cache Consistency Protocols and their Support by the IEEE Futurebus</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>Sweazey</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><forename type="middle">J</forename><surname>Smith</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the 13th Annual International Symposium on Computer Architecture</title>
+		<meeting>the 13th Annual International Symposium on Computer Architecture</meeting>
+		<imprint>
+			<date type="published" when="1986-06" />
+			<biblScope unit="page" from="414" to="423" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b41">
+	<analytic>
+		<title/>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><forename type="middle">M</forename><surname>Tendler</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Dodson</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Fields</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">H</forename><surname>Le</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">B</forename><surname>Sinharoy</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">POWER4 System Microarchitecture. IBM Server Group Whitepaper</title>
+		<imprint>
+			<date type="published" when="2001-10" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b42">
+	<analytic>
+		<title level="a" type="main">The MIPS R10000 Superscalar Microprocessor</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">K</forename><forename type="middle">C</forename><surname>Yeager</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">IEEE Micro</title>
+		<imprint>
+			<biblScope unit="volume">16</biblScope>
+			<biblScope unit="issue">2</biblScope>
+			<biblScope unit="page" from="28" to="40" />
+			<date type="published" when="1996-04" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+				</listBibl>
+			</div>
+		</back>
+	</text>
+</TEI>

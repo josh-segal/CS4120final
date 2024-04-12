@@ -1,0 +1,249 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>Making Nested Parallel Transactions Practical using Lightweight</p>
+    <p>Hardware Support</p>
+    <p>Woongki Baek, Nathan Bronson,</p>
+    <p>Christos Kozyrakis, Kunle Olukotun</p>
+    <p>Stanford University</p>
+  </div>
+  <div class="page">
+    <p>Introduction</p>
+    <p>! Transactional Memory (TM) simplifies parallel programming ! Atomic and isolated execution of transactions</p>
+    <p>! Current practice: Most TMs do not support nested parallelism</p>
+    <p>! Nested parallelism in TM is becoming more important ! To fully utilize the increasing number of cores ! To integrate well with programming models (e.g., OpenMP)</p>
+    <p>// Parallelize the outer loop</p>
+    <p>for(i=0;i&lt;numCustomer;i++){</p>
+    <p>atomic{</p>
+    <p>// Can we parallelize the inner loop?</p>
+    <p>for(j=0;j&lt;numOrders;j++)</p>
+    <p>processOrder(i,j,);</p>
+    <p>}}</p>
+  </div>
+  <div class="page">
+    <p>Previous Work: NP in TM</p>
+    <p>!Software-only approach: [PPoPP 10], [SPAA 10] ! Use complex data structures or depth-dependent algorithm for NP ! Degrade the performance of transactions</p>
+    <p>!Excessive overheads even for single-level txns</p>
+    <p>! Impractical unless performance issues are addressed</p>
+    <p>!Full HTM approach: [Vachharajani 08] ! Intrusive modifications in caches Complicate HW design</p>
+    <p>!For nesting-aware conflict detection &amp; data versioning ! Unlikely to be adopted unless HW complexity is lowered</p>
+    <p>!Needed: TM with practical support for nested parallelism</p>
+  </div>
+  <div class="page">
+    <p>Contributions</p>
+    <p>!Propose Filter-accelerated Nested TM (FaNTM) ! Goal: Make nested parallel transactions practical ! Performance: Eliminate excessive overheads of SW nested txns</p>
+    <p>!By offloading nesting-aware conflict detection to HW filters</p>
+    <p>! Implementation cost: Simplify hardware design !By fully decoupling nested transactions from caches</p>
+    <p>!Quantify FaNTM across different use scenarios ! Small runtime overheads for top-level parallelism ! Nested txns scale well, significantly faster than SW ones ! Tradeoff between top-level and nested parallelism</p>
+  </div>
+  <div class="page">
+    <p>Outline</p>
+    <p>!Introduction</p>
+    <p>!Background</p>
+    <p>!Design of FaNTM</p>
+    <p>!Evaluation</p>
+    <p>!Conclusion</p>
+  </div>
+  <div class="page">
+    <p>Background: Semantics of Nesting</p>
+    <p>!Definitions ! Family(T) = ancestors(T) descendants(T)</p>
+    <p>!Transactional hierarchy has a tree structure ! Readers(o): a set of active transactions that read o ! Writers(o): a set of active transactions that wrote to o</p>
+    <p>!Conflicts ! T reads from o: R/W conflict</p>
+    <p>!If there exists T such that T writers(o), T T, and T ancestors(T)</p>
+    <p>! T writes to o: R/W or W/W conflict !If there exists T such that T readers(o) writers(o), T T, and T ancestors(T)</p>
+  </div>
+  <div class="page">
+    <p>Background: Example of Nesting</p>
+    <p>! T1 and T2 are top-level ! T1.1, T1.2: T1s children</p>
+    <p>! T=6: R/W conflict ! T2 writes to A ! T1.1 Readers(A) ! T1.1 Family(T2)</p>
+    <p>! T=8: No conflict ! T1.2 writes to B ! T1 Readers(B) ! T1 Family(T1.2)</p>
+    <p>! Serialization order ! T2 T1</p>
+    <p>st A</p>
+    <p>T1 T2</p>
+    <p>T1.2 T1.1</p>
+    <p>st B</p>
+    <p>ld B</p>
+    <p>ld A</p>
+    <p>ld A</p>
+    <p>T1.1</p>
+  </div>
+  <div class="page">
+    <p>FaNTM Overview</p>
+    <p>!FaNTM is a hybrid TM that extends SigTM [ISCA 07] ! Advantage: Decoupling txns from caches using HW signatures</p>
+    <p>!No TM metadata in caches Simplified HW</p>
+    <p>!Hardware extensions</p>
+    <p>! Multiple sets of HW structures to map multiple txns per core ! Network messages to remotely communicate signatures</p>
+    <p>!Software extensions</p>
+    <p>! Additional metadata to maintain transactional hierarchy information ! Extra code in TM barriers for concurrent nesting</p>
+  </div>
+  <div class="page">
+    <p>Hardware: Overall Architecture</p>
+    <p>! Filters snoop coherence messages for nesting-aware conflict detection</p>
+    <p>! Filters may intercept or propagate messages to caches</p>
+    <p>! Each filter consists of multiple Transactional Metadata Blocks (TMBs)</p>
+    <p>! R/W Signatures: conservatively encoding R/W sets ! FV: a bit vector encoding Family(T)</p>
+  </div>
+  <div class="page">
+    <p>TMB: Conflict Detection (Ld)</p>
+    <p>WSig Hit ? N Y</p>
+    <p>Nack Req .</p>
+    <p>Propagate</p>
+    <p>Propagate</p>
+    <p>Family ? N Y</p>
+    <p>Done</p>
+    <p>Ld Req .</p>
+    <p>from T R</p>
+    <p>R/W Conflict</p>
+  </div>
+  <div class="page">
+    <p>TMB: Conflict Detection (Ldx)</p>
+    <p>WSig Hit ? N Y</p>
+    <p>Nack Req . Propagate</p>
+    <p>Family ? N Y</p>
+    <p>Ldx Req .</p>
+    <p>from T R</p>
+    <p>Propagate Abort</p>
+    <p>Propagate Family ? Y N</p>
+    <p>RSig Hit ? Y N</p>
+    <p>Done</p>
+    <p>W/W Conflict R/W Conflict</p>
+  </div>
+  <div class="page">
+    <p>Software: Transaction Descriptor</p>
+    <p>! Tid: Transaction ID</p>
+    <p>! UndoLog: Hold previous memory values (eager versioning) ! Implemented using doubly-linked lists ! Entry: &lt;addr, previous memory value, ptrs to neighbors, &gt;</p>
+    <p>! Parent: Pointer to the parents descriptor</p>
+    <p>! CommitLock: Synchronize concurrent commits by children</p>
+    <p>struct transaction {</p>
+    <p>int Tid;</p>
+    <p>Log UndoLog;</p>
+    <p>struct transaction* Parent;</p>
+    <p>lock CommitLock;</p>
+    <p>...</p>
+    <p>}</p>
+  </div>
+  <div class="page">
+    <p>Software: Read Barrier</p>
+    <p>!Insert the address of the memory object in RSig ! No need to maintain a software read set</p>
+    <p>!Attempt to read the memory value ! If the load request is successful (i.e., not nacked)</p>
+    <p>!The memory value is returned</p>
+    <p>! Otherwise, the TMB interrupts the processor !To abort the transaction (R/W conflict)</p>
+    <p>TxLoad(addr){</p>
+    <p>RSigInsert(addr);</p>
+    <p>val=*addr;</p>
+    <p>return val;</p>
+    <p>}</p>
+  </div>
+  <div class="page">
+    <p>Software: Write Barrier</p>
+    <p>!Insert the address of the memory object in WSig</p>
+    <p>!Broadcast an exclusive load request over the network ! If this request is successful (i.e., not nacked)</p>
+    <p>!The current memory value is inserted in the undo log !Memory object is updated in-place (eager versioning)</p>
+    <p>! Otherwise, the TMB interrupts the processor !To abort the transaction (W/W conflict)</p>
+    <p>TxStore(addr,val){</p>
+    <p>WSigInsert(addr);</p>
+    <p>fetchEx(addr);</p>
+    <p>undoLog.insert(addr,*addr);</p>
+    <p>*addr=val;</p>
+    <p>}</p>
+  </div>
+  <div class="page">
+    <p>Software: Commit Barrier</p>
+    <p>! If a top-level transaction ! Finish by resetting TM metadata</p>
+    <p>! Otherwise (i.e., nested transaction) ! Merge R/WSigs to its parent (sending messages over the network) ! Merge its undo-log entries to its parent ! Finish by resetting TM metadata</p>
+    <p>TxCommit(){</p>
+    <p>if(topLevel()){</p>
+    <p>resetTmMetaData();}</p>
+    <p>else{</p>
+    <p>mergeSigsToParent();</p>
+    <p>mergeUndoLogToParent();</p>
+    <p>resetTmMetaData();</p>
+    <p>}</p>
+    <p>}</p>
+  </div>
+  <div class="page">
+    <p>Outline</p>
+    <p>!Introduction</p>
+    <p>!Background</p>
+    <p>!Design of FaNTM</p>
+    <p>!Evaluation</p>
+    <p>!Conclusion</p>
+  </div>
+  <div class="page">
+    <p>Evaluating FaNTM</p>
+    <p>!Three questions to investigate ! Q1: What is the runtime overhead for top-level parallelism?</p>
+    <p>!Used STAMP applications !Runtime overhead is small (2.3% on average across all apps) !Start/commit barriers are infrequently executed No major impact</p>
+    <p>! Q2: What is the performance of nested parallel transactions?</p>
+    <p>! Q3: How can we use nested parallelism to improve performance?</p>
+  </div>
+  <div class="page">
+    <p>Q2: Performance of Nested Txns</p>
+    <p>!rbtree: perform operations on a concurrent RB tree ! Two types of operations: Look-up (reads) / Insert (reads/writes)</p>
+    <p>!Sequential: sequentially perform operations</p>
+    <p>!Flat: Concurrently perform operations using top-level txns</p>
+    <p>!Nested: Repeatedly add outer transactions ! N1, N2, and N3 versions</p>
+    <p>// Parallelize this loop</p>
+    <p>for(i=0;i&lt;numOps;i+=C){</p>
+    <p>atomic{</p>
+    <p>for(j=0;j&lt;C;j++){</p>
+    <p>accessRBtree(i,j,);}</p>
+    <p>}</p>
+    <p>}</p>
+    <p>Flat version</p>
+    <p>atomic{</p>
+    <p>// Parallelize this loop</p>
+    <p>for(i=0;i&lt;numOps;i+=C){</p>
+    <p>atomic{</p>
+    <p>for(j=0;j&lt;C;j++){</p>
+    <p>accessRBtree(i,j,);}</p>
+    <p>}}</p>
+    <p>}</p>
+    <p>Nested version (N1)</p>
+  </div>
+  <div class="page">
+    <p>Q2: Performance of Nested Txns</p>
+    <p>! Scale up to 16 threads (e.g., N1 with 16 threads 6.5x faster) ! Scalability is mainly limited by conflicts among transactions</p>
+    <p>! No major performance degradation with deeper nesting ! Conflict detection in HW No repeated validation across nesting</p>
+    <p>! Significantly faster (e.g., 12x) than a nested STM (NesTM) [SPAA 10] ! Making nested parallel transactions practical</p>
+  </div>
+  <div class="page">
+    <p>Q3: Exploiting Nested Parallelism</p>
+    <p>!np-rbtree: based on a data structure using multiple RB trees ! Two types of operations: Look-up / Insert</p>
+    <p>!Higher the percentage of inserts Higher contention (top-level txns) ! After accessing each tree, computational work is performed</p>
+    <p>!Two ways to exploit the available parallelism ! Flat version: outer-level parallelism ! Nested version: inner- and outer-level parallelism</p>
+    <p>// Parallelize outer loop</p>
+    <p>for(i=0;i&lt;numOps;i++){</p>
+    <p>atomic{</p>
+    <p>for(j=0;j&lt;numTrees;j++){</p>
+    <p>accessTree(i,j,);</p>
+    <p>}</p>
+    <p>}</p>
+    <p>}</p>
+    <p>Flat version</p>
+    <p>// Parallelize outer loop</p>
+    <p>for(i=0;i&lt;numOps;i++){</p>
+    <p>atomic {</p>
+    <p>// Parallelize inner loop</p>
+    <p>for(j=0;j&lt;numTrees;j++){</p>
+    <p>atomic{</p>
+    <p>accessTree(i,j,);</p>
+    <p>}}</p>
+    <p>}}</p>
+    <p>Nested version</p>
+  </div>
+  <div class="page">
+    <p>Q3: Flat vs. Nested</p>
+    <p>! Lower contention (top-level) &amp; small work Flat version is faster ! Due to sufficient top-level parallelism &amp; lower overheads</p>
+    <p>! Higher contention (top-level) &amp; large work Nested version is faster ! By efficiently exploiting the parallelism available in both levels</p>
+    <p>! Motivate research on nesting-aware runtime systems ! Dynamically exploit the parallelism in multiple levels</p>
+    <p>Lower-Cont/Small Work Higher-Cont/Large Work</p>
+  </div>
+  <div class="page">
+    <p>Conclusion</p>
+    <p>!Propose Filter-accelerated Nested TM (FaNTM) ! Goal: Make nested parallel transactions practical ! Performance: Eliminate excessive overheads of SW nested txns</p>
+    <p>!By offloading nesting-aware conflict detection to HW filters</p>
+    <p>! Implementation cost: Simplify hardware design !By fully decoupling nested transactions from caches</p>
+    <p>!Quantify FaNTM across different use scenarios ! Small runtime overheads for top-level parallelism ! Nested txns scale well, significantly faster than SW ones ! Tradeoff between top-level and nested parallelism</p>
+    <p>!More details (e.g., complications of nesting) in the paper</p>
+  </div>
+</Presentation>

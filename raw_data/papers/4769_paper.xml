@@ -1,0 +1,552 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<TEI xmlns="http://www.tei-c.org/ns/1.0" 
+xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+xsi:schemaLocation="http://www.tei-c.org/ns/1.0 /Users/atharsefid/Desktop/grobid-0.5.3/grobid-home/schemas/xsd/Grobid.xsd"
+ xmlns:xlink="http://www.w3.org/1999/xlink">
+	<teiHeader xml:lang="en">
+		<encodingDesc>
+			<appInfo>
+				<application version="0.5.3" ident="GROBID" when="2019-03-26T17:00+0000">
+					<ref target="https://github.com/kermitt2/grobid">GROBID - A machine learning software for extracting information from scholarly documents</ref>
+				</application>
+			</appInfo>
+		</encodingDesc>
+		<fileDesc>
+			<titleStmt>
+				<title level="a" type="main"></title>
+			</titleStmt>
+			<publicationStmt>
+				<publisher/>
+				<availability status="unknown"><licence/></availability>
+			</publicationStmt>
+			<sourceDesc>
+				<biblStruct>
+					<analytic>
+						<author>
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Seong-Ryong</forename><surname>Kang</surname></persName>
+							<email>skang@cs.tamu.edu</email>
+							<affiliation key="aff0">
+								<orgName type="institution">Texas A&amp;M University</orgName>
+								<address>
+									<postCode>77843</postCode>
+									<settlement>College Station</settlement>
+									<region>TX</region>
+									<country key="US">USA</country>
+								</address>
+							</affiliation>
+						</author>
+						<author>
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Dmitri</forename><surname>Loguinov</surname></persName>
+							<email>dmitri@cs.tamu.edu</email>
+							<affiliation key="aff0">
+								<orgName type="institution">Texas A&amp;M University</orgName>
+								<address>
+									<postCode>77843</postCode>
+									<settlement>College Station</settlement>
+									<region>TX</region>
+									<country key="US">USA</country>
+								</address>
+							</affiliation>
+						</author>
+					</analytic>
+					<monogr>
+						<imprint>
+							<date/>
+						</imprint>
+					</monogr>
+					<note>IMR-Pathload: Robust Available Bandwidth Estimation under End-Host Interrupt Delay</note>
+				</biblStruct>
+			</sourceDesc>
+		</fileDesc>
+		<profileDesc>
+			<textClass>
+				<keywords>
+					<term>Bandwidth estimation</term>
+					<term>network measurement</term>
+					<term>interrupt moderation</term>
+					<term>and interrupt delays</term>
+				</keywords>
+			</textClass>
+			<abstract>
+				<p>Many paths in PlanetLab cannot be measured by Pathload. One of the main reasons for this is timing irregularities caused by interrupt moderation of network hardware, which delays generation of interrupts for a certain period of time to reduce per-packet CPU overhead. Motivated by this problem, we study Pathload in detail under various end-host interrupt delays and find that its trend detection mechanism becomes susceptible to non-negligible interrupt delays, making it unable to measure network paths under such conditions. To overcome this, we propose a new method called IMR-Pathload (Interrupt Moderation Resilient Pathload), which incorporates robust trend detection algorithms based on signal de-noising techniques and reliably estimates available band-width of network paths under a wide range of interrupt delays. Through experiments in Emulab and Internet, we find that IMR-Pathload substantially improves Pathload&apos;s measurement reliability and produces accurate bandwidth estimates under a variety of real-life conditions. has been identified as the major problem of existing bandwidth estimation tools in practice [15]. To reduce the effect of interrupt moderation, recent tools such as Pathchirp [16] and Pathload described in [15] incorporate mechanisms that aim to &quot;weed out&quot; packets affected by interrupt delays. However, Pathchirp requires manual modification to force it to send (often substantially) more probing packets to obtain an accurate estimate, prolonging measurement undesirably. On the other hand, Pathload attempts to filter out affected packets without increasing the number of probing packets, which unfortunately has a limited effect when interrupt delays become non-trivial. This makes Pathload&apos;s estimation much more susceptible to error, which happens fairly often in practice. To address the above filtering problem without increasing measurement duration , we investigate Pathload&apos;s internal algorithm and find that its estimation instability with non-negligible interrupt delays stems from its delay-trend detection mechanism that is not robust under bursty packet arrival introduced by network hardware. To overcome this, we introduce two trend-detection algorithms based on signal de-noising techniques such as wavelet decomposition and window-based averaging and call the new method IMR-Pathload (Interrupt Moderation Resilient Pathload). Through experiments in Emulab [5] under various network settings, we find that IMR-Pathload significantly improves Pathload&apos;s performance in a wide range (0 − 500 µs) of interrupt delays δ. Especially, under non-trivial interrupt delays (e.g., δ &gt; 125 µs), while Pathload fails to produce estimates for any of the paths studied in this paper, IMR-Pathload measures their available bandwidth with over 88% accuracy. Internet experiments also confirm that IMR-Pathload reliably produces bandwidth estimates even for the paths that are not measurable by Pathload.</p>
+			</abstract>
+		</profileDesc>
+	</teiHeader>
+	<text xml:lang="en">
+		<body>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="1">Introduction</head><p>Bandwidth of Internet paths is an important metric for applications. Extensive research has been conducted over the years and the vast majority of work in this area focuses on end-to-end measurement. Although several techniques <ref type="bibr" target="#b3">[4]</ref>, <ref type="bibr" target="#b12">[13]</ref>, <ref type="bibr" target="#b10">[11]</ref>, <ref type="bibr" target="#b11">[12]</ref>, <ref type="bibr" target="#b13">[14]</ref> attempt to measure capacity of the narrow link (i.e., the slowest link in a path) or both capacity and available bandwidth of the tight link (i.e., link with the smallest available bandwidth over a path), many measurement techniques and public tools (such as <ref type="bibr" target="#b5">[6]</ref>, <ref type="bibr" target="#b8">[9]</ref>, <ref type="bibr" target="#b15">[16]</ref>) have been developed to estimate available bandwidth of the tight link. These methods mainly focus on fast estimation with high accuracy under a various traffic conditions. However, since the ultimate goal of bandwidth estimators is to measure diverse Internet paths, before being a full-blown measurement tool, it is highly desirable that tools are resilient to timing irregularities caused by various OS scheduling delay jitter or hardware interrupt moderation in real networks.</p><p>Note that to accurately measure bandwidth, all existing methods heavily rely on high-precision delay measurement of probe packets at end-hosts. However, irregular timing due to interrupt moderation at network interface cards <ref type="bibr">(NICs)</ref> 2 Related Work A number of techniques have been proposed to measure available bandwidth of network paths <ref type="bibr" target="#b5">[6]</ref>, <ref type="bibr" target="#b8">[9]</ref>, <ref type="bibr" target="#b15">[16]</ref>, which sends N back-to-back packets and discover a relationship between sending rates at the sender and the corresponding receiving rates at the receiver to produce bandwidth estimates of the paths. Among them, we discuss two promising tools that use mechanisms to mitigate the effect of interrupt moderation.</p><p>Pathchirp <ref type="bibr" target="#b15">[16]</ref> uses packet-trains (called chirps) with exponentially decreasing inter-packet spacings in each chirp and infers available bandwidth using the queuing delay signature of arriving chirps. The basic idea behind this method is that when a transmission rate r k of a packet k in a chirp reaches available bandwidth of a path under consideration, then subsequent packets j &gt; k in the chirp will exhibit increasing queueing delay. Hence, available bandwidth of the path is the rate r k of the packet k whose queueing delay starts increasing. To overcome the packet-timing problem introduced by end-host interrupt moderation, Pathchirp increases the number of probing packets in each chirp by a manually selected amount and uses only those packets that (ideally) have not been affected by interrupt delays.</p><p>Different from Pathchirp, Pathload <ref type="bibr" target="#b8">[9]</ref> sends a fleet of packet-trains with a fixed rate and adjusts the sending rate for the next fleet based on delaytrend information provided by the receiver. Pathload searches for an available bandwidth range by increasing or decreasing the sending rate of probe-trains in a binary search fashion according to trend information. Although Pathload can reduce the effect of interrupt delays without increasing the number of packets in each probe-train, its algorithm is effective only under small interrupt delays.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3">Issues of Interrupt Delay in Bandwidth Measurement</head><p>As use of interrupt moderation has become a common practice in modern network settings, host machines in real networks may employ interrupt delays that vary widely in order to reduce CPU utilization and to increase network throughput. It is reported in <ref type="bibr" target="#b6">[7]</ref> that the range of interrupt delays recommended for Intel Gigabit NIC (GbE) is 83 − 250 µs for Microsoft Windows-based systems and 125 − 1000 µs for Linux-based systems. Jin et al. <ref type="bibr" target="#b9">[10]</ref> also report that a variety of systems equipped with Gigabit NICs require to delay generation of interrupts over 470 µs to achieve good throughput in receiving high-speed TCP streams and to substantially reduce CPU utilization. The question we have now is how this wide range of interrupt delays affects Pathload's bandwidth estimation. We discuss this issue next.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.1">Impact of Interrupt Delay</head><p>To investigate the potential impact of interrupt moderation on Pathload, we conduct experiments in Emulab <ref type="bibr" target="#b4">[5]</ref> for different interrupt delays at the receiver 1 . We start by describing the experimental setup.</p><p>Experimental Setup For this investigation, we use a topology shown in <ref type="figure" target="#fig_0">Fig. 1</ref>, in which source PS sends probe data to the destination PR through five routers R 1 − R 5 . Nodes S i (i = 1, 2, 3, 4) send cross-traffic packets to destination nodes D i at an average rate λ i . The speed of all access links is 100 Mb/s (delay 10 ms) and the remaining links L i (i = 1, 2, 3, 4) between routers R i and R i+1 have capacities C i and propagation delay 40 ms.</p><p>To examine Pathload's estimation reliability, we use six different network settings shown in <ref type="table" target="#tab_0">Table 1</ref>, which lists the capacity C i and available bandwidth A i of each link L i for different experimental scenarios. The shaded values in each row represent the tight-link capacity and available bandwidth of the path for each case. The values in square brackets represent the capacity of the narrow link (i.e., bottleneck bandwidth) for each case.</p><p>In all experiments, we use TCP cross-traffic generated by Iperf traffic generators <ref type="bibr" target="#b7">[8]</ref> to load network paths. For this purpose, we run 100 threads in each cross-traffic source S i to generate TCP flows that are injected into routers R 1 ,   <ref type="table" target="#tab_0">Table 1</ref>. To maintain a fixed average utilization at each link in experiments, we place an additional (auxiliary) router (not shown in the figure) between node S 1 and router R 1 , S 2 and R 1 , S 3 and R 3 , and S 4 and R 2 to limit the aggregate sending rate of the TCP flows to the capacity of the additional router. The utilization of R i is controlled by properly setting the capacity of the auxiliary router.</p><formula xml:id="formula_0">R 1 R 2 R 3 C1 C2 R 4 R 5 C3 C4 PR PS S2 D2 S3 D3 S4 D4 D</formula><p>Estimation Reliability Using the above setup, we run Pathload with 4 different values of interrupt delays δ. To demonstrate estimation accuracy, we define the following relative error metric: e A = |A − ˜ A|/A, where A is the true available bandwidth of a path and˜Aand˜ and˜A is its estimate. We report estimation results for each case in <ref type="table" target="#tab_1">Table 2</ref>, which show relative estimation errors e A of available bandwidth. As the table shows, with relatively small interrupt delays (e.g., δ ≤ 100 µs), Pathload estimates available bandwidth of the tight link with over 80% accuracy for all cases studied in this paper. Note, however, from the table that when δ becomes larger than 125 µs, it is unable to produce estimates for any of the cases as shown in the table as empty cells, which suggests that its algorithm is susceptible to non-trivial interrupt delays. We also conduct experiments with δ = 250 and 500 µs and confirm its inability, but omit these results for brevity. Next, we investigate Pathload's internal algorithm in detail and identify what causes its measurement to be unstable under non-negligible values of δ.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.2">Analysis</head><p>Recall that Pathload <ref type="bibr" target="#b8">[9]</ref> sends back-to-back packets in a train of size N = 100 with a fixed rate R and examines one-way delay 2 (OWD) of each packet in the probe-train in order to identify a trend exists in the time-series delay data. Based on OWD delay trend, Pathload determines whether the current rate R is faster than the available bandwidth of the path under investigation. Hence, proper detection of OWD trend in a probe-train is crucial for it to produce an accurate and reliable bandwidth estimate of the path.</p><p>Note that Pathload first perform ADR (Asymptotic Dispersion Rate) probing by sending a single packet-train and checks interrupt moderation, which it detects when more than 60% of packets in a probe-train have been received back-to-back (with zero or negligible inter-packet delay). If interrupt moderation is detected, Pathload first eliminates such coalesced packets from the received train. Then, it directly performs PCT (Pairwise Comparison Test) and PDT (Pairwise Difference Test) on the remaining data if the number of remaining packets is no less than 5. Recall that the PCT metric represents the fraction of consecutive OWD pairs that are increasing, while the PDT metric quantifies how strong the difference between the first and last OWDs in the data set is. Define X j to be the one-way delay of a packet j in a set of size n. Then, the PCT and PDT metrics 3 are given by <ref type="bibr" target="#b8">[9]</ref>:</p><formula xml:id="formula_1">P CT = 1 n − 1 n j=2 I(X j &gt; X j−1 ), P DT = (X n − X 1 )/ n j=2 |X j − X j−1 |, (1)</formula><p>where I(Y ) is one if Y holds, zero otherwise.</p><p>On the other hand, when Pathload does not detect interrupt moderation from the initial check, it first eliminates back-to-back packets from the probetrain just like the previous case. If the number of remaining packets is no smaller than 36, then Pathload selects OWDs from the remaining packets using medianbased sampling (see <ref type="bibr" target="#b8">[9]</ref> for details) and applies the PCT and PDT tests to the sampled OWDs.</p><p>To assess Pathload's trend detection mechanism, we conduct experiments for Case I with interrupt delay δ = 250 µs. In this example, we collect one-way delay data by running Pathload with a fixed rate R = 38 Mb/s and examine how its internal algorithm specifies a delay-trend existing in OWDs. <ref type="figure" target="#fig_1">Fig. 2(a)</ref> illustrates relative OWDs (one-way delays subtracted by their minimum value) obtained by sending packet trains at 38 Mb/s over the path in case I (available bandwidth A = 31 Mb/s). Note in the figure that OWDs exhibit an increasing trend over all even though they decrease in a small-scale burst (successive OWDs in the same burst decrease if the latency for transferring a packet from NIC to the user space at the receiver is smaller than the inter-packet dispersions exiting NIC at the sender <ref type="bibr" target="#b14">[15]</ref>). Since the PCT and PDT tests cannot accurately detect a trend present in this kind of coalesced data, Pathload first removes coalesced packets before applying the PCT and PDT tests. <ref type="figure" target="#fig_1">Fig. 2(b)</ref> shows remaining OWDs after eliminating the coalesced packets. However, even with the data shown in <ref type="figure" target="#fig_1">Fig. 2(b)</ref>, Pathload is unable to detect the increasing trend present in the data since its trend-test produces P CT = 0.5 and P DT = 0.11. This indicates that Pathload's trend-detection mechanism is not robust under the presence of coalesced packets due to interrupt delays.</p><p>Note that Pathload often discards entire packet-trains even with strong presence of a trend in the data due to its inability to detect the trend accurately. Although more extensive evaluations are required to confirm our findings, we believe that Pathload's inaccuracy in trend detection is the major problem that makes it unlikely to be successful in real networks.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="4">IMR-Pathload</head><p>Motivated by the difficulty of characterizing delay variations in measured noisy OWD data, we study noise-filtering techniques such as wavelet-based signal processing and window-based averaging and explore their applicability in reliably identifying a trend from the data. In what follows below, we first investigate  wavelet-based signal processing techniques that are widely used in removing noise from various data sets obtained empirically <ref type="bibr" target="#b1">[2]</ref>. To overcome the effect of interrupt delays on trend detection, we apply a simple multi-level discrete wavelet transform <ref type="bibr" target="#b0">[1]</ref> to OWDs before performing PCT-and PDT-based trend-test.</p><p>Note that in the multi-level wavelet decomposition, each stage consists of scale and wavelet filters followed by down-sampling by a factor of 2 and separates an input signal into two sets of coefficients: scale and wavelet coefficients. The wavelet coefficients represent a noise component in the input signal and thus are not processed further. On the other hand, the scale coefficients are applied to the two filters in the next level as an input to further reduce noise that might still exist in the scale coefficients from the previous stage. As a decomposition level increases, the frequency of wavelets used in filters decreases, capturing lower frequency components present in the original signal.</p><p>For experiments in this section, we use the family of Daubechies wavelets <ref type="bibr" target="#b2">[3]</ref>, which are well known standard wavelets (other wavelets can be used, but performance comparison among different wavelets is beyond the scope of this paper). Specifically, we use Daubechies' length-4 wavelets, whose scale filter coefficients are given by h 0 = 1+</p><formula xml:id="formula_2">√ 3 4 √ 2 , h 1 = 3+ √ 3 4 √ 2 , h 2 = 3− √ 3 4 √ 2</formula><p>, and</p><formula xml:id="formula_3">h 3 = 1− √ 3 4 √ 2</formula><p>, while its wavelet filter coefficients are g 0 = h 3 , g 1 = −h 2 , g 2 = h 1 , and g 3 = −h 0 .</p><p>Assume that a sequence s 0 , s 1 , . . . , s n−1 is an input to the j-th stage filters. Define cA j,k and cD j,k (where k = 0, 1, . . . , n/2) to be the scale and wavelet coefficients produced at level j, respectively. Then, cA j,k and cD j,k are given by:</p><formula xml:id="formula_4">cA j,k = h 0 s 2k + h 1 s 2k+1 + h 2 s 2k+2 + h 3 s 2k+3 (2) cD j,k = g 0 s 2k + g 1 s 2k+1 + g 2 s 2k+2 + g 3 s 2k+3 .<label>(3)</label></formula><p>Note that when k ≥ n/2 − 1, there are not enough data in the input sequence to compute the coefficients using (2) and (3). This is known as a boundary condition <ref type="bibr" target="#b16">[17]</ref>, which requires a special treatment that adds more data points to the input sequence (in this paper, we add the last value if necessary).</p><p>To demonstrate the effect of wavelet decomposition on trend detection, we decompose OWDs shown in <ref type="figure" target="#fig_1">Fig. 2(a)</ref> up to level 3 and plot in <ref type="figure" target="#fig_3">Fig. 3(a)</ref> the scale coefficients that represent the trend component of OWD data. Applying the </p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>Estimation</head><p>Interrupt Evaluation scenario method delay δ Case-I Case-II Case-III Case-IV Case-V Case-VI IMR-Pathload (wavelet) 0 µs 2.46% 1.23% 3.47% 2.69% 3.71% 6.52% 100 µs 6.47% 4.5% 3.02% 4.42% 5.98% 12.17% 125 µs 7.21% 2.64% 3.88% 1.32% 6.1% 10.77% 500 µs 5.12% 2.17% 6.78% 3.24% 7.23% 5.56% IMR-Pathload (average) 0 µs 2.07% 2.24% 2.1% 2.18% 9.67% 5.05% 100 µs 0.19% 0.71% 11.69% 1.32% 4.19% 6.82% 125 µs 1.44% 1.82% 12.58% 1.59% 2.64% 7.89% 500 µs 4.43% 4.59% 9.27% 2.55% 8.95% 6.48% same PCT and PDT tests to the scale coefficient data, we get P CT = 0.75 and P DT = 0.78, which means that OWDs exhibit an increasing trend according to the criteria used in Pathload (recall that Pathload fails to detect this increasing trend as discussed in §3.2).</p><p>Next, we explore how window-based averaging improves trend detection in noisy data. In this approach, we take the average of OWDs in a window of size k (k-packet sliding window). Using a smaller window makes trend-detection susceptible to a larger interrupt delay since it may not sufficiently remove noise from OWDs (we leave optimal selection of window size as future work). For this example, we employ k = 10 and plot in <ref type="figure" target="#fig_3">Fig. 3(b)</ref> 10-packet window averages of relative OWDs shown in <ref type="figure" target="#fig_1">Fig. 2(a)</ref>, which clearly shows an increasing trend. With these averaged OWDs, we get P CT = 0.8 and P DT = 0.74, which leads us to conclude that an increasing trend exists in the measured data.</p><p>We incorporate the above trend-detection mechanisms into Pathload and call it IMR-Pathload (Interrupt Moderation Resilient Pathload ). We then evaluate it in Emulab and PlanetLab in the following section.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="5">Performance Evaluation</head></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="5.1">Emulab Experiments</head><p>We investigate estimation accuracy of IMR-Pathload for different interrupt delays and report its relative estimation errors e A in <ref type="table" target="#tab_2">Table 3</ref>. As the table shows, IMR-Pathload produces available bandwidth estimates for all cases with 88−99% accuracy, which is significantly better than that of Pathload (see <ref type="table" target="#tab_1">Table 2</ref>). Notice in the table that even with a large interrupt delay δ = 500 µs, IMR-Pathload measures the paths within e A = 10% error in all studied cases (recall that Pathload can measure none of the paths if δ &gt; 125 µs as discussed in §3.1).</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="5.2">Internet Experiments</head><p>In this section, we report experimental results obtained by measuring several Internet paths between Universities and a HP Lab in U.S. Measurement hosts Note that we choose these paths simply for the convenience of accessibility. Also note that the purpose of these experiments is not to compare estimation accuracy of bandwidth estimators since we do not know exact characteristics of these paths. Instead, we use this example to assess how reliably IMR-Pathload measures Internet paths compared to Pathload. For this purpose, we select 5 different periods of time in a day and run IMRPathload and Pathload three times for each time period to measure a particular path. When a tool produces bandwidth estimates reliably in all three times for each period, we report their average as its available bandwidth estimate. If the tool cannot estimate bandwidth at least once in three trials, we consider that the tool is not able to measure that particular path reliably in that period. For IMR-Pathload, we test both wavelet-and averaging-based algorithms, but report only wavelet-based estimates since the other produces similar results. <ref type="table" target="#tab_3">Table 4</ref> shows bandwidth estimates produced by IMR-Pathload and Pathload. As the table shows, IMR-Pathload reliably produces available bandwidth estimates for all studied paths in all measurement time periods. Note that for a path (UMD → HP), Pathload also produces estimates that are similar to those of IMR-Pathload 4 . However, Pathload is unable to reliably measure the other three paths (HP → Wustl, UMD → TAMU, and HP → UMD).</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="6">Conclusion</head><p>This paper studied Pathload under a wide range of end-host interrupt delays and identified its estimation instability under non-negligible interrupt delays. We found that Pathload's instability stems from that its delay-trend detection mechanism is unreliable when probing packets are coalesced at the receiver. We overcame this problem using robust trend detection algorithms (called IMR-Pathload) and showed using Emulab and Internet experiments that IMRPathload greatly improves measurement stability of Pathload under various network settings.</p></div><figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_0"><head>Fig. 1 .</head><label>1</label><figDesc>Fig. 1. Evaluation topology in Emulab.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_1"><head>Fig. 2 .</head><label>2</label><figDesc>Fig. 2. Relative OWDs obtained using the path in case I (A = 31 Mb/s).</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_3"><head>Fig. 3 .</head><label>3</label><figDesc>Fig. 3. Wavelet coefficients and 10-packet window averages of relative OWDs shown in Fig. 2(a).</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_0" validated="false"><head>Table 1 . Evaluation Setup2 , and R 3 and keep the utilization of each router R i according to the values shown in</head><label>1</label><figDesc></figDesc><table>Experimentation 
+Different link bandwidths (Mb/s) 
+scenarios 
+C1 A1 C2 A2 C3 A3 C4 A4 
+Case-I 
+75 31.84 90 51.69 90 42.05 [60] 40.77 
+Case-II 
+75 41.32 90 70.76 90 46.77 [60] 26.39 
+Case-III 
+[60] 35.88 90 70.76 [90] 23.39 75 18.10 
+Case-IV 
+[60] 21.60 90 65.99 90 42.07 75 36.72 
+Case-V 
+[60] 50.25 90 61.17 90 41.99 75 50.86 
+Case-VI 
+75 28.97 90 37.8 90 13.86 [60] 31.22 
+
+R </table></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_1" validated="true"><head>Table 2 . Pathload's Measurement in Emulab</head><label>2</label><figDesc></figDesc><table>Interrupt 
+Evaluation scenario 
+delay δ Case-I Case-II Case-III Case-IV Case-V Case-VI 
+0 µs 
+9.45% 8.00% 7.57% 6.48% 16.58% 15.01% 
+100 µs 1.44% 8.52% 14.9% 5.74% 3.6% 20.74% 
+125 µs 
+−− 
+−− 15.01% 
+−− 
+−− 34.65% 
+&gt; 125 µs −− 
+−− 
+−− 
+−− 
+−− 
+−− 
+
+</table></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_2" validated="false"><head>Table 3 . Emulab Experiment</head><label>3</label><figDesc></figDesc><table></table></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_3" validated="false"><head>Table 4 . Internet Experiment10 am 12 − 1 pm 3 − 4 pm 7 − 8 pm 11 − 12 pm HP → Wustl</head><label>4</label><figDesc></figDesc><table>Internet 
+Method 
+Available bandwidth estimates (Mb/s) 
+paths 
+9 − IMR-Pathload 
+12.2 
+11.9 
+13 
+12.8 
+13.1 
+Pathload 
+−− 
+−− 
+−− 
+−− 
+−− 
+UMD → HP IMR-Pathload 
+93 
+92.8 
+92.3 
+93.2 
+94.7 
+Pathload 
+95.1 
+91.7 
+91.2 
+93.2 
+92.6 
+UMD → TAMU IMR-Pathload 
+100 
+98.1 
+98.3 
+99.4 
+98.4 
+Pathload 
+−− 
+−− 
+−− 
+−− 
+−− 
+HP → UMD IMR-Pathload 
+12.9 
+11.8 
+13.3 
+12.3 
+12.6 
+Pathload 
+20 
+−− 
+16.9 
+−− 
+−− 
+
+used in this study are located at HP (HP Labs), TAMU (Texas A&amp;M University), 
+UMD (University of Maryland), and Wustl (Washington University in St Louis). 
+</table></figure>
+
+			<note place="foot" n="1"> In Emulab, users can change configuration of network cards.</note>
+
+			<note place="foot" n="2"> One-way delay of a packet is defined as the difference between its arrival time at the receiver and the corresponding sending time at the sender. 3 Pathload [9] determines OWDs as &quot;increasing&quot; if P CT &gt; 0.66, &quot;non-increasing&quot; if P CT &lt; 0.54, or &quot;ambiguous&quot; otherwise. Similarly, it identifies OWDs as &quot;increasing&quot; if P DT &gt; 0.55, &quot;non-increasing&quot; if P DT &lt; 0.45, or &quot;ambiguous&quot; otherwise.</note>
+
+			<note place="foot" n="4"> This agrees with the Emulab results, where Pathload shows accuracy that is similar to IMR-Pathload only if it is able to reliably measure the path (see Tables 2 and 3).</note>
+		</body>
+		<back>
+			<div type="references">
+
+				<listBibl>
+
+<biblStruct xml:id="b0">
+	<monogr>
+		<title level="m" type="main">Introduction to Wavelets and Wavelet Transforms: A Primer</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Burrus</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Gopinath</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">H</forename><surname>Guo</surname></persName>
+		</author>
+		<imprint>
+			<date type="published" when="1998" />
+			<publisher>Prentice-Hall</publisher>
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b1">
+	<analytic>
+		<title level="a" type="main">Trend Assessment in a Long Memory Dependence Model Using the Discrete Wavelet Transform</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>Craigmile</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>Guttorp</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Percival</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Environmetrics</title>
+		<imprint>
+			<biblScope unit="volume">15</biblScope>
+			<biblScope unit="issue">4</biblScope>
+			<biblScope unit="page" from="313" to="335" />
+			<date type="published" when="2004-05" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b2">
+	<analytic>
+		<title level="a" type="main">Orthonormal Bases of Compactly Supported Wavelets</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">I</forename><surname>Daubechies</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Communications on Pure and Applied Mathematics</title>
+		<imprint>
+			<biblScope unit="volume">41</biblScope>
+			<biblScope unit="issue">7</biblScope>
+			<biblScope unit="page" from="909" to="996" />
+			<date type="published" when="1988-10" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b3">
+	<analytic>
+		<title level="a" type="main">Packet-Dispersion Techniques and a Capacity-Estimation Methodology</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Dovrolis</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>Ramanathan</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Moore</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">IEEE/ACM Trans. Netw</title>
+		<imprint>
+			<biblScope unit="volume">12</biblScope>
+			<biblScope unit="issue">6</biblScope>
+			<biblScope unit="page" from="963" to="977" />
+			<date type="published" when="2004-12" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b4">
+	<monogr>
+		<title/>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><surname>Emulab</surname></persName>
+		</author>
+		<ptr target="http://www.emulab.net/" />
+		<imprint/>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b5">
+	<analytic>
+		<title level="a" type="main">Evaluation and Characterization of Available Bandwidth Probing Techniques</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">N</forename><surname>Hu</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>Steenkiste</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">IEEE J. Sel. Areas Commun</title>
+		<imprint>
+			<biblScope unit="volume">21</biblScope>
+			<biblScope unit="issue">6</biblScope>
+			<biblScope unit="page" from="879" to="974" />
+			<date type="published" when="2003-08" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b6">
+	<monogr>
+		<title level="m" type="main">Interrupt Moderation Using Intel GbE Controllers</title>
+		<ptr target="http://download.intel.com/design/network/applnots/ap450.pdf" />
+		<imprint/>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b7">
+	<monogr>
+		<title/>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Tcp/Udp Bandwidth Measurement</forename><surname>Iperf -The</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><surname>Tool</surname></persName>
+		</author>
+		<ptr target="http://dast.nlanr.net/Projects/Iperf/" />
+		<imprint/>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b8">
+	<analytic>
+		<title level="a" type="main">Pathload: A Measurement Tool for End-to-End Available Bandwidth</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Jain</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Dovrolis</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. Passive and Active Measurement Workshop</title>
+		<meeting>Passive and Active Measurement Workshop</meeting>
+		<imprint>
+			<date type="published" when="2002-03" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b9">
+	<analytic>
+		<title level="a" type="main">System Capability Effects on Algorithms for Network Bandwidth Measurement</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">G</forename><surname>Jin</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">B</forename><forename type="middle">L</forename><surname>Tierney</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. ACM IMC</title>
+		<meeting>ACM IMC</meeting>
+		<imprint>
+			<date type="published" when="2003-10" />
+			<biblScope unit="page" from="27" to="38" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b10">
+	<analytic>
+		<title level="a" type="main">On Estimating Tight-Link Bandwidth Characteristics over Multi-Hop Paths</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Kang</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">X</forename><surname>Liu</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Bhati</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Loguinov</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. IEEE ICDCS</title>
+		<meeting>IEEE ICDCS</meeting>
+		<imprint>
+			<date type="published" when="2006-07" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b11">
+	<analytic>
+		<title level="a" type="main">Packet-Pair Bandwidth Estimation: Stochastic Analysis of a Single Congested Node</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Kang</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">X</forename><surname>Liu</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Dai</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Loguinov</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. IEEE ICNP</title>
+		<meeting>IEEE ICNP</meeting>
+		<imprint>
+			<date type="published" when="2004-10" />
+			<biblScope unit="page" from="316" to="325" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b12">
+	<analytic>
+		<title level="a" type="main">CapProbe: A Simple and Accurate Capacity Estimation Technique</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Kapoor</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">L</forename><surname>Chen</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">L</forename><surname>Lao</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Gerla</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Sanadidi</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. ACM SIGCOMM</title>
+		<meeting>ACM SIGCOMM</meeting>
+		<imprint>
+			<date type="published" when="2004-08" />
+			<biblScope unit="page" from="67" to="78" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b13">
+	<analytic>
+		<title level="a" type="main">A New End-to-End Probing and Analysis Method for Estimating Bandwidth Bottlenecks</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">B</forename><surname>Melander</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Björkman</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>Gunningberg</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. IEEE GLOBE-COM</title>
+		<meeting>IEEE GLOBE-COM</meeting>
+		<imprint>
+			<date type="published" when="2000-11" />
+			<biblScope unit="page" from="415" to="420" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b14">
+	<analytic>
+		<title level="a" type="main">Effects of Interrupt Coalescence on Network Measurements</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Prasad</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Jain</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Dovrolis</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. Passive and Active Measurement Workshop</title>
+		<meeting>Passive and Active Measurement Workshop</meeting>
+		<imprint>
+			<date type="published" when="2004-04" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b15">
+	<analytic>
+		<title level="a" type="main">pathChirp: Efficient Available Bandwidth Estimation for Network Paths</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">V</forename><surname>Ribeiro</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Riedi</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Baraniuk</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Navratil</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">L</forename><surname>Cottrell</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. Passive and Active Measurement Workshop</title>
+		<meeting>Passive and Active Measurement Workshop</meeting>
+		<imprint>
+			<date type="published" when="2003-04" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b16">
+	<monogr>
+		<title/>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">G</forename><surname>Strang</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">T</forename><surname>Nguyen</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Wavelets</forename></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Filter</forename><surname>Banks</surname></persName>
+		</author>
+		<imprint>
+			<date type="published" when="1996" />
+			<publisher>Wellesley-Cambridge Press</publisher>
+		</imprint>
+	</monogr>
+</biblStruct>
+
+				</listBibl>
+			</div>
+		</back>
+	</text>
+</TEI>

@@ -1,0 +1,155 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>Server-Friendly Delta Compression for Efficient Web Access</p>
+    <p>Anubhav Savant Torsten Suel</p>
+    <p>CIS Department Polytechnic University</p>
+    <p>Brooklyn, NY 11201</p>
+  </div>
+  <div class="page">
+    <p>intro: delta compression techniques and their use in HTTP  related work  delta compression schemes and evaluation  file synchronization schemes and evaluation  concluding remarks</p>
+    <p>Talk Outline:</p>
+    <p>how to use delta compression at a proxy or origin server in a way that minimizes bandwidth consumption while not putting too much strain on the proxy or origin server</p>
+    <p>The Problem:</p>
+  </div>
+  <div class="page">
+    <p>Delta Compression: (differential compression) 1. Introduction</p>
+    <p>Goal: to improve communication and storage efficiency by exploiting file similarity</p>
+    <p>Example: Distribution of software updates - new and old version are similar - only need to send a patch to update - delta compression: how to compute concise patch</p>
+    <p>a delta compressor encodes a target file w.r.t. a reference file by computing a highly compressed representation of their differences</p>
+  </div>
+  <div class="page">
+    <p>Application Scenario:</p>
+    <p>server has copy of both files local problem at server</p>
+    <p>Server Client</p>
+    <p>d(F_new, F_old) F_new</p>
+    <p>F_old F_old</p>
+    <p>request</p>
+    <p>Remote File Synchronization: (e.g., rsync)</p>
+    <p>server does not know F_old need protocol between two parties</p>
+  </div>
+  <div class="page">
+    <p>Applications</p>
+    <p>patches for software upgrades  revision control systems (RCS, CVS)  versioning file systems  improving HTTP performance - optimistic deltas for latency (AT&amp;T) - deltas for wireless links</p>
+    <p>storing document collections (web sites, AvantGo)  incremental backup  compression of file collection (improving tar+gzip)</p>
+  </div>
+  <div class="page">
+    <p>LZ-based algorithms for delta compression</p>
+    <p>good and fast (like gzip)  used in available tools: - vdelta/vcdiff K.-P. Vo (AT&amp;T) - xdelta J. MacDonald (UCB) - zdelta Trendafilov, Memon, Suel (Poly)</p>
+    <p>in a nutshell (assume small files)</p>
+    <p>- put reference file F_old into hash table (dictionary) - compress F_new - look for best match in both files</p>
+    <p>- almost like gzip(cat(F_old, F_new)) - gzip(F_old)</p>
+    <p>F_old F_new</p>
+  </div>
+  <div class="page">
+    <p>Some Technical Details</p>
+    <p>in reality, some more difficulties  how to express distances in reference file</p>
+    <p>- sources of copies in F_ref aligned - better coding</p>
+    <p>how to handle long files - window shifting in both files</p>
+    <p>F_target</p>
+    <p>F_ref</p>
+    <p>F_target</p>
+    <p>F_ref</p>
+  </div>
+  <div class="page">
+    <p>Remote File Synchronization</p>
+    <p>server does not know F_old</p>
+    <p>Server Client</p>
+    <p>F_new F_old protocol</p>
+    <p>consider: file comparison problem  compare, divide &amp; conquer: alignment issue  two main approaches: - practice: rsync (no good provable bounds) - theory: Orlitsky and others (often unimplementable)</p>
+  </div>
+  <div class="page">
+    <p>The rsync algorithms (Tridgell/MacKerras 1996)</p>
+    <p>one round of communication: - client sends hash values of blocks of F_old to server - server uses hash values to compress F_new</p>
+    <p>Server Client</p>
+    <p>F_new (encoded)</p>
+    <p>F_new F_old</p>
+    <p>hash values</p>
+    <p>Problem: alignment (suppose insertion at start of file)  Solution: consider many different alignments at server</p>
+  </div>
+  <div class="page">
+    <p>The rsync algorithms (ctd.)</p>
+    <p>Client: - partition F_old into blocks B_i of some size k - computer hash for each block and sends to server</p>
+    <p>Server: - inserts each received hash (i, h(B_i)) into dictionary (hash as key) - iterates over F_new: if next window of size k has hash that matches with a hash h(B_i) in dictionary, encode block by i else emit char, shift window by one, and try again</p>
+    <p>In practice: two hash functions, plus gzip</p>
+    <p>F_newF_old</p>
+  </div>
+  <div class="page">
+    <p>Some Numbers</p>
+    <p>gzip, vcdiff, xdelta, zdelta, rsync  files: - gnu and emacs versions (Hunt/Vo/Tichy)</p>
+    <p>gcc size emacs size total 27288 27326 gzip 7479 8191 xdelta 461 2131 vcdiff 289 1821 zdelta 250 1465 rsync 876 4428</p>
+    <p>Compressed size in KB (slightly outdated numbers)</p>
+  </div>
+  <div class="page">
+    <p>Using Deltas in HTTP</p>
+    <p>proxy-based vs. end-to-end  include in HTTP?  proxies at AOL, NetZero, Sprint PCS  class-based encoding by server</p>
+    <p>standard vs. optimistic deltas  overlap with check for update Banga/Douglis/Rabinovich 97</p>
+    <p>same URL vs. different URL  mostly same URL only  use related pages on same site Chan/Woo 99</p>
+    <p>delta compression vs. file synchronization  rproxy: proxy based on rsync Tridgell et al 99</p>
+  </div>
+  <div class="page">
+    <p>Issues in Current Approaches</p>
+    <p>same-URL approaches limited in applicability  requires proxy or servers to store multiple old versions  need to fetch old version from disk  related-page approaches need to find good references  who chooses reference file?  also need to store and fetch old pages  synchronization gives more limited compression  promising: value-based caching Brewer WWW2003  but compression could be similar to synchronization</p>
+  </div>
+  <div class="page">
+    <p>look at site visits from NLANR proxy traces  choose reference files only among very recently accessed pages  these pages can be held in memory</p>
+    <p>last-k: select the last k files  longest match-k: select the pages with longest URL prefix match  best-k: greedily select k best pages  best set-of-k: select set of k best pages  last-k+ and longest match-k+: avoid dups among reference files, use previous access if exists</p>
+    <p>Strategies for selecting reference files</p>
+    <p>Setup</p>
+  </div>
+  <div class="page">
+    <p>Experimental Setup</p>
+    <p>downloaded proxy traces from NLANR  hashes of client IP addresses  CGI parameters etc. removed  clients can be downstream proxies  we want to distill client site visits from this  timeout 5-10 minutes between accesses  time will hopefully separate different end users  about 75000 pages  downloaded next day and stored  caveats: dynamic pages, duplicates, odd sessions</p>
+  </div>
+  <div class="page">
+    <p>after one access, compression of 10 instead of 4 for gzip  modified (last-k+, longest match-k+) strategies much better</p>
+    <p>last-k and longest match-k</p>
+  </div>
+  <div class="page">
+    <p>best-1 as good as best set-of-2 !!!  more reference files do not really help   unless you are not sure which one is best  also, last-k+ almost as good as longest match-k+</p>
+    <p>best-k and all strategies</p>
+  </div>
+  <div class="page">
+    <p>most sessions are short  thus most pages close to beginning  byte savings more moderate  issue with page sizes for long sessions</p>
+    <p>Issue of Page Size Distribution</p>
+  </div>
+  <div class="page">
+    <p>factor 12 for best-1+ and longest match-1+ for eligible pages  best schemes get a bit more than 13  drop to 7.5 to 8 for all pages (including first page)</p>
+    <p>Byte Savings</p>
+  </div>
+  <div class="page">
+    <p>if the one best file gives all the benefit, how do we find it?  sampling-based similarity estimation (Broder, Manber)  server keeps samples of old files, compares to new</p>
+    <p>Finding the Best Match by Sampling</p>
+    <p>fairly small sample sizes and short history suffice  overheads in drawing samples, and waiting for new file</p>
+  </div>
+  <div class="page">
+    <p>benefits more moderate if we reduce duplicates</p>
+    <p>Impact of Duplicates</p>
+  </div>
+  <div class="page">
+    <p>simple strategies for reference file selection work  most benefits can be obtained with single reference file  insights on URL matching strategy of Chan/Woo  best reference file can be obtained with sampling  very short history (little cache space) suffices</p>
+    <p>Summary for Delta Compression</p>
+  </div>
+  <div class="page">
+    <p>one round of communication based on rsync - client sends hash values of blocks of F_old to server - server uses hash values to compress F_new</p>
+    <p>Server Client</p>
+    <p>F_new (encoded)</p>
+    <p>F_new F_old</p>
+    <p>hash values</p>
+    <p>rsync uses default 700 bytes per block size  6 bytes per block for hash</p>
+  </div>
+  <div class="page">
+    <p>only slightly better than gzip on related files in file visit  more than one reference file does not help  delta vs. synchronization performance ratio</p>
+    <p>Results for Related Pages</p>
+  </div>
+  <div class="page">
+    <p>much better than gzip even after 72 days  delta is again factor 3-4 better but</p>
+    <p>Results for Same Pages  10000 random pages recrawled after 2, 20, 72 days</p>
+  </div>
+  <div class="page">
+    <p>deltas good for site visits, even with very short history  rsync pretty good for pages revisited after long time  but why not cache hashes at proxy?   becomes similar to value-based caching (Brewer 2003)</p>
+    <p>Some Observations</p>
+    <p>Recommendations</p>
+    <p>three-level approach  cache pages at proxy for a few minutes for delta  cache hashes of pages for longer time for value-based caching  use rsync for fairly old pages (supply some hashes)</p>
+  </div>
+</Presentation>

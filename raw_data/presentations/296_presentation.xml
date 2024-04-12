@@ -1,0 +1,51 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page"/>
+  <div class="page">
+    <p>UNM CS has a history of pulling ideas from a diverse set of area and pu:ng them together in unusual ways to solve problems.</p>
+  </div>
+  <div class="page"/>
+  <div class="page">
+    <p>Current system so@ware focuses on weak scaling where workload grows with processor count - More processes, open files, network connecFons</p>
+    <p>Minimal work on strong scaling in system so@ware - Fixed workload executed faster with more processors. That means faster individual network connecFons, file system updates, etc.</p>
+    <p>Strongly scalable OS services increasingly important - without it, we either complicate the work of the applicaFon programmer, or worse, limit the services available them completely.</p>
+    <p>Example: Strongly scalable single TCP connecFons. A single TCP connecFos already boOlenecks on CPU speeds, especially at tradiFonal MTUs Real parallelizaFon opportuniFes: data delivery, ack generaFon, Fmer expiry, etc. Small but important inter-request dependencies: window state maintenance Very fine-grained units of parallelizaFon: 1500 byte packets</p>
+    <p>SynchronizaFon kills single connecFon performance at this granularity! Linux TCP connecFons faster with 1 core than 2 or more Solaris doesnt even try to parallelize individual connecFons Well-studied: Bjorkman 1993, Nahum 1994, Willman 2006</p>
+  </div>
+  <div class="page">
+    <p>Why havent we been able to solve this?</p>
+    <p>First: We use MIMD parallelism: Related requests split across available cores and shared state accessed via locks, IPC, transacFons, etc.</p>
+    <p>We generally use classic MIMD parallelism, which relies on explicit synchronizaFon/ communicaFon between processors. Thats expensive compared to the unit of work at which we want to parallelize some of these services.</p>
+    <p>So why havent the latest and greatest special snowflake synchronizaFon mechanisms solved this problem?</p>
+    <p>The issue is deeper than that! What happens as you add cores in MIMD parallelism?</p>
+  </div>
+  <div class="page">
+    <p>Simply using a beOer synchronizaFon method isnt good enough  MIMD fundamentally requires explicitly coordinaFng N acFviFes, and the cost of that grows quickly.</p>
+    <p>Each core you add reduces parallelizable work that has to be done on other cores but increases synchronizaFon costs on all processors (lock contenFon, IPC latency, transacFon rollbacks, etc.)</p>
+    <p>As you add cores, the increase in synchronizaFon overhead is quadraFc but the benefit is linear  at high core counts, any non-zero amount of explicit synchronizaFon will kill your performance!</p>
+    <p>MIMD Parallelism kills strong scaling!</p>
+  </div>
+  <div class="page">
+    <p>So, we need to avoid explicit synchronizaFon but sFll deal with non-trivial inter- request dependencies</p>
+    <p>We repurpose a well-known technique from parallel and distributed compuFng to address this problem: MISD parallelizaFon, that is, replicaFng not just state across cores as in K42, Tornado, and Barrellfish, but also replicaFng work on all requests on all cores.</p>
+    <p>So how do we get speedup? Like some parallel algorithms and unlike in most classic distributed systems, we replicate only the sequenFal work on all cores. Parallelizable work is not replicated and is sFll split across cores! EssenFally, were replacing locking around sequenFal work with doing all the sequenFal work everywhere. This works well whenever its cheaper to just do it again than to do explicit synchronizaFon.</p>
+    <p>BeOer for fine-grained workloads where any synchronizaFon is prohibiFve, or with large core counts. Unlike MIMD, a new core adds new replicated work (overhead) only on that new core, not the previously-exisFng cores. So, MISD overheads grow linearly with increased core counts instead of quadraFcally.</p>
+  </div>
+  <div class="page">
+    <p>The result of this is that for fine-grained workloads, which we expect to be common in system so@ware, a MISD-based approach tracks the best possible performance as given by Amdahls law much beOer than approaches based on explicit synchronizaFon.</p>
+  </div>
+  <div class="page">
+    <p>Dominoes: Framework for MISD System Services Broadcast FIFO channels to distribute requests Publish/subscribe event-based programming model More framework details in paper</p>
+    <p>PorFng Scout TCP/IP Stack to Dominoes Single-threaded stack easy to integrate and parallelize Evaluate difficulty of using MISD parallelizaFon with a single-threaded event-based service</p>
+    <p>IniFal result: First-ever strong-scaling of TCP receive processing 1.8x improvement in TCP receive throughput using 4 cores TCP Send is harder Working on opFmized zero-copy library-level implementaFon Only modest changes to scout to get it to run in dominoes</p>
+  </div>
+  <div class="page">
+    <p>High-throughput file system and data services Replicate in-memory metadata (FS state, buffer cache info) Parallelize data manipulaFon</p>
+    <p>Virtual machine services Shared virtual devices  virtual network switches Memory page de-duplicaFon and/or compression?</p>
+    <p>Parallel OS services on GPUs MISD replicaFon can leverage large amounts of parallelism Without the locks that are prohibiFve on GPUs</p>
+  </div>
+  <div class="page"/>
+  <div class="page">
+    <p>Solving these problems without parallelism (or protocol changes!) means exponenFal increases somewhere else  for example in MTU,</p>
+  </div>
+</Presentation>

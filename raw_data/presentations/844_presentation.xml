@@ -1,0 +1,146 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>AddressSanitizer: A Fast Address Sanity Checker</p>
+    <p>Konstantin Serebryany, Derek Bruening, Alexander Potapenko, Dmitry Vyukov</p>
+    <p>USENIX ATC '2012 June 15, 2012</p>
+  </div>
+  <div class="page">
+    <p>Buffer overflow  Heap  Stack  Globals</p>
+    <p>Use-after-free (dangling pointer)  Uninitialized memory reads  Leaks  Double free  Invalid free  Overapping memcpy parameters  ...</p>
+    <p>Memory Bugs in C++</p>
+  </div>
+  <div class="page">
+    <p>AddressSanitizer overview</p>
+    <p>Compile-time instrumentation module  LLVM, platform independent  ~1 KLOC</p>
+    <p>Run-time library  Supports Linux, MacOS, Android  ~9 KLOC</p>
+    <p>Released in May 2011  Part of LLVM since November 2011</p>
+  </div>
+  <div class="page">
+    <p>Shadow byte</p>
+    <p>Every aligned 8-byte word of memory has only 9 states  First N bytes are addressable, the rest 8-N bytes are not  Can encode in 1 byte (shadow byte)  Extreme: 128 application bytes map to 1 shadow byte.</p>
+    <p>Addressable</p>
+    <p>Unaddressable</p>
+    <p>Shadow</p>
+    <p>-1</p>
+  </div>
+  <div class="page">
+    <p>Mapping: Shadow = (Addr&gt;&gt;3) + Offset</p>
+    <p>Application</p>
+    <p>Shadow</p>
+    <p>mprotect-ed</p>
+  </div>
+  <div class="page">
+    <p>Mapping: Shadow = (Addr&gt;&gt;3) + 0</p>
+    <p>Application</p>
+    <p>Shadow</p>
+    <p>mprotect-ed</p>
+    <p>Requires -fPIE -pie (linux)  Gives ~6% speedup on x86_64</p>
+  </div>
+  <div class="page">
+    <p>*a = ...</p>
+    <p>Instrumentation: 8 byte access</p>
+    <p>char *shadow = (a&gt;&gt;3)+Offset; if (*shadow)</p>
+    <p>ReportError(a); *a = ...</p>
+  </div>
+  <div class="page">
+    <p>*a = ...</p>
+    <p>Instrumentation: N byte access (N=1, 2, 4)</p>
+    <p>char *shadow = (a&gt;&gt;3)+Offset; if (*shadow &amp;&amp; *shadow &lt;= ((a&amp;7)+N-1)) ReportError(a); *a = ...</p>
+  </div>
+  <div class="page">
+    <p>Instrumentation example (x86_64)</p>
+    <p>shr $0x3,%rax # shift by 3 mov $0x100000000000,%rcx or %rax,%rcx # add offset cmpb $0x0,(%rcx) # load shadow je 1f &lt;foo+0x1f&gt; ud2a # generate SIGILL*</p>
+    <p>movq $0x1234,(%rdi) # original store</p>
+    <p>* May use call instead of UD2</p>
+  </div>
+  <div class="page">
+    <p>void foo() { char a[328];</p>
+    <p>&lt;------------- CODE -------------&gt;</p>
+    <p>}</p>
+    <p>Instrumenting stack</p>
+  </div>
+  <div class="page">
+    <p>Instrumenting stack</p>
+    <p>void foo() { char rz1[32]; // 32-byte aligned char a[328]; char rz2[24]; char rz3[32]; int *shadow = (&amp;rz1 &gt;&gt; 3) + kOffset; shadow[0] = 0xffffffff; // poison rz1 shadow[11] = 0xffffff00; // poison rz2 shadow[12] = 0xffffffff; // poison rz3 &lt;------------- CODE -------------&gt; shadow[0] = shadow[11] = shadow[12] = 0; }</p>
+  </div>
+  <div class="page">
+    <p>Instrumenting globals</p>
+    <p>int a;</p>
+    <p>struct { int original; char redzone[60]; } a; // 32-aligned</p>
+  </div>
+  <div class="page">
+    <p>Run-time library</p>
+    <p>Initializes shadow memory at startup  Provides full malloc replacement</p>
+    <p>Insert poisoned redzones around allocated memory  Quarantine for free-ed memory  Collect stack traces for every malloc/free</p>
+    <p>Provides interceptors for functions like memset  Prints error messages</p>
+  </div>
+  <div class="page">
+    <p>Report example: use-after-free</p>
+    <p>ERROR: AddressSanitizer heap-use-after-free on address 0x7fe8740a6214 at pc 0x40246f bp 0x7fffe5e463e0 sp 0x7fffe5e463d8</p>
+    <p>READ of size 4 at 0x7fe8740a6214 thread T0 #0 0x40246f in main example_UseAfterFree.cc:4 #1 0x7fe8740e4c4d in __libc_start_main ??:0</p>
+    <p>freed by thread T0 here: #0 0x4028f4 in operator delete[](void*) _asan_rtl_ #1 0x402433 in main example_UseAfterFree.cc:4</p>
+    <p>previously allocated by thread T0 here: #0 0x402c36 in operator new[](unsigned long) _asan_rtl_ #1 0x402423 in main example_UseAfterFree.cc:2</p>
+  </div>
+  <div class="page">
+    <p>Report example: stack-buffer-overflow</p>
+    <p>ERROR: AddressSanitizer stack-buffer-overflow on address 0x7f5620d981b4 at pc 0x4024e8 bp 0x7fff101cbc90 sp 0x7fff101cbc88</p>
+    <p>READ of size 4 at 0x7f5620d981b4 thread T0 #0 0x4024e8 in main example_StackOutOfBounds.cc:4 #1 0x7f5621db6c4d in __libc_start_main ??:0 #2 0x402349 in _start ??:0</p>
+    <p>Address 0x7f5620d981b4 is located at offset 436 in frame &lt;main&gt; of T0's stack: This frame has 1 object(s): [32, 432) 'stack_array'</p>
+  </div>
+  <div class="page">
+    <p>Reads&amp;Writes Only Writes</p>
+  </div>
+  <div class="page">
+    <p>Real-life performance</p>
+    <p>Almost no slowdown for GUI programs  They don't consume all of CPU anyway</p>
+    <p>1.5x - 4x slowdown for server side apps with -O2  The larger the slower (instruction cache)  Up to 8x with -O1 (inlining, instruction cache)</p>
+  </div>
+  <div class="page">
+    <p>Memory overhead</p>
+    <p>Heap redzones  default is 128-255 bytes per allocation  minimal is 32-63 bytes per allocation</p>
+    <p>Stack redzones: 32-63 bytes per address-taken local variable  Global redzones: 32-63 bytes per global  Fixed size Quarantine (256M)  (Heap + Globals + Stack + Quarantine) / 8 for shadow</p>
+    <p>Typical overall memory overhead is 2x - 4x  Seen between 1.1x and 20x</p>
+    <p>Stack size increase  Seen up to 3x</p>
+    <p>Maps (but does not reserve) 1/8-th of all address space  16T on 64-bit  0.5G on 32-bit</p>
+  </div>
+  <div class="page">
+    <p>Trophies</p>
+    <p>Chromium (including WebKit); in first 10 months  heap-use-after-free: 201  heap-buffer-overflow: 73  global-buffer-overflow: 8  stack-buffer-overflow: 7</p>
+    <p>Mozilla  FreeType  FFmepeg  libjpeg-turbo  Perl  Vim  LLVM  GCC  WebRTC  ...</p>
+  </div>
+  <div class="page">
+    <p>Future work</p>
+    <p>Avoid redundant checks (static analysis)  Instrument or recompile libraries  Instrument inline assembler  Port to Windows</p>
+    <p>Mostly, Clang  Plain C and simple C++ already works  Help is welcome!</p>
+    <p>Implement GCC variant  Help is welcome!</p>
+  </div>
+  <div class="page">
+    <p>Summary</p>
+    <p>C++ is suddenly a much safer language</p>
+  </div>
+  <div class="page">
+    <p>Challenge</p>
+    <p>Implement AddressSanitizer</p>
+    <p>in Hardware</p>
+  </div>
+  <div class="page">
+    <p>Q&amp;A</p>
+    <p>http://code.google.com/p/address-sanitizer/</p>
+  </div>
+  <div class="page">
+    <p>Backup</p>
+  </div>
+  <div class="page">
+    <p>AddressSanitizer vs Valgrind (Memcheck)</p>
+    <p>Valgrind AddressSanitizer</p>
+    <p>Heap out-of-bounds YES YES</p>
+    <p>Stack out-of-bounds NO YES</p>
+    <p>Global out-of-bounds NO YES</p>
+    <p>Use-after-free YES YES</p>
+    <p>Use-after-return NO Sometimes/YES</p>
+    <p>Uninitialized reads YES NO</p>
+    <p>Overhead 10x-30x 1.5x-3x</p>
+    <p>Platforms Linux, Mac Same as LLVM *</p>
+  </div>
+</Presentation>

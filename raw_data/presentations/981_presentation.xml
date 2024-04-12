@@ -1,0 +1,224 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>Ins$tute of Computer Science (ICS) Founda$on for Research and Technology  Hellas (FORTH)</p>
+    <p>Greece</p>
+    <p>Anastasios Papagiannis, Giorgos Saloustros, Pilar Gonzlez-Frez, and Angelos Bilas</p>
+    <p>Tucana: Design and Implementa$on of a Fast and Efficient Scale-up Key-value store</p>
+  </div>
+  <div class="page">
+    <p>Key-value Stores  Important Building Block } Key-value store: A dic$onary for arbitrary key-value pairs</p>
+    <p>} Used extensively: web indexing, social networks, data analy$cs } Supports inserts, deletes, point (lookup) and range queries (scan)</p>
+    <p>} Today, key-value stores inefficient } Consume a lot of CPU cycles } Mostly op$mized for HDDs  right decision un$l today</p>
+  </div>
+  <div class="page">
+    <p>Challenges } Overhead is related to several aspects of key-value stores</p>
+    <p>} Indexing data structure } DRAM caching and I/O to devices } Persistence and failure atomicity</p>
+    <p>} Our goal: improve CPU efficiency of key-value stores } Design for fast storage devices (SSDs) } BoXleneck shiYs from device performance to CPU overhead</p>
+  </div>
+  <div class="page">
+    <p>Outline of this talk } Discuss our design and mo3vate decisions</p>
+    <p>} Indexing data structure } DRAM caching and I/O to devices } Persistence and failure atomicity } H-Tucana: An HBase Integra$on</p>
+    <p>} Evalua$on } Conclusions</p>
+  </div>
+  <div class="page">
+    <p>Write Op$mized Data Structures (WODS) } Inserts are important for key-value stores } Need to avoid a single I/O per insert } Main approach: Buffer writes in some manner</p>
+    <p>}  and use single I/O to the device for mul$ple inserts } Examples: LSM-Trees, B-Trees, Fractal Trees</p>
+    <p>} Most popular: LSM-Trees } Used by most key-value stores today } Great for HDDs - always perform large sequen$al I/Os</p>
+  </div>
+  <div class="page">
+    <p>LSM-Trees</p>
+    <p>M em</p>
+    <p>or y</p>
+    <p>D is k</p>
+    <p>Compac$on Compac$on</p>
+    <p>} Data in large containers - leads to large/sequen$al I/O } Great for HDDs! However, they require compac3ons } Sor$ng containers to reduce index size and fit in memory } High overhead: CPU processing and I/O amplifica3on</p>
+    <p>Level 0</p>
+    <p>Level 1 Level 2 Level 3</p>
+  </div>
+  <div class="page">
+    <p>SSDs vs. HDDs</p>
+    <p>T h</p>
+    <p>ro u</p>
+    <p>g h</p>
+    <p>p u</p>
+    <p>t (M</p>
+    <p>B /s</p>
+    <p>)</p>
+    <p>Request size (kB)</p>
+    <p>Writes SSD(2010)-iodepth 1</p>
+    <p>SSD(2010)-iodepth 32 SSD(2015)-iodepth 1</p>
+    <p>SSD(2015)-iodepth 32 HDD(2009)-iodepth 1</p>
+    <p>HDD(2009)-iodepth 32</p>
+    <p>Request size (kB)</p>
+    <p>Reads</p>
+  </div>
+  <div class="page">
+    <p>B-Trees</p>
+    <p>} B-Tree variant that uses buffering to improve inserts } Similar complexity as B-Tree for point, range queries } No compac$ons  unsorted buffers, full index } BeXer CPU overhead and I/O amplifica$on } Worse I/O randomness and size</p>
+  </div>
+  <div class="page">
+    <p>B-Trees</p>
+    <p>} Each internal node has a persistent buffer } Buffers log mul$ple inserts and use one I/O to device</p>
+    <p>Insert</p>
+  </div>
+  <div class="page">
+    <p>B-Trees</p>
+    <p>} Each internal node has a persistent buffer } Buffers log mul$ple inserts and use one I/O to device</p>
+    <p>Insert</p>
+  </div>
+  <div class="page">
+    <p>B-Trees</p>
+    <p>} Each internal node has a persistent buffer } Buffers log mul$ple inserts and use one I/O to device</p>
+    <p>Insert</p>
+  </div>
+  <div class="page">
+    <p>Tucana B-Tree</p>
+    <p>In -M</p>
+    <p>em or y</p>
+    <p>D ev ic e</p>
+    <p>Un-Buffered Nodes</p>
+    <p>Buffered Nodes</p>
+    <p>Write Buffer</p>
+  </div>
+  <div class="page">
+    <p>Tucana B-Tree</p>
+    <p>In -M</p>
+    <p>em or y</p>
+    <p>D ev ic e</p>
+    <p>Un-Buffered Nodes</p>
+    <p>Buffered Nodes</p>
+    <p>Write Buffer</p>
+  </div>
+  <div class="page">
+    <p>Buffered Node Organiza$on } Searching buffered nodes requires accessing keys on device } Tucana uses two op$miza$ons for buffered nodes } 1) Include key prefixes (fixed size)</p>
+    <p>} Eliminates 65%-75% of I/Os for keys in all queries</p>
+    <p>} 2) Include hashes for full keys (fixed size) } Eliminates 98% of I/Os for keys in point queries</p>
+  </div>
+  <div class="page">
+    <p>DRAM Caching  Device I/O } Key-value stores use a user-space DRAM cache</p>
+    <p>} Avoids system calls for hits - Explicit kernel I/O for misses } However, hits incur overhead in user-space</p>
+    <p>} Both index+data in every traversal  Not important for HDDs</p>
+  </div>
+  <div class="page">
+    <p>Alterna$ve: DRAM caching via mmap } Use mul$ple regions/containers per device } Each region contains allocator + mul$ple indexes } mmap each region directly to memory</p>
+    <p>} Same layout of metadata + data on device and in memory</p>
+    <p>} Hits via mapped virtual addresses do not incur overhead } Misses do not require serialize/deserialize of index } mmap introduces new challenges</p>
+  </div>
+  <div class="page">
+    <p>mmap: Misses Cause Page Faults, Fetches, Evic$ons</p>
+    <p>} (1) We can improve inserts } Inserts require a read-before-write I/O } We insert only on newly allocated pages } We detect and eliminate fetches to newly allocated pages</p>
+    <p>} Requires a kernel module with access to allocator metadata</p>
+    <p>} (2) S$ll, no control over size, $ming of I/Os + evic$ons } We use mmap hints to disable prefetching } Should examine these in detail in future work</p>
+  </div>
+  <div class="page">
+    <p>Persistence And Recovery } Typical for HDDs: Write-Ahead-Logging (WAL)</p>
+    <p>} Sequen$al I/O and ability to batch I/Os  both good } However, double writes  first to log, then in-place } Incurs overhead for log management during recovery</p>
+    <p>} Alterna$ve: Copy-On-Write (CoW) } Instantaneous recovery and amenable to versioning } Write-anywhere approach and modify pointers atomically } Single write, however, more random I/O</p>
+  </div>
+  <div class="page">
+    <p>H-Tucana: An Hbase Integra$on } Use Tucana to replace HBases LSM-based storage engine } We keep HBase for</p>
+    <p>} Metadata architecture } Fault tolerance } Data distribu$on } Load balancing</p>
+  </div>
+  <div class="page">
+    <p>Outline of this talk } Discuss our design and mo$vate decisions } Evalua3on } Conclusions</p>
+  </div>
+  <div class="page">
+    <p>Experimental Setup } Compare Tucana with RocksDB</p>
+    <p>} H-Tucana with HBase and Cassandra } Plaporm</p>
+    <p>} 2 * Intel Xeon E5520 with 48GB DRAM in total } 4 * Intel X25-E SSDs (32GB) in RAID0</p>
+    <p>} YCSB  synthe$c workloads } Insert only, read only, and various mixes</p>
+    <p>} Two datasets } Small dataset fits in memory } Large dataset is twice the size of memory</p>
+    <p>} We examine } Efficiency - cycles/op } Throughput - ops/s } I/O amplifica$on</p>
+  </div>
+  <div class="page">
+    <p>Efficiency</p>
+    <p>} Small Dataset } 5.2x up to 9.2x</p>
+    <p>} Large Dataset } 2.6x up to 7x</p>
+    <p>} Improvement over RocksDB in terms of cycles/op</p>
+    <p>Load A</p>
+    <p>R un A</p>
+    <p>R un B</p>
+    <p>R un C</p>
+    <p>R un F</p>
+    <p>R un D</p>
+    <p>Load E</p>
+    <p>R un ER</p>
+    <p>a ti</p>
+    <p>o o</p>
+    <p>f c y c le</p>
+    <p>s /o</p>
+    <p>p o</p>
+    <p>v e r</p>
+    <p>R o</p>
+    <p>c k s D</p>
+    <p>B</p>
+    <p>Small Dataset Large Dataset</p>
+  </div>
+  <div class="page">
+    <p>Throughput</p>
+    <p>} Small dataset } 2x up to 7x } 4.5x on average</p>
+    <p>} Comparison with RocksDB in terms of ops/sec</p>
+    <p>Load A</p>
+    <p>R un A</p>
+    <p>R un B</p>
+    <p>R un C</p>
+    <p>R un F</p>
+    <p>R un D</p>
+    <p>Load E</p>
+    <p>R un E</p>
+    <p>T h</p>
+    <p>ro u</p>
+    <p>g h</p>
+    <p>p u</p>
+    <p>t (k</p>
+    <p>o p</p>
+    <p>s /s</p>
+    <p>) RocksDB Tucana</p>
+  </div>
+  <div class="page">
+    <p>Throughput</p>
+    <p>} Large dataset } 1.1x up to 2x } Device is the boXleneck</p>
+    <p>} Comparison with RocksDB in terms of ops/sec</p>
+    <p>Load A</p>
+    <p>R un A</p>
+    <p>R un B</p>
+    <p>R un C</p>
+    <p>R un F</p>
+    <p>R un D</p>
+    <p>Load E</p>
+    <p>R un E</p>
+    <p>T h</p>
+    <p>ro u</p>
+    <p>g h</p>
+    <p>p u</p>
+    <p>t (k</p>
+    <p>o p</p>
+    <p>s /s</p>
+    <p>) RocksDB Tucana</p>
+  </div>
+  <div class="page">
+    <p>Tradeoff: Amplifica$on vs. Randomness (Writes) } FIO model for I/O paXern of Tucana and RocksDB } Based on measurements: Tucana has 3.5x less I/O traffic but 49x smaller</p>
+    <p>random I/Os } For two SSD genera$ons Tucanas approach wins: 4.7x and 3.1x over</p>
+    <p>RocksDB</p>
+    <p>SSD (2010) SSD (2015)</p>
+    <p>Write (GB) Avg. rq_size time (sec) time (sec)</p>
+    <p>Tucana 123 18K 133 32</p>
+    <p>RocksDB 435 884K 623 100</p>
+    <p>Ratio 3.5x 49x 4.7x 3.1x</p>
+  </div>
+  <div class="page">
+    <p>Related Work</p>
+    <p>} Reducing I/O amplifica$on in LSM-Trees } WiscKey[FAST16]: compac$on only for keys } LSM-trie[ATC15]: trie of LSM, hash-based structure } VT-Tree[FAST13]: less I/O via container merging } bLSM[SIGMOD12]: bloom filters, compac$on scheduling</p>
+    <p>} BetrFS[FAST15]: B-Trees for file system</p>
+  </div>
+  <div class="page">
+    <p>Conclusions } Tucana: An efficient key-value store in terms of cycles/op</p>
+    <p>} Target fast storage devices } LSM  B: overhead of I/O amplifica$on &amp; compac$ons } Explicit I/O  mmap: overhead of DRAM caching } WAL  CoW: overhead of recovery</p>
+    <p>} Tucana: Up to 9.2x/7x beXer efficiency/xput vs. RocksDB } H-Tucana: Up to 8x/22x beXer efficiency vs. HBase/Cassandra</p>
+  </div>
+  <div class="page">
+    <p>Ques$ons ? Anastasios Papagiannis Ins$tute of Computer Science, FORTH  Heraklion, Greece E-mail: apapag@ics.forth.gr Web: hXp://www.ics.forth.gr/carv</p>
+    <p>Supported by European Commission under FP7 CoherentPaaS (FP7-ICT-611068), LeanBigData (FP7-ICT-619606), and NESUS COST Ac$on IC1305</p>
+  </div>
+</Presentation>

@@ -1,0 +1,647 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>. . . . . .</p>
+    <p>Design Tradeoffs for Data Deduplication Performance in Backup Workloads</p>
+    <p>Min Fu, Dan Feng, Yu Hua, Xubin He, Zuoning Chen*, Wen Xia, Yucheng Zhang, Yujuan Tan</p>
+    <p>Huazhong University of Science and Technology Virginia Commonwealth University</p>
+    <p>*National Engineering Research Center for Parallel Computer Chongqing University</p>
+    <p>Feb. 19, 2015</p>
+    <p>Min Fu  , Dan Feng</p>
+    <p>, Yu Hua</p>
+    <p>, Xubin He</p>
+    <p>, Zuoning Chen</p>
+    <p>* , Wen Xia</p>
+    <p>, Yucheng Zhang</p>
+    <p>, Yujuan Tan</p>
+    <p>(  Huazhong University of Science and Technology</p>
+    <p>Virginia Commonwealth University</p>
+    <p>Chongqing University)Design Tradeoffs for Data Deduplication Performance in Backup WorkloadsFeb. 19, 2015 1 / 32</p>
+  </div>
+  <div class="page">
+    <p>. . . . . .</p>
+    <p>Background</p>
+    <p>In big data era, ! we had 4.4 ZB of data in 2013, and expectedly to grow by 10-fold in</p>
+    <p>Data deduplication is a scalable compression technology ! non-overlapping chunking ! no byte-by-byte comparison (fingerprinting)</p>
+    <p>A significantly lower computation overhead than traditional compression technologies</p>
+    <p>! faster due to coarse-grained compression ! higher compression ratio since it looks for duplicate chunks in a larger</p>
+    <p>scope. (The entire system VS. a limited compression window)</p>
+    <p>Min Fu  , Dan Feng</p>
+    <p>, Yu Hua</p>
+    <p>, Xubin He</p>
+    <p>, Zuoning Chen</p>
+    <p>* , Wen Xia</p>
+    <p>, Yucheng Zhang</p>
+    <p>, Yujuan Tan</p>
+    <p>(  Huazhong University of Science and Technology</p>
+    <p>Virginia Commonwealth University</p>
+    <p>Chongqing University)Design Tradeoffs for Data Deduplication Performance in Backup WorkloadsFeb. 19, 2015 2 / 32</p>
+  </div>
+  <div class="page">
+    <p>. . . . . .</p>
+    <p>An Overview of a Typical Deduplication System</p>
+    <p>Min Fu  , Dan Feng</p>
+    <p>, Yu Hua</p>
+    <p>, Xubin He</p>
+    <p>, Zuoning Chen</p>
+    <p>* , Wen Xia</p>
+    <p>, Yucheng Zhang</p>
+    <p>, Yujuan Tan</p>
+    <p>(  Huazhong University of Science and Technology</p>
+    <p>Virginia Commonwealth University</p>
+    <p>Chongqing University)Design Tradeoffs for Data Deduplication Performance in Backup WorkloadsFeb. 19, 2015 3 / 32</p>
+  </div>
+  <div class="page">
+    <p>. . . . . .</p>
+    <p>Motivations</p>
+    <p>Challenges to design an efficient deduplication system ! Chunking ! Indexing ! Defragmenting ! Restoring ! Garbage collecting ! ...</p>
+    <p>We have a huge number of papers, solutions, and design choices ! Which one is better? ! Better in what?</p>
+    <p>backup performance, restore performance, deduplication ratio, or memory footprint?</p>
+    <p>! How about their interplays?</p>
+    <p>.</p>
+    <p>Min Fu  , Dan Feng</p>
+    <p>, Yu Hua</p>
+    <p>, Xubin He</p>
+    <p>, Zuoning Chen</p>
+    <p>* , Wen Xia</p>
+    <p>, Yucheng Zhang</p>
+    <p>, Yujuan Tan</p>
+    <p>(  Huazhong University of Science and Technology</p>
+    <p>Virginia Commonwealth University</p>
+    <p>Chongqing University)Design Tradeoffs for Data Deduplication Performance in Backup WorkloadsFeb. 19, 2015 4 / 32</p>
+  </div>
+  <div class="page">
+    <p>. . . . . .</p>
+    <p>. ..1 The Parameter Space</p>
+    <p>. ..2 The DeFrame Framework</p>
+    <p>. ..3 Evaluation</p>
+    <p>. ..4 Conclusions</p>
+    <p>Min Fu  , Dan Feng</p>
+    <p>, Yu Hua</p>
+    <p>, Xubin He</p>
+    <p>, Zuoning Chen</p>
+    <p>* , Wen Xia</p>
+    <p>, Yucheng Zhang</p>
+    <p>, Yujuan Tan</p>
+    <p>(  Huazhong University of Science and Technology</p>
+    <p>Virginia Commonwealth University</p>
+    <p>Chongqing University)Design Tradeoffs for Data Deduplication Performance in Backup WorkloadsFeb. 19, 2015 5 / 32</p>
+  </div>
+  <div class="page">
+    <p>. . . . . .</p>
+    <p>The Parameter Space</p>
+    <p>In this paper, we mainly explore ! fingerprint indexing, ! rewriting algorithm (in-line defragmenting), ! restore algorithm (cache replacement), ! and their interplays.</p>
+    <p>Parameter Space Descriptions</p>
+    <p>Indexing</p>
+    <p>Key-value mapping Mapping fingerprints to their prefetching units Fingerprint cache In-memory fingerprint cache Sampling Selecting representative fingerprints Segmenting Splitting the unit of logical locality Segment selection Selecting segments to be prefetched Segment prefetching Exploiting segment-level locality</p>
+    <p>Defragmenting (rewriting) Reducing fragmentation Restoring Designing restore cache/algorithm</p>
+    <p>Table: The major parameters we discuss.</p>
+    <p>Min Fu  , Dan Feng</p>
+    <p>, Yu Hua</p>
+    <p>, Xubin He</p>
+    <p>, Zuoning Chen</p>
+    <p>* , Wen Xia</p>
+    <p>, Yucheng Zhang</p>
+    <p>, Yujuan Tan</p>
+    <p>(  Huazhong University of Science and Technology</p>
+    <p>Virginia Commonwealth University</p>
+    <p>Chongqing University)Design Tradeoffs for Data Deduplication Performance in Backup WorkloadsFeb. 19, 2015 6 / 32</p>
+  </div>
+  <div class="page">
+    <p>. . . . . .</p>
+    <p>Indexing Bottleneck</p>
+    <p>A deduplication system requires a huge key-value store to identify duplicates</p>
+    <p>An in-memory key-value store is not cost-efficient: ! Amazon.com: a 1 TB HDD costs $60, and an 8 GB DRAM costs $80 ! suppose 4KB-sized chunks and 32-byte-sized key-value pair ! indexing 1 TB unique date requires an 8 GB-sized key-value store</p>
+    <p>An HDD-based key-value store easily becomes the performance bottleneck, compared to the fast CDC chunking (400 MB/s and 102,400 chunks per sec under commercial CPUs)</p>
+    <p>Modern fingerprint indexes exploit workload characteristics (locality) of backup systems to prefetch and cache fingerprints</p>
+    <p>Hence, a fingerprint index consists of two major components: ! key-value store ! fingerprint prefetching/caching module</p>
+    <p>Min Fu  , Dan Feng</p>
+    <p>, Yu Hua</p>
+    <p>, Xubin He</p>
+    <p>, Zuoning Chen</p>
+    <p>* , Wen Xia</p>
+    <p>, Yucheng Zhang</p>
+    <p>, Yujuan Tan</p>
+    <p>(  Huazhong University of Science and Technology</p>
+    <p>Virginia Commonwealth University</p>
+    <p>Chongqing University)Design Tradeoffs for Data Deduplication Performance in Backup WorkloadsFeb. 19, 2015 7 / 32</p>
+  </div>
+  <div class="page">
+    <p>. . . . . .</p>
+    <p>The Fingerprint Index Taxonomy</p>
+    <p>Figure: Categories of existing work.</p>
+    <p>Classification according to the use of key-value store ! Exact Deduplication (ED): fully indexing stored fingerprints ! Near-exact Deduplication (ND): partially indexing stored fingerprints</p>
+    <p>Classification according to the prefetching policy ! Logical Locality (LL): the chunk sequence before deduplication ! Physical Locality (PL): the physical layout of stored chunks</p>
+    <p>Min Fu  , Dan Feng</p>
+    <p>, Yu Hua</p>
+    <p>, Xubin He</p>
+    <p>, Zuoning Chen</p>
+    <p>* , Wen Xia</p>
+    <p>, Yucheng Zhang</p>
+    <p>, Yujuan Tan</p>
+    <p>(  Huazhong University of Science and Technology</p>
+    <p>Virginia Commonwealth University</p>
+    <p>Chongqing University)Design Tradeoffs for Data Deduplication Performance in Backup WorkloadsFeb. 19, 2015 8 / 32</p>
+  </div>
+  <div class="page">
+    <p>. . . . . .</p>
+    <p>Exact vs. Near-exact Deduplication</p>
+    <p>Exact Deduplication (ED) indexes all stored fingerprints ! a huge key-value store on disks ! fingerprint prefetching/caching to improve backup throughput</p>
+    <p>Near-exact Deduplication (ND) indexes only sampled (representative) fingerprints</p>
+    <p>! a small key-value store in DRAM ! fingerprint prefetching/caching to improve deduplication ratio</p>
+    <p>ND trades deduplication ratio for higher backup/restore performance and lower memory footprint</p>
+    <p>! Does a lower memory footprint indicate a lower financial cost? ! To avoid an increase of the storage cost, ND needs to achieve 97% of</p>
+    <p>the deduplication ratio of ED.</p>
+    <p>Min Fu  , Dan Feng</p>
+    <p>, Yu Hua</p>
+    <p>, Xubin He</p>
+    <p>, Zuoning Chen</p>
+    <p>* , Wen Xia</p>
+    <p>, Yucheng Zhang</p>
+    <p>, Yujuan Tan</p>
+    <p>(  Huazhong University of Science and Technology</p>
+    <p>Virginia Commonwealth University</p>
+    <p>Chongqing University)Design Tradeoffs for Data Deduplication Performance in Backup WorkloadsFeb. 19, 2015 9 / 32</p>
+  </div>
+  <div class="page">
+    <p>. . . . . .</p>
+    <p>Exploiting Physical Locality</p>
+    <p>The key-value store maps a fingerprint to its physical location, i.e., a container.</p>
+    <p>Weakness: the prefetching efficiency decreases over time due to the fragmentation problem.</p>
+    <p>! Older containers have many useless fingerprints for new backups.</p>
+    <p>For Near-exact Deduplication, how to select (sample) representative fingerprints in each container?</p>
+    <p>! Selects the fingerprints that mod R = 0 in a container, or ! Selects the first fingerprint every R fingerprints in a container.</p>
+    <p>Min Fu  , Dan Feng</p>
+    <p>, Yu Hua</p>
+    <p>, Xubin He</p>
+    <p>, Zuoning Chen</p>
+    <p>* , Wen Xia</p>
+    <p>, Yucheng Zhang</p>
+    <p>, Yujuan Tan</p>
+    <p>(  Huazhong University of Science and Technology</p>
+    <p>Virginia Commonwealth University</p>
+    <p>Chongqing University)Design Tradeoffs for Data Deduplication Performance in Backup WorkloadsFeb. 19, 2015 10 / 32</p>
+  </div>
+  <div class="page">
+    <p>. . . . . .</p>
+    <p>Exploiting Logical Locality</p>
+    <p>The key-value store maps a fingerprint to its logical location, i.e., a segment in a recipe.</p>
+    <p>The segment serves as the prefetching unit</p>
+    <p>Advantage: no fragmentation problem Weakness: extremely high update overhead to the key-value store</p>
+    <p>! Even duplicate fingerprints have new logical locations (in new recipes and new segments).</p>
+    <p>! Optimization: only update sampled duplicate fingerprints.</p>
+    <p>How to segmenting and sampling?</p>
+    <p>Min Fu  , Dan Feng</p>
+    <p>, Yu Hua</p>
+    <p>, Xubin He</p>
+    <p>, Zuoning Chen</p>
+    <p>* , Wen Xia</p>
+    <p>, Yucheng Zhang</p>
+    <p>, Yujuan Tan</p>
+    <p>(  Huazhong University of Science and Technology</p>
+    <p>Virginia Commonwealth University</p>
+    <p>Chongqing University)Design Tradeoffs for Data Deduplication Performance in Backup WorkloadsFeb. 19, 2015 11 / 32</p>
+  </div>
+  <div class="page">
+    <p>. . . . . .</p>
+    <p>Design Choices for Exploiting Logical Locality</p>
+    <p>BLC Extreme Binning Sparse Indexing SiLo Exact deduplication Yes No No No Segmenting method FSS FDS CDS FSS &amp; FDS Sampling method N/A Minimum Random Minimum Segment selection Base Top-all Top-k Top-1</p>
+    <p>Segment prefetching Yes No No Yes Key-value mapping relationship 1:1 1:1 Varied 1:1</p>
+    <p>Table: Existing work exploiting logical locality.</p>
+    <p>Segmenting: Fixed-Sized Segmenting (FSS), File-Defined Segmenting (FDS), and Content-Defined Segmenting (CDS)</p>
+    <p>Sampling: Uniform, Random, and Minimum.</p>
+    <p>Segment selection: Base, Top-k, and Mix.</p>
+    <p>Segment prefetching: exploiting segment-level locality.</p>
+    <p>Key-value mapping: each representative fingerprint can refer to a varied number of logical locations.</p>
+    <p>Min Fu  , Dan Feng</p>
+    <p>, Yu Hua</p>
+    <p>, Xubin He</p>
+    <p>, Zuoning Chen</p>
+    <p>* , Wen Xia</p>
+    <p>, Yucheng Zhang</p>
+    <p>, Yujuan Tan</p>
+    <p>(  Huazhong University of Science and Technology</p>
+    <p>Virginia Commonwealth University</p>
+    <p>Chongqing University)Design Tradeoffs for Data Deduplication Performance in Backup WorkloadsFeb. 19, 2015 12 / 32</p>
+  </div>
+  <div class="page">
+    <p>. . . . . .</p>
+    <p>Defragmenting and Rewriting Algorithm</p>
+    <p>The rewriting algorithm is an emerging dimension to reduce fragmentation. What is the fragmentation?</p>
+    <p>! The deviation between the logical locality and physical locality.</p>
+    <p>The fragmentation hurts the restore (read) performance, and the backup performance of the fingerprint index exploiting physical locality.</p>
+    <p>Min Fu  , Dan Feng</p>
+    <p>, Yu Hua</p>
+    <p>, Xubin He</p>
+    <p>, Zuoning Chen</p>
+    <p>* , Wen Xia</p>
+    <p>, Yucheng Zhang</p>
+    <p>, Yujuan Tan</p>
+    <p>(  Huazhong University of Science and Technology</p>
+    <p>Virginia Commonwealth University</p>
+    <p>Chongqing University)Design Tradeoffs for Data Deduplication Performance in Backup WorkloadsFeb. 19, 2015 13 / 32</p>
+  </div>
+  <div class="page">
+    <p>. . . . . .</p>
+    <p>Existing Rewriting Algorithms</p>
+    <p>Buffer-based algorithm ! CFL-based Selective Deduplication [Nam2012] ! Context-Based Rewriting [Kaczmarczyk2012] ! Capping [Lillibridge2013]</p>
+    <p>History-aware algorithm ! History-Aware Rewriting [Fu2014]</p>
+    <p>How about their interplays with the state-of-the-art fingerprint indexes?</p>
+    <p>! How does the rewriting algorithm improve the fingerprint index exploiting physical locality?</p>
+    <p>! How do the different prefetching schemes affect the efficiency of the rewriting algorithm?</p>
+    <p>Min Fu  , Dan Feng</p>
+    <p>, Yu Hua</p>
+    <p>, Xubin He</p>
+    <p>, Zuoning Chen</p>
+    <p>* , Wen Xia</p>
+    <p>, Yucheng Zhang</p>
+    <p>, Yujuan Tan</p>
+    <p>(  Huazhong University of Science and Technology</p>
+    <p>Virginia Commonwealth University</p>
+    <p>Chongqing University)Design Tradeoffs for Data Deduplication Performance in Backup WorkloadsFeb. 19, 2015 14 / 32</p>
+  </div>
+  <div class="page">
+    <p>. . . . . .</p>
+    <p>The Restore Algorithm</p>
+    <p>While the rewriting algorithm determines the chunk layout, the restore algorithm improves restore performance under limited memory.</p>
+    <p>! How to write, and then how to read.</p>
+    <p>Existing restore algorithms: ! traditional LRU cache ! Beladys optimal replacement cache ! rolling forward assembly area [Lillibridge2013]</p>
+    <p>How about their interplays with the rewriting algorithm?</p>
+    <p>Min Fu  , Dan Feng</p>
+    <p>, Yu Hua</p>
+    <p>, Xubin He</p>
+    <p>, Zuoning Chen</p>
+    <p>* , Wen Xia</p>
+    <p>, Yucheng Zhang</p>
+    <p>, Yujuan Tan</p>
+    <p>(  Huazhong University of Science and Technology</p>
+    <p>Virginia Commonwealth University</p>
+    <p>Chongqing University)Design Tradeoffs for Data Deduplication Performance in Backup WorkloadsFeb. 19, 2015 15 / 32</p>
+  </div>
+  <div class="page">
+    <p>. . . . . .</p>
+    <p>The DeFrame Architecture</p>
+    <p>Fingerprint index: duplicate identification ! key-value store ! fingerprint prefetching/caching</p>
+    <p>Container store: container management (physical locality)</p>
+    <p>Recipe store: recipe management (logical locality)</p>
+    <p>Min Fu  , Dan Feng</p>
+    <p>, Yu Hua</p>
+    <p>, Xubin He</p>
+    <p>, Zuoning Chen</p>
+    <p>* , Wen Xia</p>
+    <p>, Yucheng Zhang</p>
+    <p>, Yujuan Tan</p>
+    <p>(  Huazhong University of Science and Technology</p>
+    <p>Virginia Commonwealth University</p>
+    <p>Chongqing University)Design Tradeoffs for Data Deduplication Performance in Backup WorkloadsFeb. 19, 2015 16 / 32</p>
+  </div>
+  <div class="page">
+    <p>. . . . . .</p>
+    <p>The Backup Pipeline</p>
+    <p>Dedup phase identifies duplicate/unique chunks Rewrite phase identifies fragmented duplicate chunks Filter phase determines whether write a chunk Advantage: we can implement a new rewriting algorithm without the need to modify the fingerprint index, and vice versa.</p>
+    <p>Min Fu  , Dan Feng</p>
+    <p>, Yu Hua</p>
+    <p>, Xubin He</p>
+    <p>, Zuoning Chen</p>
+    <p>* , Wen Xia</p>
+    <p>, Yucheng Zhang</p>
+    <p>, Yujuan Tan</p>
+    <p>(  Huazhong University of Science and Technology</p>
+    <p>Virginia Commonwealth University</p>
+    <p>Chongqing University)Design Tradeoffs for Data Deduplication Performance in Backup WorkloadsFeb. 19, 2015 17 / 32</p>
+  </div>
+  <div class="page">
+    <p>. . . . . .</p>
+    <p>The Restore Pipeline</p>
+    <p>Read recipe phase reads the recipe and output fingerprints</p>
+    <p>Restore algorithm phase receives fingerprints and fetch chunks from the container store</p>
+    <p>Reconstruct file phase receives the chunks and reconstruct files</p>
+    <p>Min Fu  , Dan Feng</p>
+    <p>, Yu Hua</p>
+    <p>, Xubin He</p>
+    <p>, Zuoning Chen</p>
+    <p>* , Wen Xia</p>
+    <p>, Yucheng Zhang</p>
+    <p>, Yujuan Tan</p>
+    <p>(  Huazhong University of Science and Technology</p>
+    <p>Virginia Commonwealth University</p>
+    <p>Chongqing University)Design Tradeoffs for Data Deduplication Performance in Backup WorkloadsFeb. 19, 2015 18 / 32</p>
+  </div>
+  <div class="page">
+    <p>. . . . . .</p>
+    <p>Garbage Collection</p>
+    <p>Users can set a retention time for the backups.</p>
+    <p>All expired backups will be deleted automatically by DeFrame.</p>
+    <p>How to reclaim the invalid chunks becomes a major challenge. ! We develop History-Aware Rewriting algorithm to aggregate valid</p>
+    <p>chunks into fewer containers ! We develop Container-Marker Algorithm to reclaim invalid containers.</p>
+    <p>More details can be found in our ATC14 paper.</p>
+    <p>Min Fu  , Dan Feng</p>
+    <p>, Yu Hua</p>
+    <p>, Xubin He</p>
+    <p>, Zuoning Chen</p>
+    <p>* , Wen Xia</p>
+    <p>, Yucheng Zhang</p>
+    <p>, Yujuan Tan</p>
+    <p>(  Huazhong University of Science and Technology</p>
+    <p>Virginia Commonwealth University</p>
+    <p>Chongqing University)Design Tradeoffs for Data Deduplication Performance in Backup WorkloadsFeb. 19, 2015 19 / 32</p>
+  </div>
+  <div class="page">
+    <p>. . . . . .</p>
+    <p>Experimental Setups</p>
+    <p>Dataset name Kernel VMDK RDB Total size 104 GB 1.89 TB 1.12 TB</p>
+    <p># of versions 258 127 212 Deduplication ratio 45.28 27.36 39.1 Avg. chunk size 5.29 KB 5.25 KB 4.5 KB Self-reference &lt; 1% 15-20% 0 Fragmentation Severe Moderate Severe</p>
+    <p>Table: The characteristics of our datasets.</p>
+    <p>Kernel: downloaded from kernel.org</p>
+    <p>VMDK: 127 consecutive snapshots of a virtual machine disk image</p>
+    <p>RDB: 212 consecutive snapshots of a Redis database</p>
+    <p>Min Fu  , Dan Feng</p>
+    <p>, Yu Hua</p>
+    <p>, Xubin He</p>
+    <p>, Zuoning Chen</p>
+    <p>* , Wen Xia</p>
+    <p>, Yucheng Zhang</p>
+    <p>, Yujuan Tan</p>
+    <p>(  Huazhong University of Science and Technology</p>
+    <p>Virginia Commonwealth University</p>
+    <p>Chongqing University)Design Tradeoffs for Data Deduplication Performance in Backup WorkloadsFeb. 19, 2015 20 / 32</p>
+  </div>
+  <div class="page">
+    <p>. . . . . .</p>
+    <p>Metrics and Our Goal . Quantitative Metrics ..</p>
+    <p>.</p>
+    <p>. ..</p>
+    <p>.</p>
+    <p>.</p>
+    <p>Deduplication ratio: the original backup data size divided by the size of stored data.</p>
+    <p>Memory footprint: the runtime DRAM consumption.</p>
+    <p>Storage cost: the total cost of HDDs and DRAM for stored chunks and the fingerprint index.</p>
+    <p>Lookup/update request per GB: the number of lookup/update requests to the key-value store to deduplicate 1 GB of data.</p>
+    <p>Restore speed: 1 divided by mean containers read per MB of restored data.</p>
+    <p>It is practically impossible to find a solution that performs the best in all metrics. We aim to find a solution with the following properties:</p>
+    <p>! sustained, high backup performance as the top priority. ! reasonable tradeoffs in the remaining metrics.</p>
+    <p>Min Fu  , Dan Feng</p>
+    <p>, Yu Hua</p>
+    <p>, Xubin He</p>
+    <p>, Zuoning Chen</p>
+    <p>* , Wen Xia</p>
+    <p>, Yucheng Zhang</p>
+    <p>, Yujuan Tan</p>
+    <p>(  Huazhong University of Science and Technology</p>
+    <p>Virginia Commonwealth University</p>
+    <p>Chongqing University)Design Tradeoffs for Data Deduplication Performance in Backup WorkloadsFeb. 19, 2015 21 / 32</p>
+  </div>
+  <div class="page">
+    <p>. . . . . .</p>
+    <p>EDPL vs. EDLL</p>
+    <p>up re</p>
+    <p>qu es</p>
+    <p>ts p</p>
+    <p>er G</p>
+    <p>B</p>
+    <p>backup version</p>
+    <p>EDPL EDLL(R=16)</p>
+    <p>EDLL(R=32) EDLL(R=64)</p>
+    <p>EDLL(R=128) EDLL(R=256)</p>
+    <p>(a) Lookup overhead</p>
+    <p>at e</p>
+    <p>re qu</p>
+    <p>es ts</p>
+    <p>p er</p>
+    <p>G B</p>
+    <p>backup version</p>
+    <p>EDPL EDLL(R=16)</p>
+    <p>EDLL(R=32) EDLL(R=64)</p>
+    <p>EDLL(R=128) EDLL(R=256)</p>
+    <p>(b) Update overhead</p>
+    <p>Figure: Comparisons between EDPL and EDLL in terms of lookup and update overheads. R = 256 indicates a sampling ratio of 256:1. Results come from RDB.</p>
+    <p>EDPL suffers from the ever-increasing lookup overhead.</p>
+    <p>For EDLL, the sampling optimization is efficient.</p>
+    <p>Min Fu  , Dan Feng</p>
+    <p>, Yu Hua</p>
+    <p>, Xubin He</p>
+    <p>, Zuoning Chen</p>
+    <p>* , Wen Xia</p>
+    <p>, Yucheng Zhang</p>
+    <p>, Yujuan Tan</p>
+    <p>(  Huazhong University of Science and Technology</p>
+    <p>Virginia Commonwealth University</p>
+    <p>Chongqing University)Design Tradeoffs for Data Deduplication Performance in Backup WorkloadsFeb. 19, 2015 22 / 32</p>
+  </div>
+  <div class="page">
+    <p>. . . . . .</p>
+    <p>NDPL vs. NDLL</p>
+    <p>(a) NDPL (b) NDLL</p>
+    <p>Figure: Comparing NDPL and NDLL under different cache sizes. The Y-axis shows the relative deduplication ratio to exact deduplication.</p>
+    <p>NDLL performs better in Kernel and RDB, but worse in VMDK than NDPL.</p>
+    <p>Min Fu  , Dan Feng</p>
+    <p>, Yu Hua</p>
+    <p>, Xubin He</p>
+    <p>, Zuoning Chen</p>
+    <p>* , Wen Xia</p>
+    <p>, Yucheng Zhang</p>
+    <p>, Yujuan Tan</p>
+    <p>(  Huazhong University of Science and Technology</p>
+    <p>Virginia Commonwealth University</p>
+    <p>Chongqing University)Design Tradeoffs for Data Deduplication Performance in Backup WorkloadsFeb. 19, 2015 23 / 32</p>
+  </div>
+  <div class="page">
+    <p>. . . . . .</p>
+    <p>The Interplays Between Fingerprint Index and Rewriting Algorithm</p>
+    <p>lo ok</p>
+    <p>up re</p>
+    <p>qu es</p>
+    <p>ts p</p>
+    <p>er G</p>
+    <p>B</p>
+    <p>backup versions</p>
+    <p>EDPL EDLL</p>
+    <p>EDPL + HAR EDLL + HAR</p>
+    <p>(a)</p>
+    <p>Kernel RDB VMDKr el</p>
+    <p>at iv</p>
+    <p>e de</p>
+    <p>du pl</p>
+    <p>ic at</p>
+    <p>io n</p>
+    <p>ra tio</p>
+    <p>EDPL NDPL EDLL NDLL</p>
+    <p>(b)</p>
+    <p>Figure: (a) How does HAR improve EDPL in terms of lookup overhead in Kernel? (b) How does fingerprint index affect HAR? The Y-axis shows the relative deduplication ratio to that of exact deduplication without rewriting.</p>
+    <p>Exact Deduplication exploiting Physical Locality (EDPL) has the best interplays with the rewriting algorithm (HAR).</p>
+    <p>Min Fu  , Dan Feng</p>
+    <p>, Yu Hua</p>
+    <p>, Xubin He</p>
+    <p>, Zuoning Chen</p>
+    <p>* , Wen Xia</p>
+    <p>, Yucheng Zhang</p>
+    <p>, Yujuan Tan</p>
+    <p>(  Huazhong University of Science and Technology</p>
+    <p>Virginia Commonwealth University</p>
+    <p>Chongqing University)Design Tradeoffs for Data Deduplication Performance in Backup WorkloadsFeb. 19, 2015 24 / 32</p>
+  </div>
+  <div class="page">
+    <p>. . . . . .</p>
+    <p>The Interplays Between Rewriting and Restore Algorithm</p>
+    <p>re st</p>
+    <p>or e</p>
+    <p>sp ee</p>
+    <p>d</p>
+    <p>backup version</p>
+    <p>LRU w/o HAR ASM w/o HAR</p>
+    <p>OPT w/o HAR LRU + HAR</p>
+    <p>ASM + HAR OPT + HAR</p>
+    <p>Figure: EDPL is used as the fingerprint index</p>
+    <p>When HAR is used, the optimal cache is better; otherwise, the rolling forward assembly area is better.</p>
+    <p>Min Fu  , Dan Feng</p>
+    <p>, Yu Hua</p>
+    <p>, Xubin He</p>
+    <p>, Zuoning Chen</p>
+    <p>* , Wen Xia</p>
+    <p>, Yucheng Zhang</p>
+    <p>, Yujuan Tan</p>
+    <p>(  Huazhong University of Science and Technology</p>
+    <p>Virginia Commonwealth University</p>
+    <p>Chongqing University)Design Tradeoffs for Data Deduplication Performance in Backup WorkloadsFeb. 19, 2015 25 / 32</p>
+  </div>
+  <div class="page">
+    <p>. . . . . .</p>
+    <p>Conclusions</p>
+    <p>We propose a taxonomy to understand the parameter space of data deduplication.</p>
+    <p>We design and implement a framework to evaluate the parameter space.</p>
+    <p>We present our experimental results, and draw the following recommendations.</p>
+    <p>Subspace Recommended parameter settings Advantages</p>
+    <p>EDLL content-defined segmenting lowest storage cost</p>
+    <p>random sampling sustained backup performance</p>
+    <p>NDPL uniform sampling lowest memory footprint simplest logical frame</p>
+    <p>NDLL content-defined segmenting lowest memory footprint</p>
+    <p>similarity detection &amp; segment prefetching high deduplication ratio</p>
+    <p>EDPL an efficient rewriting algorithm sustained high restore performance</p>
+    <p>good interplays with the rewriting algorithm</p>
+    <p>Table: How to choose a reasonable solution according to required tradeoff.</p>
+    <p>Min Fu  , Dan Feng</p>
+    <p>, Yu Hua</p>
+    <p>, Xubin He</p>
+    <p>, Zuoning Chen</p>
+    <p>* , Wen Xia</p>
+    <p>, Yucheng Zhang</p>
+    <p>, Yujuan Tan</p>
+    <p>(  Huazhong University of Science and Technology</p>
+    <p>Virginia Commonwealth University</p>
+    <p>Chongqing University)Design Tradeoffs for Data Deduplication Performance in Backup WorkloadsFeb. 19, 2015 26 / 32</p>
+  </div>
+  <div class="page">
+    <p>. . . . . .</p>
+    <p>Thank You!</p>
+    <p>Q &amp; A</p>
+    <p>DeFrame is released at www.github.com/fomy/destor</p>
+    <p>Min Fu  , Dan Feng</p>
+    <p>, Yu Hua</p>
+    <p>, Xubin He</p>
+    <p>, Zuoning Chen</p>
+    <p>* , Wen Xia</p>
+    <p>, Yucheng Zhang</p>
+    <p>, Yujuan Tan</p>
+    <p>(  Huazhong University of Science and Technology</p>
+    <p>Virginia Commonwealth University</p>
+    <p>Chongqing University)Design Tradeoffs for Data Deduplication Performance in Backup WorkloadsFeb. 19, 2015 27 / 32</p>
+  </div>
+  <div class="page">
+    <p>. . . . . .</p>
+    <p>Exploiting Similarity for NDLL</p>
+    <p>Figure: This figure shows the workflow of the Top-k similarity detection.</p>
+    <p>Observations: NDLL works better than NDPL in datasets where self-references are rare, but worse in datasets where self-references are common.</p>
+    <p>! Self-references are duplicates in a single file (backup).</p>
+    <p>We could exploit similarity to improve deduplication ratio.</p>
+    <p>Advantage: higher deduplication ratio than the Base procedure.</p>
+    <p>Weakness: more complicated procedure and an additional buffer, compared to the Base procedure.</p>
+    <p>Min Fu  , Dan Feng</p>
+    <p>, Yu Hua</p>
+    <p>, Xubin He</p>
+    <p>, Zuoning Chen</p>
+    <p>* , Wen Xia</p>
+    <p>, Yucheng Zhang</p>
+    <p>, Yujuan Tan</p>
+    <p>(  Huazhong University of Science and Technology</p>
+    <p>Virginia Commonwealth University</p>
+    <p>Chongqing University)Design Tradeoffs for Data Deduplication Performance in Backup WorkloadsFeb. 19, 2015 28 / 32</p>
+  </div>
+  <div class="page">
+    <p>. . . . . .</p>
+    <p>The efficiency of similarity detection</p>
+    <p>Figure: Impacts of the segment selection (s), segment prefetching (p), and mapping relationship (v) on deduplication ratio.</p>
+    <p>On the X-axis, we have parameters in the format (s, p, v). ! s could be Base and Top-k (k varies from 1 to 4). ! p varies from 1 to 4. ! v varies from 1 to 4.</p>
+    <p>They finally achieve 90% of the deduplication ratio of exact deduplication.</p>
+    <p>Min Fu  , Dan Feng</p>
+    <p>, Yu Hua</p>
+    <p>, Xubin He</p>
+    <p>, Zuoning Chen</p>
+    <p>* , Wen Xia</p>
+    <p>, Yucheng Zhang</p>
+    <p>, Yujuan Tan</p>
+    <p>(  Huazhong University of Science and Technology</p>
+    <p>Virginia Commonwealth University</p>
+    <p>Chongqing University)Design Tradeoffs for Data Deduplication Performance in Backup WorkloadsFeb. 19, 2015 29 / 32</p>
+  </div>
+  <div class="page">
+    <p>. . . . . .</p>
+    <p>The efficiency of similarity detection</p>
+    <p>Figure: Impacts of the segment selection (s), segment prefetching (p), and mapping relationship (v) on segments read.</p>
+    <p>The segment prefetching is complementary with Top-k.</p>
+    <p>Min Fu  , Dan Feng</p>
+    <p>, Yu Hua</p>
+    <p>, Xubin He</p>
+    <p>, Zuoning Chen</p>
+    <p>* , Wen Xia</p>
+    <p>, Yucheng Zhang</p>
+    <p>, Yujuan Tan</p>
+    <p>(  Huazhong University of Science and Technology</p>
+    <p>Virginia Commonwealth University</p>
+    <p>Chongqing University)Design Tradeoffs for Data Deduplication Performance in Backup WorkloadsFeb. 19, 2015 30 / 32</p>
+  </div>
+  <div class="page">
+    <p>. . . . . .</p>
+    <p>Storage cost</p>
+    <p>Dataset Fraction EDPL/EDLL NDPL-64 NDPL-128 NDPL-256 NDLL-64 NDLL-128 NDLL-256</p>
+    <p>Kernel DRAM 1.33% 0.83% 0.49% 0.31% 0.66% 0.34% 0.16% HDD 57.34% 65.01% 70.56% 77.58% 59.03% 59.83% 60.23% Total 58.67% 65.84% 71.04% 77.89% 59.69% 60.17% 60.39%</p>
+    <p>RDB DRAM 1.40% 0.83% 0.48% 0.31% 0.70% 0.35% 0.17% HDD 55.15% 61.25% 66.08% 73.58% 55.27% 55.34% 55.65% Total 56.55% 62.07% 66.56% 73.89% 55.97% 55.69% 55.82%</p>
+    <p>VMDK DRAM 1.41% 0.82% 0.45% 0.27% 0.71% 0.35% 0.18% HDD 54.86% 60.32% 63.16% 67.10% 59.79% 62.92% 71.24% Total 56.27% 61.14% 63.61% 67.36% 60.49% 63.27% 71.42%</p>
+    <p>Table: The storage costs relative to the baseline which indexes all fingerprints in DRAM. NDPL-128 is NDPL of a 128:1 uniform sampling ratio.</p>
+    <p>Via exploiting locality, the storage cost reduces by about 40%.</p>
+    <p>Near-exact deduplication reduces the memory footprint, however it generally increases the total storage cost.</p>
+    <p>Min Fu  , Dan Feng</p>
+    <p>, Yu Hua</p>
+    <p>, Xubin He</p>
+    <p>, Zuoning Chen</p>
+    <p>* , Wen Xia</p>
+    <p>, Yucheng Zhang</p>
+    <p>, Yujuan Tan</p>
+    <p>(  Huazhong University of Science and Technology</p>
+    <p>Virginia Commonwealth University</p>
+    <p>Chongqing University)Design Tradeoffs for Data Deduplication Performance in Backup WorkloadsFeb. 19, 2015 31 / 32</p>
+  </div>
+  <div class="page">
+    <p>. . . . . .</p>
+    <p>Choosing Sampling Method in NDPL</p>
+    <p>m em</p>
+    <p>or y</p>
+    <p>fo ot</p>
+    <p>pr in</p>
+    <p>t ( K</p>
+    <p>B )</p>
+    <p>deduplication ratio</p>
+    <p>uniform random</p>
+    <p>Figure: Impacts of varying sampling method on NDPL. Points in each line are of different sampling ratios, which are 256, 128, 64, 32, 16, and 1 from left to right.</p>
+    <p>The uniform sampling achieves significantly better deduplication ratio than the random sampling.</p>
+    <p>Min Fu  , Dan Feng</p>
+    <p>, Yu Hua</p>
+    <p>, Xubin He</p>
+    <p>, Zuoning Chen</p>
+    <p>* , Wen Xia</p>
+    <p>, Yucheng Zhang</p>
+    <p>, Yujuan Tan</p>
+    <p>(  Huazhong University of Science and Technology</p>
+    <p>Virginia Commonwealth University</p>
+    <p>Chongqing University)Design Tradeoffs for Data Deduplication Performance in Backup WorkloadsFeb. 19, 2015 32 / 32</p>
+  </div>
+</Presentation>

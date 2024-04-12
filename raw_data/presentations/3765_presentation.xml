@@ -1,0 +1,310 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>A Systematic Approach to System State Restoration</p>
+    <p>during Storage Controller Micro-Recovery</p>
+    <p>Sangeetha Seshadri*</p>
+    <p>- with Lawrence Chiu, and Ling Liu*</p>
+    <p>* Georgia Tech IBM Almaden Research Center</p>
+    <p>USENIX FAST 2009</p>
+    <p>Outline</p>
+    <p>Storage system availability.</p>
+    <p>Technical challenges.</p>
+    <p>Improving firmware availability through micro-recovery.</p>
+    <p>Log(Lock) architecture for system state restoration.</p>
+    <p>Evaluation.</p>
+    <p>Conclusions.</p>
+    <p>Questions.</p>
+  </div>
+  <div class="page">
+    <p>Storage System Availability</p>
+    <p>Foundations of modern data centers.</p>
+    <p>Extremely high availability expectation.</p>
+    <p>Issues:  Complex, legacy architectures.</p>
+    <p>Concurrent development, quality assurance processes.</p>
+    <p>Large scale installations  1000s of components.</p>
+    <p>Multiple applications, different expectations.</p>
+    <p>Failures are the norm, not exception.</p>
+    <p>Goal: Improve recovery time in large scale storage systems.</p>
+    <p>Challenge: Existing failure recovery mechanisms insufficient</p>
+    <p>to deal with scale and complexity.</p>
+    <p>Storage Controller System Model</p>
+    <p>Storage Controllers  RAID, I/O Routing, Error Detection</p>
+    <p>Many interacting components;</p>
+    <p>Large number of asynchronous, short-running tasks (~ secs).</p>
+    <p>Each task is executed entirely by one thread.</p>
+    <p>SCSI Command Processor</p>
+    <p>Cache Manager</p>
+    <p>Device Manager</p>
+    <p>Multi-core/SMP Processor Complex</p>
+    <p>Short-running threads</p>
+    <p>Job Queue</p>
+  </div>
+  <div class="page">
+    <p>Failure Model</p>
+    <p>Controller Failures</p>
+    <p>Permanent Transient</p>
+    <p>Domain Errors</p>
+    <p>Range Errors</p>
+    <p>State Errors Internal</p>
+    <p>Logic Errors</p>
+    <p>Focus on service loss.</p>
+    <p>Examples:  Time-out conditions.</p>
+    <p>Race conditions.</p>
+    <p>Boundary conditions.</p>
+    <p>Insufficient error handling.</p>
+    <p>Queue full condition.</p>
+    <p>Incorrect Linear Redundancy Code (LRC).</p>
+    <p>Unsolicited response from third-party devices.</p>
+    <p>Unknown state caused due to configuration issues.</p>
+    <p>Challenge: Firmware Availability</p>
+    <p>Failures trigger system recovery.  Unavailability ~ 6 seconds (with 8 cores).</p>
+    <p>Does not scale with system size.</p>
+    <p>Scalable failure recovery?  Legacy architecture. (~ 2M loc)</p>
+    <p>Dynamic dependencies.</p>
+    <p>Complex recovery semantics.</p>
+    <p>Sustain high performance.</p>
+    <p>Failure</p>
+    <p>Abort and Restart all Tasks</p>
+    <p>System-wide Recovery</p>
+    <p>Requirements: Retrofittable, dynamic and low overhead.</p>
+  </div>
+  <div class="page">
+    <p>System-Level vs. Task-Level Recovery</p>
+    <p>Error Detection</p>
+    <p>Log System State</p>
+    <p>System-wide Recovery</p>
+    <p>System Operation Resume</p>
+    <p>Halt All System Operations</p>
+    <p>Error Detection</p>
+    <p>Halt Task Operation</p>
+    <p>Log Task State</p>
+    <p>Task-level Recovery</p>
+    <p>Continue (Roll-forward)</p>
+    <p>Propagate Error</p>
+    <p>Retry (Roll-back)</p>
+    <p>System Level Recovery Task Level Recovery</p>
+    <p>Improving Firmware AvailabilityImproving Firmware AvailabilityImproving Firmware AvailabilityImproving Firmware Availability</p>
+    <p>RecoveryRecoveryRecoveryRecovery----Conscious FrameworkConscious FrameworkConscious FrameworkConscious Framework</p>
+    <p>STAGE 1: Fine Grained Recovery</p>
+    <p>Recovery Strategy Recovery Scopes</p>
+    <p>STAGE 3: Recovery Conscious Scheduling</p>
+    <p>STAGE 2: Recovery Scopes Recovery Groups</p>
+    <p>Availability Constraints Configuration</p>
+    <p>StaticPartially DynamicDynamic</p>
+    <p>Granularity</p>
+    <p>Performance</p>
+  </div>
+  <div class="page">
+    <p>State/Resource Dependencies</p>
+    <p>Thread interactions:  Shared data structures. (Read/Write interactions).</p>
+    <p>Acquiring/releasing resources from a common pool.</p>
+    <p>Interactions with outside world (positioning a disk head, sending response to an I/O)  Outside world process (OWP).</p>
+    <p>Capture and account for interactions to ensure  State restoration of shared state.</p>
+    <p>Relinquishing shared resources.</p>
+    <p>Example 1  Resource Clean Up</p>
+    <p>Requires tracking resource ownership.</p>
+    <p>Not concerned with reads and writes on the resource.</p>
+    <p>/* Get cache track to write to cache */</p>
+    <p>startSCSICmd();</p>
+    <p>processRead();</p>
+    <p>getCacheTrack();</p>
+    <p>getTempResource() {</p>
+    <p>...</p>
+    <p>PANIC</p>
+  </div>
+  <div class="page">
+    <p>Example 2  Dirty Reads</p>
+    <p>Metadata location e.g. : checkpoint location.</p>
+    <p>If no dirty read, then can undo changes.</p>
+    <p>If dirty read has occurred, system-level recovery.</p>
+    <p>R4: /* Update Metadata Location */</p>
+    <p>lockWrite( &amp;MetadataLocationLock);</p>
+    <p>MetadataLocation = XX;</p>
+    <p>unlockWrite( &amp;MetadataLocationLock);</p>
+    <p>Technical Challenges</p>
+    <p>Different contexts have different requirements for recovery.</p>
+    <p>For example, threads may care about none or one or more of the following:  Resource ownership and clean relinquishing.  Dirty reads.  Unrepeatable reads.  Lost updates.  Externally visible actions (such as a response to an user).</p>
+    <p>Unlike DB, strict ACID guarantees not required.</p>
+    <p>High performance and concurrency is critical.</p>
+    <p>Need a flexible and lightweight recovery strategy.</p>
+  </div>
+  <div class="page">
+    <p>Log(Lock) Guided State Restoration</p>
+    <p>Intuition: Global state protected by locks or similar primitives.</p>
+    <p>Lock/Unlock calls can guide understanding of state changes.</p>
+    <p>A framework that tracks these calls can alert user to  resource ownership,</p>
+    <p>dirty reads, unrepeatable reads and lost updates.</p>
+    <p>Incremental approach allows tracking only interesting entities.</p>
+    <p>Log(Lock) Overview</p>
+    <p>Recoverable thread:  Thread which supports micro-recovery.</p>
+    <p>Recovery Point pi:  Represents a target starting point for recovery in the event of a failure. Initial system state is a default recovery point.</p>
+    <p>Recovery criterion Ci:  Associated with a recovery point. Specifies criterion to be satisfied to utilize pi as a starting point for recovery.</p>
+    <p>Restoration Level:  Describes failure context.</p>
+    <p>Recovery Context</p>
+    <p>Failure Context</p>
+  </div>
+  <div class="page">
+    <p>Log(Lock) Overview</p>
+    <p>Threads</p>
+    <p>Log(Lock) Execution Model</p>
+    <p>Recovery Point and</p>
+    <p>Recovery Criterion</p>
+    <p>Restoration level</p>
+    <p>Restoration Protocols</p>
+    <p>State Restoration Protocol</p>
+    <p>Resource Restoration Protocol</p>
+    <p>sets</p>
+    <p>Transfer execution to recovery handler.</p>
+    <p>logs</p>
+    <p>X</p>
+    <p>Recovery Handler 1. State</p>
+    <p>restoration</p>
+    <p>Recovery Handler 1. State</p>
+    <p>restoration</p>
+    <p>State Dependencies</p>
+    <p>and Resource Tracking</p>
+    <p>Deriving Restoration Protocols  Assume system with only two threads T1 and T2  Let T1 be the thread that encounters a failure.</p>
+    <p>W: Write, R: Read, U: Unlock, F: Fail, E: End, A: Acquire, Re: Release</p>
+    <p>Events of interest from standpoint of state restoration:  Dirty read (DR) :</p>
+    <p>Lost Update (LU):</p>
+    <p>Unrepeatable Read (UR):</p>
+    <p>Residual Resources (RR): or</p>
+    <p>or</p>
+    <p>Committed Dependency (CD): or</p>
+    <p>or</p>
+    <p>FTRTWT 121</p>
+    <p>FTWTWT 121</p>
+    <p>FTWTRT 121</p>
+    <p>FTUTFTRT 1111 /</p>
+    <p>FTUTFTWT 1111 /</p>
+    <p>FTTFTAT 1111 Re /</p>
+    <p>FTETRTWT 1221</p>
+    <p>FTETWTWT 1221</p>
+    <p>FTETWTRT 1221</p>
+  </div>
+  <div class="page">
+    <p>Recovery Strategies and Context</p>
+    <p>Recovery strategies:  Single/multi thread roll-back using a recovery point.  Error compensation or roll-forward.  System restart (software restart such as warmstart, or hardware restart).</p>
+    <p>Restoration Level at instant t, R(t):  Failure context.  Captures occurrence of events such as DR, LU, UR, RR, CD.</p>
+    <p>Recovery point pi and Recovery Criterion Ci:  Recovery context.  Specifies the criteria for state to be restored using pi.  Events such as DR, LU, UR, RR, CD that can be handled using pi.</p>
+    <p>Resource/State Recovery Protocols</p>
+    <p>System state can be restored using recovery point pi only if R(t) meets the recovery criterion Ci on the residual resources criterion.</p>
+    <p>For single-thread recovery R(t) must match Ci .</p>
+    <p>If R(t) does not meet Ci on read-write conflicts:  If event committed dependency has occurred, then</p>
+    <p>Only error compensation or system-level recovery possible.</p>
+    <p>Else if committed dependency has not occurred  Only multi-thread rollback, error compensation or system-level recovery.</p>
+  </div>
+  <div class="page">
+    <p>Log(Lock) Execution Model</p>
+    <p>Log(Lock) maintains the following in main memory:  Undo logs: (maintained by developer)</p>
+    <p>Local logs maintained by each recoverable thread.</p>
+    <p>Tracks the sequence of state changes within a single thread.</p>
+    <p>Tracks the creation of recovery points.</p>
+    <p>Tracks resource ownership.</p>
+    <p>Change Track logs: (maintained by the system).  Maintained per lock (i.e. per synchronization primitive).</p>
+    <p>Entry made for each lock/unlock call.</p>
+    <p>&lt;Thread#, [Lock|Unlock|Commit], [Read|Write|Commit]&gt;</p>
+    <p>Track concurrent changes.</p>
+    <p>Track commit actions.</p>
+    <p>Log(Lock) Primitives</p>
+    <p>Used by developer to utilize Log(Lock)-based recovery.  startTracking(lock)</p>
+    <p>Used during normal-path execution.</p>
+    <p>stopTracking(lock)  Used during normal-path execution.</p>
+    <p>getRestorationLevel(lock)  Used during failure-recovery in the recovery handler.</p>
+    <p>getResourceOwnership(lock)  Used during failure-recovery in the recovery handler.</p>
+  </div>
+  <div class="page">
+    <p>Thread T2:</p>
+    <p>LockRead (&amp;MDataLocationLock);</p>
+    <p>Copy location to local variable.</p>
+    <p>UnlockRead(&amp;MDataLocationLock)</p>
+    <p>Log(Lock) Undo/Change Track Logs</p>
+    <p>Thread T1: start Tracking( MDataLocationLock );</p>
+    <p>LockWrite (&amp;MDataLocationLock);</p>
+    <p>mDataLocation = XX;</p>
+    <p>UnlockWrite(&amp;MDataLocationLock)</p>
+    <p>.</p>
+    <p>T1 UNDO LOG</p>
+    <p>timestamp, mDataLocation, oldvalue</p>
+    <p>MDataLocationLock</p>
+    <p>Global Variables: CHANGE LOG</p>
+    <p>Evaluation</p>
+    <p>Implemented Log(Lock) on enterprise storage controller code with a simulated backend.</p>
+    <p>Evaluated Log(Lock) effectiveness and efficiency.  Highlights:</p>
+    <p>Acceptable overhead &amp; high performance  (&lt; 10% impact even while tracking state changes @ 15K times/sec.)</p>
+    <p>Extremely high rate of recovery success (~ 99%) observed.  Recovery success: % of time restoration level meets recovery criterion.</p>
+    <p>Significant improvement in recovery time.  35% Throughput drop for a 6 second duration vs 4 seconds downtime.</p>
+  </div>
+  <div class="page">
+    <p>Experimental Setup</p>
+    <p>Enterprise Storage Controller:  4 3.00 GHz Xeon 5160 processors, 12GB memory, IBM MCP Linux.</p>
+    <p>Simulating the backend allows control over read/write latencies and setup.  250 LUNS of 100 GB each.</p>
+    <p>Varied Read/Write latencies: 1ms or 20 ms</p>
+    <p>Workload  varying read/write %, varying queue depth, varying block sizes.  100% Writes, 50-50% Read-Write, 100% Read.</p>
+    <p>Metrics</p>
+    <p>Efficiency:  Impact of Log(Lock) on system performance.</p>
+    <p>Throughput ( Iops )</p>
+    <p>Latency (seconds/IO).</p>
+    <p>Effectiveness:  Ability of Log(Lock) to reduce recovery time.</p>
+    <p>Recovery success.</p>
+    <p>Recovery time.</p>
+  </div>
+  <div class="page">
+    <p>Methodology</p>
+    <p>Frequent locks frequently accessed/modified state.</p>
+    <p>Contention access by concurrent threads, longer duration of holding locks.</p>
+    <p>Comparisons</p>
+    <p>System-Level Recovery:  Reinitializes software, re-drives tasks.</p>
+    <p>No hardware reboot.</p>
+    <p>2-phase locking  Commonly used in transactional systems.</p>
+    <p>Locks held for the duration of entire thread.</p>
+    <p>Resulted in lock timeouts and failed to bring system up.</p>
+  </div>
+  <div class="page">
+    <p>Rate vs Throughput (100% Writes)</p>
+    <p>Acceptable impact on performance.</p>
+    <p>Baseline</p>
+    <p>T h</p>
+    <p>ro u</p>
+    <p>g h</p>
+    <p>p u</p>
+    <p>t (I</p>
+    <p>O p</p>
+    <p>s)</p>
+    <p>Frequency of lock access</p>
+    <p>Recovery Success</p>
+    <p>High recovery success.  Also due to code architected for high concurrency.</p>
+  </div>
+  <div class="page">
+    <p>Recovery Time</p>
+    <p>4 seconds downtime reduced to 35% performance impact lasting 6 seconds.</p>
+    <p>Applicability of Existing Art</p>
+    <p>Fault-Tolerance</p>
+    <p>Fault Treatment</p>
+    <p>Reboot</p>
+    <p>Micro-Reboots</p>
+    <p>Periodic Rejuvenation</p>
+    <p>Error Processing</p>
+    <p>Environmental Diversity</p>
+    <p>Process-pairs N-version programming</p>
+    <p>Logging / Checkpointing</p>
+    <p>Application Specific</p>
+    <p>Exception Handling Failure Oblivious Computing</p>
+    <p>Source: Software Fault Tolerance by Kishor S. Trivedi, http://srel.ee.duke.edu/</p>
+  </div>
+  <div class="page">
+    <p>Conclusion</p>
+    <p>Large scale storage systems and services  Complex systems, extremely high availability expectations.</p>
+    <p>System-wide recovery processes will not scale.</p>
+    <p>Need scalable and efficient recovery process.</p>
+    <p>Contributions:  Techniques to perform fine-granularity recovery in legacy systems.</p>
+    <p>Practical and flexible state restoration architecture.</p>
+    <p>Log(Lock)-enabled micro-recovery is effective and efficient.</p>
+    <p>Future Work  Reduce need for programmer intervention.</p>
+    <p>Evaluate with other highly-concurrent systems.</p>
+    <p>Questions?</p>
+    <p>THANK YOU</p>
+    <p>sangeeta@cc.gatech.edu</p>
+  </div>
+</Presentation>

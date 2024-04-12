@@ -1,0 +1,256 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>Leader or Majority: Why Have One When You Can Have Both? Improving Read Scalability in Raftlike Consensus Protocols</p>
+    <p>Vaibhav Arora, Tanuj Mittal, Divyakant Agrawal, Amr El Abbadi Xun Xue, Zhiyanan, Zhujianfeng</p>
+    <p>Distributed Systems Lab (DSL) Huawei</p>
+    <p>University of California, Santa Barbara</p>
+    <p>vaibhavarora@cs.ucsb.edu</p>
+  </div>
+  <div class="page">
+    <p>Large-Scale Distributed Systems</p>
+    <p>u Large-scale distributed systems are now ubiquitous</p>
+    <p>u Advent of the cloud have made them more accessible</p>
+    <p>u Failures are now the norm, and have to be dealt with</p>
+  </div>
+  <div class="page">
+    <p>Replication and Consensus</p>
+    <p>u Large-scale distributed systems need to be fault tolerant</p>
+    <p>u Replication is a technique to achieve fault tolerance</p>
+    <p>u Replication brings in added complexity in synchronizing multiple data copies</p>
+    <p>u Consensus Protocols u Allows set of Replicas to act as a coherent group u Goal is to have multiple processes agree on a common value u Quorums  Minimum number of votes to make a decision for a collection of</p>
+    <p>processes</p>
+  </div>
+  <div class="page">
+    <p>Consensus Protocols</p>
+    <p>u Paxos and variants u Classic Paxos, Multi Paxos, Fast Paxos</p>
+    <p>u Widely used in recent large-scale distributed systems</p>
+    <p>u GFS, Megastore, Spanner, Ceph etc</p>
+    <p>u Raft u Designed with the goal of understandability</p>
+    <p>u Separates Leader election and Log replication</p>
+  </div>
+  <div class="page">
+    <p>Consensus Protocols  Read Optimization</p>
+    <p>u Many applications need Linearizable reads. u Our industrial partners, Huawei, have these demands too</p>
+    <p>u Consensus protocols can help provide these guarantees</p>
+    <p>u Variants for read-optimized settings u Master Leases  Multi-Paxos</p>
+    <p>u Quorum Leases  SOCC 2014</p>
+    <p>u Read-Optimization in Megastore  Read-any, write all</p>
+  </div>
+  <div class="page">
+    <p>Raft</p>
+    <p>Leader Election Log Replication</p>
+    <p>Leader proposes a value to the cluster</p>
+    <p>Followers accept the proposal and reply</p>
+    <p>Leader waits to hear from a majority, commits the value locally and notifies the cluster</p>
+    <p>Followers also commit the value</p>
+    <p>Linearizable reads at the leader  wait a round of heartbeats</p>
+  </div>
+  <div class="page">
+    <p>CockroachDB</p>
+    <p>u An open-source, fault-tolerant, strongly consistent, scale-out SQL database</p>
+    <p>u Inspired by Spanner</p>
+    <p>u Storage u Data sorted as single monolithic key-value map u Divided into partitions / ranges replicated by Raft</p>
+    <p>u Lease-Holder  Non-overlapping leases</p>
+  </div>
+  <div class="page">
+    <p>Logical Overview of CockroachDB</p>
+    <p>SQL</p>
+    <p>Distributed, Monolithic KV Store</p>
+    <p>Node 1 Node 4Node 2 Node 3 Range</p>
+    <p>A Range</p>
+    <p>C Range</p>
+    <p>D</p>
+    <p>Range A</p>
+    <p>Range B</p>
+    <p>Range D</p>
+    <p>Range A</p>
+    <p>Range B</p>
+    <p>Range C</p>
+    <p>Range B</p>
+    <p>Range C</p>
+    <p>Range D</p>
+  </div>
+  <div class="page">
+    <p>Lease Holder</p>
+    <p>Gateway Node</p>
+    <p>Client request</p>
+    <p>Journey of a Request 9</p>
+  </div>
+  <div class="page">
+    <p>Lease Holder</p>
+    <p>Gateway Node</p>
+    <p>Write Request</p>
+  </div>
+  <div class="page">
+    <p>Lease Holder Gateway Node</p>
+    <p>Read Request</p>
+    <p>If there is write intent, based on priority:  Abort  Wait until intent is</p>
+    <p>cleared</p>
+  </div>
+  <div class="page">
+    <p>Bottleneck to Read Performance</p>
+    <p>u Reads are executed at the Lease-holder</p>
+    <p>u Overloads Lease-holder u Can be reduced by partition / range splitting  but this has many challenges - percentage of distributed</p>
+    <p>transactions across ranges increases, find the right partitioning strategy is hard, hotspot partitions will still cause read bottlenecks</p>
+    <p>u Followers are cold standbys during failure-free scenarios</p>
+    <p>u Can we use the follower nodes for Linearizable reads ?</p>
+    <p>Partition 1</p>
+  </div>
+  <div class="page">
+    <p>Improving Read Scalability</p>
+    <p>u Raft uses Majority Quorums to commit writes</p>
+    <p>u We exploit this fact to read from a majority quorum</p>
+    <p>u Combine with Lease-holder reads</p>
+  </div>
+  <div class="page">
+    <p>Quorum Reads</p>
+    <p>u Send read requests to a majority of nodes</p>
+    <p>u Every node replies with latest stable value with corresponding timestamp</p>
+    <p>u Choose the value with latest timestamp</p>
+  </div>
+  <div class="page">
+    <p>Lease HolderGateway Node</p>
+    <p>K : V*, T*s</p>
+    <p>K : V*, T*s K : V, Ts</p>
+    <p>K : V, Ts</p>
+    <p>T*s &gt; Ts</p>
+    <p>Quorum Reads</p>
+    <p>K : V*, T*s</p>
+  </div>
+  <div class="page">
+    <p>Strongly Consistent Quorum Reads</p>
+    <p>u What if there is an ongoing request committed at the Lease-holder ?</p>
+    <p>u Strongly Quorum Reads u Use Write intents to detect ongoing writes</p>
+    <p>u In case of conflicting writes, every node replies with timestamp and no value</p>
+    <p>u At gateway node, if theres no value corresponding to latest timestamp, retry with a backoff</p>
+    <p>u This approach can serve linearizable / strongly consistent reads</p>
+  </div>
+  <div class="page">
+    <p>Lease HolderGateway Node</p>
+    <p>K : V, Ts</p>
+    <p>K : V*, T*s</p>
+    <p>K : V, TsK : V, Ts</p>
+    <p>K : V, Ts</p>
+    <p>T*s &gt; Ts 1. Client read request</p>
+    <p>Write intent, T*s</p>
+    <p>Write intent, T*s</p>
+    <p>Strongly Consistent Quorum Reads</p>
+  </div>
+  <div class="page">
+    <p>Lease HolderGateway Node</p>
+    <p>K : V, Ts</p>
+    <p>K : V*, T*s</p>
+    <p>K : V, Ts</p>
+    <p>K : V, Ts</p>
+    <p>T*s &gt; Ts Client read request</p>
+    <p>Write intent, T*s</p>
+    <p>Strongly Consistent Quorum Reads</p>
+    <p>K : V*, T*s</p>
+    <p>Write Intent might resolve before retry</p>
+  </div>
+  <div class="page">
+    <p>Combining Lease-holder Reads and Quorum Reads</p>
+    <p>u Lease-holder can always read from local store</p>
+    <p>u Non lease-holders can read from: u Lease-holder, or u Majority</p>
+    <p>u To uniformly distribute read requests over all nodes, assuming: u a cluster of n fully replicated nodes u every node gets equal no. of read requests u a node always includes itself for majority</p>
+    <p>where P is probability of a non lease-holder node being included in a majority by other non lease-holder nodes</p>
+    <p>A gateway node can use lease-holder for x% of total reads, and quorums for others</p>
+    <p>Provides ability to trade-off read &amp; write latencies</p>
+  </div>
+  <div class="page">
+    <p>Evaluation</p>
+    <p>u The proposed approaches are integrated within CockroachDB. Available on GitHub. https://github.com/vaibhavarora/cockroach/tree/raft-read-scalability</p>
+    <p>u YCSB Workload. Dataset of 100K items with (key, value)</p>
+    <p>u CockroachDB cluster of 5 AWS EC2 machines (m3.2xlarge instance type). 1 machine for YCSB clients</p>
+    <p>u 4 different read strategies u Lease-holder reads u Local reads  an upper bound on performance u Quorum reads u Strongly consistent Quorum reads</p>
+    <p>Uniform read distribution throughout the cluster  28% lease-holder reads for both proposed quorum read approaches</p>
+  </div>
+  <div class="page">
+    <p>Uniform workload (95% reads, 5% writes)</p>
+    <p>Scaling Clients</p>
+    <p>Improvements with Quorum reads : ~4x write latency ~60% throughput</p>
+    <p>Th ro</p>
+    <p>ug hp</p>
+    <p>ut (o</p>
+    <p>ps pe</p>
+    <p>r s ec</p>
+    <p>)</p>
+    <p>Threads</p>
+    <p>Lease Holder Local</p>
+    <p>Quorum Strongly Consistent Quorum</p>
+    <p>Av g</p>
+    <p>Up da</p>
+    <p>te L</p>
+    <p>at en</p>
+    <p>cy (u</p>
+    <p>s)</p>
+    <p>Threads</p>
+    <p>Lease Holder Local</p>
+    <p>Quorum Strongly Consistent Quorum</p>
+  </div>
+  <div class="page">
+    <p>Varying Read-Write Ratio</p>
+    <p>u Uniform workload u Varying read requests (30% to 99%) u 70 client threads</p>
+    <p>Higher the read %, higher is the benefit of using the quorum read approaches</p>
+    <p>Up to ~85% improvement in throughout using Quorum read approaches 2000</p>
+    <p>ro ug</p>
+    <p>hp ut</p>
+    <p>(o ps</p>
+    <p>p er</p>
+    <p>s ec</p>
+    <p>) Read Percentage</p>
+    <p>Lease Holder Local</p>
+    <p>Quorum Strongly Consistent Quorum</p>
+  </div>
+  <div class="page">
+    <p>HotSpots</p>
+    <p>Hotspot workload - 80% requests access varying data (1% to 10%) (95% reads, 5% writes)</p>
+    <p>At high contention, strongly consistent quorum reads have a large number of retries because of frequent conflicts.</p>
+    <p>Th ro</p>
+    <p>ug hp</p>
+    <p>ut (o</p>
+    <p>ps p</p>
+    <p>er s</p>
+    <p>ec )</p>
+    <p>Hotspot Data Fraction</p>
+    <p>Lease Holder Local</p>
+    <p>Quorum Strongly Consistent Quorum</p>
+  </div>
+  <div class="page">
+    <p>Read-write latency tradeoff</p>
+    <p>Varying lease-holder reads (0% to 50%) Uniform workload (95% reads, 5% writes) 70 client threads</p>
+    <p>Av g</p>
+    <p>Up da</p>
+    <p>te L</p>
+    <p>at en</p>
+    <p>cy (u</p>
+    <p>s)</p>
+    <p>Av g</p>
+    <p>Re ad</p>
+    <p>L at</p>
+    <p>en cy</p>
+    <p>(u s)</p>
+    <p>Lease Holder Read Percentage</p>
+    <p>Quorum Avg Update Latency Strongly Consistent Quorum Avg Update Latency</p>
+    <p>Quorum Avg Read Latency Strongly Consistent Quorum Avg Read Latency</p>
+    <p>Quorum read approaches reduce load on lease-holder, leading to improved write latencies</p>
+    <p>Lease-holder reads reduce read latency</p>
+    <p>Read and write latencies curves Intersect near the point of Uniform read distribution</p>
+  </div>
+  <div class="page">
+    <p>Future Considerations / Discussion</p>
+    <p>u Can we choose majority in a more intelligent way? u Use resource utilization &amp; network latencies</p>
+    <p>u How well can quorum reads perform in failure-prone scenarios?</p>
+    <p>u Look into using strongly consistent quorum reads as part of transactional mechanisms</p>
+    <p>u Further improving read latencies  maybe for a subset of keys</p>
+  </div>
+  <div class="page">
+    <p>Conclusion</p>
+    <p>u Proposed Quorum read approaches for Raft-like consensus protocols</p>
+    <p>u Combine them with traditional lease-holder reads</p>
+    <p>u Provide a way to trade-off between read &amp; write latencies</p>
+    <p>u For failure-free scenarios with read-heavy workloads: u Improved throughput u Highly Improved write latencies</p>
+    <p>vaibhavarora@cs.ucsb.edu</p>
+  </div>
+</Presentation>

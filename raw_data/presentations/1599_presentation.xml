@@ -1,0 +1,841 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>MQSim: A Framework for Enabling Realistic Studies of</p>
+    <p>Modern Multi-Queue SSD Devices</p>
+    <p>Arash Tavakkol, Juan Gmez-Luna, Mohammad Sadrosadati, Saugata Ghose, Onur Mutlu</p>
+    <p>February 13, 2018</p>
+  </div>
+  <div class="page">
+    <p>Executive Summary</p>
+    <p>Solid-state drives (SSDs) are evolving to keep pace with performance, storage density demands  Multi-queue SSDs (MQ-SSDs) use new host protocols (e.g., NVMe)  New SSDs make use of emerging storage technologies (e.g., PCM, 3D XPoint)</p>
+    <p>Existing simulators have not kept up with these changes  They do not support several major features: multi-queue protocols,</p>
+    <p>efficient steady-state SSD models, full end-to-end request latency  Compared to real MQ-SSDs, best existing simulator has 6885% error rate</p>
+    <p>We introduce MQSim, a new open-source simulator  Models all major features of conventional SSDs and newer MQ-SSDs  Available with full-system simulator integration: accurate application modeling  Enables several new research directions</p>
+    <p>MQSim is highly accurate  Validated against four real MQ-SSDs  Error rate for real workloads: 818%</p>
+    <p>http://github.com/ CMU-SAFARI/</p>
+    <p>MQSim Page 2 of 35</p>
+  </div>
+  <div class="page">
+    <p>Outline</p>
+    <p>Executive Summary Looking Inside a Modern SSD Challenges of Modeling Modern Multi-Queue SSDs MQSim: A New Simulator for Modern SSDs Evaluating MQSim Accuracy Research Directions Enabled by MQSim Conclusion</p>
+    <p>Page 3 of 35</p>
+  </div>
+  <div class="page">
+    <p>Internal Components of a Modern SSD</p>
+    <p>Back End: data storage  Memory chips (e.g., NAND flash memory, PCM, MRAM, 3D XPoint)</p>
+    <p>Front end Back end</p>
+    <p>M Q</p>
+    <p>-S SD</p>
+    <p>Front end Chip 0 Chip 1</p>
+    <p>Back end Channel0</p>
+    <p>M Q</p>
+    <p>-S SD Chip 2 Chip 3Channel1</p>
+    <p>D ie 0</p>
+    <p>Plane0 Plane1</p>
+    <p>D ie 1</p>
+    <p>Plane0 Plane1</p>
+    <p>M ultiplexed Interface</p>
+    <p>Bus Interface</p>
+    <p>Page 4 of 35</p>
+  </div>
+  <div class="page">
+    <p>Internal Components of a Modern SSD</p>
+    <p>Back End: data storage  Memory chips (e.g., NAND flash memory, PCM, MRAM, 3D XPoint)</p>
+    <p>Front End: management and control units  HostInterface Logic (HIL): protocol used to communicate with host</p>
+    <p>HIL</p>
+    <p>Device-level I/O Request Queue</p>
+    <p>Front end Chip 0 Chip 1</p>
+    <p>Back end Request i,</p>
+    <p>Page 1</p>
+    <p>Channel0</p>
+    <p>M Q</p>
+    <p>-S SD</p>
+    <p>Request i, Page M</p>
+    <p>i Chip 2 Chip 3</p>
+    <p>Channel1</p>
+    <p>D ie 0</p>
+    <p>Plane0 Plane1</p>
+    <p>D ie 1</p>
+    <p>Plane0 Plane1</p>
+    <p>M ultiplexed Interface</p>
+    <p>Bus Interface</p>
+    <p>Page 5 of 35</p>
+  </div>
+  <div class="page">
+    <p>Internal Components of a Modern SSD</p>
+    <p>Back End: data storage  Memory chips (e.g., NAND flash memory, PCM, MRAM, 3D XPoint)</p>
+    <p>Front End: management and control units  HostInterface Logic (HIL): protocol used to communicate with host  Flash Translation Layer (FTL): manages resources, processes I/O requests</p>
+    <p>HIL</p>
+    <p>Device-level I/O Request Queue</p>
+    <p>FTL</p>
+    <p>Ca ch</p>
+    <p>ed</p>
+    <p>WRQ RDQ</p>
+    <p>Front end Chip 0 Chip 1</p>
+    <p>Back end Request i,</p>
+    <p>Page 1</p>
+    <p>GC-WRQ GC-RDQ</p>
+    <p>Channel0</p>
+    <p>Chip 3 Queue</p>
+    <p>M Q</p>
+    <p>-S SD</p>
+    <p>Request i, Page M</p>
+    <p>i</p>
+    <p>DRAM</p>
+    <p>Write Cache</p>
+    <p>PPALPA</p>
+    <p>Chip 0 Queue</p>
+    <p>Chip 2 Queue Chip 1 Queue</p>
+    <p>Chip 2 Chip 3 Channel1</p>
+    <p>LPA Address Translation</p>
+    <p>Transaction Scheduling</p>
+    <p>Cache Management</p>
+    <p>D ie 0</p>
+    <p>Plane0 Plane1</p>
+    <p>D ie 1</p>
+    <p>Plane0 Plane1</p>
+    <p>M ultiplexed Interface</p>
+    <p>Bus Interface</p>
+    <p>Page 6 of 35</p>
+  </div>
+  <div class="page">
+    <p>Internal Components of a Modern SSD</p>
+    <p>Back End: data storage  Memory chips (e.g., NAND flash memory, PCM, MRAM, 3D XPoint)</p>
+    <p>Front End: management and control units  HostInterface Logic (HIL): protocol used to communicate with host  Flash Translation Layer (FTL): manages resources, processes I/O requests  Flash Channel Controllers (FCCs): sends commands to, transfers data with</p>
+    <p>memory chips in back end</p>
+    <p>HIL</p>
+    <p>Device-level I/O Request Queue</p>
+    <p>FTL</p>
+    <p>Ca ch</p>
+    <p>ed</p>
+    <p>WRQ RDQ</p>
+    <p>Front end Chip 0 Chip 1</p>
+    <p>Back end Request i,</p>
+    <p>Page 1</p>
+    <p>GC-WRQ GC-RDQ</p>
+    <p>Channel0</p>
+    <p>Chip 3 Queue</p>
+    <p>M Q</p>
+    <p>-S SD</p>
+    <p>Request i, Page M</p>
+    <p>i</p>
+    <p>DRAM</p>
+    <p>Write Cache</p>
+    <p>PPALPA</p>
+    <p>Chip 0 Queue</p>
+    <p>Chip 2 Queue Chip 1 Queue</p>
+    <p>FCC</p>
+    <p>Chip 2 Chip 3 Channel1FCC</p>
+    <p>LPA Address Translation</p>
+    <p>Transaction Scheduling</p>
+    <p>Cache Management</p>
+    <p>D ie 0</p>
+    <p>Plane0 Plane1</p>
+    <p>D ie 1</p>
+    <p>Plane0 Plane1</p>
+    <p>M ultiplexed Interface</p>
+    <p>Bus Interface</p>
+    <p>Page 7 of 35</p>
+  </div>
+  <div class="page">
+    <p>FTL: Managing the SSDs Resources</p>
+    <p>Flash writes can take place only to pages that are erased  Perform out-of-place updates (i.e., write data to a different, free page),</p>
+    <p>mark old page as invalid  Update logical-to-physical mapping (makes use of cached mapping table)  Some time later: garbage collection reclaims invalid physical pages</p>
+    <p>off the critical path of latency</p>
+    <p>HIL</p>
+    <p>Device-level I/O Request Queue</p>
+    <p>FTL Ca</p>
+    <p>ch ed</p>
+    <p>Front end Chip 0 Chip 1</p>
+    <p>Back end Request i,</p>
+    <p>Page 1</p>
+    <p>Channel0</p>
+    <p>Chip 3 Queue</p>
+    <p>M Q</p>
+    <p>-S SD</p>
+    <p>Request i, Page M</p>
+    <p>i</p>
+    <p>DRAM</p>
+    <p>Write Cache</p>
+    <p>PPALPA</p>
+    <p>Chip 0 Queue</p>
+    <p>Chip 2 Queue Chip 1 Queue</p>
+    <p>FCC</p>
+    <p>Chip 2 Chip 3 Channel1FCC</p>
+    <p>LPA Address Translation</p>
+    <p>Transaction Scheduling</p>
+    <p>Cache Management</p>
+    <p>D ie 0</p>
+    <p>Plane0 Plane1</p>
+    <p>D ie 1</p>
+    <p>Plane0 Plane1</p>
+    <p>M ultiplexed Interface</p>
+    <p>Bus Interface</p>
+    <p>HIL</p>
+    <p>Device-level I/O Request Queue</p>
+    <p>FTL Ca</p>
+    <p>ch ed</p>
+    <p>Front end Chip 0 Chip 1</p>
+    <p>Back end Request i,</p>
+    <p>Page 1</p>
+    <p>Channel0</p>
+    <p>Chip 3 Queue</p>
+    <p>M Q</p>
+    <p>-S SD</p>
+    <p>Request i, Page M</p>
+    <p>i</p>
+    <p>DRAM</p>
+    <p>Write Cache</p>
+    <p>PPALPA</p>
+    <p>Chip 0 Queue</p>
+    <p>Chip 2 Queue Chip 1 Queue</p>
+    <p>FCC</p>
+    <p>Chip 2 Chip 3 Channel1FCC</p>
+    <p>LPA Address Translation</p>
+    <p>Transaction Scheduling</p>
+    <p>Cache Management</p>
+    <p>D ie 0</p>
+    <p>Plane0 Plane1</p>
+    <p>D ie 1</p>
+    <p>Plane0 Plane1</p>
+    <p>M ultiplexed Interface</p>
+    <p>Bus Interface</p>
+    <p>Page 8 of 35</p>
+  </div>
+  <div class="page">
+    <p>FTL: Managing the SSDs Resources</p>
+    <p>Flash writes can take place only to pages that are erased  Perform out-of-place updates (i.e., write data to a different, free page),</p>
+    <p>mark old page as invalid  Update logical-to-physical mapping (makes use of cached mapping table)  Some time later: garbage collection reclaims invalid physical pages</p>
+    <p>off the critical path of latency</p>
+    <p>Write cache: decreases resource contention, reduces latency</p>
+    <p>HIL</p>
+    <p>Device-level I/O Request Queue</p>
+    <p>FTL Ca</p>
+    <p>ch ed</p>
+    <p>Front end Chip 0 Chip 1</p>
+    <p>Back end Request i,</p>
+    <p>Page 1</p>
+    <p>Channel0</p>
+    <p>Chip 3 Queue</p>
+    <p>M Q</p>
+    <p>-S SD</p>
+    <p>Request i, Page M</p>
+    <p>i</p>
+    <p>DRAM</p>
+    <p>Write Cache</p>
+    <p>PPALPA</p>
+    <p>Chip 0 Queue</p>
+    <p>Chip 2 Queue Chip 1 Queue</p>
+    <p>FCC</p>
+    <p>Chip 2 Chip 3 Channel1FCC</p>
+    <p>LPA Address Translation</p>
+    <p>Transaction Scheduling</p>
+    <p>Cache Management</p>
+    <p>D ie 0</p>
+    <p>Plane0 Plane1</p>
+    <p>D ie 1</p>
+    <p>Plane0 Plane1</p>
+    <p>M ultiplexed Interface</p>
+    <p>Bus Interface</p>
+    <p>Page 9 of 35</p>
+  </div>
+  <div class="page">
+    <p>Outline</p>
+    <p>Executive Summary Looking Inside a Modern SSD Challenges of Modeling Modern Multi-Queue SSDs MQSim: A New Simulator for Modern SSDs Evaluating MQSim Accuracy Research Directions Enabled by MQSim Conclusion</p>
+    <p>Page 10 of 35</p>
+  </div>
+  <div class="page">
+    <p>How Well Do Simulators Model Modern SSDs?</p>
+    <p>State-of-the-art simulators designed for conventional SSDs We compare the performance of several simulators to</p>
+    <p>four real modern multi-queue SSDs (MQ-SSDs)</p>
+    <p>Major features missing in most existing simulators  Multi-queue protocols (e.g., NVMe)  Efficient, high-performance model of steady-state behavior  Full model of end-to-end request latency</p>
+    <p>Simulator Error Rate vs. Real MQ-SSDs</p>
+    <p>SSD-A SSD-B SSD-C SSD-D SSDModel 91% 155% 196% 136% FlashSim 99% 259% 310% 138% SSDSim 70% 68% 74% 85% WiscSim 95% 277% 324% 135%</p>
+    <p>Why is the error rate so high?</p>
+    <p>Page 11 of 35</p>
+  </div>
+  <div class="page">
+    <p>Challenge 1: Support for Multi-Queue Protocols</p>
+    <p>Conventional host interface (e.g., SATA)  Designed for magnetic hard disk drives: only thousands of IOPS per device  OS handles scheduling, fairness control for I/O requests</p>
+    <p>Process 1 Process 2 Process 3</p>
+    <p>OS Block Layer</p>
+    <p>SSD Device</p>
+    <p>Hardware dispatch queue</p>
+    <p>I/O Scheduler</p>
+    <p>Software I/O Request Queue</p>
+    <p>Page 12 of 35</p>
+  </div>
+  <div class="page">
+    <p>Challenge 1: Support for Multi-Queue Protocols</p>
+    <p>Modern host interface (e.g., NVMe)  Takes advantage of SSD throughput: enables millions of IOPS per device  Bypasses OS intervention: SSD must perform scheduling, ensure fairness</p>
+    <p>Process 1 Process 2 Process 3</p>
+    <p>SSD Device</p>
+    <p>Hardware I/O Request Queue</p>
+    <p>No existing SSD simulator models this today</p>
+    <p>In the paper: studies on how multiple queues in real MQ-SSDs affect performance, fairness</p>
+    <p>Page 13 of 35</p>
+  </div>
+  <div class="page">
+    <p>Challenge 2: High-Performance Steady-State Model</p>
+    <p>SNIA: SSDs should be evaluated in steady state  Fresh, out-of-the-box (FOB) device unlikely to perform garbage collection  Write cache not warmed up for an FOB device</p>
+    <p>Many previous SSD studies incorrectly simulate FOB devices Difficult to reach steady state in most simulators</p>
+    <p>Very slow (e.g., SSDSim execution time increases by up to 80x)  Widely-used traces arent large enough for proper warm-up</p>
+    <p>Existing simulators either dont model steady state or are slow at reaching steady state</p>
+    <p>To ta</p>
+    <p>l W rit</p>
+    <p>e Vo</p>
+    <p>lu m</p>
+    <p>e (G</p>
+    <p>B)</p>
+    <p>Workloads</p>
+    <p>Page 14 of 35</p>
+  </div>
+  <div class="page">
+    <p>Challenge 3: Complete Model of Request Latency</p>
+    <p>Request to NAND flash based SSD</p>
+    <p>Current simulators often model only steps 5 and 6 What if we use a different non-volatile memory (NVM)?</p>
+    <p>&lt; 1s</p>
+    <p>&lt; 1s &lt; 1s &lt; 1s</p>
+    <p>Page 15 of 35</p>
+  </div>
+  <div class="page">
+    <p>Request to 3D XPoint based SSD</p>
+    <p>Challenge 3: Complete Model of Request Latency</p>
+    <p>&lt; 1s</p>
+    <p>&lt; 5s</p>
+    <p>&lt; 5s 10-20s</p>
+    <p>Existing simulators dont model all of the request latency, causing inaccuracies for new NVMs</p>
+    <p>&lt; 1s &lt; 1s &lt; 1s</p>
+    <p>Page 16 of 35</p>
+  </div>
+  <div class="page">
+    <p>Summary: Simulation Challenges of MQ-SSDs</p>
+    <p>Major features missing in most existing simulators  Multi-queue protocols (e.g., NVMe)  Efficient, high-performance model of steady-state behavior  Full model of end-to-end request latency</p>
+    <p>Missing features lead to high inaccuracy</p>
+    <p>OUR GOAL</p>
+    <p>Develop a new simulator that faithfully models features of both</p>
+    <p>modern MQ-SSDs and conventional SSDs</p>
+    <p>Page 17 of 35</p>
+  </div>
+  <div class="page">
+    <p>Outline</p>
+    <p>Executive Summary Looking Inside a Modern SSD Challenges of Modeling Modern Multi-Queue SSDs MQSim: A New Simulator for Modern SSDs Evaluating MQSim Accuracy Research Directions Enabled by MQSim Conclusion</p>
+    <p>Page 18 of 35</p>
+  </div>
+  <div class="page">
+    <p>Major Features of MQSim</p>
+    <p>Accurately models conventional SATA-based SSDs and modern MQ-SSDs  Multi-queue protocols  Support for efficient modeling</p>
+    <p>of steady-state behavior  Full model of end-to-end</p>
+    <p>I/O request latency</p>
+    <p>Flexible design  Modular components  Integration with gem5 full-system simulator  Ability to support emerging non-volatile memory (NVM) technologies</p>
+    <p>Open-source release: http://github.com/CMU-SAFARI/MQSim  Written in C++  MIT License</p>
+    <p>Page 19 of 35</p>
+  </div>
+  <div class="page">
+    <p>Experimental Methodology</p>
+    <p>Compare MQSim to four real, modern data center SSDs</p>
+    <p>System config: Intel Xeon E3-1240, 32GB DDR4, Ubuntu 16.04.2  All SSDs use NVMe protocol over PCIe bus  Real SSDs preconditioned by writing to 70% of available logical space  MQSim parameters set to model each SSD</p>
+    <p>We test using multiple I/O flows (1 flow = 1 application)  Queue depth controls flow greediness (number of simultaneous requests)  We show representative results here; full results in our paper</p>
+    <p>Page 20 of 35</p>
+  </div>
+  <div class="page">
+    <p>Inter-flow interference exists in many state-of-the-art SSDs</p>
+    <p>MQSim Multi-Queue Model</p>
+    <p>Real SSD</p>
+    <p>MQSim</p>
+    <p>Flow 1</p>
+    <p>Flow 2</p>
+    <p>Flow 2Flow 1</p>
+    <p>S lo</p>
+    <p>w do</p>
+    <p>w n</p>
+    <p>S lo</p>
+    <p>w do</p>
+    <p>w n</p>
+    <p>Fa ir</p>
+    <p>ne ss</p>
+    <p>Flow 2 Queue Depth Flow 2 Queue Depth Flow 2 Queue Depth</p>
+    <p>N or</p>
+    <p>m . T</p>
+    <p>hr ou</p>
+    <p>gh pu</p>
+    <p>t</p>
+    <p>N or</p>
+    <p>m . T</p>
+    <p>hr ou</p>
+    <p>gh pu</p>
+    <p>t</p>
+    <p>S lo</p>
+    <p>w do</p>
+    <p>w n</p>
+    <p>S lo</p>
+    <p>w do</p>
+    <p>w n</p>
+    <p>Fa ir</p>
+    <p>ne ss</p>
+    <p>Flow 2 Queue Depth Flow 2 Queue Depth Flow 2 Queue Depth</p>
+    <p>N or</p>
+    <p>m . T</p>
+    <p>hr ou</p>
+    <p>gh pu</p>
+    <p>t</p>
+    <p>N or</p>
+    <p>m . T</p>
+    <p>hr ou</p>
+    <p>gh pu</p>
+    <p>t</p>
+    <p>Page 21 of 35</p>
+  </div>
+  <div class="page">
+    <p>Inter-flow interference exists in many state-of-the-art SSDs</p>
+    <p>MQSim Multi-Queue Model</p>
+    <p>Real SSD</p>
+    <p>MQSim</p>
+    <p>Flow 1</p>
+    <p>Flow 2</p>
+    <p>Flow 2Flow 1</p>
+    <p>S lo</p>
+    <p>w do</p>
+    <p>w n</p>
+    <p>S lo</p>
+    <p>w do</p>
+    <p>w n</p>
+    <p>Fa ir</p>
+    <p>ne ss</p>
+    <p>Flow 2 Queue Depth Flow 2 Queue Depth Flow 2 Queue Depth</p>
+    <p>N or</p>
+    <p>m . T</p>
+    <p>hr ou</p>
+    <p>gh pu</p>
+    <p>t</p>
+    <p>N or</p>
+    <p>m . T</p>
+    <p>hr ou</p>
+    <p>gh pu</p>
+    <p>t</p>
+    <p>S lo</p>
+    <p>w do</p>
+    <p>w n</p>
+    <p>S lo</p>
+    <p>w do</p>
+    <p>w n</p>
+    <p>Fa ir</p>
+    <p>ne ss</p>
+    <p>Flow 2 Queue Depth Flow 2 Queue Depth Flow 2 Queue Depth</p>
+    <p>N or</p>
+    <p>m . T</p>
+    <p>hr ou</p>
+    <p>gh pu</p>
+    <p>t</p>
+    <p>N or</p>
+    <p>m . T</p>
+    <p>hr ou</p>
+    <p>gh pu</p>
+    <p>t MQSim accurately captures inter-flow interference when one of two flows hogs I/O request bandwidth</p>
+    <p>Page 21 of 35</p>
+  </div>
+  <div class="page">
+    <p>MQSim Multi-Queue Model</p>
+    <p>Some SSDs have mechanisms to control inter-flow interference</p>
+    <p>Real SSD</p>
+    <p>MQSim</p>
+    <p>S lo</p>
+    <p>w do</p>
+    <p>w n</p>
+    <p>S lo</p>
+    <p>w do</p>
+    <p>w n</p>
+    <p>Fa ir</p>
+    <p>ne ss</p>
+    <p>Flow 2 Queue Depth Flow 2 Queue Depth Flow 2 Queue Depth</p>
+    <p>N or</p>
+    <p>m . T</p>
+    <p>hr ou</p>
+    <p>gh pu</p>
+    <p>t</p>
+    <p>N or</p>
+    <p>m . T</p>
+    <p>hr ou</p>
+    <p>gh pu</p>
+    <p>t</p>
+    <p>S lo</p>
+    <p>w do</p>
+    <p>w n</p>
+    <p>S lo</p>
+    <p>w do</p>
+    <p>w n</p>
+    <p>Fa ir</p>
+    <p>ne ss</p>
+    <p>Flow 2 Queue Depth Flow 2 Queue Depth Flow 2 Queue Depth</p>
+    <p>N or</p>
+    <p>m . T</p>
+    <p>hr ou</p>
+    <p>gh pu</p>
+    <p>t</p>
+    <p>N or</p>
+    <p>m . T</p>
+    <p>hr ou</p>
+    <p>gh pu</p>
+    <p>t</p>
+    <p>Flow 1 Flow 2</p>
+    <p>Flow 2Flow 1</p>
+    <p>Page 22 of 35</p>
+  </div>
+  <div class="page">
+    <p>MQSim Multi-Queue Model</p>
+    <p>Some SSDs have mechanisms to control inter-flow interference</p>
+    <p>Real SSD</p>
+    <p>MQSim</p>
+    <p>S lo</p>
+    <p>w do</p>
+    <p>w n</p>
+    <p>S lo</p>
+    <p>w do</p>
+    <p>w n</p>
+    <p>Fa ir</p>
+    <p>ne ss</p>
+    <p>Flow 2 Queue Depth Flow 2 Queue Depth Flow 2 Queue Depth</p>
+    <p>N or</p>
+    <p>m . T</p>
+    <p>hr ou</p>
+    <p>gh pu</p>
+    <p>t</p>
+    <p>N or</p>
+    <p>m . T</p>
+    <p>hr ou</p>
+    <p>gh pu</p>
+    <p>t</p>
+    <p>S lo</p>
+    <p>w do</p>
+    <p>w n</p>
+    <p>S lo</p>
+    <p>w do</p>
+    <p>w n</p>
+    <p>Fa ir</p>
+    <p>ne ss</p>
+    <p>Flow 2 Queue Depth Flow 2 Queue Depth Flow 2 Queue Depth</p>
+    <p>N or</p>
+    <p>m . T</p>
+    <p>hr ou</p>
+    <p>gh pu</p>
+    <p>t</p>
+    <p>N or</p>
+    <p>m . T</p>
+    <p>hr ou</p>
+    <p>gh pu</p>
+    <p>t</p>
+    <p>Flow 1 Flow 2</p>
+    <p>Flow 2Flow 1</p>
+    <p>MQSim models the impact of control mechanisms for inter-flow interference in modern MQ-SSDs</p>
+    <p>Page 22 of 35</p>
+  </div>
+  <div class="page">
+    <p>Capturing Steady-State Behavior with MQSim</p>
+    <p>MQSim includes an efficient SSD preconditioning mechanism  Very fast: does not need to execute actual requests  Can be disabled to simulate fresh, out-of-the-box (FOB) device</p>
+    <p>Two-pass approach  Read input trace, perform</p>
+    <p>statistical analysis  Scan entire storage space,</p>
+    <p>change status of each physical page based on analysis</p>
+    <p>Response time (RT) differences between FOB SSDs, SSDs in steady state</p>
+    <p>Page 23 of 35</p>
+  </div>
+  <div class="page">
+    <p>Capturing Steady-State Behavior with MQSim</p>
+    <p>MQSim includes an efficient SSD preconditioning mechanism  Very fast: does not need to execute actual requests  Can be disabled to simulate fresh, out-of-the-box (FOB) device</p>
+    <p>Two-pass approach  Read input trace, perform</p>
+    <p>statistical analysis  Scan entire storage space,</p>
+    <p>change status of each physical page based on analysis</p>
+    <p>Response time (RT) differences between FOB SSDs, SSDs in steady state</p>
+    <p>With preconditioning, MQSim accurately captures the behavior of FOB SSDs and steady-state SSDs</p>
+    <p>Page 23 of 35</p>
+  </div>
+  <div class="page">
+    <p>Outline</p>
+    <p>Executive Summary Looking Inside a Modern SSD Challenges of Modeling Modern Multi-Queue SSDs MQSim: A New Simulator for Modern SSDs Evaluating MQSim Accuracy Research Directions Enabled by MQSim Conclusion</p>
+    <p>Page 24 of 35</p>
+  </div>
+  <div class="page">
+    <p>MQSim Accurately Captures Read/Write Latencies</p>
+    <p>Evaluations using two synthetic flows Flow A: All Read Requests</p>
+    <p>Flow B: All Write Requests</p>
+    <p>Page 25 of 35</p>
+  </div>
+  <div class="page">
+    <p>MQSim Accurately Captures Read/Write Latencies</p>
+    <p>Evaluations using two synthetic flows Flow A: All Read Requests</p>
+    <p>Flow B: All Write Requests</p>
+    <p>Error rate vs. real SSDs, averaged across all four SSDs Read latency: 2.9% Write latency: 4.9%</p>
+    <p>Page 25 of 35</p>
+  </div>
+  <div class="page">
+    <p>MQSim Is More Accurate Than Existing Simulators</p>
+    <p>Experiments using three real workload traces  Microsoft enterprise traces: TPC-C, TPC-E, Exchange Server  Comparison of total workload execution time</p>
+    <p>MQSim has a comparable execution time to other simulators</p>
+    <p>Simulator Error Rate vs. Real MQ-SSDs</p>
+    <p>SSD-A SSD-B SSD-C SSD-D SSDModel 91% 155% 196% 136% FlashSim 99% 259% 310% 138% SSDSim 70% 68% 74% 85% WiscSim 95% 277% 324% 135% MQSim 8% 6% 18% 14%</p>
+    <p>MQSim is an order of magnitude more accurate at modeling MQ-SSDs than state-of-the-art simulators</p>
+    <p>Page 26 of 35</p>
+  </div>
+  <div class="page">
+    <p>Outline</p>
+    <p>Executive Summary Looking Inside a Modern SSD Challenges of Modeling Modern Multi-Queue SSDs MQSim: A New Simulator for Modern SSDs Evaluating MQSim Accuracy Research Directions Enabled by MQSim Conclusion</p>
+    <p>Page 27 of 35</p>
+  </div>
+  <div class="page">
+    <p>Research Directions Enabled by MQSim</p>
+    <p>MQSims accurate models enable many new research studies not possible with existing simulators</p>
+    <p>Fairness and performance effects of inter-flow interference within an SSD  We study three major sources of contention</p>
+    <p>Write cache  Cached mapping table  Back end memory resources</p>
+    <p>Using I/O flows designed to isolate impact of contention at a single source</p>
+    <p>Page 28 of 35</p>
+  </div>
+  <div class="page">
+    <p>Interference at the Write Cache</p>
+    <p>Two flows concurrently performing random-access writes Flow-1 has high cache locality, Flow-2 has poor cache locality We increase Flow-2 greediness (by adjusting queue depth)</p>
+    <p>A greedier Flow-2 induces more write cache thrashing, destroying Flow-1s cache locality</p>
+    <p>Flow-2Flow-1</p>
+    <p>Page 29 of 35</p>
+  </div>
+  <div class="page">
+    <p>Interference at the Cached Mapping Table (CMT)</p>
+    <p>Two flows concurrently reading with different access patterns Flow-1 sequential; Flow-2 split between sequential, random We increase randomness of Flow-2, affecting misses to CMT</p>
+    <p>A more random Flow-2 increases CMT thrashing, significantly lowering the CMT hit rate of Flow-1</p>
+    <p>Page 30 of 35</p>
+    <p>Flow-2Flow-1</p>
+  </div>
+  <div class="page">
+    <p>Interference at the Back End</p>
+    <p>Two flows concurrently performing random-access reads Flow-1 has low intensity, Flow-2 has higher intenity We increase Flow-2 greediness (by adjusting queue depth)</p>
+    <p>When Flow-2 is more intense, chip-level queues back up, causing requests from Flow-1 to wait much longer</p>
+    <p>Page 31 of 35</p>
+    <p>Flow-2Flow-1</p>
+  </div>
+  <div class="page">
+    <p>Research Directions Enabled by MQSim</p>
+    <p>MQSims accurate models enable many new research studies not possible with existing simulators</p>
+    <p>Fairness and performance effects of inter-flow interference within an SSD  We study three major sources of contention</p>
+    <p>Write cache  Cached mapping table  Back end memory resources</p>
+    <p>Using I/O flows designed to isolate impact of contention at a single source</p>
+    <p>In the paper: application-level studies  Application-level performance metrics (e.g., IPC, slowdown, fairness)  Using full applications running on MQSim integrated with gem5 full</p>
+    <p>system simulator Page 32 of 35</p>
+  </div>
+  <div class="page">
+    <p>Outline</p>
+    <p>Executive Summary Looking Inside a Modern SSD Challenges of Modeling Modern Multi-Queue SSDs MQSim: A New Simulator for Modern SSDs Evaluating MQSim Accuracy Research Directions Enabled by MQSim Conclusion</p>
+    <p>Page 33 of 35</p>
+  </div>
+  <div class="page">
+    <p>Conclusion</p>
+    <p>Solid-state drives (SSDs) are evolving to keep pace with performance, storage density demands  Multi-queue SSDs (MQ-SSDs) use new host protocols (e.g., NVMe)  New SSDs make use of emerging storage technologies (e.g., PCM, 3D XPoint)</p>
+    <p>Existing simulators have not kept up with these changes  They do not support several major features: multi-queue protocols,</p>
+    <p>efficient steady-state SSD models, full end-to-end request latency  Compared to real MQ-SSDs, best existing simulator has 6885% error rate</p>
+    <p>We introduce MQSim, a new open-source simulator  Models all major features of conventional SSDs and newer MQ-SSDs  Available with full-system simulator integration: accurate application modeling  Enables several new research directions</p>
+    <p>MQSim is highly accurate  Validated against four real MQ-SSDs  Error rate for real workloads: 818%</p>
+    <p>http://github.com/ CMU-SAFARI/</p>
+    <p>MQSim Page 34 of 35</p>
+  </div>
+  <div class="page">
+    <p>MQSim: A Framework for Enabling Realistic Studies of</p>
+    <p>Modern Multi-Queue SSD Devices</p>
+    <p>Arash Tavakkol, Juan Gmez-Luna, Mohammad Sadrosadati, Saugata Ghose, Onur Mutlu</p>
+    <p>Download the Simulator: http://github.com/CMU-SAFARI/MQSim</p>
+  </div>
+  <div class="page">
+    <p>Backup Slides</p>
+    <p>Page 36 of 35</p>
+  </div>
+  <div class="page">
+    <p>Enabling Higher SSD Performance and Capacity</p>
+    <p>Solid-state drives (SSDs) are widely used in todays computer systems  Data centers  Enterprise servers  Consumer devices</p>
+    <p>I/O demand of both enterprise and consumer applications continues to grow SSDs are rapidly evolving to deliver improved performance</p>
+    <p>Host Host Interface SATA</p>
+    <p>NAND Flash 3D XPoint</p>
+    <p>New NVM</p>
+    <p>Page 37 of 35</p>
+  </div>
+  <div class="page">
+    <p>Simulation Challenges for Modern MQ-SSDs</p>
+    <p>1. Multi-queue support in modern NVMe SSDs  The OS I/O scheduler is eliminated  The device itself is responsible for fairly servicing I/O requests from</p>
+    <p>concurrently-running applications and guaranteeing high responsiveness</p>
+    <p>Process 1 Process 2 Process 3</p>
+    <p>SSD Device</p>
+    <p>Application-level queues are directly</p>
+    <p>exposed to the device</p>
+    <p>Page 38 of 35</p>
+  </div>
+  <div class="page">
+    <p>Simulation Challenges for Modern MQ-SSDs</p>
+    <p>1. Multi-queue support in modern NVMe SSDs  The OS I/O scheduler is eliminated  The device itself is responsible for fairly servicing I/O requests from</p>
+    <p>concurrently-running applications and guaranteeing high responsiveness</p>
+    <p>Process 1 Process 2 Process 3</p>
+    <p>SSD Device</p>
+    <p>Application-level queues are directly</p>
+    <p>exposed to the device</p>
+    <p>No existing SSD simulation tool supports multi-queue I/O execution</p>
+    <p>Page 38 of 35</p>
+  </div>
+  <div class="page">
+    <p>Defining Slowdown and Fairness for I/O Flows</p>
+    <p>RTfi: response time of Flow fi Sfi: slowdown of Flow fi</p>
+    <p>F: fairness of slowdowns across multiple flows</p>
+    <p>0 &lt; F &lt; 1  Higher F means that system is more fair</p>
+    <p>Page 39 of 35</p>
+  </div>
+  <div class="page">
+    <p>Concurrent Flow Execution in Real Devices</p>
+    <p>Page 40 of 35</p>
+  </div>
+  <div class="page">
+    <p>Concurrent Flow Execution in Real Devices</p>
+    <p>Page 41 of 35</p>
+  </div>
+  <div class="page">
+    <p>Challenge 3: Complete Model of Request Latency</p>
+    <p>Request to NAND flash based SSD</p>
+    <p>Current simulators often model only steps 5 and 6 What if we use a different non-volatile memory (NVM)?</p>
+    <p>&lt; 1s &lt; 1s &lt; 1s</p>
+    <p>&lt; 1s</p>
+    <p>Page 42 of 35</p>
+  </div>
+  <div class="page">
+    <p>Request to 3D XPoint based SSD</p>
+    <p>Challenge 3: Complete Model of Request Latency</p>
+    <p>&lt; 1s</p>
+    <p>&lt; 1s</p>
+    <p>&lt; 1s</p>
+    <p>&lt; 1s</p>
+    <p>&lt; 5s</p>
+    <p>&lt; 5s 10-20s</p>
+    <p>Page 43 of 35</p>
+  </div>
+  <div class="page">
+    <p>Challenge 3: Incomplete Models of Request Latency</p>
+    <p>3. Real end-to-end request processing latency</p>
+    <p>Enqueue I/O job in the SQ</p>
+    <p>tim e</p>
+    <p>Request processing</p>
+    <p>ONFI data Xfer (TONFI Xfer)</p>
+    <p>I/O job Xfer over PCIe 5</p>
+    <p>Fl as</p>
+    <p>h re</p>
+    <p>ad (T</p>
+    <p>Fl as</p>
+    <p>h Re</p>
+    <p>ad )</p>
+    <p>Response data Xfer over PCIe 6</p>
+    <p>MQ-SSD HIL</p>
+    <p>Host Memory</p>
+    <p>MQ-SSD Firmware</p>
+    <p>User Application</p>
+    <p>&lt; 1s &lt; 1s &lt; 1s</p>
+    <p>&lt; 1s</p>
+    <p>Page 44 of 35</p>
+  </div>
+  <div class="page">
+    <p>Challenge 3: Incomplete Models of Request Latency</p>
+    <p>3. Real end-to-end request processing latency</p>
+    <p>The current simulators mainly model the latency of and , assuming that they have the highest contribution in latency</p>
+    <p>Enqueue I/O job in the SQ</p>
+    <p>tim e</p>
+    <p>Request processing</p>
+    <p>ONFI data Xfer (TONFI Xfer)</p>
+    <p>I/O job Xfer over PCIe 5</p>
+    <p>Fl as</p>
+    <p>h re</p>
+    <p>ad (T</p>
+    <p>Fl as</p>
+    <p>h Re</p>
+    <p>ad )</p>
+    <p>Response data Xfer over PCIe 6</p>
+    <p>MQ-SSD HIL</p>
+    <p>Host Memory</p>
+    <p>MQ-SSD Firmware</p>
+    <p>User Application</p>
+    <p>&lt; 1s &lt; 1s &lt; 1s</p>
+    <p>&lt; 1s</p>
+    <p>Is this a correct assumption?</p>
+    <p>Page 44 of 35</p>
+  </div>
+  <div class="page">
+    <p>Challenge 3: Incomplete Models of Request Latency</p>
+    <p>3. Real end-to-end request processing latency</p>
+    <p>The current simulators mainly model the latency of and , assuming that they have the highest contribution in latency</p>
+    <p>Enqueue I/O job in the SQ</p>
+    <p>tim e</p>
+    <p>Request processing</p>
+    <p>ONFI data Xfer (TONFI Xfer)</p>
+    <p>I/O job Xfer over PCIe 5</p>
+    <p>Fl as</p>
+    <p>h re</p>
+    <p>ad (T</p>
+    <p>Fl as</p>
+    <p>h Re</p>
+    <p>ad )</p>
+    <p>Response data Xfer over PCIe 6</p>
+    <p>MQ-SSD HIL</p>
+    <p>Host Memory</p>
+    <p>MQ-SSD Firmware</p>
+    <p>User Application</p>
+    <p>&lt; 1s &lt; 1s &lt; 1s</p>
+    <p>&lt; 1s</p>
+    <p>Is this a correct assumption?</p>
+    <p>Page 44 of 35</p>
+    <p>Existing simulation tools are incapable of providing</p>
+    <p>accurate performance results</p>
+  </div>
+  <div class="page">
+    <p>Simulation Challenges for Modern MQ-SSDs</p>
+    <p>The research community needs simulation tools that reliably model these features</p>
+    <p>State-of-the-art SSD simulators fail to model a number of key properties of modern SSDs  They implement only the single queue approach  They do not adequately replicate steady-state behavior  the reported</p>
+    <p>performance values may be far from the long-term results  They capture only the part of the request latency  do not capture the true</p>
+    <p>request performance of SSDs</p>
+    <p>Page 45 of 35</p>
+  </div>
+  <div class="page">
+    <p>Real Trace Execution Results</p>
+    <p>Page 46 of 35</p>
+  </div>
+  <div class="page">
+    <p>Modeling a Modern MQ-SSD with MQSim</p>
+    <p>MQSim provides a detailed end-to-end latency model  A model for all of the request processing steps in modern SSDs  All of the SSD components are modeled and contributed to the end-to-end latency</p>
+    <p>Page 47 of 35</p>
+  </div>
+  <div class="page">
+    <p>Comparison with Existing Simulators</p>
+    <p>Page 48 of 35</p>
+  </div>
+  <div class="page">
+    <p>Fairness Study Methodology</p>
+    <p>Page 49 of 35</p>
+  </div>
+  <div class="page">
+    <p>Questions</p>
+    <p>Do you have any plan to support near data processing?  Yes, we have plans to boost MQSim with support for near data processing  In six months</p>
+    <p>Major companies are interested in the performance-cost ratio; How can MQSim help them?  MQSim can be augmented with a cost model  Based on the input workload characteristics, MQSim can determine those</p>
+    <p>designs with best performance cost ratio</p>
+    <p>Page 50 of 35</p>
+  </div>
+  <div class="page">
+    <p>Measuring Impact of Interference on Applications</p>
+    <p>Execute two-application workload bundles  Applications: file-server (fs), mail-server (ms), web-server (ws),</p>
+    <p>IOzone large file access (io)  Vary queue fetch size (16 vs. 1024) to model fairness control vs. no control  Full methodology in the paper</p>
+    <p>Compare application slowdown, fairness across entire system</p>
+    <p>Page 51 of 35</p>
+  </div>
+  <div class="page">
+    <p>Measuring Impact of Interference on Applications</p>
+    <p>Execute two-application workload bundles  Applications: file-server (fs), mail-server (ms), web-server (ws),</p>
+    <p>IOzone large file access (io)  Vary queue fetch size (16 vs. 1024) to model fairness control vs. no control  Full methodology in the paper</p>
+    <p>Compare application slowdown, fairness across entire system</p>
+    <p>Application-level studies with MQSim capture inter-application interference across the entire stack</p>
+    <p>Page 51 of 35</p>
+  </div>
+  <div class="page">
+    <p>Conclusion &amp; Future Work</p>
+    <p>MQSim: A new simulator that accurately captures the behavior of both modern multi-queue and conventional SATA-based SSDs MQSim faithfully models a number of critical features absent in</p>
+    <p>existing SSD simulators MQSim enables a wide range of studies Future work</p>
+    <p>Explore the design space of fairness and QoS techniques in MQ-SSDs  Design new management mechanism for modern SSDs based on emerging</p>
+    <p>memory technologies</p>
+    <p>Page 52 of 35</p>
+  </div>
+</Presentation>

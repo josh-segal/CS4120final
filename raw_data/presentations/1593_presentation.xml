@@ -1,0 +1,93 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>Ram Kesavan, Harendra Kumar, Sushrut Bhowmik</p>
+    <p>WAFL Iron: Repairing Live Enterprise File Systems</p>
+    <p>NetApp Inc.</p>
+    <p>USENIX Conference on FAST, 2018</p>
+  </div>
+  <div class="page">
+    <p>WAFL Background  ONTAP available in various configurations</p>
+    <p>Typical ONTAP node: 100s of FlexVol volumes in a few aggregates  Datasets of several apps hosted on a node  FlexVol and aggregate are WAFL file systems, each up to 800 TiB</p>
+    <p>WAFL is a log-structured COW file system  Guaranteed consistency after panic/power failures  Journal of recent client ops in NVRAM  All file system state reconstructed during journal replay  Corruption of journal cannot corrupt file system</p>
+    <p>at worst, loss of some recent client ops</p>
+  </div>
+  <div class="page">
+    <p>Protection For File System Blocks  Each 4KB block persisted with checksum + file system context</p>
+    <p>Checksum protects against subsequent media damage  Context protects against lost/mis-directed writes  Mismatch during read is detected below WAFL</p>
+    <p>WAFL layered on software RAID  0+1, dual parity, and triple parity  Damaged blocks reconstructed on-the-fly by RAID</p>
+    <p>Reconstruction may be impossible; in rare cases  Multi-device failure (past RAIDs limit)  Block corrupted before checksum, context, parity computed</p>
+    <p>Typically software bugs: scribbles or bugs in logic</p>
+  </div>
+  <div class="page">
+    <p>WAFL Check &amp; Repair</p>
+    <p>On-the-fly handling of damage to user data  Persistently tag as bad, return protocol-specific error</p>
+    <p>On-the-fly handling of damage to most auxiliary metadata  Rebuild in background  At worst, temporal loss of associated feature or performance</p>
+    <p>Aggregate marked corrupt and taken offline  Only if WAFL code-path cannot navigate past corrupt metadata  NetApp customer support case raised  Repair invoked</p>
+  </div>
+  <div class="page">
+    <p>Online vs Offline Repair  WAFL Check (circa1996): classic fsck-like behavior</p>
+    <p>Memory:Metadata ratio scaling issues  File system unavailable to clients  Time to complete ~linear with file system size</p>
+    <p>WAFL Iron (circa 2003): focus on above drawbacks  Flag to aggr online command  Unconditional commit; offline mode of Iron provides conditional commit  Repair speed controllable: can trade-off client performance</p>
+    <p>Other examples: ReFS and recent Linux check-ins for XFS</p>
+    <p>Iron provides practically the same assurances as WAFL Check did.</p>
+  </div>
+  <div class="page">
+    <p>Rules of Engagement for Iron</p>
+    <p>Similar treatment for all ops (protocol &amp; internal) 1. Ensure all state is checked on-demand at access 2. Dont reverse state afterwards</p>
+    <p>Can do so conservatively for internal ops 3. Only check each metadata block once</p>
+    <p>Monotonically expand portion of self-consistent metadata  Guarantee convergence even with new incoming ops</p>
+  </div>
+  <div class="page">
+    <p>Metadata in WAFL: Primary vs Derived Superblk</p>
+    <p>inodefile indirects</p>
+    <p>L0s: user &amp; metafiles</p>
+    <p>inodefile L0s</p>
+    <p>file &amp; metafile indirects</p>
+    <p>pr im</p>
+    <p>ar y</p>
+    <p>dir-entries</p>
+    <p>derived</p>
+    <p>per-block refcnts</p>
+    <p>inode free map</p>
+    <p>per-inode block count</p>
+  </div>
+  <div class="page">
+    <p>Claiming of Resources: Iron Status Metadata 1. Shadow derived metafiles</p>
+    <p>Re-computes derived metadata  Eg. claimed refcnt: ith number counts #refs to ith block seen thus far  Replaces derived metadata</p>
+    <p>If count adjusted down to 0: reclaims lost block  A block is considered free iff claimed refcnt == refcnt == 0</p>
+    <p>WAFL block allocator consults (and increments) both counts  Free-path conditionally decrements the claimed refcnt</p>
+  </div>
+  <div class="page">
+    <p>Phases of WAFL Iron  Mount: client access not allowed yet</p>
+    <p>Scan subset of primary &amp; derived metadata  Reduction of that subset over releases: hour+ to &lt;1min  Create Iron status metafiles  Mount aborts if this step does not complete</p>
+    <p>Enable full client access  On-demand check + repair work based on client access  Background scan to check + repair all metadata</p>
+    <p>Completion: no change for clients  Final book-keeping activity  Delete Iron status metafiles  Aggregate marked clean</p>
+  </div>
+  <div class="page">
+    <p>Corruption: Manifest vs Latent</p>
+    <p>Manifest: localized to the block  Invalid signatures, out-of-bound values, etc.  Mostly caused by hardware errors or memory scribbles  Detected on first load/use of metadata in the block</p>
+    <p>Latent: each block appears correct  Violates distributed property of the file system  Mostly caused by logics bugs  Detected when invariants in the code are tripped</p>
+    <p>Both forms of corruption can impact primary or derived metadata  Paper walks thru each permutation</p>
+  </div>
+  <div class="page">
+    <p>Claiming of Resources: On-Demand vs Lazy  Via background scan: eg. claimed refcnt metafile  On-demand claiming protects against latent corruption</p>
+    <p>i.e., avoid incorrect re-allocation of a used resource  Metadata integrity (circa 2011)</p>
+    <p>Described in one of the FAST 17 WAFL papers  Avoids latent corruption due to memory scribbles or logic bugs  Avoids corruption to Iron status metadata</p>
+    <p>Quarantining &amp; metadata integrity ensure no incorrect re-allocation  On-demand claiming of resources became unnecessary  Random IOs (claimed refcnt metafile) avoided when servicing client ops</p>
+  </div>
+  <div class="page">
+    <p>Performance  Two main metrics: decade+ continual improvement  Time to first-client access</p>
+    <p>Hours down to secs in almost all configurations  Interference to client performance</p>
+    <p>Apps in the ironing aggregate and other aggregates in the node  Up to 25% on mid to low-end range  Extra IO overhead due to Iron less on all-SSD nodes</p>
+    <p>But, interference (as a %age) is higher; baseline op latencies are &lt;1ms  Other improvements in the dev pipeline</p>
+    <p>With reduced interference, time to completion becoming less critical</p>
+  </div>
+  <div class="page">
+    <p>Conclusion</p>
+    <p>Practical online repair is necessary for enterprises  WAFL Iron first shipped in 2003</p>
+    <p>Provides practically same assurances as offline repair  Continued improvement over time</p>
+    <p>Lower time to first access  Lower interference to client ops</p>
+    <p>Recent changes and improvement (not presented in paper)  Autoheal; first shipped with FlexGroups  WAFL Iron parallelism enhancements</p>
+  </div>
+</Presentation>

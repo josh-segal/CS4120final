@@ -1,0 +1,290 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>Utilizing the IOMMU Scalably</p>
+    <p>USENIX Annual Technical Conference 2015</p>
+    <p>Omer Peleg, Adam Morrison, Benjamin Serebrin* and Dan Tsafrir</p>
+    <p>* Google</p>
+  </div>
+  <div class="page">
+    <p>In This Talk</p>
+    <p>IOMMU overview</p>
+    <p>Main challenges to OSes</p>
+    <p>Current solutions  they dont scale</p>
+    <p>Exploring scalable solutions</p>
+  </div>
+  <div class="page">
+    <p>What is an IOMMU?</p>
+    <p>MMU</p>
+    <p>Process</p>
+    <p>Virtual Address</p>
+    <p>IOMMU</p>
+    <p>Device</p>
+    <p>I/O Virtual Address</p>
+    <p>System Memory</p>
+    <p>Physical Address</p>
+    <p>Similar to MMU</p>
+    <p>Translates DMA accesses</p>
+  </div>
+  <div class="page">
+    <p>How Does it Work? Device 04:00.1</p>
+    <p>Wants to write 0xDA7A To (virtual) address 0x1234568</p>
+    <p>FF:1F.7</p>
+    <p>FF:1F.6</p>
+    <p>0xABCDE000</p>
+    <p>IOMMU (Intel VT-d)</p>
+    <p>Device 04:00.1 Wants to write 0xDA7A To address 0xABCDE568</p>
+  </div>
+  <div class="page">
+    <p>What is the IOMMU for?</p>
+    <p>Protecting the system from untrusted elements  MMU protects memory from processes  IOMMU protects memory from devices</p>
+  </div>
+  <div class="page">
+    <p>What is the IOMMU for?</p>
+    <p>July 29th 2012 (Computerworld)</p>
+    <p>February 16th 2015 (The Verge)</p>
+    <p>Protecting the system from untrusted elements</p>
+  </div>
+  <div class="page">
+    <p>Where MMU and IOMMU differ MMU (process)</p>
+    <p>malloc/free</p>
+    <p>mmap/munmap</p>
+    <p>IOMMU (device driver)</p>
+    <p>dma_map/unmap</p>
+  </div>
+  <div class="page">
+    <p>IOMMU Limits Performance? Aggregate throughput  270 Netperf TCP Request/Response</p>
+  </div>
+  <div class="page">
+    <p>IOMMU Limits Performance? Turning IOMMU on in Linux is prohibitive</p>
+  </div>
+  <div class="page">
+    <p>IOMMU Limits Performance? Meltdown is not due to hardware, though</p>
+  </div>
+  <div class="page">
+    <p>IOMMU  State of the Art</p>
+    <p>EiovaR  Efficient IOVA allocatoR</p>
+    <p>Malka et al., FAST 15</p>
+    <p>Baseline for our talk</p>
+    <p>Optimized IOMMU single core performance</p>
+  </div>
+  <div class="page">
+    <p>IOMMU  State of the Art</p>
+  </div>
+  <div class="page">
+    <p>Our Contribution</p>
+    <p>Identify scalability bottlenecks  Linux, FreeBSD, OpenSolaris, Mac OS X  All have:  Globally locked IOVA allocation  Globally locked Invalidations</p>
+    <p>Design and compare scalable solutions</p>
+  </div>
+  <div class="page">
+    <p>EiovaR  Scalability (@16 Cores)</p>
+    <p>Invalidation lock</p>
+    <p>IOVA allocation lock</p>
+  </div>
+  <div class="page">
+    <p>IOMMU caches translations</p>
+    <p>Invalidations needed  Before address reuse  For security</p>
+    <p>Strict (invalidation on unmap)  too costly  Contention on invalidation interface</p>
+    <p>MMU</p>
+    <p>Process</p>
+    <p>IOMMU</p>
+    <p>Device</p>
+    <p>System Memory</p>
+    <p>TLB IOTLB</p>
+    <p>Invalidation Complicates Things</p>
+  </div>
+  <div class="page">
+    <p>Linux  Strict Invalidation Cost</p>
+  </div>
+  <div class="page">
+    <p>Linux  Deferred Invalidation</p>
+    <p>Linuxs default policy</p>
+    <p>Batch (up to 250) invalidations  Invalidate IOTLB globally  Free batched IOVAs only after invalidation</p>
+    <p>Creates a vulnerability window  Not a correctness problem, though</p>
+  </div>
+  <div class="page">
+    <p>Deferred Invalidation - The Problem</p>
+    <p>Linux saves IOVAs it will free upon invalidation</p>
+    <p>In a globally locked data structure</p>
+  </div>
+  <div class="page">
+    <p>IOVA List</p>
+    <p>Deferred Invalidation - The Problem</p>
+    <p>Linux saves IOVAs it will free upon invalidation</p>
+    <p>In a globally locked data structure</p>
+    <p>CPU #0 CPU #1 CPU #2</p>
+    <p>IOVA0 IOVA1 IOVA2</p>
+  </div>
+  <div class="page">
+    <p>IOVA List</p>
+    <p>Deferred Invalidation - The Problem</p>
+    <p>Linux saves IOVAs it will free upon invalidation</p>
+    <p>In a globally locked data structure</p>
+    <p>CPU #0 CPU #1 CPU #2</p>
+    <p>IOVA2</p>
+    <p>IOVA0</p>
+    <p>IOVA1</p>
+  </div>
+  <div class="page">
+    <p>IOVA List</p>
+    <p>Deferred Invalidation - The Problem</p>
+    <p>Linux saves IOVAs it will free upon invalidation</p>
+    <p>In a globally locked data structure</p>
+    <p>CPU #0 CPU #1 CPU #2</p>
+    <p>IOVA1</p>
+    <p>IOVA0</p>
+    <p>IOVA2</p>
+  </div>
+  <div class="page">
+    <p>IOVA List</p>
+    <p>Deferred Invalidation - The Problem</p>
+    <p>Linux saves IOVAs it will free upon invalidation</p>
+    <p>In a globally locked data structure</p>
+    <p>CPU #0 CPU #1 CPU #2</p>
+    <p>IOVA1</p>
+    <p>IOVA0</p>
+    <p>IOVA2</p>
+    <p>Invalidate IOTLB</p>
+  </div>
+  <div class="page">
+    <p>IOVA List</p>
+    <p>Deferred Invalidation - The Problem</p>
+    <p>Linux saves IOVAs it will free upon invalidation</p>
+    <p>In a globally locked data structure</p>
+    <p>CPU #0 CPU #1 CPU #2</p>
+    <p>IOVA1</p>
+    <p>IOVA0</p>
+    <p>IOVA2</p>
+  </div>
+  <div class="page">
+    <p>Deferred Invalidation - The Problem</p>
+    <p>Linux saves IOVAs it will free upon invalidation</p>
+    <p>In a globally locked data structure  Contention</p>
+  </div>
+  <div class="page">
+    <p>Solving Deferred Invalidation</p>
+    <p>But prompt freeing of IOVAs is not significant!</p>
+    <p>Use per-core deferred invalidation</p>
+    <p>Access to hardware still 250:1 vs strict</p>
+    <p>Correctness: maintained</p>
+  </div>
+  <div class="page">
+    <p>EiovaR  Scalability (@16 Cores)</p>
+    <p>Invalidation lock</p>
+    <p>IOVA allocation lock</p>
+  </div>
+  <div class="page">
+    <p>Linux  IOVA Allocation</p>
+    <p>Globally locked</p>
+    <p>Finds first fit from top of virtual space  EiovaR does that in constant time</p>
+    <p>Packs allocations in a bounded area</p>
+  </div>
+  <div class="page">
+    <p>Linux  Page Table Management</p>
+    <p>Page table lock = BAD!</p>
+    <p>Linux manages tables in parallel with no lock</p>
+    <p>The price  page tables are never freed</p>
+    <p>Good thing IOVA range is bounded</p>
+  </div>
+  <div class="page">
+    <p>Solving IOVA Assignment</p>
+    <p>IOVA assignment doesnt scale</p>
+    <p>We explore three different solutions</p>
+  </div>
+  <div class="page">
+    <p>Solving IOVA Assignment #1  Dynamic 1:1</p>
+    <p>Do we even need an allocator?  Page being mapped already has an address</p>
+    <p>Use physical address as virtual</p>
+  </div>
+  <div class="page">
+    <p>Solving IOVA Assignment #1  Dynamic 1:1</p>
+    <p>Use physical address as virtual</p>
+    <p>Reference count</p>
+    <p>Map(X) Map(X) Unmap(X) Unmap(X)</p>
+    <p>Device can access X</p>
+  </div>
+  <div class="page">
+    <p>Solving IOVA Assignment #1  Dynamic 1:1</p>
+    <p>Use physical address as virtual</p>
+    <p>Reference count  Use spare bits in page table entry</p>
+  </div>
+  <div class="page">
+    <p>Use physical address as virtual</p>
+    <p>Reference count</p>
+    <p>Keep permissions accurate</p>
+    <p>Solving IOVA Assignment #1  Dynamic 1:1</p>
+    <p>Map(X,R) Map(X,W) Unmap(X,W)</p>
+    <p>Device has Read access Device has Write access</p>
+  </div>
+  <div class="page">
+    <p>Solving IOVA Assignment #1  Dynamic 1:1</p>
+    <p>Use physical address as virtual</p>
+    <p>Reference count</p>
+    <p>Keep permissions accurate  Separate virtual space by access rights</p>
+  </div>
+  <div class="page">
+    <p>What is allocating an IOVA?</p>
+    <p>Allocate range of virtual page numbers</p>
+    <p>Allocating a unique range of integers</p>
+    <p>Regular memory allocators allocate a range of bytes  Which have a range of unique addresses  Use the address range as an unique integer range  Disregard the memory</p>
+  </div>
+  <div class="page">
+    <p>Solving IOVA Assignment #2  IOVA-kmalloc</p>
+    <p>Use existing, optimized, general purpose allocator</p>
+    <p>For a k page range: kmalloc(k)  Use address as virtual page number  Completely disregard the actual memory</p>
+  </div>
+  <div class="page">
+    <p>Solving IOVA Assignment #3  Magazines</p>
+    <p>Build on top of the Linux allocator</p>
+    <p>Save freed IOVAs for reallocation  Use local caches to avoid contention</p>
+    <p>Magazines (Bonwick 01)</p>
+    <p>Still packs allocations</p>
+  </div>
+  <div class="page">
+    <p>Evaluation</p>
+  </div>
+  <div class="page">
+    <p>Our Setup</p>
+    <p>2x Dell PowerEdge R430, each  16 Haswell E5 cores @2.4GHz  10 Gigabit Ethernet NIC</p>
+    <p>Server  Modified Linux 3.17.2</p>
+    <p>Client  IOMMU turned off  Stock Linux 3.13.0-45 (Ubuntu)</p>
+  </div>
+  <div class="page">
+    <p>High Throughput TCP Request-Response</p>
+  </div>
+  <div class="page">
+    <p>Memcached</p>
+  </div>
+  <div class="page">
+    <p>Latency - Multiple Dedicated Cores</p>
+  </div>
+  <div class="page">
+    <p>Page Tables</p>
+  </div>
+  <div class="page">
+    <p>Page Tables (with iova-kmalloc)</p>
+  </div>
+  <div class="page">
+    <p>Page Tables</p>
+    <p>Linux never frees page tables</p>
+    <p>Need IOVA allocator that accounts for that  Can take notes from general purpose allocators</p>
+  </div>
+  <div class="page">
+    <p>Design Space - Summary</p>
+    <p>Time to Implement</p>
+    <p>Control of Page Tables?</p>
+    <p>Scale?</p>
+    <p>Dynamic 1:1 Weeks No*</p>
+    <p>IOVA-kmalloc Hours No</p>
+    <p>Magazines Days Yes</p>
+  </div>
+  <div class="page">
+    <p>Conclusions</p>
+    <p>MMU and IOMMU are different</p>
+    <p>First IOMMU management schemes to scale</p>
+    <p>Future work  Strict invalidation</p>
+    <p>Better I/O page table management</p>
+    <p>Subpage protection</p>
+    <p>Questions?</p>
+  </div>
+</Presentation>

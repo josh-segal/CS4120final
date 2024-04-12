@@ -1,0 +1,324 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>Titan: Fair Packet Scheduling for Commodity Multiqueue NICs Brent Stephens, Arjun Singhvi, Aditya Akella, and Mike Swift</p>
+    <p>July 13th, 2017</p>
+  </div>
+  <div class="page">
+    <p>Ethernet line-rates are increasing!</p>
+  </div>
+  <div class="page">
+    <p>Servers need:</p>
+    <p>To drive increasing line-rates</p>
+    <p>Low CPU utilization networking</p>
+  </div>
+  <div class="page">
+    <p>Underlying mechanisms:</p>
+    <p>Segmentation Offload</p>
+    <p>Multiqueue NICs</p>
+  </div>
+  <div class="page">
+    <p>Using large segments (64KB) instead of packets can reduce CPU load</p>
+    <p>F1 F2 F1 F2</p>
+    <p>Wire</p>
+    <p>F1</p>
+    <p>F2</p>
+    <p>Wire</p>
+    <p>TCP Segmentation Offload (TSO)</p>
+    <p>Many operations performed by the OS are per-packet, not perbyte  TSO allows the OS to send large segments to the NIC  TSO NIC hardware generates packets from segments</p>
+  </div>
+  <div class="page">
+    <p>Core 2Core 1</p>
+    <p>Multiqueue NICs enable parallelism 6</p>
+    <p>Multiqueue NICs</p>
+    <p>TXQ-2TXQ-1</p>
+    <p>Wire</p>
+    <p>Packet Scheduler</p>
+    <p>F1</p>
+    <p>F3</p>
+    <p>F2</p>
+    <p>F2 Locking/Polling</p>
+    <p>Wire</p>
+    <p>Core 1 Core 2</p>
+    <p>F1 F2 F3</p>
+  </div>
+  <div class="page">
+    <p>Fairness Problems</p>
+    <p>Core 2Core 1 TXQ-2TXQ-1</p>
+    <p>Wire</p>
+    <p>Packet Scheduler</p>
+    <p>F1 F3</p>
+    <p>F2 F2</p>
+    <p>Wire</p>
+    <p>F1 F3 F2F1F2F2F2 F3 TSO</p>
+    <p>unfairness Multiqueue unfairness</p>
+    <p>Wire F3</p>
+    <p>Fair packet</p>
+    <p>schedule:</p>
+    <p>Actual packet</p>
+    <p>schedule: F1 F2F1F3 F2F1F3 F2</p>
+  </div>
+  <div class="page">
+    <p>Fairness is important</p>
+    <p>Fairness is needed so competing applications can share the network</p>
+    <p>Fairness is needed for predictability  Unfairness leads to unpredictable completion times across runs  Perfect fairness  perfect predictability</p>
+    <p>Fairness can improve application performance  Ex: Weighted Coflow Scheduling</p>
+    <p>[Chowdhury SIGCOMM11, Chowdhury SIGCOMM14]</p>
+  </div>
+  <div class="page">
+    <p>Titan Goals:</p>
+    <p>Drive increasing line-rates</p>
+    <p>Low CPU utilization</p>
+    <p>Per-flow fairness</p>
+    <p>Work on commodity</p>
+    <p>NICs</p>
+  </div>
+  <div class="page">
+    <p>Multiqueue Fairness in Linux:</p>
+    <p>Flow arrivals to each transmit queue are dynamic  The OS statically uses a per-flow hash to assign flows to queues  The NIC scheduler statically uses deficit round-robin (DRR) to provide per-queue fairness  In the datacenter, the OS statically chooses a TSO size</p>
+  </div>
+  <div class="page">
+    <p>Titan Design: As flows dynamically arrive and complete, in Titan: The OS dynamically:  Assigns weights to flows  Tracks the flow occupancy of queues  Picks queues for flows  Updates the NIC with queue weights</p>
+    <p>The NIC dynamically:  Applies queue weights from the OS</p>
+  </div>
+  <div class="page">
+    <p>Causes of Unfairness:</p>
+    <p>Multiqueue unfairness TSO unfairness</p>
+  </div>
+  <div class="page">
+    <p>Problem: Hash collisions</p>
+    <p>TXQ-2TXQ-1</p>
+    <p>Wire</p>
+    <p>Packet Scheduler</p>
+    <p>F1</p>
+    <p>F3</p>
+    <p>TXQ-3</p>
+    <p>F2</p>
+    <p>Wire</p>
+    <p>F1F3 F2F1F2F2F2 F3</p>
+    <p>Multiqueue unfairness</p>
+  </div>
+  <div class="page">
+    <p>Problem: Hash collisions</p>
+    <p>TXQ-2TXQ-1</p>
+    <p>Wire</p>
+    <p>Packet Scheduler</p>
+    <p>F1</p>
+    <p>TXQ-3</p>
+    <p>F2</p>
+    <p>Solution: Dynamic Queue Assignment (DQA)  OS assigns a weight to each flow  DQA picks the queue with the lowest occupancy when a flow starts  Queue occupancies are updated:  Any time a flow starts enqueuing data  Any time a flow has no enqueued bytes (at most each TX interrupt)</p>
+    <p>F3</p>
+  </div>
+  <div class="page">
+    <p>Problem: Hash collisions</p>
+    <p>TXQ-2TXQ-1</p>
+    <p>Wire</p>
+    <p>Packet Scheduler</p>
+    <p>F1</p>
+    <p>TXQ-3</p>
+    <p>F2</p>
+    <p>Wire</p>
+    <p>F1F3 F2</p>
+    <p>F3</p>
+    <p>Solution: Dynamic Queue Assignment (DQA)</p>
+    <p>F1F3 F2F1F3 F2</p>
+  </div>
+  <div class="page">
+    <p>Problem: Asymmetric Oversubscription</p>
+    <p>TXQ-2TXQ-1</p>
+    <p>Wire</p>
+    <p>Packet Scheduler</p>
+    <p>F1</p>
+    <p>TXQ-3</p>
+    <p>F3 F2</p>
+    <p>F4</p>
+    <p>Wire</p>
+    <p>F1F3F4F1F3F4F2F3F4F2F3F4</p>
+    <p>F1 and F2 receive half throughput</p>
+    <p>W: 1 W: 1 W: 1</p>
+  </div>
+  <div class="page">
+    <p>Problem: Asymmetric Oversubscription</p>
+    <p>Solution: Dynamic Queue Weight Assignment (DQWA)</p>
+    <p>TXQ-2TXQ-1</p>
+    <p>Wire</p>
+    <p>Packet Scheduler</p>
+    <p>F1</p>
+    <p>TXQ-3</p>
+    <p>F3 F2</p>
+    <p>F4</p>
+    <p>ndo_set_tx_weight</p>
+    <p>OS assigns weights to flows  OS updates the NIC scheduler with queue occupancies as flows start and stop (at most each TX interrupt)  NIC updates DRR weights</p>
+    <p>W: 2 W: 1 W: 1</p>
+    <p>This is implementable on existing commodity NICs because it only needs to update DRR weights!</p>
+  </div>
+  <div class="page">
+    <p>Problem: Asymmetric Oversubscription</p>
+    <p>Solution: Dynamic Queue Weight Assignment (DQWA)</p>
+    <p>TXQ-2TXQ-1</p>
+    <p>Wire</p>
+    <p>Packet Scheduler</p>
+    <p>F1</p>
+    <p>TXQ-3</p>
+    <p>F3 F2</p>
+    <p>F4</p>
+    <p>ndo_set_tx_weight</p>
+    <p>Wire</p>
+    <p>F1F3F4 F1F2F3F4 F2</p>
+    <p>DQA and DQWA provide long-term fairness</p>
+    <p>W: 2 W: 1 W: 1</p>
+    <p>This is implementable on existing commodity NICs because it only needs to update DRR weights!</p>
+  </div>
+  <div class="page">
+    <p>Problem: TSO Unfairness</p>
+    <p>TXQ-2TXQ-1</p>
+    <p>Wire</p>
+    <p>Packet Scheduler</p>
+    <p>F1</p>
+    <p>TXQ-3</p>
+    <p>F3 F2</p>
+    <p>F4</p>
+    <p>Wire</p>
+    <p>F1F3F4 F1F2F3F4 F2 Short-term unfairness</p>
+    <p>W: 2 W: 1 W: 1</p>
+    <p>Short-term unfairness can cause bursts of congestion in the network  Short-term unfairness can increase latency</p>
+  </div>
+  <div class="page">
+    <p>Problem: TSO Unfairness</p>
+    <p>Solution: Dynamic Segmentation Offload Sizing (DSOS)</p>
+    <p>TXQ-2TXQ-1</p>
+    <p>Wire</p>
+    <p>Packet Scheduler</p>
+    <p>F1</p>
+    <p>TXQ-3</p>
+    <p>F3F2 F4</p>
+    <p>Wire</p>
+    <p>F1F3F4 F2F1F3F4 F2</p>
+    <p>DSOS dynamically changes the segment size during oversubscription  Same implementation as GSO</p>
+    <p>CPU vs fairness tradeoff  Segmenting after the TCP/IP stack reduces CPU costs</p>
+    <p>F1 F2</p>
+    <p>W: 2 W: 1 W: 1</p>
+  </div>
+  <div class="page">
+    <p>Implementation</p>
+    <p>DQA, DQWA, and DSOS are implemented in Linux 4.4.6</p>
+    <p>Support for ndo_set_tx_weight is implemented in the Intel ixgbe driver for the Intel 82599 10Gbps NIC</p>
+    <p>Titan is open source!</p>
+  </div>
+  <div class="page">
+    <p>Evaluation  Microbenchmarks  2 servers, 1 switch  8 queue NICs  Vary number of flows (level of oversubscription)</p>
+    <p>Incremental fairness benefits of DQA, DQWA, and DSOS  DQA and DQWA: expected to improve long-term fairness</p>
+    <p>DSOS: expected to improve short-term fairness</p>
+  </div>
+  <div class="page">
+    <p>Evaluation  Fairness Metric Metrics:  Normalized fairness metric</p>
+    <p>(NFM) inspired by Shreedhar and Varghese:  NFM = 0 is fair  NFM &gt; 1 is very unfair</p>
+    <p>Wire</p>
+    <p>F1F3 F2F1F2F2F2 F3 Wire</p>
+    <p>F3 Ideal packet</p>
+    <p>schedule:</p>
+    <p>Unfair packet</p>
+    <p>schedule:</p>
+    <p>F1F2F1F3 F2F1F3 F2 NFM = 0</p>
+    <p>NFM = 1</p>
+    <p>NFM = (Bytes(MaxFlow)  Bytes(MinFlow)) / Bytes(FairShair)</p>
+  </div>
+  <div class="page">
+    <p>Microbenchmarks  1s Timescale</p>
+    <p>N FM</p>
+    <p>-1 s</p>
+    <p>Number of Flows Linux DQA DQA + DQWA DQA + DQWA + DSOS (16KB)</p>
+    <p>Linux is unfair at all subscription levels  DQA often significantly improves fairness  At 48 flows, flow churn prevents DQA from evenly spreading flows</p>
+    <p>DQWA improves fairness when DQA cannot evenly spread flows across queues  DSOS does not have a significant impact on longterm fairness</p>
+  </div>
+  <div class="page">
+    <p>Microbenchmarks  1ms Timescale</p>
+    <p>N FM</p>
+    <p>-1 m s</p>
+    <p>Number of Flows Linux DQA DQA + DQWA DQA + DQWA + DSOS (16KB)</p>
+    <p>At short timescales and under oversubscription, DQA and DQWA do not significantly improve fairness  TSO is the primary cause of unfairness</p>
+    <p>DSOS (16KB) often reduces unfairness by &gt;2x</p>
+  </div>
+  <div class="page">
+    <p>Cluster Experiments</p>
+    <p>CDF of completion times in a 1GB all-to-all shuffle (24 servers)</p>
+    <p>C um</p>
+    <p>ul at</p>
+    <p>iv e</p>
+    <p>P ro</p>
+    <p>ba bi</p>
+    <p>lit y</p>
+    <p>(a) 6 servers</p>
+    <p>C um</p>
+    <p>ul at</p>
+    <p>iv e</p>
+    <p>P ro</p>
+    <p>ba bi</p>
+    <p>lit y</p>
+    <p>(b) 12 servers</p>
+    <p>C um</p>
+    <p>ul at</p>
+    <p>iv e</p>
+    <p>P ro</p>
+    <p>ba bi</p>
+    <p>lit y</p>
+    <p>(c) 24 servers</p>
+    <p>Vanilla Vanilla (Cmax) Titan</p>
+    <p>C um</p>
+    <p>ul at</p>
+    <p>iv e</p>
+    <p>P ro</p>
+    <p>ba bi</p>
+    <p>lit y</p>
+    <p>(a) 6 servers</p>
+    <p>C um</p>
+    <p>ul at</p>
+    <p>iv e</p>
+    <p>P ro</p>
+    <p>ba bi</p>
+    <p>lit y</p>
+    <p>(b) 12 servers</p>
+    <p>C um</p>
+    <p>ul at</p>
+    <p>iv e</p>
+    <p>P ro</p>
+    <p>ba bi</p>
+    <p>lit y</p>
+    <p>(c) 24 servers</p>
+    <p>Vanilla Vanilla (Cmax) Titan</p>
+    <p>C um</p>
+    <p>ul at</p>
+    <p>iv e</p>
+    <p>P ro</p>
+    <p>ba bi</p>
+    <p>lit y</p>
+    <p>(a) 6 servers</p>
+    <p>C um</p>
+    <p>ul at</p>
+    <p>iv e</p>
+    <p>P ro</p>
+    <p>ba bi</p>
+    <p>lit y</p>
+    <p>(b) 12 servers</p>
+    <p>C um</p>
+    <p>ul at</p>
+    <p>iv e</p>
+    <p>P ro</p>
+    <p>ba bi</p>
+    <p>lit y</p>
+    <p>(c) 24 servers</p>
+    <p>Vanilla Vanilla (Cmax) TitanLinuxTitan improves fairness without changing the network core!</p>
+    <p>Ideal CDF would be a vertical line  Titan makes performance more predictable  Titan improves tail performance (&gt;90th percentile)</p>
+  </div>
+  <div class="page">
+    <p>Additional Evaluation Additional performance metrics:  Throughput: line-rate  Latency: no significant change  CPU Utilization:  DQA and DQWA: increase &lt; 10%  DSOS is better than statically decreasing</p>
+    <p>the TSO size  DSOS motivates creating a better TSO</p>
+    <p>implementation (zero-copy)</p>
+    <p>Linux network configuration trade-off study  See paper</p>
+  </div>
+  <div class="page">
+    <p>Summary</p>
+    <p>Multi queue NICs can lead to significant flow-level unfairness  Titan significantly improves fairness by allowing the OS to dynamically interact with the NIC packet scheduler  Titan is implementable on commodity NICs!</p>
+    <p>https://github.com/bestephe/titan</p>
+  </div>
+</Presentation>

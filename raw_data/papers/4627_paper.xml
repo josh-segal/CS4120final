@@ -1,0 +1,741 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<TEI xmlns="http://www.tei-c.org/ns/1.0" 
+xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+xsi:schemaLocation="http://www.tei-c.org/ns/1.0 /Users/atharsefid/Desktop/grobid-0.5.3/grobid-home/schemas/xsd/Grobid.xsd"
+ xmlns:xlink="http://www.w3.org/1999/xlink">
+	<teiHeader xml:lang="en">
+		<encodingDesc>
+			<appInfo>
+				<application version="0.5.3" ident="GROBID" when="2019-03-26T16:55+0000">
+					<ref target="https://github.com/kermitt2/grobid">GROBID - A machine learning software for extracting information from scholarly documents</ref>
+				</application>
+			</appInfo>
+		</encodingDesc>
+		<fileDesc>
+			<titleStmt>
+				<title level="a" type="main">Deconstructing Hardware Architectures for Security</title>
+			</titleStmt>
+			<publicationStmt>
+				<publisher/>
+				<availability status="unknown"><licence/></availability>
+			</publicationStmt>
+			<sourceDesc>
+				<biblStruct>
+					<analytic>
+						<author>
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Michael</forename><surname>Dalton</surname></persName>
+							<email>mwdalton@stanford.edu</email>
+							<affiliation key="aff0">
+								<orgName type="department">Computer Systems Laboratory</orgName>
+								<orgName type="institution">Stanford University</orgName>
+							</affiliation>
+						</author>
+						<author>
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Hari</forename><surname>Kannan</surname></persName>
+							<email>hkannan@stanford.edu</email>
+							<affiliation key="aff0">
+								<orgName type="department">Computer Systems Laboratory</orgName>
+								<orgName type="institution">Stanford University</orgName>
+							</affiliation>
+						</author>
+						<author>
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Christos</forename><surname>Kozyrakis</surname></persName>
+							<email>kozyraki@stanford.edu</email>
+							<affiliation key="aff0">
+								<orgName type="department">Computer Systems Laboratory</orgName>
+								<orgName type="institution">Stanford University</orgName>
+							</affiliation>
+						</author>
+						<title level="a" type="main">Deconstructing Hardware Architectures for Security</title>
+					</analytic>
+					<monogr>
+						<imprint>
+							<date/>
+						</imprint>
+					</monogr>
+				</biblStruct>
+			</sourceDesc>
+		</fileDesc>
+		<profileDesc>
+			<abstract>
+				<p>Researchers have recently proposed novel hardware architectures for enhancing system security. The proposed architectures address security threats such as buffer overflows, format string bugs, and information disclosure. The main advantage of hardware support is increased visibility into system state, low overheads for security checks, and, in some cases, compatibility with legacy binaries. Nevertheless, hardware support is not a panacea for system security. We review two architectures for preventing memory corruption and two for preventing information leaks. We identify significant vulnerabilities and shortcomings in these designs. We also discuss solutions and mitigation strategies.</p>
+			</abstract>
+		</profileDesc>
+	</teiHeader>
+	<text xml:lang="en">
+		<body>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="1.">INTRODUCTION</head><p>Computing systems have become an essential part of our infrastructure for communication, commerce, government, education, and scientific discovery. Hence, systems security is a critical research area with far-reaching implications. Hardware support for security can provide significant practical advantages over software-only approaches. Hardware designs provide increased visibility into system state and allow for fine-grain tracking and checks at low performance overhead. In contrast, software techniques can lead to performance slowdown of up to 37x <ref type="bibr" target="#b18">[20]</ref>. Hardware support can also allow for security checks with unmodified legacy binaries, while many software techniques require source code access for similar functionality.</p><p>Nevertheless, the availability of hardware support does not guarantee that a system is 100% secure or easy to use. In this paper, we examine four of the recently proposed architectures for system security. Two architectures focus on tainting support to prevent memory corruption bugs <ref type="bibr" target="#b25">[28,</ref><ref type="bibr" target="#b3">4]</ref>, while the other two prevent information leaks <ref type="bibr" target="#b29">[32,</ref><ref type="bibr" target="#b21">24]</ref>. We identify vulnerabilities and flaws in these designs that allow us to write arbitrary locations or leak arbitrary amounts of information. We discuss potential solutions for each vulnerability and conclude that increased flexibility in expressing security policies is the key requirement for robust security through hardware mechanisms.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="2.">DYNAMIC INFORMATION FLOW TRACKING</head><p>Memory corruption bugs, such as format string bugs and buffer overflows, represent a significant threat to real-world security. These bugs can often be prevented at runtime using tainting techniques. In this section, we discuss the tainting architecture for dynamic information flow tracking (DIFT) proposed by Suh et al <ref type="bibr" target="#b25">[28]</ref>. We provide an overview of the DIFT architecture, describe three flaws in its pointer arithmetic taint propagation rule, and discuss solutions.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="2.1">DIFT Overview</head><p>Tainting techniques thwart memory corruption bugs by tracking the flow of untrusted information in the system. Each register and storage location is extended with a 1-bit tag (taint bit) that indicates if its value is trusted or untrusted. The taint bit is set by the operating system for any inputs received from untrusted sources such as network devices. Taint bits are propagated during program execution to track the flow of untrusted information. The hardware performs runtime checks to ensure that tainted operands are not used in potentially unsafe situations, such as code execution or pointer dereferences.</p><p>Certain tainting architectures prevent only control (code) pointerbased attacks <ref type="bibr" target="#b8">[9]</ref>. Examples of such attacks include code injection <ref type="bibr" target="#b0">[1]</ref> and return-into-libc <ref type="bibr" target="#b15">[17]</ref>. These architectures prevented tainted control pointer dereferences but permitted tainted data pointer dereferences. Researchers have shown that memory corruption attacks using data pointers are unfortunately just as effective as the more well-known control pointer-based attacks <ref type="bibr" target="#b4">[5]</ref>.</p><p>DIFT is a tainting architecture that protects against both control pointer and non-control data pointer attacks. Its taint checking and propagation rules are summarized in <ref type="table" target="#tab_0">Tables 1 and 2</ref>. Traditional control pointer attacks are prevented by checking the taint bit on instruction fetches and indirect branches. DIFT also prevents data pointer attacks by checking the taint bit on pointer dereferences. Data pointer checks require a more sophisticated taint propagation ruleset. Na¨ıveNa¨ıve taint propagation would OR the taint bits of all source operands and write the result to the taint bit of the destination operand. However, real-world code often bounds checks untrusted data, and then uses the verified data to index into an array or other data structure. Under na¨ıvena¨ıve propagation, combining an untainted base pointer and a tainted index would result in a tainted pointer. Any attempt to dereference this pointer would cause a security exception. The na¨ıvena¨ıve propagation rule is unaware that the derived pointer is safe. This rule is impractical because it would cause a significant number of spurious security exceptions in real-  world, legitimate code. Each exception would have to invoke the operating system taint module, resulting in significant performance overhead, and could even terminate legitimate applications.</p><formula xml:id="formula_0">Operation Example Taint Check Instruction Fetch - T[insn] Load ld R1, 4(R2) T[R2] Store st 4(R1), R2 T[R1] Indirect Branch jr R1 T[R1]</formula><formula xml:id="formula_1">[R1] = T[R2] ∨ T[R3] Other ALU ops mul R1, R2, R3 T[R1] = T[R2] ∧ T[R3] Load ld R1, 4(R2) T[R1] = T[M[4+R2]] Store st 4(R1), R2 T[M[4+R1]] = T[R2]</formula><p>DIFT solves this problem by introducing a special pointer arithmetic taint propagation rule. This rule specifies that any instruction used for pointer arithmetic propagates only the taint bit of the base pointer. If the base pointer and index cannot be distinguished, then their taint bits are AND'd and written to the taint bit of the destination operand. This allows legitimate code to index arrays using tainted indices while preventing memory corruption attacks that use tainted base pointers. Nevertheless, this pointer propagation rule introduces other serious issues.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="2.2">ISA Compatibility</head><p>DIFT considers instructions for scaled arithmetic (such as s4addq on the Alpha ISA) and instructions with large displacements (such as lea on the Intel x86) to be pointer arithmetic instructions. Many RISC architectures, such as SPARC <ref type="bibr" target="#b24">[27]</ref>, do not include such instructions. Instead, pointer arithmetic is implemented using standard integer arithmetic instructions such as add. To perform scaled addition or use large displacements, multiple instructions are required. It is very difficult to identify an operation broken across multiple instructions, as the individual instructions may be reordered, or unrelated instructions may be placed in between them for performance reasons. On such architectures, pointer arithmetic is often indistinguishable from integer arithmetic. Without a welldefined set of pointer arithmetic instructions, the pointer arithmetic taint propagation rule of DIFT cannot be applied.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="2.3">Pointer Arithmetic Instruction Usage</head><p>General-purpose architectures do not reserve instructions solely for pointer arithmetic. As a consequence, the security and stability of DIFT can be compiler-dependent. A compiler that uses integer arithmetic instructions for pointer arithmetic can cause false positives, terminating legitimate applications due to spurious security exceptions. Similarly, a compiler that uses pointer arithmetic instructions for integer arithmetic can cause false negatives, which may prevent DIFT from detecting real memory corruption attacks as pointer arithmetic has a more permissive taint propagation policy than integer arithmetic.</p><p>Real-world programs use pointer arithmetic instructions to perform optimized integer arithmetic. Both Intel <ref type="bibr" target="#b19">[21]</ref> and AMD <ref type="bibr" target="#b1">[2]</ref> recommend using the lea instruction to optimize certain arithmetic exs4addq a0,t2,t1 ; t1 = 4*i + address of x s8addq a0,a0,a2 ; a2 = 8*i + i s4addq a2,a0,a2 ; a2 = 4*a2 + i pressions. Industry-standard compilers such as the Intel C compiler and GCC <ref type="bibr">[11]</ref> use pointer arithmetic instructions to generate optimized code for integer arithmetic. Examples of this behavior for the x86 and Alpha ISAs, which are presented as compatible with DIFT, are given in <ref type="figure" target="#fig_0">Figures 1 and 2</ref>. GCC was used to generate the code in these figures. Intel compiler examples can be found in <ref type="bibr" target="#b23">[26]</ref>. This behavior can result in dangerous false negatives, which incorrectly label tainted data as untainted. For example, on line 2 of <ref type="figure">Figure 2</ref>, register edx will be labelled untainted even if eax is tainted, due to the pointer arithmetic propagation rule. This is incorrect because edx was assigned using integer arithmetic. False negatives can be used to construct a successful attack. Continuing our example, edx could be used in a register indirect jump, or even stored into memory and executed, without causing a security exception. This vulnerability could enable an exploit to bypass DIFT's taint protetcion.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="2.4">Validating Untrusted Input</head><p>The use of pointer arithmetic instructions does not imply that a tainted index has been bounds checked or validated by the application. Without proper validation, use of a tainted index can result in complete application compromise. This is because the index, derived from attacker-supplied untrusted input, may be an arbitrary value. Bounds checking and input validation restrict the index to safe values. Without this protection, combining the arbitrary tainted index and an untainted base pointer will result in an arbitrary pointer to any memory address in the application's address space. If the arbitrary pointer is used as a code pointer, the attacker can execute code at any address by varying the index to a value of her choosing. This allows attacks such as return-into-libc <ref type="bibr" target="#b15">[17]</ref>, which compromise an application by jumping into untainted code in the C library. Similarly, if the pointer is used for data access, the attacker can read or write to any address in memory. A number of attacks, such as authentication flag corruption <ref type="bibr" target="#b4">[5]</ref>, hannibal GOT overwrites <ref type="bibr" target="#b8">[9]</ref>, and conventional heap and stack overwrites <ref type="bibr" target="#b11">[13]</ref>, can be performed once the attacker has arbitrary memory write capabilities.</p><p>Overall, tainted indices are unsafe; only bounds checks ensure that their use does not compromise system security. However, the pointer arithmetic propagation rule in DIFT does not track bounds checking instructions. Instead, it optimistically assumes that bounds checking is always performed before pointer arithmetic. As a consequence, the burden of preventing these attacks falls on the application, which must properly bounds check all tainted operands before they are used in pointer arithmetic. This significantly weakens DIFT's protection against data pointer attacks. To ensure that bounds checks are always correctly performed, software would have to rely on compiler bounds checking <ref type="bibr" target="#b20">[23,</ref><ref type="bibr" target="#b14">16]</ref>. Compiler bounds checking has high overhead, requires source code access, and is often incompatible with legacy code. Furthermore, an application with full bounds checking will be completely protected from memory corruption bugs by the bounds checks themselves and does not need the tainting support of DIFT.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="2.5">Potential Solutions</head><p>To avoid the problem described in Section 2.4, we recommend untainting operands only in instructions used for input validation. Such an untainting policy ensures that only values verified by the application are marked as safe to use. The instructions chosen for untainting will depend upon the bugs the architecture must prevent, and how applications validate inputs to filter out these bugs. To address the issues in Section 2.3 and reduce false positives and negatives, the validation instructions should not be used for other purposes. Furthermore, the architecture should ensure that the set of validation instructions is not compiler-dependent. If the architectural design is meant to be portable, validation instructions should be selected to be simple and common to existing RISC and CISC ISAs.</p><p>These principles for input validation can be found in both hardware and software security systems. In the tainting architecture by Chen et al discussed in Section 3, a tainted operand is untainted only if it has been compared against an untainted value <ref type="bibr" target="#b3">[4]</ref>. Comparison instructions are the most common way to validate untrusted pointer indices. Perl's taint mode <ref type="bibr">[22]</ref> also untaints only during an input validation operation. Tainted Perl strings are untainted only when a regular expression is applied. Perl assumes that the regular expression filters out any values that would violate the system security policy, much like Chen et al. assume that a comparison instruction detects any out of bounds values.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.">POINTER TAINTEDNESS DETECTION</head><p>Pointer taintedness detection (PTD) by Chen et al is a novel tainting scheme to prevent memory corruption attacks <ref type="bibr" target="#b3">[4]</ref>. Like DIFT, PTD protects against both control pointer and data pointer attacks; however, PTD does not have an optimistic pointer arithmetic propagation rule. Instead, an operand is untainted only when it is compared to an untainted value. This rule addresses the problems discussed in Section 2.4 and provides superior memory corruption protection by untainting an operand only when it is very likely that it has been bounds checked by the application. Unlike DIFT, PTD does not have a taint check for instruction execution. In all other respects, the PTD check and taint propagation rules mirror the DIFT rules. In this section, we describe weaknesses in PTD that allow memory corruption attacks to result in application compromise. Unless otherwise noted, these attacks apply to DIFT as well.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.1">Code Overwrite Attacks</head><p>PTD requires taint checks for load, store, and indirect branch addresses. However, code does not receive a taint check before being executed. When code is mapped into a writeable memory segment, it can be overwritten with arbitrary instructions by an attacker. Without proper taint checks, execution of this malicious code will result in complete application compromise. Any application with memory segments that are writeable and executable may be attacked using code overwrites.</p><p>Unfortunately, there are real-world situations that require memory segments to be mapped writeable and executable for legitimate reasons. For example, the SPARC Application Binary Interface requires the Procedure Linkage Table (PLT) to be mapped both writeable and executable for all SPARC binaries <ref type="bibr" target="#b27">[30]</ref>. The PLT is a code segment used for dynamic linking in the ELF object file format <ref type="bibr" target="#b28">[31]</ref>. All procedure calls to dynamically resolved symbols go through the PLT, whose code is updated by the dynamic linker at runtime. We have successfully overwritten PLT code on a Linux Sparc64 host. Compilers and language runtime environments may require executable data segments. For example, GCC executes code on the stack when calling nested functions. Previous versions of the Linux kernel (2.4 and below) required an executable stack to return from signal handlers. Applications that dynamically generate code, such as JIT compilers, interpreters, or virtual machines, often require an executable heap.</p><p>DIFT solves this issue by checking that an instruction is untainted before allowing its execution. This prevents malicious code overwrites while maintaining backwards compatibility with applications that legitimately need writeable (untainted) code segments.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.2">Format String Vulnerabilities</head><p>Format string vulnerabilities are a recently discovered class of memory corruption bug <ref type="bibr" target="#b17">[19]</ref>. They occur when a variadic (variable argument) C function is given untrusted input as its format string. Due to lack of type safety in C, variadic functions cannot determine how many arguments were actually passed. The format string can specify an arbitrary number of arguments, which can result in application compromise.</p><p>Most format string vulnerabilities occur due to misuse of the printf family of functions. These include functions such as printf (),sprintf (), vf printf (), and syslog(). In a printf-style function, the format string controls character output. Ordinary characters in the format string are written to the output stream as-is, while conversion specifiers (denoted by a leading '%') format and output printf arguments. Unfortunately, if there are more conversion specifiers than actual arguments, printf will unwittingly obtain its arguments from prior stack frames. For example, printf("%x %x %x %x"); will print four words from the stack frame above printf.</p><p>We examine conventional format string attacks and how they are prevented by DIFT and PTD. We then present a new attack that succeeds on tainting architectures.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.2.1">Format String Attack Overview</head><p>Conversion specifiers are used to output printf arguments in an appropriate format. For example, the %x specifier treats the next argument as an unsigned integer, and writes it to the output stream in hexadecimal form. If all conversion specifiers only output their arguments, format string attacks would only be able to leak information. Unfortunately, the specifier %n writes to its argument. On a %n, the number of characters output so far is written to the address specified by the next argument on the stack. Attackers can use this feature to overwrite arbitrary memory addresses, such as those containing code pointers, with attacker-chosen malicious values.</p><p>To choose the value written by %n, the attacker must control the number of characters output by the tainted format string. Small values can be easily manufactured using ordinary characters in the format string. However, the vulnerable program might not allow a format string containing thousands of characters. To overcome this issue, conventional format string attacks use constant field widths which determine the minimum number of characters that must be output when writing a conversion specifier to the output stream. For example, printf("%101x");</p><p>will output the next argument on the stack as a hexadecimal integer, padded with leading spaces to 101 characters. The attacker can carefully choose field width values to output an arbitrary number of characters without long format strings.</p><p>Still, to create a 32-bit pointer to the stack, one would have to output a huge number of characters (billions), exceeding the practical limits of printf functions. To circumvent this restriction, conventional format string attacks use the halfword type modifier 'h'. This modifier can be used with the %n specifier to write only the least significant halfword of the character output counter. The attacker can then write any 32-bit value, even a program address, using two 16-bit writes. This allows truly large values, such as 2 32 − 1, to be written because the attacker must only ensure that the character output counter modulo 2 16 is the desired value when each 16-bit write occurs. The maximum number of characters that must be output to create an arbitrary 16-bit value is 2 16 − 1, which is practical in real-world situations.</p><p>Using these mechanisms, an attacker can write a chosen value to an arbitrary, attacker-defined address. The attacker first embeds the target address in the format string itself. Conversion specifiers such as %x are used to traverse the stack until the next argument is the attacker-supplied target address. Then a %hn is used to write to the target address. After this, another value may be constructed, and a second address written. Use of field widths will ensure that the values written by %hn are determined by the attacker.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.2.2">Attack Prevention with Pointer Tainting</head><p>Conventional format string attacks are prevented by DIFT and PTD. In a conventional attack, both the value written and the address written to are tainted. Internally, printf maintains a counter to track the number of characters written so far. This counter is the value written during a %n. The counter becomes tainted because the field width is added to it, and the field width comes from tainted format string. The target address is tainted because it is embedded in the tainted format string. Hence, the attack will be prevented when the target address is dereferenced. Both DIFT and PDT forbid tainted pointer dereferences.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.2.3">Constructing an Arbitrary Untainted Value</head><p>A successful attack must write an untainted, arbitrary value to an attacker-specified address. An untainted value may overwrite security-critical data in memory, such as pointers and code, without failing taint checks. Conventional attacks produce tainted values due to their use of constant field widths. However, the printf family supports an alternative method for specifying widths. If a conversion specifier uses a '*' for its field width, printf interprets the next argument on the stack as the field width. The argument is then added to the character output counter to compute the number of characters output so far. If the width argument is untainted, the character output counter will remain untainted. Hence, the attacker can construct arbitrary untainted values by using specially chosen untainted width arguments.</p><p>A fortunate attacker may find the target value already in memory, untainted. However, if the value is not present in memory, the attacker must find a combination of untainted values that sum to the target value. Each untainted value can be used as the field width for a conversion specifier, and the total number of characters output will be the sum of the untainted values. This approach is made practical by a little-known printf feature, positional parameters. Positional parameters explicitly state the argument to be used for each conversion specifier and field width. This allows arguments to be used multiple times, and in any order. The attacker can freely choose the values used for field widths, even re-using values an arbitrary number of times. As an example, printf("%17$*3$d");</p><p>will output the 17th argument as a decimal, with a field width specified by the third argument. Although not a part of the C99 standard, positional parameters are included in the Single Unix Specification <ref type="bibr" target="#b26">[29]</ref> and supported by real-world C libraries such as the GNU C Library.</p><p>By using positional parameters, we constructed a format string attack that bypasses tainting checks by DIFT and PTD. We have successfully exploited a vulnerable test program using only a few untainted values. A summary of the attack is presented in Appendix A.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.2.4">Potential Solutions</head><p>Complete protection from format string attacks can be achieved by performing a format string taint check whenever a function in the printf family is called. The check would ensure that there are no tainted bytes in the format string. Even attacks that do not rely on memory corruption, such as format string information leaks <ref type="bibr" target="#b3">[4]</ref>, would be prevented. Format string taint checks have been implemented in software tainting systems <ref type="bibr" target="#b18">[20]</ref>. Current hardware tainting architectures are not flexible enough to efficiently support format string taint checks. PTD cannot intercept function calls, while DIFT would require an exception (trapping to the operating system) each time a monitored function was called.</p><p>Although format string checks provide superior protection, they only protect functions known to be in the printf family. C is typeless, and the architecture cannot automatically detect variadic functions. Instead, programmers must specify which functions are variadic. Any functions not included in the programmer-specified list will not be protected. In contrast, data pointer taint checks protect all variadic functions without requiring any annotation or human assistance. We see these two techniques as complementary: format string taint checks provide complete protection from format string attacks but apply only to known variadic functions, while data pointer taint checks apply to all functions but provide incomplete protection.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.3">Translation Tables</head><p>Applications often translate untrusted input from one format to another. This may be done to change the input into a simpler, internal format. For example, base64 strings may be decoded into bytes for ease of manipulation. Typically, this translation is performed using a translation table. The table serves as a statically-defined mapping between source and destination encoding formats. Inputs are used as indices into the translation table, and the value loaded from the table index is the translation of the input.</p><p>Unfortunately, DIFT and PTD may label the translation table output untainted, even when the table input is untrusted and further validation is required. The value loaded from the table is still the user input, albeit in a different format or encoding. However, the table is a statically-defined translator whose values are untainted and set by the application. For example, the table may contain a mapping from ASCII to Unicode, or from the integer digits 0-9 to their ASCII representations. Using a translation table only changes the format of any untrusted input; no validation is performed. If the table output is later used in an unsafe manner before being verified or validated, no attack will be detected by PTD. The untainted table output will pass any taint checks, and can be used to overwrite pointers and code. The attacker's input has been effectively whitewashed by using a translation table. The issue of translation tables and their effect on tainting is briefly discussed in <ref type="bibr" target="#b25">[28]</ref> and <ref type="bibr" target="#b8">[9]</ref>.</p><p>Real-world code uses translation tables in many different situations, such as base64 encoding/decoding, string-to-integer (and reverse) conversion, uuencode/uudecode, and URL/URI escape sequence conversion. The GNU C library uses translation tables for popular functions such as atoi(),strtol(), sprintf (),toupper(), and tolower(). Unfortunately, translation tables have also played a role in many real-world vulnerabilities. For example, in a number of critical vulnerabilities in Microsoft IIS <ref type="bibr" target="#b9">[10,</ref><ref type="bibr" target="#b5">6]</ref>, untrusted URIencoded input was translated to Unicode using a translation table. The table output was then used in an unsafe manner, resulting in memory corruption and directory traversal vulnerabilities. Devastating worms such as as Code Red <ref type="bibr" target="#b7">[8]</ref> and NIMDA <ref type="bibr" target="#b6">[7]</ref> exploited these vulnerabilities. PTD would be unable to detect these exploits because the attacks use the output of a translation table.</p><p>Memory corruption bugs due to translation tables cannot be thoroughly addressed with a better tainting algorithm. A translation table access is indistinguishable from a normal scalar array access. Both access types use a bounds checked index to access an untainted value. The key difference is that the value loaded from the translation table is a copy of the user input in a different format, and may be used in a subsequent attack if the program has a security flaw. To solve this problem, programmers must be able to specify that a data strucure is untrusted. The contents of a translation table that encodes or decodes tainted input should be tainted. If the programmer can express this by annotating each translation table as untrusted, then translation tables can be effectively protected by a pointer tainting architecture. This does not require source code access or recompilation; only the virtual address range of the untrusted data needs to be known. Legacy binaries may still work with this technique, so long as the address of their translation table can be found. An alternative tainting algorithm could propagate taint on load and store addresses, so that any value loaded from a tainted address or stored to a tainted address would become tainted. However, this cannot be directly applied to tainting architectures for memory corruption prevention, as these architectures do not allow tainted pointer dereferences. An architecture that supported multiple concurrent tainting algorithms could track untrusted input across translation tables while still protecting against memory corruption bugs.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="4.">RIFLE</head><p>Ensuring the confidentiality of sensitive data is a significant unsolved problem. Current systems provide little assurance that data confidentiality is maintained. Although access to data may be restricted using access control systems, there is no way to track the propagation or use of data once access has been granted. RIFLE is an architectural framework designed to address this problem by providing dynamic information flow security (IFS) <ref type="bibr" target="#b29">[32]</ref>. In this section, we show that RIFLE is vulnerable to a runtime attack that results in information leaks.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="4.1">Overview</head><p>IFS policies consist of security labels and legal flows. Security labels are annotations associated with each storage location. Labels are used to classify information, such as indicating its level of secrecy or type. For example, the label finance might be attached to data related to income taxes. We refer to the label of variable a as a. Flows are label pairs that determine valid information flow. For example, the flow l1 → l2 allows information to flow from label l1 to label l2. RIFLE augments program state (memory and registers) with security labels, and propagates labels during program execution. The RIFLE hardware performs runtime checks to ensure that no illegal flows occur.</p><p>To ensure data confidentiality, RIFLE must track all forms of information flow. Computation and data movement instructions have explicit information flow. In these instructions, information propagates from the source operands to the destination operand. RIFLE tracks this information flow by assigning the join (⊕) of the source operand labels to the destination operand label. The join of a set of labels is the most permissive label that is at least as restrictive as its operands. For example, a = b + c would result in the information flow a = b ⊕ c.</p><p>Unfortunately, not all instructions have only explicit information flow. For example, information clearly flows between a and b in <ref type="figure" target="#fig_1">Figure 3</ref>. This is known as implicit information flow, and occurs because explicit information flow only captures data dependences and not control dependences. Implicit information flow is caused by conditional branches. To track implicit information flow, RIFLE instruments the assembly code of the program. A set of security register operands are introduced to track the labels used in implicit information flow. These registers are used as additional operands when computing the information flow of any instructions dependent upon the conditional branch. We indicate that an instruction uses security register S <ref type="bibr" target="#b0">[1]</ref> as an additional operand for information flow by prefixing the instruction with &lt;S[1]&gt;. RIFLE transforms conditional branches so that (R <ref type="bibr" target="#b0">[1]</ref></p><formula xml:id="formula_2">) branch .L1 becomes join S[c] = R[1], S[c] &lt;S[c]&gt; (R[1]) branch .L1</formula><p>The first instruction ensures that the security register is updated with the current label of the branch condition register. Then the branch, and any instructions control dependent upon the branch, will use the security register as an additional operand when computing information flow.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="4.2">Bypassing RIFLE Instrumentation Code</head><p>Unfortunately, RIFLE incorrectly assumes that its inserted instructions cannot be bypassed at runtime. A malicious or accidental control flow transfer can jump directly to a branch instruction, bypassing the join instructions inserted by RIFLE. As a consequence, the <ref type="bibr" target="#b1">[2]</ref> . . . branch may execute without updating the appropriate security register, resulting in an information leak. Consider the branch instruction in <ref type="figure" target="#fig_2">Figure 4</ref>, taken from an example in the RIFLE paper <ref type="bibr" target="#b29">[32]</ref>. If control is transferred to the branch at line 2, S[1] may not contain the label of R[1] because line 1 is not executed. Without this label, the implicit information flow between R[1] and R <ref type="bibr" target="#b1">[2]</ref> will not be tracked, causing an information leak.</p><formula xml:id="formula_3">join S[1] = S[1], R[1] (R[1]) branch .L1 &lt;S1&gt; mov R[2] = 1 .L1: &lt;S1&gt; join S[3] = S[3], R</formula><p>This flaw may be exploited by a remote adversary, who will only succeed if the branch condition's label has not yet been added to the security operand. The attacker must exploit a memory corruption vulnerability, and corrupt a code pointer so that it bypasses the RIFLE guard instructions. More dangerously, an untrusted application can use this attack to leak arbitrary amounts of sensitive information. To leak a sensitive variable x, the untrusted application performs this attack before x has been used as a branch condition. Security operand registers only track implicit information flow. If x has not been used as branch condition, it will not have been used in any implicit information flow, and thus its label will not be contained in any security operand.</p><p>This attack allows an untrusted application to leak an unbounded amount of sensitive information, bypassing RIFLE's protection mechanisms. We do not require the host system, or RIFLE itself, to be compromised in any way for this attack to succeed. The only requirement is that the user run an untrusted application. This breaks RIFLE's protection model, as RIFLE is intended to prevent untrusted applications from leaking information.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="4.3">Solutions</head><p>To solve this issue, control flow must be restricted so that the instructions inserted by RIFLE may not be bypassed. Software techniques such as dynamic binary translation <ref type="bibr" target="#b2">[3,</ref><ref type="bibr" target="#b16">18]</ref> can ensure that no instrumented code is bypassed at runtime. However, binary translation incurs its own performance, memory, and compatibility costs. A hardware solution would need to prevent direct or indirect jumps to marked instructions (in this case, branches). This is similar to iWatcher <ref type="bibr" target="#b31">[34]</ref>, which monitors reads and writes to specified words in memory. A hardware-based approach would maintain backwards compatibility with existing legacy code and incur no performance overhead unless a program tried to violate RIFLE's IFS policy.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="5.">INFOSHIELD</head><p>Another way to provide data confidentiality is to restrict sensitive information access to the block of trusted code that currently requires it. The trusted code block then authorizes the next block of trusted code that will require access, forming a chain of trusted code for sensitive information management. This concept is known as information usage safety, and is provided by the InfoShield architecture <ref type="bibr" target="#b21">[24]</ref>. In this section, we show that InfoShield is vulnerable to runtime attacks that result in information leaks.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="5.1">Overview</head><p>Address Code 0xC000 mov r2, 0xD020 ; prepare next valid PC block 0xC004 mov r3, 0xD0A0 ; big switch statement ... 0xC008 ld r1, <ref type="bibr">[r7]</ref> ; secure read key val 0xC00C sas r0, r2, r3</p><p>; slide the protection window InfoShield protects sensitive information using a Security-aware Register (SR) hardware table. Each entry in the SR table specifies a piece of sensitive data and a trusted code block that may access that data. The sensitive data and code blocks are given as virtual address ranges. Only instructions in the trusted code block may access the sensitive data or specify the next trusted code block for that data. Data access occurs with ordinary loads and stores, while the next trusted code block is specified using the Secure Address Shift (SAS) instruction. By restricting sensitive information access to trusted code, InfoShield prevents buggy or malicious untrusted application code from causing information leaks.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="5.2">Inserting Arbitrary Trusted Code Blocks</head><p>Unfortunately, this scheme is vulnerable to runtime attacks. InfoShield restricts sensitive data access to trusted code blocks, but does not prevent an adversary from jumping to an arbitrary instruction inside the code block itself. A crafty attacker will set the registers to carefully chosen values and jump into the middle of a trusted code block. The trusted code will then use the attacker-crafted values, assuming that they were set by previous instructions within the block. For example, the attacker can set appropriate registers to the upper and lower bounds of an untrusted block of code, and jump into the SAS instruction inside the trusted code block. This instruction will set the attacker-specified address range to be the next trusted code block for the sensitive data. This untrusted code can then leak information at will. The attacker can also make the entire program one large trusted code block, and then return control to printing or I/O routines to disclose sensitive information.</p><p>For example, consider the trusted code block in <ref type="figure" target="#fig_3">Figure 5</ref>, taken from an example in the InfoShield paper <ref type="bibr" target="#b21">[24]</ref>. An attacker can leak information by jumping to address 0xC00C with registers r2 and r3 set to the bounds of a malicious or untrusted code block. When control is later transferred to this attacker-chosen code, InfoShield will allow access to sensitive data, which will then be leaked to the attacker.</p><p>This attack can be performed on any application with a memory corruption vulnerability that overwrites code pointers. The attacker uses the overwritten code pointer to transfer control to the middle of a trusted code block. We do not require trusted code to be vulnerable; only the untrusted code must have a memory corruption flaw. This breaks the InfoShield protection model, as InfoShield is intended to protect sensitive information from access by buggy or insecure untrusted code.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="5.3">Solutions</head><p>To prevent this attack, InfoShield must ensure that trusted code blocks may only be entered at their designated entry point. Furthermore, any storage locations relied upon by trusted code must be protected from accidental or malicious access by untrusted code. Without this protection, the attacker may overwrite values in memory or on the stack that are relied upon by trusted code blocks, but not marked sensitive. Techniques from software fault isolation can be used to ensure the integrity of data relied upon by trusted code <ref type="bibr" target="#b22">[25,</ref><ref type="bibr" target="#b13">15,</ref><ref type="bibr" target="#b30">33]</ref>.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="6.">CONCLUSIONS AND FUTURE DIREC-TIONS</head><p>This paper analyzes four different hardware architectures for systems security. We examine two tainting architectures for memory corruption prevention, and present novel attacks that can circumvent their protection mechanisms. We also examine two architectures for information leak prevention, and present attacks that can leak arbitrary amounts of information. Solutions and mitigation strategies are described for all four designs.</p><p>We believe this paper demonstrates a need for increased flexibility in the implementation of information flow policies. Current architectures such as PTD and RIFLE have static, inflexible policies tailored to a specific bug or vulnerability. Many of the attacks presented in this paper can be prevented by using a more flexible policy. For example, if RIFLE could check the tag of a branch destination, our attack bypassing guard instructions could be prevented. Similarly, if PTD could check for tainted format strings when a printf-style function is called, our format string attack would be unsuccessful.</p><p>Furthermore, a more flexible policy can be used to protect against additional classes of bugs. For example, Web vulnerabilities such as SQL injection and directory traversal can be prevented using tainting <ref type="bibr" target="#b12">[14,</ref><ref type="bibr" target="#b10">12]</ref>. However, current tainting architectures lack the flexbility needed to express the taint check and propagate rules for these bugs. Rather than rely on per-problem, fixed solutions, an architecture should provide a flexible policy for information checks and propagation.</p></div><figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_0"><head>Figure 1 :</head><label>1</label><figDesc>Figure 1: Alpha assembly for x[i] = 37 * i lea 0xfffffe68(%ebp),%ecx ; ecx = address of x lea 0xdeadbeef(%eax),%edx ; edx = i + 0xdeadbeef Figure 2: x86 assembly for x[i] = i + 0xdeadbeef</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_1"><head>Figure 3 :</head><label>3</label><figDesc>Figure 3: Implicit information flow.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_2"><head>Figure 4 :</head><label>4</label><figDesc>Figure 4: Tracking implicit information flow in RIFLE.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_3"><head>Figure 5 :</head><label>5</label><figDesc>Figure 5: InfoShield trusted code block.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_0" validated="false"><head>Table 1 : DIFT rules for taint bit checks.</head><label>1</label><figDesc></figDesc><table>Operation 
+Example 
+Taint Propagation 
+Pointer Arith 
+add R1, R2, R3 T</table></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_1" validated="false"><head>Table 2 :</head><label>2</label><figDesc></figDesc><table>DIFT rules for taint bit propagation. T[i] represents 
+the taint for a register or memory address. M[i] designates the 
+value stored at memory address i. 
+
+</table></figure>
+		</body>
+		<back>
+
+			<div type="acknowledgement">
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="7.">ACKNOWLEDGEMENTS</head><p>The authors thank Edward Suh, Shuo Chen, Neil Vachharajani, and anonymous reviewers for their comments and insight. Hari Kannan is supported by a Cisco Systems Stanford Graduate Fellowship. Michael Dalton is supported by a Stanford School of Engineering Fellowship.</p></div>
+			</div>
+
+			<div type="annex">
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>APPENDIX A. NEW FORMAT STRING ATTACK</head><p>The goal of our format string attack is to write an arbitrary untainted value to an arbitrary target address. We cannot embed the target address in the format string, as this would be detected by current tainting architectures. If the address to be written to is already on the stack and untainted, we may write to this address using a positional parameter with the %n (or %hn) conversion specifier. Otherwise, we must use existing untainted pointers, and place our target address in memory.</p><p>To write an arbitrary value v to an arbitrary address a, when a is not present in memory, we perform the following operations:</p><p>1. Locate two pairs of pointers, p1 and p2, such that the pointers within each pair reference adjacent halfwords in memory.</p><p>2. Write address a one halfword at a time to the adjacent halfwords pointed to by p1.</p><p>3. Write address a + 2 one halfword at a time to the adjacent halfwords pointed to by p2.</p><p>4. Write the most (or least if little-endian) significant halfword of value v to address a, whose value we placed in memory in step 2.</p><p>5. Write the least (or most if little-endian) significant halfword of value v to address a+2, whose value we placed in memory in step 3.</p><p>In this attack, all values are constructed using the techniques outlined in Section 3.2.3, and all writes are performed using %hn. We require pointers to the least and most significant halfwords of our write destinations because %hn writes only one halfword; two halfword writes are required to store a 32-bit value in memory.</p><p>A local attacker can always satisfy the requirement for this attack: that there must be two pairs of pointers such that each pair references adjacent halfwords in memory. This can be done by executing a program with four environment variables of length 1 appropriately placed in memory. Each attacker-crafted environment variable will be stored in one halfword, consisting of a single character and the string null terminator. The attacker can ensure that the variables are adjacent in memory. The four (untainted) environment pointers to these variables will serve as our two pointer pairs. On Unix-based systems, the user always determines the environment, even for setuid or privileged programs. This is because all Unix program are executed using the execve system call, which takes the program arguments and environment from the user. Consequently, a local attacker can create an environment to ensure the success of this format string attack.</p><p>Once the pointer pair has been located, we write pointers to the most and least significant halfwords of the target address a to the pointer pairs. This places our target address in memory, where we can now write to it using %hn. We write our desired value v in halfword-sized chunks to a and a + 2. When this is complete, we have successfully written an arbitrary value to an arbitrary memory address without violating any taint checks. We have confirmed that this attack works on a synthetic test program. Unfortunately, we</p><p>have not yet been able to run our test cases on the DIFT or PTD architectures. However, we have confirmed that our technique will not produce tainted values, or write to tainted addresses, by manual inspection of the GNU C Library source code.</p><p>As an implementation-dependent caveat, the printf () implementation in the GNU C Library reads all positional parameters before performing any writes to memory. Due to this quirk, the attack must be broken up across two printf statements, with the first printf executing steps 1-3 and the second executing steps 4-5. If this is unacceptable, it is theoretically possible to implement this class of format string attack without using positional parameters, in which case steps 1-5 could all be placed in the same format string.</p></div>			</div>
+			<div type="references">
+
+				<listBibl>
+
+<biblStruct xml:id="b0">
+	<analytic>
+		<title level="a" type="main">Smashing the stack for fun and profit</title>
+	</analytic>
+	<monogr>
+		<title level="m">Phrack Magazine</title>
+		<imprint>
+			<date type="published" when="1996" />
+			<biblScope unit="volume">49</biblScope>
+		</imprint>
+	</monogr>
+	<note>Article 14</note>
+</biblStruct>
+
+<biblStruct xml:id="b1">
+	<monogr>
+				<title level="m">AMD. Software Optimization Guide for AMD64 Processors</title>
+		<imprint>
+			<date type="published" when="2005" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b2">
+	<monogr>
+		<title level="m" type="main">Efficient, Transparent, and Comprehensive Runtime Code Manipulation</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Bruening</surname></persName>
+		</author>
+		<imprint>
+			<date type="published" when="2004-09" />
+		</imprint>
+		<respStmt>
+			<orgName>Massachusetts Institute of Technology</orgName>
+		</respStmt>
+	</monogr>
+<note type="report_type">PhD thesis</note>
+</biblStruct>
+
+<biblStruct xml:id="b3">
+	<analytic>
+		<title level="a" type="main">Defeating memory corruption attacks via pointer taintedness detection</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Chen</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Xu</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">N</forename><surname>Nakka</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Z</forename><surname>Kalbarczyk</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><forename type="middle">K</forename><surname>Iyer</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the International Conference on Dependable Systems and Networks (DSN)</title>
+		<meeting>the International Conference on Dependable Systems and Networks (DSN)</meeting>
+		<imprint>
+			<date type="published" when="2005-06" />
+			<biblScope unit="page" from="378" to="387" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b4">
+	<analytic>
+		<title level="a" type="main">Non-control-data attacks are realistic threats</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Chen</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Xu</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">E</forename><forename type="middle">C</forename><surname>Sezer</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>Gauriar</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><forename type="middle">K</forename><surname>Iyer</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the 14th USENIX Securiry Symposium</title>
+		<meeting>the 14th USENIX Securiry Symposium</meeting>
+		<imprint>
+			<date type="published" when="2005-08" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b5">
+	<monogr>
+		<title level="m" type="main">CA-2001-12 Superfluous Decoding Vulnerability in IIS</title>
+		<ptr target="http://www.cert.org/advisories/CA-2001-12.html" />
+		<imprint>
+			<date type="published" when="2001" />
+		</imprint>
+		<respStmt>
+			<orgName>Computer Emergency Response Team</orgName>
+		</respStmt>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b6">
+	<monogr>
+		<title level="m" type="main">Computer Emergency Response Team</title>
+		<ptr target="http://www.cert.org/advisories/CA-2001-26.html" />
+		<imprint>
+			<date type="published" when="2002" />
+		</imprint>
+	</monogr>
+	<note>CA-2001-26 Nimda Worm</note>
+</biblStruct>
+
+<biblStruct xml:id="b7">
+	<analytic>
+		<title level="a" type="main">Computer Emergency Response Team</title>
+		<ptr target="http://www.cert.org/advisories/CA-2001-19.html" />
+	</analytic>
+	<monogr>
+		<title level="j">Worm Exploiting Buffer Overflow In IIS Indexing Service DLL</title>
+		<imprint>
+			<date type="published" when="2002" />
+		</imprint>
+	</monogr>
+	<note>Code Red</note>
+</biblStruct>
+
+<biblStruct xml:id="b8">
+	<analytic>
+		<title level="a" type="main">MINOS: Control data attack prevention orthogonal to memory model</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><forename type="middle">R</forename><surname>Crandall</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">F</forename><forename type="middle">T</forename><surname>Chong</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the 37th International Symposium on Microarchitecture (MICRO)</title>
+		<meeting>the 37th International Symposium on Microarchitecture (MICRO)</meeting>
+		<imprint>
+			<date type="published" when="2004-12" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b9">
+	<monogr>
+		<title/>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><surname>Security</surname></persName>
+		</author>
+		<imprint/>
+		<respStmt>
+			<orgName>SYSTEM Level Access</orgName>
+		</respStmt>
+	</monogr>
+<note type="report_type">Microsoft Internet Information Services Remote Buffer Overflow</note>
+</biblStruct>
+
+<biblStruct xml:id="b10">
+	<analytic>
+		<title level="a" type="main">Securing web application code by static analysis and runtime protection</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Y.-W</forename><surname>Huang</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">F</forename><surname>Yu</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Hang</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C.-H</forename><surname>Tsai</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D.-T</forename><surname>Lee</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S.-Y</forename><surname>Kuo</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the 13th conference on World Wide Web</title>
+		<meeting>the 13th conference on World Wide Web</meeting>
+		<imprint>
+			<publisher>ACM Press</publisher>
+			<date type="published" when="2004" />
+			<biblScope unit="page" from="40" to="52" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b11">
+	<monogr>
+		<title level="m" type="main">The Shellcoder&apos;s Handbook : Discovering and Exploiting Security Holes</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Koziol</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Litchfield</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Aitel</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Anley</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Eren</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">N</forename><surname>Mehta</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Hassell</surname></persName>
+		</author>
+		<imprint>
+			<date type="published" when="2004" />
+			<publisher>John Wiley &amp; Sons</publisher>
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b12">
+	<analytic>
+		<title level="a" type="main">Finding security errors in Java programs with static analysis</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">V</forename><forename type="middle">B</forename><surname>Livshits</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><forename type="middle">S</forename><surname>Lam</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the 14th USENIX Security Symposium</title>
+		<meeting>the 14th USENIX Security Symposium</meeting>
+		<imprint>
+			<date type="published" when="2005-08" />
+			<biblScope unit="page" from="271" to="286" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b13">
+	<monogr>
+		<title level="m" type="main">Efficient, verifiable binary sandboxing for a CISC architecture</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Mccamant</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">G</forename><surname>Morrisett</surname></persName>
+		</author>
+		<idno>MIT-LCS-TR-988</idno>
+		<imprint>
+			<date type="published" when="2005" />
+			<pubPlace>Cambridge, MA</pubPlace>
+		</imprint>
+		<respStmt>
+			<orgName>MIT Laboratory for Computer Science</orgName>
+		</respStmt>
+	</monogr>
+<note type="report_type">Technical Report</note>
+</biblStruct>
+
+<biblStruct xml:id="b14">
+	<analytic>
+		<title level="a" type="main">CCured: Type-safe retrofitting of legacy code</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">G</forename><forename type="middle">C</forename><surname>Necula</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Mcpeak</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">W</forename><surname>Weimer</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the 29th ACM Symposium on Principles of Programming Languages</title>
+		<meeting>the 29th ACM Symposium on Principles of Programming Languages</meeting>
+		<imprint>
+			<date type="published" when="2002" />
+			<biblScope unit="page" from="128" to="139" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b15">
+	<analytic>
+		<title level="a" type="main">The advanced return-into-lib(c) exploits: PaX case study</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><surname>Nergal</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Phrack Magazine</title>
+		<imprint>
+			<date type="published" when="2001" />
+			<biblScope unit="volume">58</biblScope>
+		</imprint>
+	</monogr>
+	<note>Article 4.</note>
+</biblStruct>
+
+<biblStruct xml:id="b16">
+	<monogr>
+		<title level="m" type="main">Dynamic Binary Analysis and Instrumentation</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">N</forename><surname>Nethercote</surname></persName>
+		</author>
+		<imprint>
+			<date type="published" when="2004-11" />
+		</imprint>
+		<respStmt>
+			<orgName>University of Cambridge</orgName>
+		</respStmt>
+	</monogr>
+<note type="report_type">PhD thesis</note>
+</biblStruct>
+
+<biblStruct xml:id="b17">
+	<monogr>
+		<title level="m" type="main">Format string attacks</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">T</forename><surname>Newsham</surname></persName>
+		</author>
+		<ptr target="http://www.lava.net/˜newsham/format-string-attacks.pdf" />
+		<imprint>
+			<date type="published" when="2000" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b18">
+	<analytic>
+		<title level="a" type="main">Dynamic taint analysis for automatic detection, analysis, and signature generation of exploits on commodity software</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Newsome</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><forename type="middle">X</forename><surname>Song</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the Network and Distributed System Security Symposium (NDSS)</title>
+		<meeting>the Network and Distributed System Security Symposium (NDSS)</meeting>
+		<imprint>
+			<date type="published" when="2005-02" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b19">
+	<monogr>
+				<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">K</forename><surname>Nguyen</surname></persName>
+		</author>
+		<ptr target="http://www.intel.com/cd/ids/developer/asmo-na/eng/61813.htm?prn=Y" />
+		<title level="m">Assembly language tips &amp; tricks for the Intel Pentium</title>
+		<imprint>
+			<biblScope unit="volume">4</biblScope>
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b20">
+	<analytic>
+		<title level="a" type="main">A practical dynamic buffer overflow detector</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">O</forename><surname>Ruwase</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Lam</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the Network and Distributed System Security (NDSS) Symposium</title>
+		<meeting>the Network and Distributed System Security (NDSS) Symposium</meeting>
+		<imprint>
+			<date type="published" when="2004" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b21">
+	<analytic>
+		<title level="a" type="main">InfoShield: A security architecture for protecting information usage in memory</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">W</forename><surname>Shi</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">H.-H</forename><surname>Lee</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">G</forename><surname>Gu</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">L</forename><surname>Falk</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">T</forename><surname>Mudge</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Ghosh</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the 12th International Symposium on High-Performance Computer Architecture (HPCA)</title>
+		<meeting>the 12th International Symposium on High-Performance Computer Architecture (HPCA)</meeting>
+		<imprint>
+			<date type="published" when="2006-03" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b22">
+	<analytic>
+		<title level="a" type="main">MiSFIT: A tool for constructing safe extensible C++ systems</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Small</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the Third USENIX Conference on Object-Oriented Technologies (COOTS)</title>
+		<meeting>the Third USENIX Conference on Object-Oriented Technologies (COOTS)</meeting>
+		<imprint>
+			<date type="published" when="1997-06" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b23">
+	<analytic>
+		<title level="a" type="main">Support for the Intel Pentium 4 Processor with Hyper-Threading Technology in Intel 8.0 Compilers</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">K</forename><surname>Smith</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Bik</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">X</forename><surname>Tian</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">In Intel Technology Journal</title>
+		<imprint>
+			<biblScope unit="volume">8</biblScope>
+			<biblScope unit="issue">1</biblScope>
+			<date type="published" when="2004" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b24">
+	<monogr>
+		<title level="m" type="main">The SPARC Architecture Manual Version 9</title>
+		<imprint>
+			<date type="published" when="1994" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b25">
+	<analytic>
+		<title level="a" type="main">Secure program execution via dynamic information flow tracking</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">G</forename><forename type="middle">E</forename><surname>Suh</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><forename type="middle">W</forename><surname>Lee</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Zhang</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Devadas</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the 11th International Conference on Architectural Support for Programming Languages and Operating Systems (ASPLOS)</title>
+		<meeting>the 11th International Conference on Architectural Support for Programming Languages and Operating Systems (ASPLOS)</meeting>
+		<imprint>
+			<date type="published" when="2004-10" />
+			<biblScope unit="page" from="85" to="96" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b26">
+	<analytic>
+		<title level="a" type="main">The Open Group. The Single Unix Specification Version 3</title>
+	</analytic>
+	<monogr>
+		<title level="j">IEEE Std</title>
+		<imprint>
+			<date type="published" when="1003-01" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b27">
+	<monogr>
+		<title level="m" type="main">The Santa Cruz Operation (SCO). System V Application Binary Interface: SPARC Processor Supplement</title>
+		<imprint>
+			<date type="published" when="1996" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b28">
+	<monogr>
+		<title level="m" type="main">Tool Interface Standard (TIS) Committee. Executable and Linking Format (ELF) specification</title>
+		<imprint>
+			<date type="published" when="1995" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b29">
+	<analytic>
+		<title level="a" type="main">RIFLE: An architectural framework for user-centric information-flow security</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">N</forename><surname>Vachharajani</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><forename type="middle">J</forename><surname>Bridges</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Chang</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Rangan</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">G</forename><surname>Ottoni</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><forename type="middle">A</forename><surname>Blome</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">G</forename><forename type="middle">A</forename><surname>Reis</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Vachharajani</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><forename type="middle">I</forename><surname>August</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the 37th International Symposium on Microarchitecture (MICRO)</title>
+		<meeting>the 37th International Symposium on Microarchitecture (MICRO)</meeting>
+		<imprint>
+			<date type="published" when="2004-12" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b30">
+	<analytic>
+		<title level="a" type="main">Efficient software-based fault isolation</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Wahbe</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Lucco</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">T</forename><surname>Anderson</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Graham</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the 14th ACM Symposium on Operating Systems Principles(SOSP)</title>
+		<meeting>the 14th ACM Symposium on Operating Systems Principles(SOSP)</meeting>
+		<imprint>
+			<date type="published" when="1993-12" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b31">
+	<analytic>
+		<title level="a" type="main">iWatcher: Efficient architectural support for software debugging</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>Zhou</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">F</forename><surname>Qin</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">W</forename><surname>Liu</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Y</forename><surname>Zhou</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Torrellas</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the 31st International Symposium on Computer Architecture (ISCA)</title>
+		<meeting>the 31st International Symposium on Computer Architecture (ISCA)</meeting>
+		<imprint>
+			<date type="published" when="2004-06" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+				</listBibl>
+			</div>
+		</back>
+	</text>
+</TEI>

@@ -1,0 +1,228 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>Feedback-Directed Barrier Optimization in a Strongly</p>
+    <p>Isolated STM</p>
+    <p>Nathan Bronson Christos Kozyrakis</p>
+    <p>Kunle Olukotun</p>
+    <p>POPL 09, 22 Jan 2009</p>
+    <p>2009, Nathan Bronson 1</p>
+  </div>
+  <div class="page">
+    <p>Locks  widely used, but</p>
+    <p>Not composable</p>
+    <p>Correctness is a whole-program property</p>
+    <p>Transactional memory (TM)</p>
+    <p>atomic blocks appear to be serialized</p>
+    <p>Runtime provides atomicity and isolation</p>
+    <p>Enables local correctness reasoning</p>
+    <p>Unless atomicity or isolation is not complete</p>
+    <p>2009, Nathan Bronson 2POPL09  Feedback Directed Barrier Optimization</p>
+    <p>Concurrency with Threads: How Is Shared Mutable State Managed?</p>
+  </div>
+  <div class="page">
+    <p>Txn reads and writes replaced by barriers  Code that implements atomic and isolated access  One way: eager versioning with optimistic conflict</p>
+    <p>detection  Read barrier records version number for later validation  Write barrier grabs lock and stores old value in an undo log  Rollback on deadlock or validation failure</p>
+    <p>Isolation barriers for non-txn access? No  weak isolation</p>
+    <p>Non-txn reads and writes bypass txn illusion</p>
+    <p>Yes  strong isolation  Txns are always atomic and isolated</p>
+    <p>2009, Nathan Bronson 3POPL09  Feedback Directed Barrier Optimization</p>
+    <p>Implementing Software TM</p>
+  </div>
+  <div class="page">
+    <p>Isolation Failure in a Weakly Isolated STM</p>
+    <p>// Initially x==0</p>
+    <p>// Thread 1</p>
+    <p>atomic {</p>
+    <p>txnBegin()</p>
+    <p>txnOpenForRead(x)</p>
+    <p>txnOpenForWrite(x)</p>
+    <p>x++;</p>
+    <p>x++;</p>
+    <p>txnCommit()</p>
+    <p>}</p>
+    <p>// Thread 2</p>
+    <p>r1 = x;</p>
+    <p>assert (r1%2 == 0);</p>
+    <p>2009, Nathan Bronson POPL09  Feedback Directed Barrier Optimization 4</p>
+  </div>
+  <div class="page">
+    <p>Strongly Isolated Non-Txn Access with an Isolation Barrier</p>
+    <p>// Initially x==0</p>
+    <p>// Thread 1</p>
+    <p>atomic {</p>
+    <p>txnBegin()</p>
+    <p>txnOpenForRead(x)</p>
+    <p>txnOpenForWrite(x)</p>
+    <p>x++;</p>
+    <p>x++;</p>
+    <p>txnCommit()</p>
+    <p>}</p>
+    <p>// Thread 2</p>
+    <p>r1 = nonTxnRead(x);</p>
+    <p>assert (r1%2 == 0);</p>
+    <p>2009, Nathan Bronson POPL09  Feedback Directed Barrier Optimization 5</p>
+  </div>
+  <div class="page">
+    <p>Weak isolation  fast but unsafe  Undefined results if any heterogeneous access occurs</p>
+    <p>Values from-thin-air  Catch-fire semantics</p>
+    <p>Following the rules is much harder than expected  Invalid txns may run for a while before rolling back  Inconsistent txns may execute accesses from impossible branches  Library and legacy code cannot safely be called from a txn</p>
+    <p>Minimal performance impact on non-txn code</p>
+    <p>Strong isolation  safe but slow  Easy formal and informal reasoning  Prohibitively slow</p>
+    <p>Our goal: strong isolation with good performance Result: average overhead reduced from 505% to 16%</p>
+    <p>2009, Nathan Bronson 6POPL09  Feedback Directed Barrier Optimization</p>
+    <p>Tradeoffs Between Weak and Strong Isolation</p>
+  </div>
+  <div class="page">
+    <p>One safe pattern is Unmodified-AfterHeterogeneous-Access (UAHA)  Ignore reads and writes to provably thread-local data</p>
+    <p>All txns that write x commit or roll back before first non-txn access</p>
+    <p>Last non-txn write to x finishes before first txn access</p>
+    <p>Many simpler properties imply UAHA  Not-Accessed-In-Txn (NAIT)</p>
+    <p>Read-Only (RO)</p>
+    <p>Unmodified-After-Txn-Commit (UATC)</p>
+    <p>2009, Nathan Bronson 7POPL09  Feedback Directed Barrier Optimization</p>
+    <p>Safe Access Patterns that Dont Need Isolation Barriers</p>
+  </div>
+  <div class="page">
+    <p>Hypothesize that a safe access pattern holds for field f</p>
+    <p>Replace fs txn and isolation barriers with checking barriers  Checking barriers dynamically verify the access pattern</p>
+    <p>Checking barriers block if access pattern isnt followed</p>
+    <p>By blocking all threads that would violate our hypothesis, we make it a self-fulfilling prophecy</p>
+    <p>Rescue blocked threads by using hot swap to replace all of the barriers for f  Install checking barriers for a new hypothesis if possible</p>
+    <p>Revert to full (slow) txn and isolation barriers if necessary</p>
+    <p>2009, Nathan Bronson 8POPL09  Feedback Directed Barrier Optimization</p>
+    <p>Our Approach: Dynamically Verify that Accesses Follow a Safe Pattern</p>
+  </div>
+  <div class="page">
+    <p>General UAHA pattern produces mutual exclusion and happensbefore relationships for accesses to the same instance  For all accesses a, b to a field of an escaped instance r</p>
+    <p>(a NONTXNWRITE b TXNOPENFORWRITE) a NONTXNWRITE b TXNOPENFORREAD a hb b a TXNWRITECOMPLETED b NONTXNREAD a hb b</p>
+    <p>Dynamic check requires synchronization on rs metadata</p>
+    <p>Simpler patterns need less or no synchronization  For example NAIT just prohibits half of each conflicting pair</p>
+    <p>a NONTXNREAD a NONTXNWRITE</p>
+    <p>Context-sensitivity is much less expensive than state  Very cheap to record whether an object was created in a txn  Select among two simpler access patterns, such as NAIT and UATC</p>
+    <p>See the paper for 23 hypotheses that allow speedup for our STM</p>
+    <p>2009, Nathan Bronson 9POPL09  Feedback Directed Barrier Optimization</p>
+    <p>Checking Barrier Synchronization Costs</p>
+  </div>
+  <div class="page">
+    <p>// allowed by NAIT</p>
+    <p>nonTxnRd$f(ref) { return ref.f; }</p>
+    <p>nonTxnWr$f(ref, v) { ref.f = v; }</p>
+    <p>// not allowed by NAIT</p>
+    <p>txnOpenRd$f(ref) { observed$f |= OBS_TXN_READ;</p>
+    <p>rollbackAndChangeHypoth(); }</p>
+    <p>txnOpenWr$f(ref) { observed$f |= OBS_TXN_WRITE;</p>
+    <p>rollbackAndChangeHypoth(); }</p>
+    <p>Hypothesis correct  checking barrier is free  Hypothesis incorrect  still strongly isolated</p>
+    <p>Retry txn after all barriers for f have been hot swapped</p>
+    <p>2009, Nathan Bronson 10POPL09  Feedback Directed Barrier Optimization</p>
+    <p>Checking Barriers for the Not-Accessed-In-Txn Pattern</p>
+  </div>
+  <div class="page">
+    <p>Strong Isolation Even With an Incorrect Hypothesis</p>
+    <p>Before txn access to x</p>
+    <p>NAIT is hypothesized</p>
+    <p>Non-txn accesses are fast while hypothesis still holds</p>
+    <p>First access from txn</p>
+    <p>Rollback</p>
+    <p>Hot swap installs full txn and isolation barriers</p>
+    <p>After</p>
+    <p>Non-txn accesses use isolation barrier</p>
+    <p>2009, Nathan Bronson POPL09  Feedback Directed Barrier Optimization 11</p>
+  </div>
+  <div class="page">
+    <p>Patterns trade generality for the cost of checking  Start aggressive</p>
+    <p>Assume Not-Accessed-In-Txn  Hot swap to fix incorrect hypotheses</p>
+    <p>Start conservative  Count isolation barrier invocations  Hot swap to tighten hypothesis for hot barriers  Faster than aggressive in our implementation</p>
+    <p>Start with hypotheses from the last execution  Works well, safe even if changes have been made to app</p>
+    <p>Minimize the impact of hot swap on other threads  Two-phase swap blocks only threads that call a changing barrier</p>
+    <p>2009, Nathan Bronson 12POPL09  Feedback Directed Barrier Optimization</p>
+    <p>How Do We Form Hypotheses?</p>
+  </div>
+  <div class="page">
+    <p>Run in AJ, a bytecode-rewriting STM in/for Java  Elapsed time on 2 4-core Xeon with HotSpot Server JVM  Barriers are static methods, hot swap replaces bytecode</p>
+    <p>Success: lowered non-txn overheads of strong isolation  10 apps from Dacapo, SpecJBB2005  Strong isolation overhead reduced from 505% to 16%</p>
+    <p>Success: accelerated mixed txn benchmark  Based on SpecJBB2005  Weakly isolated execution accelerated by 31%  Strongly isolated execution accelerated by 34%</p>
+    <p>See paper for more details and hypothesis prevalence</p>
+    <p>2009, Nathan Bronson 13POPL09  Feedback Directed Barrier Optimization</p>
+    <p>Experimental Validation</p>
+  </div>
+  <div class="page">
+    <p>Questions?</p>
+    <p>2009, Nathan Bronson 14POPL09  Feedback Directed Barrier Optimization</p>
+    <p>Thank You</p>
+  </div>
+  <div class="page">
+    <p>A Privatization Problem in a Weakly Isolated Java STM</p>
+    <p>// Thread 1</p>
+    <p>atomic {</p>
+    <p>for (item: coll) {</p>
+    <p>item.x++;</p>
+    <p>item.y++;</p>
+    <p>}</p>
+    <p>rollback }</p>
+    <p>// Thread 2</p>
+    <p>atomic {</p>
+    <p>r1 = coll.removeFirst();</p>
+    <p>}</p>
+    <p>r2 = r1.x</p>
+    <p>r3 = r1.y</p>
+    <p>assert (r2 == r3);</p>
+    <p>2009, Nathan Bronson POPL09  Feedback Directed Barrier Optimization 15</p>
+    <p>// Initially coll = { {x=0,y=0} }</p>
+    <p>Thread 2 may observe .x and .y while rollback is in progress</p>
+    <p>Example from Menon et al, Transact 08</p>
+  </div>
+  <div class="page">
+    <p>A Publication Problem in a Weakly Isolated Java STM</p>
+    <p>// Thread 1</p>
+    <p>data = 1;</p>
+    <p>atomic { ready = true; }</p>
+    <p>// Thread 2</p>
+    <p>atomic {</p>
+    <p>r1 = data;</p>
+    <p>if (ready) val = r1;</p>
+    <p>}</p>
+    <p>assert (val != 42);</p>
+    <p>2009, Nathan Bronson POPL09  Feedback Directed Barrier Optimization 16</p>
+    <p>// Initially data = 42, ready = false, val = 0</p>
+    <p>Despite race, with locks Java memory model disallows val == 42  Weakly isolation exposes benign race  Object-granularity STM can introduce early reads</p>
+  </div>
+  <div class="page">
+    <p>All of our OHs imply Unmodified After Heterogeneous Access (UAHA)  Quite general, but too expensive to check</p>
+    <p>Ignore accesses from objects statically proven thread-local  Stateless optimization hypotheses</p>
+    <p>ANY = no acceleration  RO = Read Only (after escape)  NAIT = Not Accessed In Txn  NAOT = Not Accessed Outside Txn</p>
+    <p>Stateful optimization hypotheses, set per-field bit on event  UATC = Unmodified After creating Txn Commit  UATX = Unmodified After TXn access  UANT = Unmodified After Non-Txn access</p>
+    <p>Compound hypotheses predicated on whether object was created in a txn  Examples &lt;nt=UATX,tx=ANY&gt;</p>
+    <p>For our system, 23 OHs have checking barriers faster than TMs barriers  &lt;RO,UATC&gt; and &lt;NAIT,NAIT&gt; have optimal isolation barriers</p>
+    <p>2009, Nathan Bronson 17POPL09  Feedback Directed Barrier Optimization</p>
+    <p>Our Family of Optimization Hypotheses</p>
+  </div>
+  <div class="page">
+    <p>Write barrier replaces all stores inside atomic block  Lock x  Log old value,  Update in-place</p>
+    <p>Read barrier replaces all loads inside atomic block  Verify not locked by another txn  Record version from xs metadata  Read value</p>
+    <p>On commit  Validate all reads by rechecking versions  Increment versions for written values  Release all locks</p>
+    <p>Rollback on deadlock or validation failure  Apply undo log  Releases all locks</p>
+    <p>2009, Nathan Bronson 18POPL09  Feedback Directed Barrier Optimization</p>
+    <p>Software Transactional Memory (A Typical Eager Versioning Implementation)</p>
+  </div>
+  <div class="page">
+    <p>Atomic execution for Java without language extensions  static void TM.atomic(Runnable task)</p>
+    <p>Eager versioning, object granularity, optimistic read set validation using version numbers</p>
+    <p>Java + HotSpots sun.misc.Unsafe  Classes are rewritten during class loading</p>
+    <p>Core Java libraries pre-instrumented (to avoid circularity)  Methods split into txn and non-txn  Java long added to objects for metadata  State bits for arrays hidden in the 25 unused header bits on 64</p>
+    <p>bit HotSpot, array locks and versions hashed</p>
+    <p>Hot swap uses Javas Instrumentation API  Barriers are static methods in auto-generated auxiliary classes</p>
+    <p>2009, Nathan Bronson 19POPL09  Feedback Directed Barrier Optimization</p>
+    <p>AJ: A Bytecode-Rewriting STM in Java</p>
+  </div>
+  <div class="page">
+    <p>Requirement  Old and new barrier versions may not execute at the same time</p>
+    <p>Goal  Dont block code that does not use a changing barrier</p>
+    <p>Solution: swap twice 1. Non-txn code periodically copies a global timestamp to a per</p>
+    <p>thread field 2. Hot swap installs a blocking quiescing barrier 3. Increment the global timestamp 4. Wait until all threads have blocked or copied the new</p>
+    <p>timestamp value 5. Swap in new barriers 6. Unblock quiesced threads</p>
+    <p>2009, Nathan Bronson 20POPL09  Feedback Directed Barrier Optimization</p>
+    <p>Swapping with Minimal Blocking</p>
+  </div>
+</Presentation>

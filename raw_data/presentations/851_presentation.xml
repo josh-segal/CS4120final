@@ -1,0 +1,251 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>Dynamic Reconfiguration of Primary/Backup Clusters</p>
+    <p>(Apache ZooKeeper)(Apache ZooKeeper)</p>
+    <p>Alex Shraer</p>
+    <p>I ll b ti ith</p>
+    <p>Alex Shraer Yahoo! Research</p>
+    <p>In collaboration with:</p>
+    <p>Benjamin Reed Dahlia Malkhi Flavio Junqueira Yahoo! Research Microsoft Research Yahoo! Research</p>
+  </div>
+  <div class="page">
+    <p>Configuration of a Distributed Replicated System  MembershipMembership</p>
+    <p>Role of each server E d idi h ( ti i t)  E.g., deciding on changes (participant) or</p>
+    <p>learning the changes (observer)</p>
+    <p>Quorum System spec Quorum System spec  majorities / hierarchical (server votes have different weight)</p>
+    <p>N t k dd &amp; t Network addresses &amp; ports</p>
+    <p>Timeouts, directory paths, etc.y p</p>
+  </div>
+  <div class="page">
+    <p>Dynamic Membership Changes  Necessary in every long-lived system!y y g y  Examples:</p>
+    <p>Cloud computing: adopt to changing load, dont pre-allocate!  Failures: replacing failed nodes with healthy onesF u p g f w y  Upgrades: replacing out-of-date nodes with up-to-date ones  Free up storage space: decreasing the number of replicas  Moving nodes: within the network or the data centerg  Increase resilience by changing the set of servers</p>
+    <p>Example: asynch. replication works as long as &gt; #servers/2 are up:</p>
+  </div>
+  <div class="page">
+    <p>Other Dynamic Configuration Changes  Changing server addresses/portsg g p  Changing server roles:</p>
+    <p>leader &amp; followers observers</p>
+  </div>
+  <div class="page">
+    <p>Other Dynamic Configuration Changes  Changing server addresses/portsg g p  Changing server roles:</p>
+    <p>observers leader &amp; followers</p>
+    <p>Changing the Quorum System  E.g., if a new powerful &amp; well-connected server is added</p>
+  </div>
+  <div class="page">
+    <p>R fi ti i Di t ib t d S t i diffi lt!</p>
+    <p>Industry Approach to Reconfiguration</p>
+    <p>Reconfiguration in Distributed Systems is difficult!  use external Coordination Service</p>
+  </div>
+  <div class="page">
+    <p>R fi ti i Di t ib t d S t i diffi lt!</p>
+    <p>Industry Approach to Reconfiguration</p>
+    <p>Reconfiguration in Distributed Systems is difficult!  use external Coordination Service</p>
+    <p>Leading coordination services:  Chubby: Google  Apache Zookeeper:</p>
+    <p>Yahoo!, Linkedin, Twitter, Facebook, VMWare, UBS, Goldman Sachs, Netflix, Box, Cloudera, MapR, Nicira,</p>
+    <p>Configuration management, metadata store, failure detection, distributed locking, leader election, message queues, task assignment</p>
+  </div>
+  <div class="page">
+    <p>Zookeeper data model</p>
+    <p>A tree of data nodes (znodes)</p>
+    <p>/</p>
+    <p>i(znodes)</p>
+    <p>Hierarchical namespace (like in a file system)</p>
+    <p>services</p>
+    <p>workers</p>
+    <p>worker1 (like in a file system)</p>
+    <p>Znode = &lt;data, version, i fl hild</p>
+    <p>locks</p>
+    <p>worker2</p>
+    <p>x 1creation flags, children&gt;</p>
+    <p>apps</p>
+    <p>x-1</p>
+    <p>x-2</p>
+    <p>users</p>
+  </div>
+  <div class="page">
+    <p>ZooKeeper Service</p>
+    <p>Zookeeper - distributed and replicated p</p>
+    <p>ServerServer ServerServerServerServer</p>
+    <p>Leader</p>
+    <p>Client ClientClientClientClientClient ClientClient</p>
+    <p>All servers store a copy of the data (in memory)  A leader is elected at startup</p>
+    <p>R ds s d b f ll s ll upd t s th u h l d Reads served by followers, all updates go through leader  Update acked when a quorum of servers have persisted</p>
+    <p>the change (on disk) k B b d l  Zookeeper uses ZAB - its own atomic broadcast protocol</p>
+    <p>Borrows a lot from Paxos, but conceptually different</p>
+  </div>
+  <div class="page">
+    <p>Important subclass of State-Machine Replication ( ) / k k f ll</p>
+    <p>Zookeeper is a Primary/Backup system</p>
+    <p>Many (most?) Primary/Backup systems work as follows:</p>
+    <p>Primary executes operations, sends idempotent state updates to y p , p p backups  makes sense only in the context of  Primary speculatively executes and sends out but it will only appear in</p>
+    <p>a backups log after a backup s log after  In general SMR (Paxos), a backups log may become</p>
+    <p>Primary order: each primary commits a consecutive segment in the logy p y g g  Preserved by many (most?) primary/backup systems</p>
+    <p>Zookeeper, Chubby, GFS, Boxwood, Chain Replication, Harp, Echo, PacificA, etc.  Not preserved by Paxos / general state machine replication</p>
+  </div>
+  <div class="page">
+    <p>Reconfiguring Zookeeper</p>
+    <p>Not supported</p>
+    <p>All config settings are static  loaded during boot</p>
+    <p>Zookeeper users repeatedly asking for reconfig. since 2008  Several attempts found incorrect and rejected</p>
+  </div>
+  <div class="page">
+    <p>Manual Reconfiguration  Bring the service down, change configuration files, bring it back upg , g f g f , g p</p>
+    <p>Wrong reconfiguration caused split-brain &amp; inconsistency in production</p>
+    <p>Questions about manual reconfig are asked several times each week</p>
+    <p>Admins prefer to over-provision than to reconfigure L k d lk @ h 2012[LinkedIn talk @Yahoo, 2012]  Doesnt help with many reconfiguration use-cases  Wastes resources, adds management overhead</p>
+    <p>Can hurt Zookeeper throughput (we show)  Can hurt Zookeeper throughput (we show)</p>
+    <p>Configuration errors primary cause of failures in production systems [Yin et al., SOSP11][ , ]</p>
+  </div>
+  <div class="page">
+    <p>Hazards of Manual Reconfiguration</p>
+    <p>A</p>
+    <p>C</p>
+    <p>E</p>
+    <p>B D{A, B, C, D, E}</p>
+    <p>{A, B, C}</p>
+    <p>{A, B, C}</p>
+    <p>{A, B, C, D, E} {A, B, C, D, E}</p>
+    <p>{A, B, C}{A, B, C, D, E} {A, B, C, D, E}</p>
+    <p>Goal: add servers E and D  Change configuration files  Restart all servers</p>
+    <p>Restart all servers  We lost and !!</p>
+  </div>
+  <div class="page">
+    <p>Cant we just store configuration in Zoookeeper ? Recap of Recovery in Zookeeper</p>
+    <p>C</p>
+    <p>B</p>
+    <p>E</p>
+    <p>A D</p>
+    <p>setData(/x, 5)</p>
+    <p>Leader failure activates leader election &amp; recovery</p>
+  </div>
+  <div class="page">
+    <p>This doesnt work for reconfigurations!</p>
+    <p>C</p>
+    <p>B</p>
+    <p>E</p>
+    <p>D{A, B, C, D, E}</p>
+    <p>{A, B, C, D, E} {A, B, C, D, E}</p>
+    <p>setData(/zookeeper/config, {A, B, F}) remove C, D, E add F</p>
+    <p>A {A, B, C, D, E} F</p>
+    <p>{A, B, C, D, E}{A, B, F}</p>
+    <p>{A, B, F}</p>
+    <p>Must persist the decision to reconfigure in the Must persist the decision to reconfigure in the old config before activating the new config!</p>
+    <p>Once such decision is reached, must not allow further ops to be committed in old config</p>
+  </div>
+  <div class="page">
+    <p>Principles of Reconfiguration A reconfiguration S -&gt; S should do the following:A reconfiguration S &gt; S should do the following:</p>
+  </div>
+  <div class="page">
+    <p>Principles of Reconfiguration A reconfiguration S -&gt; S should do the following:</p>
+    <p>Primary/Backup</p>
+    <p>A reconfiguration S &gt; S should do the following:</p>
+    <p>All important updates are in primarys log</p>
+    <p>Transfer ahead of time; here make sure transfer complete q</p>
+    <p>Transfer ahead of time; here make sure transfer complete need quorum of S to ack all history up to reconfig</p>
+  </div>
+  <div class="page">
+    <p>Failure-Free Flow</p>
+  </div>
+  <div class="page">
+    <p>Usually unnoticeable to clients</p>
+    <p>remove add remove-leader add remove add</p>
+  </div>
+  <div class="page">
+    <p>Protocol Features  After reconfiguration is proposed leader schedules &amp; After reconfiguration is proposed, leader schedules &amp;</p>
+    <p>executes operations as usual  Leader of the new configuration is responsible to commit these</p>
+    <p>If leader of old config is in new config and able to lead, it remains the leader</p>
+    <p>Otherwise, old leader nominates new leader (saves leader election time)</p>
+    <p>We support multiple concurrent reconfigurations  Activate only the last config, not intermediate onesy g  In the paper, not in production</p>
+  </div>
+  <div class="page">
+    <p>Gossiping activated configurations</p>
+    <p>A</p>
+    <p>C</p>
+    <p>E</p>
+    <p>B D</p>
+    <p>{A, B, C, D, E}{A, B, C}</p>
+    <p>{A, B, C}</p>
+    <p>{A, B, C}</p>
+    <p>{A, B, C} {A, B, C, D, E}</p>
+    <p>: add servers E and D {A, B, C, D, E}</p>
+    <p>{A, B, C}{A, B, C, D, E}{A, B, C, D, E} : add servers E and D</p>
+    <p>D should be leader (has latest state)  But D doesnt have support of a quorum (3 out of 5)</p>
+  </div>
+  <div class="page">
+    <p>Recovery  Discovering Decisions</p>
+    <p>C</p>
+    <p>A</p>
+    <p>E</p>
+    <p>B D{A, D, E}</p>
+    <p>{A, B, C}</p>
+    <p>{A, B, C}</p>
+    <p>{A, D, E}{A, B, C}</p>
+    <p>{A, B, C} {A, D, E}</p>
+    <p>: replace B C with E D {A, B, C}</p>
+    <p>: replace B, C with E, D  C must 1) discover possible decisions in {A, B, C}</p>
+    <p>(find out about {A, D, E}) 2) discover possible activation decision in {A, D, E}</p>
+    <p>) d scover poss ble act vat on dec s on n {A, D, E} - If {A,D, E} is active, C mustnt attempt to transfer state - Otherwise, C should transfer state &amp; activate {A, D, E}</p>
+  </div>
+  <div class="page">
+    <p>The client side of reconfiguration  When system changes, clients need to stay connectedy g , y</p>
+    <p>The usual solution: directory service (e.g., DNS)  Re-balancing load during reconfiguration is also important!  Goal: uniform #clients per server with minimal client migration</p>
+    <p>Migration should be proportional to change in membership</p>
+  </div>
+  <div class="page">
+    <p>Our approach - Probabilistic Load Balancing  Example 1 :Example 1 :</p>
+    <p>Each client moves to a random new server with probability 0.4  1  3/5 = 0.4</p>
+    <p>Exp 40% clients will move off of each server</p>
+    <p>X 10 X 10 X 10X 6 X 6 X 6 X 6 X 6</p>
+    <p>Exp. 40% clients will move off of each server  Example 2 :</p>
+    <p>A B C D E F</p>
+    <p>Clients connected to D and E dont move  Clients connected to A B C move to D E with probability 4/9</p>
+    <p>X 10 X 10X 10X 6 X 6 X 6 X 6 X 6</p>
+    <p>Clients connected to A, B, C move to D, E with probability 4/9  |S S|(|S|-|S|)/|S||S\S| = 2(5-3)/3*3 = 4/9</p>
+    <p>Exp. 8 clients will move from A, B, C to D, E and 10 to F</p>
+  </div>
+  <div class="page">
+    <p>Probabilistic Load Balancing When moving from config S to S:When moving from config. S to S :</p>
+    <p>ijSjijSj</p>
+    <p>jiSiloadijSjloadSiloadSiloadE '</p>
+    <p>)Pr(),()Pr(),(),())',((</p>
+    <p>expected #clients t d t i i S</p>
+    <p>#clients t d</p>
+    <p>Solving for Pr we get case-specific probabilities.</p>
+    <p>connected to i in S (10 in last example)</p>
+    <p>connected to i in S</p>
+    <p>#clients moving to i from</p>
+    <p>other servers in S</p>
+    <p>#clients moving from i to</p>
+    <p>other servers in S</p>
+    <p>Input: each client answers locally Question 1: Are there more servers now or less ? Question 2: Is my server being removed?Question 2: Is my server being removed? Output: 1) disconnect or stay connected to my server</p>
+    <p>if disconnect 2) Pr(connect to one of the old servers) d P ( l dd d )and Pr(connect to newly added server)</p>
+  </div>
+  <div class="page">
+    <p>Probabilistic Load Balancing</p>
+  </div>
+  <div class="page">
+    <p>Implementation  Implemented in Zookeeper (Java &amp; C) integration ongoingImplemented in Zookeeper (Java &amp; C), integration ongoing</p>
+    <p>3 new Zookeeper API calls: reconfig, getConfig, updateServerList  feature requested since 2008</p>
+    <p>Dynamic changes to: Dynamic changes to:  Membership  Quorum System  Server rolesServer roles  Addresses &amp; ports</p>
+    <p>Reconfiguration modes:  Incremental (add servers E and D remove server B)Incremental (add servers E and D, remove server B)  Non-incremental (new config = {A, C, D, E})  Blind or conditioned (reconfig only if current config is #5)</p>
+    <p>Subscriptions to config changes using watchesSubscriptions to config changes using watches  Client can invoke client-side re-balancing upon change</p>
+  </div>
+  <div class="page">
+    <p>Example - reconfig using CLI reconfig add 1=host1.com:1234:1235:observer;1239reconfig add 1 host1.com:1234:1235:observer;1239</p>
+    <p>add 2=host2.com:1236:1237:follower;1231 remove 5  Change follower 1 to an observer and change its ports  Add follower 2 to the ensemble Add follower 2 to the ensemble  Remove follower 5 from the ensemble</p>
+    <p>reconfig file myNewConfig.txt v 234547  Change the current config to the one in myNewConfig.txt  But only if current config version is 234547But only if current config version is 234547</p>
+    <p>getConfig w c set a watch on /zookeeper/config set a watch on /zookeeper/config</p>
+    <p>c means we only want the new connection string for clients  host1:port1, host2:port2, host3:port3</p>
+  </div>
+  <div class="page">
+    <p>Summary  Primary/Backup easier to reconfigure than general SMR  We have a new algorithm implemented in ZooKeeper We have a new algorithm, implemented in ZooKeeper</p>
+    <p>Being contributed to ZooKeeper codebase  First practical algorithm for Speculative Reconfiguration</p>
+    <p>U i th i d t Using the primary order property</p>
+    <p>Many nice features:y  doesnt limit concurrency  reconfigures immediately  preserves primary order preserves primary order  doesnt stop client ops  Clients work with a single configuration at a time  No external services  Includes client-side rebalancing</p>
+  </div>
+  <div class="page">
+    <p>Acknowledgements  ZooKeeper open source communityZooKeeper open source community</p>
+    <p>Marshall McMullen (SolidFire) Vi h l Kh (VMW ) Vishal Kher (VMWare)</p>
+    <p>Mahadev Konar (Horton Works)  Patrick Hunt (Cloudera)( )  Rakesh Radhakrishnan (Huawei)  Raghu Shastry</p>
+  </div>
+</Presentation>

@@ -1,0 +1,103 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>MVP: Detecting Vulnerabilities using Patch-Enhanced Vulnerability Signatures</p>
+    <p>Yang Xiao1,2 , Bihuan Chen3 , Chendong Yu1,2 , Zhengzi Xu4 , Zimu Yuan1,2 , Feng Li1,2 , Binghong Liu1,2 , Yang Liu4 , Wei Huo1,2 , Wei Zou1,2 , Wenchang Shi5</p>
+  </div>
+  <div class="page">
+    <p>Background</p>
+    <p>Vulnerabilities can be exploited to attack software systems, threatening system security.  Detect and patch vulnerabilities as early as possible.</p>
+    <p>Reusing code base or sharing code logic is common.  E.g., Same action for processing different kinds of files (bmp/dib/)</p>
+    <p>in ImageMagick.</p>
+    <p>Recurring vulnerabilities (share the similar characteristics with each other) widely exist but remain undetected.</p>
+  </div>
+  <div class="page">
+    <p>Existing Approaches</p>
+    <p>Clone-based approaches  They consider the recurring vulnerability detection problem as a code clone</p>
+    <p>detection problem  [12 S&amp;P] ReDeBug: Finding Unpatched Code Clones in Entire OS Distributions  [17 S&amp;P] VUDDY: A Scalable Approach for Vulnerable Code Clone Discovery</p>
+    <p>Function matching based approaches  They use vulnerable functions in a known vulnerability as the signature and</p>
+    <p>detect code clones to those vulnerable functions  [16 ICSE] SourcererCC: Scaling Code Clone Detection to Big-Code  [18 ICSE] CCAligner: A Token Based Large-Gap Clone Detector</p>
+  </div>
+  <div class="page">
+    <p>//patch for CVE-2017-14041 1 @@ -1185,7 +1185,7 @@ opj_image_t* pgxtoimage(const char *filename, opj_cparameters_t *parameters) 2 } 3 4 fseek(f, 0, SEEK_SET); 5 - if (fscanf(f, &quot;PG%[ \t]%c%c%[ \t+-]%d%[ \t]%d%[ \t]%d&quot;, temp, &amp;endian1, 6 + if (fscanf(f, &quot;PG%31[ \t]%c%c%31[ \t+-]%d%31[ \t]%d%31[ \t]%d&quot;, temp, &amp;endian1, 7 &amp;endian2, signtmp, &amp;prec, temp, &amp;w, temp, &amp;h) != 9) { 8 fclose(f); 9 fprintf(stderr,</p>
+    <p>//vulnerable function: pgxtoimage (src/bin/jp2/convert.c) 1 opj_image_t* pgxtoimage(const char *filename, opj_cparameters_t *parameters) 2 { 3 FILE *f = NULL; 4 ... 5 fseek(f, 0, SEEK_SET); 6 if (fscanf(f, &quot;PG%[ \t]%c%c%[ \t+-]%d%[ \t]%d%[ \t]%d&quot;, temp, &amp;endian1, 7 &amp;endian2, signtmp, &amp;prec, temp, &amp;w, temp, &amp;h) != 9) { 8 fclose(f); 9 fprintf(stderr, 10 &quot;ERROR: Failed to read the right number of element from the fscanf() function!\n&quot;); 11 return NULL; 12 }</p>
+    <p>//target function (found by MVP): pgxtoimage (src/bin/jpwl/convert.c) 1 opj_image_t* pgxtoimage(const char *filename, opj_cparameters_t *parameters) 2 { 3 FILE *f = NULL; 4 ... 5 fseek(f, 0, SEEK_SET); 6 if (fscanf(f, &quot;PG%[ \t]%c%c%[ \t+-]%d%[ \t]%d%[ \t]%d&quot;, temp, &amp;endian1, 7 &amp;endian2, signtmp, &amp;prec, temp, &amp;w, temp, &amp;h) != 9) { 8 fprintf(stderr, 9 &quot;ERROR: Failed to read the right number of element from the fscanf() function!\n&quot;); 10 fclose(f); 11 return NULL; 12 }</p>
+    <p>ReDeBug Line 5  line 8 =&gt; hash r1 Line 6  line 9 =&gt; hash r2 Line 7  line 10 =&gt; hash r3</p>
+    <p>VUDDY All statements =&gt; hash v</p>
+    <p>X X X</p>
+    <p>X</p>
+  </div>
+  <div class="page">
+    <p>Motivation</p>
+    <p>When Sim(V,P) is large, existing approaches can introduce high false positives. Sim(V,P) is above 70% for 91.3% of pairs.</p>
+    <p>When Sim(V,T) is small, existing approaches may introduce high false negatives. 35.1% of pairs &lt;V, T&gt; have a Sim(V,T) of lower than 70% and existing approaches miss most of them.</p>
+    <p>Note: Sim(f1, f2) denotes the similarity score between function f1 and f2.</p>
+  </div>
+  <div class="page">
+    <p>Challenges</p>
+    <p>C1: How to distinguish already patched vulnerabilities to reduce false positives.</p>
+    <p>Motivation</p>
+    <p>C2: How to precisely generate the signature of a known vulnerability to reduce both false positives and false negatives.</p>
+  </div>
+  <div class="page">
+    <p>Approach</p>
+    <p>Vulnerability signature + patch signature</p>
+    <p>Challenges</p>
+    <p>C1: How to distinguish already patched vulnerabilities to reduce false positives.</p>
+    <p>Novel slicing method + entropy-based statement selection</p>
+    <p>Syntactic + semantic  Abstraction + normalization</p>
+    <p>C2: How to precisely generate the signature of a known vulnerability to reduce both false positives and false negatives.</p>
+  </div>
+  <div class="page">
+    <p>Overview of MVP</p>
+  </div>
+  <div class="page">
+    <p>Formal parameters -&gt; PARAM Local variables -&gt; VARIABLES String -&gt; STRING (except format string)</p>
+    <p>Removing all comments, braces, tabs and white spaces.</p>
+    <p>syntactic</p>
+    <p>semantic</p>
+  </div>
+  <div class="page">
+    <p>Target information:  Changed files and its corresponding commits  Vulnerable functions, patched functions  Deleted/Added statements</p>
+    <p>Target information:  Changed files and its corresponding commits</p>
+    <p>wma.c, 0cb2ab8bd (vul ver), cac414969 (pat ver)  Vulnerable functions, patched functions</p>
+    <p>Changed function: WDA_TxPacket  Deleted/Added statements</p>
+    <p>Line 18  22 (add lines)</p>
+  </div>
+  <div class="page">
+    <p>Too many statements are included while some of them are not relevant to the vulnerability.</p>
+    <p>Back data flow Back control flow Forward data flow Forward control flow</p>
+  </div>
+  <div class="page">
+    <p>Backward slicing  Perform normal backward slicing on PDG</p>
+    <p>Forward slicing  Assignment statement</p>
+    <p>Normal forward slicing  Conditional statement</p>
+    <p>Conduct backward slicing on data dependencies in the PDG to obtain the direct source for each variable/parameter</p>
+    <p>Set each statement in the first step as the slicing criterion, and perform forward slicing on data dependencies</p>
+    <p>Only if the previous forward slicing result is empty, perform normal forward slicing on control dependencies.</p>
+    <p>Return statement  No need for forward slicing</p>
+    <p>Others  Similar to conditional statement, following the same first</p>
+    <p>and second steps for conditional statements.</p>
+    <p>Back data flow Back control flow Forward data flow Forward control flow</p>
+  </div>
+  <div class="page">
+    <p>The number of statements in  varies for different patches. If the number of statements is very large,  may introduce noise and result in false negatives.</p>
+    <p>If  &gt;   , we iteratively remove from  statements which</p>
+    <p>are farthest from the slicing criterion on the PDG until  is less than</p>
+    <p>.</p>
+  </div>
+  <div class="page"/>
+  <div class="page">
+    <p>Dataset</p>
+  </div>
+  <div class="page">
+    <p>Result</p>
+  </div>
+  <div class="page">
+    <p>Result</p>
+  </div>
+  <div class="page">
+    <p>Thank you!</p>
+    <p>Contact: xiaoyang@iie.ac.cn</p>
+  </div>
+</Presentation>

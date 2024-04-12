@@ -1,0 +1,177 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>Log Analysis and Event Correlation Using Variable Temporal Event Correlator (VTEC)</p>
+    <p>Paul Krizak | November 11, 2010</p>
+  </div>
+  <div class="page">
+    <p>| LISA 2010  VTEC | November 11, 20102</p>
+    <p>Background</p>
+    <p>Swatch was being used until 2006, didnt scale past a few thousand systems, lacked sophisticated event correlation features.</p>
+    <p>Project goals:</p>
+    <p>Scale to 10s of GB/day of log data</p>
+    <p>Take advantage of multiple processors</p>
+    <p>Correlate events in real-time (no batch processing)</p>
+    <p>Correlation rules must be easy to read, modify, create</p>
+    <p>SEC, Splunk evaluated</p>
+    <p>SEC: rules too difficult to read/learn/modify</p>
+    <p>Splunk: indexer did not scale (v1.0)</p>
+  </div>
+  <div class="page">
+    <p>| LISA 2010  VTEC | November 11, 20103</p>
+    <p>Architecture</p>
+  </div>
+  <div class="page">
+    <p>| LISA 2010  VTEC | November 11, 20104</p>
+    <p>Rule Engines</p>
+    <p>Accept filtered log data from syslog-ng on STDIN</p>
+    <p>Interacts with variable server and action server using Perl object interfaces</p>
+    <p># Instantiate objects to communicate with the servers</p>
+    <p>my $vs = new VariableInterface();</p>
+    <p>my $as = new ActionInterface();</p>
+    <p># Setup thresholds</p>
+    <p>$vs-&gt;set_incrementer_threshold(name, &gt;=, 10);</p>
+    <p># Process log data</p>
+    <p>while(&lt;STDIN&gt;) {</p>
+    <p>my %msg = parse($_);</p>
+    <p># Event correlation stuff</p>
+    <p>}</p>
+  </div>
+  <div class="page">
+    <p>| LISA 2010  VTEC | November 11, 20105</p>
+    <p>Temporal Variables</p>
+    <p>Scalar</p>
+    <p>Stores an arbitrary data value that has a finite lifetime</p>
+    <p>Returns 0 when timed out</p>
+    <p>Good for alarms, temporary data storage</p>
+    <p># Send an e-mail, but dont send another one for an hour</p>
+    <p>if($vs-&gt;get_scalar(sent_mail) == 0) {</p>
+    <p>send_mail();</p>
+    <p># name timeout</p>
+    <p>$vs-&gt;set_scalar(sent_mail, +3600);</p>
+    <p>}</p>
+    <p># Set an alarm (scalar + threshold); wake us up in 60 seconds</p>
+    <p>if($msg{message} =~ /my important trigger/) {</p>
+    <p>$alarm = $vs-&gt;set_alarm(60, some_event);</p>
+    <p>}</p>
+    <p>if($msg{message} =~ /TIMEOUT: SCALAR some_event/) {</p>
+    <p>take_action();</p>
+    <p>}</p>
+  </div>
+  <div class="page">
+    <p>| LISA 2010  VTEC | November 11, 20106</p>
+    <p>Temporal Variables</p>
+    <p>Incrementer</p>
+    <p>Counts the number of events over a window of time</p>
+    <p>Used to detect rates of events over time</p>
+    <p>Timeout period lets you adjust how far into the past you want to count data</p>
+    <p>Increment amount is generally set to 1</p>
+    <p># Detect rate of EXT3 errors on www over 10 second period.</p>
+    <p>if($msg{from_host} eq www and $msg{message} =~ /EXT3 Error/i) {</p>
+    <p># No instantiation, just create as needed at any time.</p>
+    <p># name increment timeout</p>
+    <p>$vs-&gt;set_incrementer(www_ext3, 1, +10);</p>
+    <p>if($vs-&gt;get_incrementer(www_ext3) &gt; 10) {</p>
+    <p># More than 10 EXT3 errors/10 sec =&gt; 60/min or 1/sec</p>
+    <p>notify_ops_staff();</p>
+    <p>}</p>
+    <p>}</p>
+  </div>
+  <div class="page">
+    <p>| LISA 2010  VTEC | November 11, 20107</p>
+    <p>Temporal Variables</p>
+    <p>List</p>
+    <p>Collects incrementers into one structure using keys</p>
+    <p>Aggregates data across similar incrementers</p>
+    <p># Detect NFS problems</p>
+    <p>If($msg{message} =~ /NFS server (\w+) not responding/i) {</p>
+    <p>my $nfs_server = $1;</p>
+    <p># The increment amount in a list is hard-coded to 1</p>
+    <p># name key_to_increment timeout</p>
+    <p>$vs-&gt;set_list(nfs, $nfs_server, +60);</p>
+    <p># fetch the number of unique keys in the nfs list</p>
+    <p>if($vs-&gt;get_list_keys(nfs) &gt; 50) {</p>
+    <p># More than 50 hosts (keys) have reported that $nfs_server</p>
+    <p># is down (key has not timed out) in the last 60 seconds.</p>
+    <p>notify_ops_staff();</p>
+    <p>}</p>
+    <p>}</p>
+    <p># You can also query the entire list  this would return the total</p>
+    <p># number of not responding messages in the last 60 sec:</p>
+    <p>$vs-&gt;get_list_all(nfs)</p>
+  </div>
+  <div class="page">
+    <p>| LISA 2010  VTEC | November 11, 20108</p>
+    <p>Variable and Action Servers</p>
+    <p>Variable server</p>
+    <p>Hosts variables in a common namespace</p>
+    <p>Rule engines can share data</p>
+    <p>Rule engines do not have to maintain state</p>
+    <p>Injects messages into log stream when threshold conditions are met (as defined by the rule engines)</p>
+    <p>Action server</p>
+    <p>Queues jobs that can alert or correct problems detected by rule engines</p>
+    <p>Jobs can run at a specific time, or now+time</p>
+  </div>
+  <div class="page">
+    <p>| LISA 2010  VTEC | November 11, 20109</p>
+    <p>Some Rule Engines at AMD</p>
+    <p>Failed hardware</p>
+    <p>Counts ECC/EXT3 errors and alerts when threshold exceeded</p>
+    <p>NFS file server checks</p>
+    <p>Monitors for NFS server xxx not responding and alerts when a large number of unique hosts are reporting problems</p>
+    <p>Interactive load monitor collator</p>
+    <p>Aggregates periodic load data from interactive servers and sends out collated reports to users</p>
+    <p>Reboot loop detection</p>
+    <p>Alerts support staff if hosts are stuck in a reboot loop</p>
+  </div>
+  <div class="page">
+    <p>| LISA 2010  VTEC | November 11, 201010</p>
+    <p>Designing for Performance</p>
+    <p>Current performance</p>
+    <p>Handling ~1000 msg/sec (~10GB/day) with 21 rule engines and four local disk logs on a four-vCPU VM</p>
+    <p>Multi-threading</p>
+    <p>Variable and action servers use Perl threads to distribute workload</p>
+    <p>Rule engines, syslog-ng are all in separate processes</p>
+    <p>Bottlenecks</p>
+    <p>Syslog-ng can be a bottleneck if many match() rules are used (regular expression engine)</p>
+    <p>Incrementer calculation routine in is O(n); does not scale well with frequent events (&gt;200 events/sec)</p>
+  </div>
+  <div class="page">
+    <p>| LISA 2010  VTEC | November 11, 201011</p>
+    <p>Challenges</p>
+    <p>Variable server performance (due to incrementers)</p>
+    <p>New O(log n) routine is being tested</p>
+    <p>Feedback from actions</p>
+    <p>Currently mostly fire and forget</p>
+    <p>You can (awkwardly) have actions use things like logger(1) to inject status data back into the log stream</p>
+  </div>
+  <div class="page">
+    <p>| LISA 2010  VTEC | November 11, 201012</p>
+    <p>Lessons Learned</p>
+    <p>Designing for scalability from the ground up is crucial</p>
+    <p>Take advantage of multi-core with threads and multiple processes</p>
+    <p>RAM is cheap  use in-memory data structures instead of disk-based databases</p>
+    <p>Watch out for algorithms that are O(n) or worse</p>
+    <p>Abstraction is a powerful tool when correlating events</p>
+    <p>Abstracting rate data into a simple incrementer/list query</p>
+    <p>Breaking up complex correlations onto multiple engines</p>
+    <p>Never underestimate the power of familiarity</p>
+    <p>For a system that must be programmed  stick with a familiar language, so that your customers/colleagues will actually use it!</p>
+  </div>
+  <div class="page">
+    <p>| LISA 2010  VTEC | November 11, 201013</p>
+    <p>Trademark Attribution</p>
+    <p>AMD, the AMD Arrow logo and combinations thereof are trademarks of Advanced Micro Devices, Inc. in the United States and/or other jurisdictions. Other names used in this presentation are for identification purposes only and may be trademarks of their respective owners.</p>
+    <p>2009 Advanced Micro Devices, Inc. All rights reserved.</p>
+  </div>
+  <div class="page">
+    <p>Backup Slides</p>
+    <p>Paul Krizak | November 11, 2010</p>
+  </div>
+  <div class="page">
+    <p>| LISA 2010  VTEC | November 11, 201015</p>
+    <p>Animation: Incrementer</p>
+    <p>reported value:</p>
+    <p>Time (sec)</p>
+  </div>
+</Presentation>

@@ -1,0 +1,209 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>PernixData. All rights reserved. 1</p>
+    <p>Deepavali Bhagwat, Mahesh Patil, Michal Ostrowski, Murali Vilayannur, Woon Jung, Chethan Kumar</p>
+    <p>A Practical Implementation of Clustered Fault Tolerant Write Acceleration in a Virtualized Environment</p>
+    <p>FAST 2015</p>
+  </div>
+  <div class="page">
+    <p>PernixData. All rights reserved. 2</p>
+    <p>I/O Acceleration in Virtualized Datacenters</p>
+    <p>As virtualized datacenters scale, they experience I/O bottlenecks  Virtual Machine (VM) density increases  Cumulative VM I/O increases  J. Shafer, I/O Virtualization Bottlenecks in Cloud Computing Today, WIOV10</p>
+    <p>Provisioning better/more storage  Disruptive, temporary fix  Buying capacity to solve performance</p>
+    <p>Host-side flash  Locate application working set at the beginning of the I/O path to accelerate I/O  A non-disruptive approach</p>
+  </div>
+  <div class="page">
+    <p>PernixData. All rights reserved. 3</p>
+    <p>Host-side Flash for Accelerating I/O</p>
+    <p>Host-side flash to accelerate reads alone (Write-Through)  Reads are issued first to flash and to SAN on a cache miss  Writes issued to flash and SAN and acknowledged after SAN completion  VM writes experience SAN latencies Byan etal.,Mercury: Host-side flash caching for the data center, Mass Storage 12 Qin etal.,Reliable write-back for client-side flash caches, USENIX ATC 14</p>
+    <p>Host-side flash to accelerate reads and writes (Write-Back)  Reads are cached as in Write-Through  Writes issued to flash only and acknowledged after flash completion  Writes periodically flushed to the SAN  VM writes experience flash latencies  Holland etal., Flash caching on the storage client, USENIX ATC 13</p>
+  </div>
+  <div class="page">
+    <p>PernixData. All rights reserved. 4</p>
+    <p>Benefits of Using Host-side Flash for Write Acceleration</p>
+    <p>Cumulative Throughput of two VMs:  Microsoft Exchange Server JetStress: 32K random reads/writes, 14K sequential writes  fio: 64K sequential writes</p>
+    <p>M B yt</p>
+    <p>es W</p>
+    <p>ri tt en</p>
+    <p>/S ec</p>
+    <p>Time (sec)</p>
+    <p>wb wt</p>
+  </div>
+  <div class="page">
+    <p>PernixData. All rights reserved. 5</p>
+    <p>Challenges using Host-side Flash for Write Acceleration</p>
+    <p>Preserving VM mobility in virtualized environments Resource Management Power Management High Availability</p>
+    <p>Sustained writes</p>
+    <p>Fault Tolerance</p>
+    <p>We introduce FVP: Seamless VM migration Flow Control to gracefully handle sustained writes Fault Tolerance by replicating VM writes to peers</p>
+  </div>
+  <div class="page">
+    <p>PernixData. All rights reserved. 6</p>
+    <p>Acceleration Policies</p>
+    <p>Write-Through (wt)</p>
+    <p>Write-Back (wb)</p>
+    <p>Write-Back with Peers (wbp)  Writes issued to flash and to peer hosts  Acknowledged to the VM after flash and peer completion  VM writes experience MAX(network, flash) latencies</p>
+  </div>
+  <div class="page">
+    <p>PernixData. All rights reserved. 7</p>
+    <p>The Destager</p>
+    <p>Dirty VM writes periodically flushed to the SAN</p>
+    <p>Each write is marked with a monotonically increasing serial number at entry</p>
+    <p>Writes are batched Writes in a batch do not overlap Writes in a batch are issued concurrently to the SAN</p>
+    <p>A checkpoint record is persisted to the flash after every write in a batch is complete</p>
+    <p>To allow for fair share of SAN bandwidth The destager cycles through VM write batches The batch size is capped</p>
+    <p>VMVM</p>
+    <p>FlashFlash</p>
+    <p>DestagerDestager</p>
+    <p>SANSAN</p>
+    <p>VM writes</p>
+    <p>Checkpoint Batch of non-overlapping writes</p>
+  </div>
+  <div class="page">
+    <p>PernixData. All rights reserved. 8</p>
+    <p>What is a Checkpoint?</p>
+    <p>A checkpoint consists of  Serial number  VM UUID</p>
+    <p>For wbp VMs, the checkpoint is transmitted to peers.</p>
+    <p>The primary and peer host persist checkpoint onto their host-side flash</p>
+    <p>The primary and peer hosts evict writes whose Serial number &lt;= Checkpoint(serial number)</p>
+    <p>Checkpoints reduce recovery time</p>
+  </div>
+  <div class="page">
+    <p>PernixData. All rights reserved. 9</p>
+    <p>Seamless VM Migration</p>
+    <p>Every host has access to every other hosts flash After migration VM reads are transmitted to the previous host The new host builds up the VMs footprint VM reads experience (network + flash) latencies After a certain period of time or after a certain number of cache misses, the new</p>
+    <p>host stops transmitting reads to the previous host</p>
+  </div>
+  <div class="page">
+    <p>PernixData. All rights reserved. 10</p>
+    <p>Flow Control</p>
+    <p>Sustained writes fill up flash space allocated to a VM</p>
+    <p>VM has to be stalled, experiences degraded performance</p>
+    <p>Flow Control:  Slow down VM to allow the destager to catch up  Avoid VM stall</p>
+    <p>In the worst case, VM experiences SAN latency (which they would without FVP)</p>
+    <p>FVP uses heuristics to trigger flow control</p>
+    <p>Most applications are bursty, short write bursts gracefully absorbed</p>
+  </div>
+  <div class="page">
+    <p>PernixData. All rights reserved. 11</p>
+    <p>Fault Tolerance with Host-side flash</p>
+    <p>In case of failure, SAN is in an inconsistent state with respect to the VM</p>
+    <p>Affected VMs could be migrated to other hosts for High Availability</p>
+    <p>Data corruption possible</p>
+    <p>On-disk locks prevent hosts from corrupting VM data on the SAN A lock for every VM, ownership arbitrated by the Virtual Machine File System Only one host can acquire lock. That host is eligible to issue I/Os on behalf of the VM Locks are persisted on the VMs datastore</p>
+    <p>The lock contents  VMs last checkpoint (serial number, VM UUID)  VM acceleration policy</p>
+    <p>A copy of the lock file is kept in a read only lock file</p>
+  </div>
+  <div class="page">
+    <p>PernixData. All rights reserved. 12</p>
+    <p>Fault Tolerance</p>
+    <p>Flash Failure  Host Failure  Network Failure  SAN Failure</p>
+  </div>
+  <div class="page">
+    <p>PernixData. All rights reserved. 13</p>
+    <p>Flash Failure</p>
+    <p>Host relinquishes locks for affected VMs</p>
+    <p>VM in wt: No data loss</p>
+    <p>VM in wb: Recovery not possible. VM stalled.</p>
+    <p>VM in wbp: VM stalled. Recovery via Online Replay  Peers periodically attempt to acquire locks. One peer succeeds.  The successful peer destages replicated writes from the last checkpoint.  Releases lock</p>
+    <p>Migrated wb/wbp VM (HA)  New host acquires lock  Detects VM wb/wbp policy  Infers dirty writes still pending  Stalls the VMs  Releases locks  Periodically polls read only lock for waiting for a peer to complete online replay</p>
+  </div>
+  <div class="page">
+    <p>PernixData. All rights reserved. 14</p>
+    <p>Host Failure</p>
+    <p>Virtual Machine File System releases locks as part of failure detection</p>
+    <p>VM in wt: No data loss</p>
+    <p>VM in wb via Offline Replay  On recovery, host acquires locks  FVP scans the flash device and destages all writes after the last checkpoint  Checkpoint is regularly updated in the lock file  VMs kept stalled until their writes are destaged</p>
+    <p>VM in wbp via Online Replay</p>
+    <p>Migrated wb/wbp VM: New host stalls the VMs until replay complete</p>
+  </div>
+  <div class="page">
+    <p>PernixData. All rights reserved. 17</p>
+    <p>Cascading Failures, Distributed Recovery</p>
+    <p>Checkpoints persisted regularly to speed up recovery from cascading failures.</p>
+    <p>FVP can recover from up to p flash failures.</p>
+    <p>FVP can recover from multiple host failures. All metadata for writes + checkpoint persisted to flash.</p>
+    <p>Recovery is distributed.</p>
+  </div>
+  <div class="page">
+    <p>PernixData. All rights reserved. 18</p>
+    <p>Experimental Evaluation</p>
+    <p>VM migration</p>
+    <p>How FVP absorbs short write burst.</p>
+    <p>How FVP uses flow control to handle sustained write bursts.</p>
+    <p>Fault Tolerance, Cost vs. Benefits.</p>
+  </div>
+  <div class="page">
+    <p>PernixData. All rights reserved. 20</p>
+    <p>VM Migration</p>
+    <p>Random 4K reads (Iometer)  Latency reduces as cache hits increase  After VM migration</p>
+    <p>Remote reads incur additional network latency  New host build VM footprint.  Latencies reduce as cache hits increase on new host.</p>
+    <p>A ve</p>
+    <p>ra ge</p>
+    <p>L at</p>
+    <p>en cy</p>
+    <p>/R ea</p>
+    <p>d ( m</p>
+    <p>s)</p>
+    <p>Time (sec)</p>
+    <p>VM Migration</p>
+    <p>Cache Warm up</p>
+    <p>Cache Hits: 100%</p>
+    <p>Remote Reads, Host 2</p>
+  </div>
+  <div class="page">
+    <p>PernixData. All rights reserved. 21</p>
+    <p>W ri</p>
+    <p>te s (1</p>
+    <p>/S ec</p>
+    <p>Time (s)</p>
+    <p>(a) Writes/sec</p>
+    <p>VM (FVP) Destager (SAN)</p>
+    <p>Sustained Write Bursts</p>
+    <p>O b se</p>
+    <p>rv ed</p>
+    <p>A ve</p>
+    <p>ra ge</p>
+    <p>L at</p>
+    <p>en cy</p>
+    <p>/W ri</p>
+    <p>te ( m</p>
+    <p>s)</p>
+    <p>Time (s)</p>
+    <p>(b) Write Latency</p>
+    <p>VM, wb Flash device</p>
+    <p>VMVM</p>
+    <p>FlashFlash</p>
+    <p>DestagerDestager</p>
+    <p>SANSAN</p>
+    <p>Writes acknowledged by Flash (Flash latencies)</p>
+    <p>Writes acknowledged by SAN (SAN latencies)</p>
+  </div>
+  <div class="page">
+    <p>PernixData. All rights reserved. 22</p>
+    <p>Fault Tolerance Cost vs. Benefits</p>
+    <p>Two VMs: Microsoft Exchange Server JetStress (reads and writes) and Ubuntu (writes)  Replicating writes across peers incurs additional network latencies  Peering reduces VM throughput, but protects against failures  Throughput with peers is still better than only wt.  Peering = fault tolerance + better acceleration than wt</p>
+    <p>M B yt</p>
+    <p>es W</p>
+    <p>ri tt en</p>
+    <p>/S ec</p>
+    <p>Time (sec)</p>
+    <p>wt wb</p>
+    <p>wbp (p=1) wbp (p=2)</p>
+  </div>
+  <div class="page">
+    <p>PernixData. All rights reserved. 23</p>
+    <p>Conclusions and Future Work</p>
+    <p>FVP achieves seamless fault tolerant write back acceleration while preserving VM mobility (DRS, HA)</p>
+    <p>Absorbs short write burst  Masks VMs from SAN latency spikes  Preserves VM performance predictability to help deliver on SLA objectives</p>
+    <p>FVP handles sustained write bursts gracefully using Flow Control</p>
+    <p>Future work: Building more intelligence/adaptability into FVP</p>
+  </div>
+  <div class="page">
+    <p>PernixData. All rights reserved. 24</p>
+    <p>Deepavali Bhagwat, Mahesh Patil, Michal Ostrowski, Murali Vilayannur, Woon Jung, Chethan Kumar</p>
+    <p>A Practical Implementation of Clustered Fault Tolerant Write Acceleration in a Virtualized Environment</p>
+    <p>FAST 2015</p>
+  </div>
+</Presentation>

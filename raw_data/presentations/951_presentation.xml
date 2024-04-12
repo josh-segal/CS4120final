@@ -1,0 +1,485 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>ParaFS: A Log-Structured File System to Exploit the</p>
+    <p>Internal Parallelism of Flash Devices</p>
+    <p>Jiacheng Zhang, Jiwu Shu, Youyou Lu</p>
+    <p>Tsinghua University</p>
+  </div>
+  <div class="page">
+    <p>Outline  Background and Motivation  ParaFS Design  Evaluation  Conclusion</p>
+  </div>
+  <div class="page">
+    <p>Solid State Drives  Internal Parallelism  Internal Parallelism</p>
+    <p>Channel Level, Chip Level, Die Level, Plane Level  Chips in one package share the same 8/16-bit-I/O bus, but have</p>
+    <p>separated chip enable (CE) and ready/busy (R/B) control signals.  Each die has one internal R/B signal.  Each plane contains thousands of flash blocks and one data register.</p>
+    <p>H /W</p>
+    <p>Interface</p>
+    <p>Host Interconnect</p>
+    <p>Flash Chip</p>
+    <p>FTL</p>
+    <p>Flash Chip</p>
+    <p>Flash Chip</p>
+    <p>Flash Chip</p>
+    <p>Die 0 Die 1</p>
+    <p>Block 0 Block 1 Block ...</p>
+    <p>Register</p>
+    <p>Block 0 Block 1 Block ...</p>
+    <p>Plane 0 Plane 1</p>
+    <p>Channel Level</p>
+    <p>Chip Level</p>
+    <p>Die Level</p>
+    <p>Plane Level</p>
+    <p>Register</p>
+    <p>Internal Parallelism  High Bandwidth.</p>
+  </div>
+  <div class="page">
+    <p>Flash File Systems</p>
+    <p>Log-structured File System  Duplicate Functions: Space Allocation, Garbage Collection.  Semantic Isolation: FTL Abstraction, Block I/O Interface, Log on Log.</p>
+    <p>FTL READ / WRITE / TRIM</p>
+    <p>Log-structured File System Namespace</p>
+    <p>Alloc. GC</p>
+    <p>Alloc. Mapping</p>
+    <p>GC WL ECC</p>
+    <p>Channel N</p>
+    <p>Flash</p>
+    <p>Channel 0</p>
+    <p>Flash</p>
+    <p>Channel 1</p>
+    <p>Flash</p>
+    <p>Flash Memory</p>
+    <p>Alloc. GC</p>
+    <p>GCAlloc.</p>
+  </div>
+  <div class="page">
+    <p>Observation  F2FS vs. Ext4 (under heavy write traffic)</p>
+    <p>YCSB: 1000w random Read and Update operations  16GB flash space + 24GB write traffic</p>
+    <p>N or</p>
+    <p>m al</p>
+    <p>iz ed</p>
+    <p>T hr</p>
+    <p>ou gh</p>
+    <p>pu t</p>
+    <p>Number of Channels</p>
+    <p>EXT4 F2FS</p>
+    <p>G C</p>
+    <p>E ff</p>
+    <p>ic ie</p>
+    <p>nc y</p>
+    <p>(% )</p>
+    <p># of</p>
+    <p>R ec</p>
+    <p>yc le</p>
+    <p>d B</p>
+    <p>lo ck</p>
+    <p>s</p>
+    <p>F2FS has poorer performance than Ext4 on SSDs.</p>
+  </div>
+  <div class="page">
+    <p>Problem  Internal Parallelism Conflicts</p>
+    <p>Broken Data Grouping : Grouped data are broken and dispatched to different locations.</p>
+    <p>Uncoordinated GC Operations: GC processes in two levels are performed out-of-order.</p>
+    <p>Ineffective I/O Scheduling: erase operations always block the read/write operations, while the writes always delay the reads.</p>
+    <p>The flash storage architecture block the optimizations.</p>
+  </div>
+  <div class="page">
+    <p>FTL READ / WRITE / TRIM</p>
+    <p>Log-structured File System Namespace</p>
+    <p>Alloc. GC</p>
+    <p>Alloc. Mapping</p>
+    <p>GC WL ECC</p>
+    <p>Channel N</p>
+    <p>Flash</p>
+    <p>Channel 0</p>
+    <p>Flash</p>
+    <p>Channel 1</p>
+    <p>Flash</p>
+    <p>Flash Memory</p>
+    <p>Current Approaches (1)</p>
+    <p>Log-structured File System  Duplicate Functions: Space Allocation, Garbage Collection.  Semantics Isolation: FTL Abstraction, Block I/O Interface, Log on Log.</p>
+    <p>NILFS2, F2FS[FAST15]</p>
+    <p>SFS [FAST12] , Multi-streamed SSD [HotStorage14]</p>
+    <p>DFS [FAST10] , Nameless Write [FAST12]</p>
+  </div>
+  <div class="page">
+    <p>Current Approaches (2)</p>
+    <p>FTL READ / WRITE / TRIM</p>
+    <p>Log-structured File System Namespace</p>
+    <p>Alloc. GC</p>
+    <p>Alloc. Mapping</p>
+    <p>GC WL ECC</p>
+    <p>Channel N</p>
+    <p>Flash</p>
+    <p>Channel 0</p>
+    <p>Flash</p>
+    <p>Channel 1</p>
+    <p>Flash</p>
+    <p>Flash Memory</p>
+    <p>Object-based File System [FAST13]  Move the semantics from FS to FTL.  Difficult to be adopted due to dramatic changes  Internal parallelism under-explored</p>
+    <p>Object-based FTL GET / PUT</p>
+    <p>Object-based File System Namespace</p>
+    <p>Alloc.</p>
+    <p>Mapping</p>
+    <p>GC WL ECC</p>
+    <p>Channel N</p>
+    <p>Flash</p>
+    <p>Channel 0</p>
+    <p>Flash</p>
+    <p>Channel 1</p>
+    <p>Flash</p>
+    <p>Flash Memory</p>
+  </div>
+  <div class="page">
+    <p>ParaFS Architecture Goal: How to exploit the internal parallelism of the flash devices while ensuring effective data grouping, efficient garbage collection, and consistent performance?</p>
+    <p>FTL READ / WRITE / TRIM</p>
+    <p>Log-structured File System Namespace</p>
+    <p>GCAlloc.</p>
+    <p>Alloc. Mapping</p>
+    <p>GC WL ECC</p>
+    <p>Channel N</p>
+    <p>Flash</p>
+    <p>Channel 0</p>
+    <p>Flash</p>
+    <p>Channel 1</p>
+    <p>Flash</p>
+    <p>Flash Memory</p>
+    <p>Block Mapping</p>
+    <p>S-FTL</p>
+    <p>WL ECC</p>
+    <p>Channel N</p>
+    <p>Flash</p>
+    <p>Channel 0</p>
+    <p>Flash</p>
+    <p>Channel 1</p>
+    <p>Flash</p>
+    <p>Flash Memory</p>
+    <p>ParaFS Namespace</p>
+    <p>READ / WRITE /</p>
+    <p>Alloc.</p>
+    <p>Alloc.</p>
+    <p>GC</p>
+    <p>GC Mapping</p>
+    <p>ERASE</p>
+  </div>
+  <div class="page">
+    <p>Outline  Background and Motivation  ParaFS Design</p>
+    <p>ParaFS Architecture  2-D Data Allocation  Coordinated Garbage Collection  Parallelism-Aware Scheduling</p>
+    <p>Evaluation  Conclusion</p>
+  </div>
+  <div class="page">
+    <p>ParaFS Architecture</p>
+    <p>ParaFS</p>
+    <p>S-FTL Block Mapping WL ECC</p>
+    <p>Flash Memory</p>
+    <p>Simplified FTL (S-FTL)  Exposing Physical Layout to FS: # of flash channels, Size</p>
+    <p>of flash block, Size of flash page.  Static Block Mapping: Block-level, rarely modified.  Data Allocation Functionality is removed.  GC process is simplified to Erase process.  WL, ECC: functions which need hardware supports.</p>
+    <p>IOCTL</p>
+    <p>READ / WRITE / ERASE  Interface  ioctl  Erase  Trim</p>
+    <p>ERASE</p>
+  </div>
+  <div class="page">
+    <p>ParaFS Architecture  ParaFS: Allocation, Garbage Collection, Scheduling</p>
+    <p>S-FTL</p>
+    <p>Block Mapping WL ECC</p>
+    <p>Channel N</p>
+    <p>Flash</p>
+    <p>Channel 0</p>
+    <p>Flash</p>
+    <p>Channel 1</p>
+    <p>Flash</p>
+    <p>Flash Memory</p>
+    <p>ParaFS Namespace</p>
+    <p>READ / WRITE / ERASE</p>
+    <p>Coordinated GC Thread 0 Thread N</p>
+    <p>Parallelism-Aware Scheduler</p>
+    <p>Read Write Erase Read</p>
+    <p>Req. Que. 0</p>
+    <p>Req. Que. N</p>
+    <p>Read Write Erase Read</p>
+  </div>
+  <div class="page">
+    <p>Problem #1: Grouping vs. Parallelism  Hot/Cold Data Grouping</p>
+    <p>Block 0 0 1</p>
+    <p>N</p>
+    <p>Block N 0 1</p>
+    <p>N</p>
+    <p>Plane 0 Block 0</p>
+    <p>N</p>
+    <p>Block N 0 1</p>
+    <p>N</p>
+    <p>Plane 1</p>
+    <p>Die 0 Die 1 Chip 0</p>
+    <p>Block 0 0 1</p>
+    <p>N</p>
+    <p>Block N 0 1</p>
+    <p>N</p>
+    <p>Plane 0 Block 0</p>
+    <p>N</p>
+    <p>Block N 0 1</p>
+    <p>N</p>
+    <p>Plane 1</p>
+    <p>Die 0 Die 1 Chip 1</p>
+    <p>Hot Segment Cold Segment</p>
+    <p>FS Vision of Data</p>
+    <p>FTL Vision of Data</p>
+    <p>A B C D E F G H</p>
+    <p>A B C D E F G H</p>
+  </div>
+  <div class="page">
+    <p>Current Data Allocation Schemes  Page Stripe  Block Stripe  Super Block</p>
+    <p>A B C D E F G H Segment 0 Segment 1</p>
+    <p>FS Vision of Data</p>
+    <p>FTL Vision of Data</p>
+    <p>A E C G</p>
+    <p>B F C G</p>
+    <p>C G C G</p>
+    <p>D H C G</p>
+    <p>Parallel Block 0 1 2 3</p>
+    <p>Recycle Unit</p>
+    <p>Exploiting internal parallelism with page unit striping causes heavy garbage collection overhead.</p>
+    <p>A B C D E F G H</p>
+  </div>
+  <div class="page">
+    <p>Current Data Allocation Schemes  Page Stripe  Block Stripe  Super Block</p>
+    <p>A B C D E F G H Segment 0 Segment 1</p>
+    <p>FS Vision of Data</p>
+    <p>FTL Vision of Data</p>
+    <p>A B C D</p>
+    <p>E F G H</p>
+    <p>C G C G</p>
+    <p>D H C G</p>
+    <p>Parallel Block 0 1 2 3</p>
+    <p>Recycle Unit</p>
+    <p>Not fully exploiting internal parallelism of the device, and performs badly in small sync write situation, mailserver.</p>
+    <p>A B C D</p>
+    <p>E F G H</p>
+  </div>
+  <div class="page">
+    <p>Current Data Allocation Schemes  Page Stripe  Block Stripe  Super Block</p>
+    <p>A B C D E F G H Segment 0 Segment 1</p>
+    <p>FS Vision of Data</p>
+    <p>FTL Vision of Data</p>
+    <p>A B C D</p>
+    <p>E F G H</p>
+    <p>C G C G</p>
+    <p>D H C G</p>
+    <p>Parallel Block 0 1 2 3</p>
+    <p>Recycle Unit</p>
+    <p>Larger GC unit causes extra garbage collection overhead.</p>
+    <p>A B C D E F G H</p>
+  </div>
+  <div class="page">
+    <p>Flash Memory Channel N</p>
+    <p>Flash</p>
+    <p>Channel 0</p>
+    <p>Flash</p>
+    <p>Channel 1</p>
+    <p>Flash</p>
+    <p>Alloc. Space</p>
+    <p>Free Space</p>
+    <p>Alloc. Head 0</p>
+    <p>Alloc. Head 1</p>
+    <p>Alloc. Head m</p>
+    <p>Region 0</p>
+    <p>Free Seg. List</p>
+    <p>Region 1</p>
+    <p>Region N</p>
+    <p>Dimension</p>
+    <p>Aligned Data Layout in ParaFS  Region  Flash Channel Segment  Flash Block Page  Flash Page</p>
+    <p>Log-structured Segment</p>
+    <p>Written Data Page</p>
+    <p>Hotness-level DimensionAlloc. Head 1</p>
+  </div>
+  <div class="page">
+    <p>Page Stripe  Block Stripe  Super Block  2-D Allocation</p>
+    <p>Page Stripe Page High Block No High Block Stripe Block Low Block Yes Low Super Block Page High Multiple</p>
+    <p>Blocks Yes Medium</p>
+    <p>Parallelism Garbage Collection Stripe</p>
+    <p>Granularity Parallelism</p>
+    <p>Level GC</p>
+    <p>Granularity Grouping</p>
+    <p>Maintenance GC</p>
+    <p>Overhead</p>
+  </div>
+  <div class="page">
+    <p>Problem #2: GC vs. Parallelism  Uncoordinated Garbage Collection</p>
+    <p>A B C D E F G HFS Vision of Data</p>
+    <p>FTL Vision of Data</p>
+    <p>A B C D E F</p>
+    <p>Die 0</p>
+    <p>Chip 0</p>
+    <p>Plane 0</p>
+    <p>Block 0</p>
+    <p>Plane 1</p>
+    <p>Block 1 B D</p>
+    <p>Die 0</p>
+    <p>Chip 1</p>
+    <p>Plane 0</p>
+    <p>Block 0 E F</p>
+    <p>Plane 1</p>
+    <p>Block 1 G HFTL GC early</p>
+    <p>A C</p>
+  </div>
+  <div class="page">
+    <p>Uncoordinated Garbage Collection</p>
+    <p>A B C D E F G HFS Vision of Data</p>
+    <p>FTL Vision of Data</p>
+    <p>FS GC early</p>
+    <p>A B C D E F</p>
+    <p>Die 0</p>
+    <p>Chip 0</p>
+    <p>Plane 0</p>
+    <p>Block 0 A C</p>
+    <p>Plane 1</p>
+    <p>Block 1 B D</p>
+    <p>Die 0</p>
+    <p>Chip 1</p>
+    <p>Plane 0</p>
+    <p>Block 0 E F</p>
+    <p>Plane 1</p>
+    <p>Block 1 G H</p>
+    <p>A C</p>
+    <p>B DFirst</p>
+    <p>Choice Second Choice</p>
+    <p>Problem #2: GC vs. Parallelism</p>
+  </div>
+  <div class="page">
+    <p>Garbage Collection in Two levels brings overheads</p>
+    <p>FTL only gets page invalidation after Trim commands.  Due to the no-overwrite pattern.  Pages that are invalid in the FS, moved during FTL-level GC.</p>
+    <p>Unexpected timing of GC starts in two levels.  FTL GC starts before FS GC starts.  FTL GC blocks the FS I/O and causes unexpected I/O latency.</p>
+    <p>Waste Space.  Each level keeps over-provision space for GC efficiency.  Each level keeps meta data space, to record page and</p>
+    <p>block(segment) utilization, to remapping.</p>
+  </div>
+  <div class="page">
+    <p>Coordinated GC process in two levels  FS-level GC</p>
+    <p>Foreground GC or Background GC (trigger condition, selection policy)</p>
+    <p>Migration the valid pages from victim segments.  Do the checkpoint in case of crash.  Send the Erase Request to S-FTL.</p>
+    <p>FTL-level GC  Find the corresponding flash block by static block mapping table.  Erase the flash block directly.</p>
+    <p>Multi-threaded Optimization  One GC process per Region (Flash Channel).  One Manager process to do the checkpoint after GC.</p>
+  </div>
+  <div class="page">
+    <p>Select the least busy channel to dispatch write request</p>
+    <p>New Write</p>
+    <p>Write</p>
+    <p>Read Req. Que. 0</p>
+    <p>Write</p>
+    <p>Read Req. Que. 1</p>
+    <p>Read Write</p>
+    <p>Req. Que. 2</p>
+    <p>Write</p>
+    <p>Write</p>
+    <p>Req. Que. 3 Read</p>
+    <p>Read</p>
+    <p>Request Queue</p>
+    <p>&quot;#$%%&amp;' = )(+&amp;$,+&amp;$,,3+45&amp;3+45&amp;)</p>
+  </div>
+  <div class="page">
+    <p>Select the least busy channel to dispatch write request</p>
+    <p>Request Scheduling Phase  Time Slice for Read Request Scheduling and Write/Erase Request</p>
+    <p>Scheduling.  Schedule Write or Erase Request according to Space Utilization and</p>
+    <p>Number of Concurrent Erasing Channels.</p>
+    <p>In implementation</p>
+    <p>=  + &amp;</p>
+  </div>
+  <div class="page">
+    <p>Free Space</p>
+    <p>Used Space</p>
+    <p>Request Scheduling Phase  Example.</p>
+    <p>Channel 0</p>
+    <p>= 75%</p>
+    <p>Channel 1</p>
+    <p>= 25%</p>
+    <p>Channel 2</p>
+    <p>= 30%</p>
+    <p>Channel 3</p>
+    <p>= 30%</p>
+    <p>D = 2  75% + 0 &gt; 1 Write Erase Erase Write G = 2  25% + 0 &lt; 1</p>
+    <p>I = 2  30% + 25% &lt; 1</p>
+    <p>J = 2  30% + 50% &gt; 1</p>
+  </div>
+  <div class="page">
+    <p>Outline  Background and Motivation  ParaFS Design  Evaluation  Conclusion</p>
+  </div>
+  <div class="page">
+    <p>Evaluation  ParaFS implemented on Linux kernel 2.6.32 based on F2FS</p>
+    <p>Ext4 (In-place update), BtrFS (CoW), back-ported F2FS (Log-structured update)  F2FS_SB: back-ported F2FS with large segment configuration</p>
+    <p>Testbed:  PFTL, S-FTL</p>
+    <p>Workload Pattern R:W FSYNC I/O Size Fileserver random read and write files 33/66 N 1 MB</p>
+    <p>Postmark create, delete, read and append files 20/80 Y 512 B</p>
+    <p>MobiBench random update records in SQLite 1/99 Y 4 KB</p>
+    <p>YCSB read and update records in MySQL 50/50 Y 1 KB</p>
+    <p>Workloads:</p>
+  </div>
+  <div class="page">
+    <p>Evaluation  Light Write Traffic</p>
+    <p>- Outperforms other file systems in all cases. - Improves performance by up to 13% (Postmark 32-Channel)</p>
+    <p>Fileserver Postmark MobiBench YCSB</p>
+    <p>N or</p>
+    <p>m al</p>
+    <p>iz ed</p>
+    <p>T hr</p>
+    <p>ou gh</p>
+    <p>pu t</p>
+    <p>Channel = 8</p>
+    <p>BtrFS EXT4 F2FS F2FS_SB ParaFS</p>
+    <p>Fileserver Postmark MobiBench YCSB N</p>
+    <p>or m</p>
+    <p>al iz</p>
+    <p>ed T</p>
+    <p>hr ou</p>
+    <p>gh pu</p>
+    <p>t Channel = 32</p>
+    <p>BtrFS EXT4 F2FS F2FS_SB ParaFS</p>
+    <p>Normalized to F2FS in 8-Channel case</p>
+  </div>
+  <div class="page">
+    <p>Evaluation  Heavy Write Traffic</p>
+    <p>- Achieves the best throughput among all evaluated file systems - Outperforms: Ext4(1.0X ~ 2.5X) F2FS(1.6X ~ 3.1X) F2FS_SB(1.2X ~1.5X)</p>
+  </div>
+  <div class="page">
+    <p>Evaluation - Endurance</p>
+    <p>f R ec</p>
+    <p>yc le</p>
+    <p>d B</p>
+    <p>lo ck</p>
+    <p>s</p>
+    <p>Recycled Block Count</p>
+    <p>G C</p>
+    <p>E ff</p>
+    <p>ic ie</p>
+    <p>nc y</p>
+    <p>GC Efficiency</p>
+    <p>W ri</p>
+    <p>te T</p>
+    <p>ra ff</p>
+    <p>ic (G</p>
+    <p>B )</p>
+    <p>Write Traffic from FS</p>
+    <p>W ri</p>
+    <p>te T</p>
+    <p>ra ff</p>
+    <p>ic (G</p>
+    <p>B )</p>
+    <p>Write Traffic from FTL</p>
+    <p>ParaFS decreases the write traffic to the flash memory by 31.7% ~ 58.1%, compared with F2FS.</p>
+  </div>
+  <div class="page">
+    <p>Evaluation  Performance Consistency  Two Optimizations</p>
+    <p>MGC: Multi-threaded GC process  PS: Parallelism-aware Scheduling</p>
+    <p>- Multi-threaded GC improves 18.5% (MGC vs. Base) - Parallelism-aware Scheduling: 20% improvement in first stage. (PS vs. Base)</p>
+    <p>much consistent performance in GC stage. (ParaFS vs. MGC)</p>
+  </div>
+  <div class="page">
+    <p>Conclusion  Internal parallelism has not been leveraged in the FS</p>
+    <p>level.  The mechanisms: Data Grouping, Garbage Collection, I/O</p>
+    <p>Scheduling  The architecture: Semantics Isolation &amp; Redundant Functions</p>
+    <p>ParaFS bridges the semantic gap and exploits internal parallelism in the FS-level.  (1) 2-D Allocation: page unit striping and data grouping.  (2) Coordinated GC: improve the GC efficiency and speed.  (3) Parallelism-aware Scheduling: more consistent performance.</p>
+    <p>ParaFS shows performance improvement by up to 3.1X and write reduction by 58.1% compared to F2FS.</p>
+  </div>
+  <div class="page">
+    <p>Jiacheng Zhang, Jiwu Shu, Youyou Lu luyouyou@tsinghua.edu.cn</p>
+    <p>http://storage.cs.tsinghua.edu.cn/~lu 33</p>
+    <p>Thanks ParaFS: A Log-Structured File System</p>
+    <p>to Exploit the Internal Parallelism of Flash Devices</p>
+  </div>
+</Presentation>

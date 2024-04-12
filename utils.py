@@ -2,9 +2,10 @@ import os
 from bs4 import BeautifulSoup
 import re
 import nltk
+
 nltk.download('stopwords')
 from nltk.corpus import stopwords
-from nltk.tokenize import word_tokenize
+from nltk.tokenize import word_tokenize, sent_tokenize
 from nltk.stem import PorterStemmer
 from sklearn.metrics.pairwise import cosine_similarity
 from tokenizers import Tokenizer
@@ -46,18 +47,29 @@ def parse_paper_xml(file_xml):
     - file_data (list): List of text extracted from 'head' elements, with subsequent 'p' elements concatenated
     """
     file_data = []
-    soup = BeautifulSoup(file_xml,'xml')
-    heads = soup.find_all('head')
-    for head in heads:
-        head_text = ""
-        p_elements = head.find_next_siblings('p')
+    flat_data = []
+    soup = BeautifulSoup(file_xml, 'xml')
+    body = soup.find('body')
+    if body:
+        p_elements = body.find_all('p')
         for p_element in p_elements:
             text = p_element.get_text()
             if text.strip():  # Check if the text is not empty or whitespace
-                head_text += text
-        if head_text:  # Append to file_data only if head_text is not empty
-            file_data.append(head_text)
-    return file_data
+                sentences = sent_tokenize(text)
+                file_data.append(sentences)
+        for sublist in file_data:
+            flat_data.extend(sublist)
+    return flat_data
+    # for head in heads:
+    #     head_text = ""
+    #     p_elements = head.find_next_siblings('p')
+    #     for p_element in p_elements:
+    #         text = p_element.get_text()
+    #         if text.strip():  # Check if the text is not empty or whitespace
+    #             head_text += text
+    #     if head_text:  # Append to file_data only if head_text is not empty
+    #         file_data.append(head_text)
+    # return file_data
 
 
 def parse_presentation_xml(presentation_xml):
@@ -80,7 +92,7 @@ def parse_presentation_xml(presentation_xml):
         for p_element in p_elements:
             text = p_element.get_text().strip()  # Get the text and strip leading/trailing whitespace
             if text:  # Check if the text is not empty
-                page_text += text + " " # Add space between paragraphs
+                page_text += text + " "  # Add space between paragraphs
         if page_text:  # Append to presentation_data only if page_text is not empty
             presentation_data.append(page_text.strip())  # Strip leading/trailing whitespace
     return presentation_data
@@ -102,17 +114,27 @@ def preprocess_text(text_data):
     for text in text_data:
         # Convert to lowercase
         text = text.lower()
+        # Tokenization (split text into sentences)
+        sentences = sent_tokenize(text)
         # Remove punctuation and special characters
         text = re.sub(r'[^\w\s]', '', text)
-        # Tokenization
-        words = word_tokenize(text)
-        # Remove stopwords
-        words = [word for word in words if word not in stop_words]
-        # Stemming
-        words = [stemmer.stem(word) for word in words]
-        # Join tokens back to text
-        preprocessed_text.append(words)
+        # Remove stopwords and stemming for each sentence
+        preprocessed_sentences = []
+        for sentence in sentences:
+            words = word_tokenize(sentence)
+            words = [clean_word(word) for word in words if clean_word(word) not in stop_words]
+            words = [stemmer.stem(word) for word in words]
+            preprocessed_sentences.append(' '.join(words))
+        preprocessed_text.append(preprocessed_sentences)
     return preprocessed_text
+
+
+def clean_word(word):
+    # Remove punctuation and special characters
+    word = re.sub(r'[^\w\s]', '', word)
+    # Convert to lowercase
+    word = word.lower()
+    return word
 
 
 def get_prfa(dev_y: list, preds: list, verbose=False) -> tuple:
@@ -214,22 +236,22 @@ def read_embeddings(filename: str, tokenizer: Tokenizer) -> (dict, dict):
     vector = []
     word = ""
 
-    #open file
+    # open file
     file = open(filename)
 
-    #reading the file into a string
+    # reading the file into a string
     spooky_content = file.readlines()
-    #tokenizer.fit_on_texts(spooky_content)
-    #tokenizer.texts_to_sequences(spooky_content)
+    # tokenizer.fit_on_texts(spooky_content)
+    # tokenizer.texts_to_sequences(spooky_content)
 
-    #map word to its embedding vector
-    #map index to its embedding vector
+    # map word to its embedding vector
+    # map index to its embedding vector
 
     del spooky_content[0]
 
     for line in spooky_content:
 
-        tokens  = line.split(" ")
+        tokens = line.split(" ")
         word = tokens[0]
         vector = []
         del tokens[0]
@@ -249,7 +271,6 @@ def read_embeddings(filename: str, tokenizer: Tokenizer) -> (dict, dict):
 
 
 def find_most_similar_paper(paper_embeddings, pres_embedding):
-
     # Calculate cosine similarity between each paper and the desired presentation
     similarities = []
     for paper_embedding in paper_embeddings:
@@ -308,6 +329,28 @@ def move_xml_files(source_dir, first_xml_dir, second_xml_dir):
     print("Process completed.")
 
 
+def organize_xml_folders(source_folder, papers_folder, presentations_folder):
+    # Ensure destination folders exist
+    os.makedirs(papers_folder, exist_ok=True)
+    os.makedirs(presentations_folder, exist_ok=True)
+
+    # Iterate through each folder in the source folder
+    for index, folder_name in enumerate(sorted(os.listdir(source_folder))):
+        # Create the full path to the current folder
+        folder_path = os.path.join(source_folder, folder_name)
+
+        # Check if it's a directory
+        if os.path.isdir(folder_path):
+            # Find the XML files inside the current folder
+            for filename in os.listdir(folder_path):
+                if filename.startswith("Paper") and filename.endswith(".xml"):
+                    paper_xml = os.path.join(folder_path, filename)
+                    shutil.move(paper_xml, os.path.join(papers_folder, f"{index}_paper.xml"))
+                elif filename.startswith("slide") and filename.endswith(".xml"):
+                    presentation_xml = os.path.join(folder_path, filename)
+                    shutil.move(presentation_xml, os.path.join(presentations_folder, f"{index}_presentation.xml"))
+
+
 def parse_title(xml_content):
     root = ET.fromstring(xml_content)
     # Define the namespace
@@ -319,11 +362,12 @@ def parse_title(xml_content):
     else:
         return None
 
+
 def stringify(los):
-  strings = ""
-  for string in los:
-    strings += string
-  return string
+    strings = ""
+    for string in los:
+        strings += string
+    return string
 
 
 def clean_data(text):
@@ -336,18 +380,12 @@ def change_lower(text):
     text = text.lower()
     return text
 
+
 stopwords_list = stopwords.words("english")
+
+
 def remover(text):
     text_tokens = text.split(" ")
     final_list = [word for word in text_tokens if not word in stopwords_list]
     text = ' '.join(final_list)
     return text
-
-
-
-
-
-
-
-
-

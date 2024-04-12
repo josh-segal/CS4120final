@@ -1,0 +1,387 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>Inferring the Network Latency Requirements of Cloud Tenants Jeff Mogul (Google) Ramana Rao Kompella (Google + Purdue)</p>
+    <p>HotOS XV May 2015</p>
+  </div>
+  <div class="page">
+    <p>Google Confidential and Proprietary</p>
+    <p>Users care about latency</p>
+    <p>In te</p>
+    <p>rn et</p>
+    <p>NiftySvc.com</p>
+    <p>Systems that respond to user actions [within 100ms] feel more fluid and natural to users</p>
+    <p>-- J Dean &amp; L Barroso, The Tail at Scale, CACM 56(2)</p>
+    <p>[Amazons] services have stringent latency requirements  measured at the 99.9th percentile</p>
+    <p>-- G DeCandia et al., Dynamo , SOSP 2007</p>
+    <p>Amazon found every 100ms of latency cost them 1% in sales</p>
+    <p>-- (various non-original sources)</p>
+  </div>
+  <div class="page">
+    <p>Google Confidential and Proprietary</p>
+    <p>Cloud provider infrastructure</p>
+    <p>So, cloud tenants might care about intra-cloud latency</p>
+    <p>In te</p>
+    <p>rn et</p>
+    <p>NiftySvc.com</p>
+    <p>VM</p>
+    <p>VM</p>
+    <p>VM</p>
+    <p>VM</p>
+    <p>Cloud database service</p>
+    <p>Cloud storage service</p>
+  </div>
+  <div class="page">
+    <p>Google Confidential and Proprietary</p>
+    <p>Cloud provider infrastructure</p>
+    <p>So, cloud tenants might care about intra-cloud latency</p>
+    <p>In te</p>
+    <p>rn et</p>
+    <p>NiftySvc.com</p>
+    <p>VM</p>
+    <p>VM</p>
+    <p>VM</p>
+    <p>VM</p>
+    <p>Cloud database service</p>
+    <p>Cloud storage service</p>
+    <p>(the green arrows in this diagram)</p>
+  </div>
+  <div class="page">
+    <p>Google Confidential and Proprietary</p>
+    <p>How much do tenants care about intra-cloud latency?</p>
+  </div>
+  <div class="page">
+    <p>Google Confidential and Proprietary</p>
+    <p>How much do tenants care about intra-cloud latency?</p>
+    <p>Providers dont generally know</p>
+  </div>
+  <div class="page">
+    <p>Google Confidential and Proprietary</p>
+    <p>How much do tenants care about intra-cloud latency?</p>
+    <p>Providers dont generally know  Tenants dont generally know</p>
+  </div>
+  <div class="page">
+    <p>Google Confidential and Proprietary</p>
+    <p>So why should we care?</p>
+  </div>
+  <div class="page">
+    <p>Google Confidential and Proprietary</p>
+    <p>So why should we care?</p>
+    <p>Our intuition: intra-cloud latency actually does matter to tenants  So a cloud provider with better latency will have happier tenants</p>
+    <p>that is, more tenants, and/or tenants who are willing to pay more  But building infrastructure to support low latency isnt cheap</p>
+    <p>especially for low tail latency, which tends to require low utilization</p>
+  </div>
+  <div class="page">
+    <p>Google Confidential and Proprietary</p>
+    <p>Goal of our work: how much does latency matter?</p>
+    <p>How sensitive is a given cloud application (or VM) to the underlying intra-cloud network latency?</p>
+    <p>Specific focus of our work:  Within-region vs. WAN latency</p>
+    <p>Intuition: local latency is easier to vary per-tenant  Techniques requiring little or no help from the tenants</p>
+    <p>Intuition: tenant developers dont want to be bothered  Not on how much bandwidth an application uses</p>
+    <p>previous work has looked at inferring cloud bandwidth needs  Proteus (Xie et al., SIGCOMM 12); Cicada (LaCurts et al., HotCloud 14)</p>
+  </div>
+  <div class="page">
+    <p>Google Confidential and Proprietary</p>
+    <p>One-slide summary</p>
+    <p>Our system will:  Inject network latency using known patterns (PN codes)  Measure application-level metrics  Use correlation to detect how much latency affects these metrics</p>
+  </div>
+  <div class="page">
+    <p>Google Confidential and Proprietary</p>
+    <p>What could a provider do with this information?</p>
+    <p>Balance resource allocations between tenants:  Use admission control, to avoid over-utilizing the network  Place VMs to improve locality or reduce interference</p>
+    <p>as in Oktopus (Ballani et al. SIGCOMM 11) and Silo (Jang et al. 13)  Rate-limit latency-insensitive tenant VMs  Use DSCP settings to shift load between switch queues  Adjust relative prices of VMs and guarantees for BW &amp; latency</p>
+  </div>
+  <div class="page">
+    <p>Google Confidential and Proprietary</p>
+    <p>What could a provider do with this information?</p>
+    <p>And:  Plan infrastructure upgrades/expansions  Help tenants understand which provider better suits their needs</p>
+  </div>
+  <div class="page">
+    <p>Google Confidential and Proprietary</p>
+    <p>Why is inferring latency harder than inferring bandwidth?</p>
+    <p>Basic technique for inferring bandwidth needs:  Temporarily turn off rate limiting  Measure how much bandwidth the application (VM) uses  Infer future needs from (measured) past behavior</p>
+    <p>Its harder to apply this method to latency:  How do you measure how much latency the VM uses?</p>
+  </div>
+  <div class="page">
+    <p>Google Confidential and Proprietary</p>
+    <p>How bad is it?</p>
+    <p>We did a simple study to quantify latency variability  simple means WARNING: this is bad science  Do not attempt to compare providers using this data. Please.</p>
+    <p>Methodology:  Buy two cheap VMs in each of several providers  Run netperf TCP_RR for 60 seconds every 15 minutes</p>
+    <p>netperf reports latency histograms (in a weird way)</p>
+  </div>
+  <div class="page">
+    <p>Google Confidential and Proprietary</p>
+    <p>Latency results (see warnings on previous slide)</p>
+    <p>Latencies in microseconds</p>
+    <p>Latencies can be quite large (at 99th %ile or 99.9th %ile)  Latencies vary over both short and long time scales  Latencies seem to vary between providers (WARNING: NOT ACTUAL SCIENCE!)</p>
+  </div>
+  <div class="page">
+    <p>Google Confidential and Proprietary</p>
+    <p>Our approach: Use correlation for latency inference</p>
+    <p>Goals:  Infer a causal relationship between network latency and</p>
+    <p>application-level Service-Level Objective (SLO) for latency  Find threshold below which better network latency doesnt help  Understand how well the application tolerates latency increases</p>
+    <p>Approach:  Measure network latency variations  Measure SLO effects  Correlate! Statistics!</p>
+    <p>As in Cohen et al., Correlating Instrumentation Data to System States, OSDI 04</p>
+  </div>
+  <div class="page">
+    <p>Google Confidential and Proprietary</p>
+    <p>The hard parts:</p>
+    <p>Measuring network latency variation  Measuring SLO variation  Doing this for a complex multi-VM application  Doing this without (much) help from the tenants  Be robust to various and unknown sources of noise</p>
+    <p>e.g., network traffic, application behavior, storage service latency variation, workload variations</p>
+  </div>
+  <div class="page">
+    <p>Google Confidential and Proprietary</p>
+    <p>Measuring network latency variation</p>
+    <p>Possible approaches:  Exploit natural variation?</p>
+    <p>Only works if there is enough natural variation [maybe]  How can a VMM actually measure the latency seen by a VM?</p>
+    <p>add timestamps to packets? But what if there is no rapid response?  snoop on TCP headers? But what if no TCP? Or if VM uses IPSEC?</p>
+    <p>Inject our own variation?  We can do it whenever we want (e.g., only for selected VMs)  No need to match up requests and responses  We control the frequency and amplitude  Relatively easy to do at the VMM layer</p>
+  </div>
+  <div class="page">
+    <p>Google Confidential and Proprietary</p>
+    <p>Measuring network latency variation</p>
+    <p>Possible approaches:  Exploit natural variation?</p>
+    <p>Only works if there is enough natural variation [maybe]  How can a VMM actually measure the latency seen by a VM?</p>
+    <p>add timestamps to packets? But what if there is no rapid response?  snoop on TCP headers? But what if no TCP? Or if VM uses IPSEC?</p>
+    <p>Inject our own variation?  We can do it whenever we want (e.g., only for selected VMs)  No need to match up requests and responses  We control the frequency and amplitude  Relatively easy to do at the VMM layer</p>
+  </div>
+  <div class="page">
+    <p>Google Confidential and Proprietary</p>
+    <p>Measuring SLO variation</p>
+    <p>What is an application-level SLO?</p>
+    <p>Examples:  99.9% of HTTP requests complete within 500 msec  Handle at least 1000 requests/sec at least 99% of the time</p>
+  </div>
+  <div class="page">
+    <p>Google Confidential and Proprietary</p>
+    <p>Measuring SLO variation (without help from tenants)</p>
+    <p>Options:  Assume tenant uses provider-supplied load balancer</p>
+    <p>but: not all tenants use one, or they use Direct Server Return  Measure Internet use; assume better results lead to more use</p>
+    <p>not always a good indicator  VMM assumes HLT/MWAIT means VM is waiting for network</p>
+    <p>doesnt work if theres enough parallelism to keep cores busy  Hook into cloud-monitoring tools (e.g., Tracelytics or AppDynamics)</p>
+    <p>not everyone uses these</p>
+    <p>Were still trying to figure out which of these we can use (maybe several?)</p>
+  </div>
+  <div class="page">
+    <p>Google Confidential and Proprietary</p>
+    <p>How do we know which paths are latency-sensitive?</p>
+    <p>NiftySvc.com</p>
+    <p>VM</p>
+    <p>VM</p>
+    <p>VM</p>
+    <p>VM</p>
+    <p>Cloud database service</p>
+    <p>Cloud storage service</p>
+    <p>Load balancer where SLO is</p>
+    <p>measured</p>
+    <p>Which green arrows are the ones whose network latency affects the overall SLO?</p>
+  </div>
+  <div class="page">
+    <p>Google Confidential and Proprietary</p>
+    <p>How do we know which paths are latency-sensitive?</p>
+    <p>NiftySvc.com</p>
+    <p>VM</p>
+    <p>VM</p>
+    <p>VM</p>
+    <p>VM</p>
+    <p>Cloud database service</p>
+    <p>Cloud storage service</p>
+    <p>Load balancer where SLO is</p>
+    <p>measured</p>
+    <p>Which green arrows are the ones whose network latency affects the overall SLO? (within the cloud providers domain)</p>
+  </div>
+  <div class="page">
+    <p>Google Confidential and Proprietary</p>
+    <p>How do we know which paths are latency-sensitive?</p>
+    <p>NiftySvc.com</p>
+    <p>VM</p>
+    <p>VM</p>
+    <p>VM</p>
+    <p>VM</p>
+    <p>Cloud database service</p>
+    <p>Cloud storage service</p>
+    <p>Load balancer where SLO is</p>
+    <p>measured</p>
+    <p>For example: these paths might matter the most</p>
+  </div>
+  <div class="page">
+    <p>Google Confidential and Proprietary</p>
+    <p>Insight: inject latency variation using pseudo-noise code</p>
+    <p>Inject latency using time-varying pattern representing bit-sequence  added latency = 1  no added latency = 0</p>
+    <p>Choose pattern using pseudo-noise (PN) codes  A set of PN codes can be chosen to be highly orthogonal</p>
+    <p>i.e., minimal correlation between pairs of PN codes  Assign one PN code to each latency path (i.e., each green arrow)</p>
+    <p>Correlate time-varying SLO measurements with known PN codes  This is what GPS receivers do (more or less)</p>
+    <p>This should allow us to:  Understand which network paths actually matter  Separate effects of network latencies from various noise sources</p>
+  </div>
+  <div class="page">
+    <p>Google Confidential and Proprietary</p>
+    <p>Cartoon version of PN codes in action</p>
+    <p>NiftySvc.com</p>
+    <p>VM</p>
+    <p>VM</p>
+    <p>VM</p>
+    <p>VM</p>
+    <p>Cloud database service</p>
+    <p>Cloud storage service</p>
+    <p>Load balancer where SLO is</p>
+    <p>measured</p>
+    <p>Correlate</p>
+    <p>Injected PN codesMeasured SLO variations</p>
+  </div>
+  <div class="page">
+    <p>Google Confidential and Proprietary</p>
+    <p>Cartoon version of PN codes in action</p>
+    <p>NiftySvc.com</p>
+    <p>VM</p>
+    <p>VM</p>
+    <p>VM</p>
+    <p>VM</p>
+    <p>Cloud database service</p>
+    <p>Cloud storage service</p>
+    <p>Load balancer where SLO is</p>
+    <p>measured</p>
+    <p>Correlate</p>
+    <p>Injected PN codesMeasured SLO variations</p>
+    <p>The culprit!</p>
+  </div>
+  <div class="page">
+    <p>Google Confidential and Proprietary</p>
+    <p>Characteristics of PN codes</p>
+    <p>We will have to experiment to find out the necessary  Amplitude: how much time packets are delayed for  Frequency: how long a 1 or 0 bit lasts  Duration: how many bits in a PN code</p>
+    <p>to support reasonably-fast correlation  without annoying users</p>
+  </div>
+  <div class="page">
+    <p>Google Confidential and Proprietary</p>
+    <p>Implementation</p>
+    <p>Progress so far:  Hired a really good intern</p>
+  </div>
+  <div class="page">
+    <p>Google Confidential and Proprietary</p>
+    <p>System diagram</p>
+    <p>Latency Injector</p>
+    <p>Application-SLO Measurement</p>
+    <p>Application</p>
+    <p>Hypervisor</p>
+    <p>VM</p>
+    <p>Correlator Latency PN</p>
+    <p>Code generator CPU</p>
+    <p>Monitor</p>
+    <p>Data Center Network</p>
+    <p>Load Balancer</p>
+    <p>Infrastructure</p>
+  </div>
+  <div class="page">
+    <p>Google Confidential and Proprietary</p>
+    <p>Implementation/research challenges</p>
+    <p>Latency Injector</p>
+    <p>Application-SLO Measurement</p>
+    <p>Application</p>
+    <p>Hypervisor</p>
+    <p>VM</p>
+    <p>Correlator Latency PN</p>
+    <p>Code generator CPU</p>
+    <p>Monitor</p>
+    <p>Data Center Network</p>
+    <p>Load Balancer</p>
+    <p>Infrastructure</p>
+  </div>
+  <div class="page">
+    <p>Google Confidential and Proprietary</p>
+    <p>Implementation/research challenges</p>
+    <p>Latency Injector</p>
+    <p>Application-SLO Measurement</p>
+    <p>Application</p>
+    <p>Hypervisor</p>
+    <p>VM</p>
+    <p>Correlator Latency PN</p>
+    <p>Code generator CPU</p>
+    <p>Monitor</p>
+    <p>Data Center Network</p>
+    <p>Load Balancer</p>
+    <p>Infrastructure</p>
+    <p>Will we be able to measure SLOs efficiently and accurately, without much tenant help?</p>
+  </div>
+  <div class="page">
+    <p>Google Confidential and Proprietary</p>
+    <p>Implementation/research challenges</p>
+    <p>Latency Injector</p>
+    <p>Application-SLO Measurement</p>
+    <p>Application</p>
+    <p>Hypervisor</p>
+    <p>VM</p>
+    <p>Correlator Latency PN</p>
+    <p>Code generator CPU</p>
+    <p>Monitor</p>
+    <p>Data Center Network</p>
+    <p>Load Balancer</p>
+    <p>Infrastructure</p>
+    <p>Will we be able to inject latency efficiently and accurately?</p>
+  </div>
+  <div class="page">
+    <p>Google Confidential and Proprietary</p>
+    <p>Implementation/research challenges</p>
+    <p>Latency Injector</p>
+    <p>Application-SLO Measurement</p>
+    <p>Application</p>
+    <p>Hypervisor</p>
+    <p>VM</p>
+    <p>Correlator Latency PN</p>
+    <p>Code generator CPU</p>
+    <p>Monitor</p>
+    <p>Data Center Network</p>
+    <p>Load Balancer</p>
+    <p>Infrastructure</p>
+    <p>Will we be able to generate enough good (highly orthogonal) PN codes?</p>
+  </div>
+  <div class="page">
+    <p>Google Confidential and Proprietary</p>
+    <p>Implementation/research challenges</p>
+    <p>Latency Injector</p>
+    <p>Application-SLO Measurement</p>
+    <p>Application</p>
+    <p>Hypervisor</p>
+    <p>VM</p>
+    <p>Correlator Latency PN</p>
+    <p>Code generator CPU</p>
+    <p>Monitor</p>
+    <p>Data Center Network</p>
+    <p>Load Balancer</p>
+    <p>Infrastructure</p>
+    <p>Will we be able to find correlations? How quickly?</p>
+  </div>
+  <div class="page">
+    <p>Google Confidential and Proprietary</p>
+    <p>Implementation/research challenges</p>
+    <p>Latency Injector</p>
+    <p>Application-SLO Measurement</p>
+    <p>Application</p>
+    <p>Hypervisor</p>
+    <p>VM</p>
+    <p>Correlator Latency PN</p>
+    <p>Code generator CPU</p>
+    <p>Monitor</p>
+    <p>Data Center Network</p>
+    <p>Load Balancer</p>
+    <p>Infrastructure</p>
+    <p>With what PN codes (frequency, length, amplitude)? Will these really harm application performance?</p>
+  </div>
+  <div class="page">
+    <p>Google Confidential and Proprietary</p>
+    <p>Implementation/research challenges</p>
+    <p>Latency Injector</p>
+    <p>Application-SLO Measurement</p>
+    <p>Application</p>
+    <p>Hypervisor</p>
+    <p>VM</p>
+    <p>Correlator Latency PN</p>
+    <p>Code generator CPU</p>
+    <p>Monitor</p>
+    <p>Data Center Network</p>
+    <p>Load Balancer</p>
+    <p>Infrastructure</p>
+    <p>Will the application act as a big low-pass filter? What about multi-path interference?</p>
+  </div>
+  <div class="page">
+    <p>Google Confidential and Proprietary</p>
+    <p>Q&amp;A</p>
+  </div>
+</Presentation>

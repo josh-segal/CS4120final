@@ -1,0 +1,300 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>Confidential  2020 VMware, Inc.</p>
+    <p>go-pmem: Native Support for Programming Persistent Memory in Go</p>
+    <p>Jerrin Shaji George, Mohit Verma, Rajesh Venkatasubramanian, Pratap Subrahmanyam</p>
+    <p>July 2020</p>
+  </div>
+  <div class="page">
+    <p>Confidential  2020 VMware, Inc. 2</p>
+    <p>RAM-like access time  Byte addressability  Non-volatile  Instant restart time</p>
+    <p>CPU Registers</p>
+    <p>CPU Caches (L1, L2, L3, L4)</p>
+    <p>DDR DRAM</p>
+    <p>Persistent Memory</p>
+    <p>NAND SSD</p>
+    <p>Hard Disk Drives (HDD)</p>
+    <p>Tape</p>
+    <p>Capacity</p>
+    <p>~0.1ns</p>
+    <p>~80-100ns</p>
+    <p>&lt;1s</p>
+    <p>~10ms</p>
+    <p>~100ms</p>
+    <p>Latency - Volatile Memory - Load/Store instructions - Cache Line Granularity</p>
+    <p>- Volatile Memory - Load/Store instructions - Cache Line Granularity</p>
+    <p>- Non-Volatile Storage - I/O Commands - Block Granularity</p>
+    <p>Co st</p>
+    <p>($ /G</p>
+    <p>iB )</p>
+    <p>Memory-Storage Hierarchy with Persistent Memory Tier. Source: pmem.io</p>
+    <p>Persistent Memory 101</p>
+  </div>
+  <div class="page">
+    <p>Confidential  2020 VMware, Inc. 3</p>
+    <p>go-pmem</p>
+    <p>Open source Go compiler based on Go 1.11  Native support for programming PMem  Better performance than previous works  Minimal changes  Merge to official Go</p>
+  </div>
+  <div class="page">
+    <p>Confidential  2020 VMware, Inc. 4</p>
+    <p>Design Goals</p>
+  </div>
+  <div class="page">
+    <p>Confidential  2020 VMware, Inc. 5</p>
+    <p>Design Goals</p>
+    <p>int</p>
+    <p>persistent int</p>
+    <p>DRAM</p>
+    <p>PMem</p>
+    <p>What should be the type ?</p>
+  </div>
+  <div class="page">
+    <p>Confidential  2020 VMware, Inc. 6</p>
+    <p>Design Goals</p>
+    <p>Data Code Stack DRAM PMem</p>
+    <p>Heap</p>
+  </div>
+  <div class="page">
+    <p>Confidential  2020 VMware, Inc. 7</p>
+    <p>Design Goals</p>
+    <p>Data Code Stack DRAM PMem</p>
+    <p>HeapPointer</p>
+  </div>
+  <div class="page">
+    <p>Confidential  2020 VMware, Inc. 8</p>
+    <p>Design Goals</p>
+    <p>A C</p>
+    <p>B D</p>
+    <p>Pmem data</p>
+    <p>crash</p>
+    <p>Where is my data ?</p>
+  </div>
+  <div class="page">
+    <p>Confidential  2020 VMware, Inc. 9</p>
+    <p>Design Goals</p>
+  </div>
+  <div class="page">
+    <p>Confidential  2020 VMware, Inc. 10</p>
+    <p>Design Goals</p>
+    <p>function(args) {</p>
+    <p>... }</p>
+    <p>DRAM args</p>
+    <p>PMem args</p>
+  </div>
+  <div class="page">
+    <p>Confidential  2020 VMware, Inc. 11</p>
+    <p>Design Goals</p>
+    <p>Create new linked list in PMem</p>
+    <p>Linked list in PMem</p>
+    <p>head</p>
+  </div>
+  <div class="page">
+    <p>Confidential  2020 VMware, Inc. 12</p>
+    <p>Design Goals</p>
+    <p>New linked list in PMem</p>
+    <p>Linked list in PMem</p>
+    <p>head</p>
+  </div>
+  <div class="page">
+    <p>Confidential  2020 VMware, Inc. 13</p>
+    <p>Programming Model</p>
+    <p>// add new node to tail func addNode (tail *node) *node { n := pnew(node) // &lt;txn(&quot;undo&quot;) { // &lt;mutex.Lock() n.prev = tail updateTail(tail, n) mutex.Unlock()</p>
+    <p>} // &lt;return n</p>
+    <p>}</p>
+    <p>func updateTail(tail, n *node) { txn(&quot;undo&quot;) { // &lt;tail.next = n</p>
+    <p>} // &lt;}</p>
+    <p>Programming model similar to existing Go semantics</p>
+  </div>
+  <div class="page">
+    <p>Confidential  2020 VMware, Inc. 14</p>
+    <p>Language Constructs</p>
+    <p>// add new node to tail func addNode (tail *node) *node { n := pnew(node) // &lt;txn(&quot;undo&quot;) { // &lt;mutex.Lock() n.prev = tail updateTail(tail, n) mutex.Unlock()</p>
+    <p>} // &lt;return n</p>
+    <p>}</p>
+    <p>func updateTail(tail, n *node) { txn(&quot;undo&quot;) { // &lt;tail.next = n</p>
+    <p>} // &lt;}</p>
+    <p>New PMem allocation APIs added</p>
+    <p>pnew - allocate zero-valued objects  func pnew(Type) *Type</p>
+    <p>pmake  allocate slices  func pmake(t Type, size IntType) Type</p>
+  </div>
+  <div class="page">
+    <p>Confidential  2020 VMware, Inc. 15</p>
+    <p>Transactions</p>
+    <p>// add new node to tail func addNode (tail *node) *node { n := pnew(node) // &lt;txn(&quot;undo&quot;) { // &lt;mutex.Lock() n.prev = tail updateTail(tail, n) mutex.Unlock()</p>
+    <p>} // &lt;return n</p>
+    <p>}</p>
+    <p>func updateTail(tail, n *node) { txn(&quot;undo&quot;) { // &lt;tail.next = n</p>
+    <p>} // &lt;}</p>
+    <p>txn keyword demarcates transactions</p>
+    <p>Undo logging</p>
+    <p>Supports functions and most Go statements</p>
+  </div>
+  <div class="page">
+    <p>Confidential  2020 VMware, Inc. 16</p>
+    <p>Transactions</p>
+    <p>// add new node to tail func addNode (tail *node) *node { n := pnew(node) // &lt;txn(&quot;undo&quot;) { // &lt;mutex.Lock() n.prev = tail updateTail(tail, n) mutex.Unlock()</p>
+    <p>} // &lt;return n</p>
+    <p>}</p>
+    <p>func updateTail(tail, n *node) { txn(&quot;undo&quot;) { // &lt;tail.next = n</p>
+    <p>} // &lt;}</p>
+    <p>Crash Consistent updates</p>
+    <p>Atomicity  All or nothing visibility</p>
+    <p>Consistency  Application defined</p>
+    <p>Isolation - Use Go mutex</p>
+    <p>Durability  Auto persisted on success</p>
+  </div>
+  <div class="page">
+    <p>Confidential  2020 VMware, Inc. 17</p>
+    <p>Transactions  Isolation</p>
+    <p>txn(&quot;undo&quot;) { . . tail = newNode . .</p>
+    <p>}</p>
+    <p>readTail() readTail()</p>
+  </div>
+  <div class="page">
+    <p>Confidential  2020 VMware, Inc. 18</p>
+    <p>Transactions  Isolation</p>
+    <p>txn(&quot;undo&quot;) { . . tail = newNode . .</p>
+    <p>}</p>
+    <p>No thread should see tail = 0x200 until transaction successful</p>
+    <p>readTail() readTail()</p>
+  </div>
+  <div class="page">
+    <p>Confidential  2020 VMware, Inc. 19</p>
+    <p>Transactions  Concurrency model</p>
+    <p>Lock outside transaction  Release outside</p>
+    <p>Lock within transaction  Release within</p>
+    <p>mutex.Lock() txn(&quot;undo&quot;) { . .</p>
+    <p>} mutex.Unlock()</p>
+  </div>
+  <div class="page">
+    <p>Confidential  2020 VMware, Inc. 20</p>
+    <p>Transactions  Concurrency model</p>
+    <p>txn(&quot;undo&quot;) { mutex.Lock() . . mutex.Unlock()</p>
+    <p>}</p>
+    <p>Lock outside transaction  Release outside</p>
+    <p>Lock within transaction  Release within  Delay unlocks for Isolation</p>
+  </div>
+  <div class="page">
+    <p>Confidential  2020 VMware, Inc. 21</p>
+    <p>PMem APIs</p>
+    <p>package main import &quot;pmem&quot; // &lt;import &quot;transaction&quot; // &lt;</p>
+    <p>func main() { var N *node f := pmem.Init(&quot;pmem.dat&quot;) // &lt;if f { N = (*node)(pmem.New(&quot;head&quot;, N)) // &lt;</p>
+    <p>} else { N = (*node)(pmem.Get(&quot;head&quot;, N)) // &lt;</p>
+    <p>} addNode(N)</p>
+    <p>}</p>
+    <p>Init and Restart</p>
+    <p>PMem Initialization API Init(file string) bool</p>
+    <p>Named objects  New()  Create named objects  Get()  Retrieve named objects</p>
+    <p>pmem objects</p>
+    <p>head</p>
+  </div>
+  <div class="page">
+    <p>Confidential  2020 VMware, Inc. 22</p>
+    <p>Programming Model + Design Goals</p>
+    <p>// add new node to tail 1 func addNode (tail node) node { 2 n := pnew(node) // &lt;3 txn(&quot;undo&quot;) { // &lt;4 mutex.Lock() 5 n.prev = tail 6 updateTail(tail, n) 7 mutex.Unlock() 8 } // &lt;9 return n 10 }</p>
+  </div>
+  <div class="page">
+    <p>Confidential  2020 VMware, Inc. 23</p>
+    <p>Runtime Design</p>
+    <p>Memory allocation</p>
+    <p>Garbage collection</p>
+    <p>Dynamic sized heap</p>
+    <p>Pointer swizzling</p>
+    <p>Heap recovery mechanism</p>
+    <p>CPU cache flushing</p>
+  </div>
+  <div class="page">
+    <p>Confidential  2020 VMware, Inc. 24</p>
+    <p>Memory Management</p>
+    <p>Reuse Go memory allocator design</p>
+    <p>Volatile state</p>
+    <p>Persistent metadata</p>
+    <p>metadata</p>
+    <p>allocable region</p>
+    <p>allocable region</p>
+    <p>metadata</p>
+  </div>
+  <div class="page">
+    <p>Confidential  2020 VMware, Inc. 25</p>
+    <p>PMem file map address change makes all stored pointers invalid!</p>
+    <p>Pointer Swizzling</p>
+    <p>Run 1</p>
+    <p>Ox000</p>
+    <p>Run 2</p>
+    <p>PMem heap</p>
+    <p>Pointer Dangling pointer</p>
+  </div>
+  <div class="page">
+    <p>Confidential  2020 VMware, Inc. 26</p>
+    <p>Swizzling fixes pointers in case map address changes</p>
+    <p>Pointer Swizzling</p>
+    <p>Before Swizzle</p>
+    <p>After Swizzle</p>
+    <p>PMem heap</p>
+    <p>Pointer Dangling pointer</p>
+  </div>
+  <div class="page">
+    <p>Confidential  2020 VMware, Inc. 27</p>
+    <p>Heap Recovery</p>
+    <p>metadata</p>
+    <p>allocable region</p>
+    <p>allocable region</p>
+    <p>metadata</p>
+  </div>
+  <div class="page">
+    <p>Confidential  2020 VMware, Inc. 28</p>
+    <p>Why not a Go package?</p>
+    <p>Memory management tricky</p>
+    <p>Programming model complicated</p>
+    <p>Programming languages already manage volatile memory</p>
+  </div>
+  <div class="page">
+    <p>Confidential  2020 VMware, Inc. 29</p>
+    <p>Evaluation</p>
+    <p>System  24-core Intel Cascade Lake  4 Intel Optane PMem DIMMs, each 128GB  64GB DRAM</p>
+    <p>Benchmarks  go-redis-pmem (vs PMDK-redis)  CLBG (vs PMDK, Makalu, Mnemosyne)</p>
+    <p>Do my applications run faster?</p>
+    <p>Do my applications restart faster?</p>
+  </div>
+  <div class="page">
+    <p>Confidential  2020 VMware, Inc. 30</p>
+    <p>go-redis-pmem</p>
+    <p>Memtier benchmark throughput (higher is better)</p>
+    <p>Redis restart time (lower is better)</p>
+    <p>Up to 20x faster than C-redis on SSD</p>
+    <p>Up to 5x faster than C-redis on SSD</p>
+    <p>As fast as PMDK-redis</p>
+    <p>Upto 6x faster than PMDK-redis</p>
+  </div>
+  <div class="page">
+    <p>Confidential  2020 VMware, Inc. 31</p>
+    <p>Memory Allocator Performance</p>
+    <p>Binary Tree benchmark (lower is better)</p>
+    <p>Up to 40x faster! than PMDK</p>
+  </div>
+  <div class="page">
+    <p>Confidential  2020 VMware, Inc. 32</p>
+    <p>Performance of Transactions</p>
+    <p>Long-Lived Transactions</p>
+    <p>fannkuch benchmark (lower is better)</p>
+    <p>Short-Lived Transactions</p>
+    <p>n-body benchmark (lower is better)</p>
+    <p>Up to 5x faster! than PMDK</p>
+  </div>
+  <div class="page">
+    <p>Confidential  2020 VMware, Inc. 33</p>
+    <p>Summary</p>
+    <p>go-pmem open source Go compiler  https://vmware.github.io/persistent-memory-projects/</p>
+  </div>
+  <div class="page">
+    <p>Confidential  2020 VMware, Inc. 34</p>
+    <p>Call to Action</p>
+    <p>Intel Optane PMem  Integrate with official Go  Reimagine low latency storage stack  Low latency applications</p>
+    <p>Time series databases  At edge</p>
+  </div>
+  <div class="page">
+    <p>Confidential  2020 VMware, Inc.</p>
+    <p>Thank You</p>
+  </div>
+</Presentation>

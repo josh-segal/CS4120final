@@ -1,0 +1,191 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>Gandiva: Introspective Cluster Scheduling for Deep Learning</p>
+    <p>Wencong Xiao, Romil Bhardwaj, Ramachandran Ramjee,</p>
+    <p>Muthian Sivathanu, Nipun Kwatra, Zhenhua Han, Pratyush Patel,</p>
+    <p>Xuan Peng, Hanyu Zhao, Quanlu Zhang, Fan Yang, Lidong Zhou</p>
+    <p>Microsoft Research</p>
+  </div>
+  <div class="page">
+    <p>Deep learning: An important cloud workload</p>
+    <p>Growing impact: Consumer products  Web search, Alexa/Siri/Cortana,  Upcoming: Enterprise uses (e.g. medical diagnosis, retail)</p>
+    <p>DL jobs are compute-intensive, so need expensive custom hardware  Dominant platform today: GPUs</p>
+    <p>Cloud vendors run large clusters of GPUs (billions of $)</p>
+    <p>Efficient use of GPU clusters crucial to manage cost of DL innovation</p>
+  </div>
+  <div class="page">
+    <p>Deep Learning Training (DLT)</p>
+    <p>Build a model for an end-to-end application (e.g. speech2text)  Select best model architecture, invent new architectures, tune accuracy,</p>
+    <p>Key to DL Innovation</p>
+    <p>DLT is mostly trial-and-error: Little theoretical understanding  Will a model architecture work? Dont know -- Train it and measure!</p>
+    <p>Lots of trials =&gt; high cost: Training = significant fraction of GPU usage</p>
+    <p>Goal: Run DLT jobs efficiently in a cluster of GPUs</p>
+  </div>
+  <div class="page">
+    <p>DLT Schedulers today</p>
+    <p>Treat DLT jobs as generic big-data jobs (e.g. use Yarn, Kubernetes)</p>
+    <p>Schedule a job on a GPU exclusively, job holds it until completion</p>
+    <p>Problem #1: High Latency (head-of-line blocking)</p>
+    <p>Short job (queued)</p>
+    <p>Multi-jobNeed time-slicing of jobs</p>
+    <p>However, GPUs not efficiently virtualizable</p>
+    <p>Long DLT job Runtime: Several days!</p>
+  </div>
+  <div class="page">
+    <p>DLT Schedulers today</p>
+    <p>Need ability to migrate jobs</p>
+    <p>Sensitivity to locality varies across jobs</p>
+    <p>Treat DLT jobs as generic big-data jobs (e.g. use Yarn, Kubernetes)</p>
+    <p>Schedule a job on a GPU exclusively, job holds it until completion</p>
+    <p>Problem #2: Low Efficiency (Fixed decision at job-placement time)</p>
+    <p>Server 2</p>
+    <p>Server 1</p>
+  </div>
+  <div class="page">
+    <p>Domain knowledge: Intra-job predictability</p>
+    <p>Each spike is a mini-batch</p>
+    <p>Mini-batch times identical</p>
+    <p>~77x diff. in RAM usage</p>
+    <p>Time-slicing quantum = Group of minibatches</p>
+    <p>ResNet50 training on ImageNet data</p>
+  </div>
+  <div class="page">
+    <p>Gandiva: A domain-specific scheduler for DLT</p>
+    <p>Result: Faster &amp; cheaper execution of DLT workflows  Latency: 4.5x lower queueing times, 5-7x faster multi-jobs (AutoML)</p>
+    <p>Efficiency: 26% higher cluster throughput</p>
+    <p>Todays schedulers</p>
+    <p>Cluster Job</p>
+    <p>Start_job, Stop_job, Send_signal</p>
+    <p>Gandiva</p>
+    <p>DLT Job / Multi-job</p>
+  </div>
+  <div class="page">
+    <p>Outline</p>
+    <p>Introduction</p>
+    <p>Gandiva mechanisms</p>
+    <p>Implementation &amp; Evaluation</p>
+    <p>Conclusion</p>
+  </div>
+  <div class="page">
+    <p>Time-slicing</p>
+    <p>Over-subscription as a first-class feature (similar to OS)  Time quantum of ~1 min (~100 mini-batches)</p>
+    <p>Better than queueing: Faster time-to-early feedback</p>
+    <p>Faster multi-job execution during hyper-param searches</p>
+    <p>S ch</p>
+    <p>e d</p>
+    <p>u le</p>
+    <p>r</p>
+    <p>p y</p>
+    <p>To rc</p>
+    <p>h /</p>
+    <p>T F</p>
+    <p>Suspend Job</p>
+    <p>Wait for mini-batch completion</p>
+    <p>Copy state from GPU to CPU</p>
+    <p>Suspend job in CPUSuspend done</p>
+    <p>Useful work</p>
+    <p>Customization: Align with mini-batch boundary =&gt; ~50x cheaper</p>
+  </div>
+  <div class="page">
+    <p>Migration / Packing</p>
+    <p>Move jobs across GPUs to improve efficiency</p>
+    <p>Generic distributed process migration is unreliable / slow  Customization: Integration with toolkit checkpointing makes it fast/robust</p>
+    <p>#1: De-fragment multi-GPU jobs</p>
+    <p>#2: Exploit heterogeneity: Low job parallelism =&gt; cheaper GPU</p>
+    <p>#3: Packing: Pack multiple jobs onto the same GPU  Jobs that are low on GPU &amp; RAM usage. Run together instead of time-slice</p>
+    <p>Challenge: How do we know migration/packing helped?</p>
+  </div>
+  <div class="page">
+    <p>Application-aware profiling</p>
+    <p>Solution: Measure useful work directly  Customization: Job runtime exports time-per-minibatch</p>
+    <p>Allows simple introspection policy  Try migration/packing, measure benefit, revert if negative</p>
+    <p>Job 1</p>
+    <p>GPU Util: 50%</p>
+    <p>Job 2</p>
+    <p>GPU Util: 80%</p>
+    <p>Two possibilities: - #1: 30% more useful work done - #2: Overhead due to interference</p>
+    <p>- Could even be a net loss!</p>
+  </div>
+  <div class="page">
+    <p>Introspective Scheduling</p>
+    <p>Traditional Schedulers Gandiva</p>
+    <p>Scheduling decision</p>
+    <p>One-time (job-placement) - Stuck with decision for entire job</p>
+    <p>Continuous / Introspective - Can recover quickly from</p>
+    <p>mistakes</p>
+    <p>Profiling</p>
+    <p>System-level: e.g. CPU/GPU Util</p>
+    <p>- Entangles Useful work vs. overhead</p>
+    <p>Application-level (customized): Mini-batches per second</p>
+    <p>- Measures useful work</p>
+  </div>
+  <div class="page">
+    <p>Outline</p>
+    <p>Introduction</p>
+    <p>Schedulers for DLT: Today</p>
+    <p>Gandiva mechanisms</p>
+    <p>Implementation &amp; Evaluation</p>
+    <p>Conclusion</p>
+  </div>
+  <div class="page">
+    <p>Kubernetes NodeKubernetes Node</p>
+    <p>Implementation</p>
+    <p>Kubernetes Master</p>
+    <p>Kubernetes API Gandiva Scheduler</p>
+    <p>Time_Slice() Do_Migration() Do_Packing()</p>
+    <p>Profile / Job State</p>
+    <p>Node allocation req.</p>
+    <p>Node / Container Info</p>
+    <p>Kubernetes Node</p>
+    <p>Kube Daemon</p>
+    <p>Container Gandiva Client</p>
+    <p>Start, Stop, Pause, Resume,</p>
+    <p>User DLT Job</p>
+    <p>Profile Info / Job State</p>
+    <p>Scheduling RPCs</p>
+    <p>Job creation / Node allocation</p>
+    <p>Also, changes to DL Toolkits: Tensorflow &amp; pyTorch</p>
+    <p>Time-slicing, migration, etc.</p>
+  </div>
+  <div class="page">
+    <p>Microbenchmark: Time-slicing</p>
+    <p>Server 4 P100 GPUs</p>
+    <p>All jobs get equal time-share during time-slicing</p>
+    <p>Low overhead: Total throughput remains same</p>
+  </div>
+  <div class="page">
+    <p>Micro-benchmark: Packing</p>
+    <p>Gandiva starts with time-slicing</p>
+    <p>Based on profiling, tries to pack both jobs</p>
+    <p>Higher App throughput =&gt; Continue w/ packing</p>
+  </div>
+  <div class="page">
+    <p>Microbenchmark: AutoML</p>
+    <p>Accuracy: 70%</p>
+    <p>Accuracy: 80%</p>
+    <p>Accuracy: 90%</p>
+    <p>Baseline 134.1 2489.1 5296.7</p>
+    <p>Gandiva 134.1 543.1 935.4</p>
+    <p>Speedup 1x 5.25x 5.66x</p>
+    <p>AutoML: Explore 100 hyper-parameter configs - ResNet-like Model for CIFAR Image dataset; 16 P40 GPUs - HyperOpt: Predict more promising mode based on early feedback</p>
+    <p>Time-slicing + Prioritization =&gt; Gandiva explores more configs in parallel</p>
+    <p>Time in minutes to find config w/ accuracy &gt; threshold</p>
+  </div>
+  <div class="page">
+    <p>Cluster utilization</p>
+    <p>Cluster of 180 GPUs</p>
+    <p>Synthetic DLT jobs modelled from a production trace</p>
+    <p>Efficiency Cluster throughput improves by 26%</p>
+    <p>Latency 4.5x reduction in avg. time to first 100 mini-batches</p>
+  </div>
+  <div class="page">
+    <p>Summary</p>
+    <p>Large cloud applications benefit from custom systems infrastructure</p>
+    <p>Co-design of cluster scheduler w/ DL job =&gt; rich information, control</p>
+    <p>Efficient time-slicing =&gt; Low latency, early feedback, iterate fast</p>
+    <p>Application-aware profiling =&gt; Introspection</p>
+    <p>Custom migration/packing =&gt; Cluster efficiency</p>
+    <p>Much faster hyper-parameter exploration/AutoML</p>
+  </div>
+</Presentation>

@@ -1,0 +1,1006 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<TEI xmlns="http://www.tei-c.org/ns/1.0" 
+xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+xsi:schemaLocation="http://www.tei-c.org/ns/1.0 /Users/atharsefid/Desktop/grobid-0.5.3/grobid-home/schemas/xsd/Grobid.xsd"
+ xmlns:xlink="http://www.w3.org/1999/xlink">
+	<teiHeader xml:lang="en">
+		<encodingDesc>
+			<appInfo>
+				<application version="0.5.3" ident="GROBID" when="2019-03-26T16:38+0000">
+					<ref target="https://github.com/kermitt2/grobid">GROBID - A machine learning software for extracting information from scholarly documents</ref>
+				</application>
+			</appInfo>
+		</encodingDesc>
+		<fileDesc>
+			<titleStmt>
+				<title level="a" type="main">Optimized Query Execution in Large Search Engines with Global Page Ordering</title>
+			</titleStmt>
+			<publicationStmt>
+				<publisher/>
+				<availability status="unknown"><licence/></availability>
+			</publicationStmt>
+			<sourceDesc>
+				<biblStruct>
+					<analytic>
+						<author>
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Xiaohui</forename><surname>Long</surname></persName>
+							<email>¡xlong@cis.poly.edu</email>
+							<affiliation key="aff0">
+								<orgName type="institution">CIS Department Polytechnic University Brooklyn</orgName>
+								<address>
+									<postCode>11201</postCode>
+									<region>NY</region>
+								</address>
+							</affiliation>
+						</author>
+						<author>
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Torsten</forename><surname>Suel</surname></persName>
+							<email>suel@poly.edu¢</email>
+							<affiliation key="aff0">
+								<orgName type="institution">CIS Department Polytechnic University Brooklyn</orgName>
+								<address>
+									<postCode>11201</postCode>
+									<region>NY</region>
+								</address>
+							</affiliation>
+						</author>
+						<title level="a" type="main">Optimized Query Execution in Large Search Engines with Global Page Ordering</title>
+					</analytic>
+					<monogr>
+						<imprint>
+							<date/>
+						</imprint>
+					</monogr>
+				</biblStruct>
+			</sourceDesc>
+		</fileDesc>
+		<profileDesc>
+			<abstract>
+				<p>Large web search engines have to answer thousands of queries per second with interactive response times. A major factor in the cost of executing a query is given by the lengths of the inverted lists for the query terms, which increase with the size of the document collection and are often in the range of many megabytes. To address this issue, IR and database researchers have proposed pruning techniques that compute or approximate term-based ranking functions without scanning over the full inverted lists. Over the last few years, search engines have incorporated new types of ranking techniques that exploit aspects such as the hyperlink structure of the web or the popularity of a page to obtain improved results. We focus on the question of how such techniques can be efficiently integrated into query processing. In particular, we study pruning techniques for query execution in large engines in the case where we have a global ranking of pages, as provided by Pagerank or any other method, in addition to the standard term-based approach. We describe pruning schemes for this case and evaluate their efficiency on an experimental cluster-based search engine with £ ¥ ¤ § ¦ million web pages. Our results show that there is significant potential benefit in such techniques.</p>
+			</abstract>
+		</profileDesc>
+	</teiHeader>
+	<text xml:lang="en">
+		<body>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="1">Introduction</head><p>Over the last decade, the Web has grown from a few thousand to its present size of several billion pages. Due to this¨Work this¨ this¨Work supported by NSF CAREER Award NSF CCR-0093400 and the New York State Center for Advanced Technology in Telecommunications (CATT) at Polytechnic University, and by equipment grants from Sun Microsystems and Intel Corporation.</p><p>Permission to copy without fee all or part of this material is granted provided that the copies are not made or distributed for direct commercial advantage, the VLDB copyright notice and the title of the publication and its date appear, and notice is given that copying is by permission of the Very Large Data Base Endowment. To copy otherwise, or to republish, requires a fee and/or special permission from the Endowment.</p><p>Proceedings of the 29th VLDB Conference, Berlin, <ref type="bibr">Germany, 2003</ref> explosion in size, users increasingly depend on web search engines for locating relevant information. Given the large number of web pages on most topics of interest, one of the main challenges for a search engine is to provide a good ranking function that can identify the most useful results from among the many relevant pages. Major search engines need to answer thousands of queries per second on collections of several billion pages. Thus, search engines require significant computing resources, typically provided by large clusters of hundreds or thousands of servers, and have to scale not just with the number of queries, but also with the amount of data that needs to be analyzed per query in order to provide a good answer.</p><p>To better understand the challenge, we look at the basic structure of current search engines. These engines, like many other information retrieval tools, are based on an inverted index, which is an index structure that allows efficient retrieval of documents containing a particular word (or term). An inverted index consists of many inverted lists, where each inverted list © contains the IDs of all documents in the collection that contain a particular word , sorted by document ID or some other measure, plus additional information such as the number of occurrences in each document, the exact positions of the occurrences, and their context (e.g., in the title, in anchor text).</p><p>The simplest class of queries that can be implemented on such an inverted index are Boolean queries. Thus, a query (apple AND orange) OR pear for all documents containing both apple and orange, or the word pear, can be implemented by first intersecting the list of document IDs in the inverted lists for apple and orange, and then merging the result with the inverted list for pear. Of course, state-of-the-art search engines are not limited to Boolean queries, which have the following problems:</p><p>Boolean queries do not provide any ranking of results, which is a problem since the result size for common queries may be in the millions of documents. This problem is overcome by applying a ranking function that assigns a numeric score to each document for the given query using term-based techniques (such as the cosine measure), hyperlink analysis, or traffic data.</p><p>As the size of the document collection increases, the inverted lists for common words can become very long. Thus, while each inverted list is much smaller than the entire document collection, a terabyte page collection indexed by a large engine results in many lists with sizes in the range of multiple megabytes that may have to be traversed during a query. In general, a doubling of the collection size results in a doubling of the amount of data that is scanned for each query.</p><p>This second problem typically stays with us as we go from Boolean to other classes of ranked queries. In particular, many engines perform ranking by applying a ranking function to the result of a Boolean AND of the keywords. While this restriction to AND and the low average number of keywords per query make web search queries more efficient than the types of queries found in traditional IR systems, the amount of data that has to be scanned on disk is huge and scales linearly with the size of the collection.</p><p>This problem has motivated a number of pruning techniques that attempt to compute or approximate certain classes of ranking functions without scanning the entire inverted lists of the search terms; this is typically based on presorting the inverted lists so that the most promising documents are near the beginning. Most of this work has focused on term-based ranking functions. However, current search engines rely heavily on hyperlink analysis and traffic data (user feedback) for ranking, in addition to term-based techniques. While there has been a large amount of research on link-based ranking techniques, there is very little published work on how to efficiently integrate link-based or traffic-based techniques into query processing on engines of realistic size.</p><p>In this paper, we attempt to take a first step towards closing this gap. In particular, we are interested in optimizing query performance, as measured by query throughput and latency, in a large web search engine with term-and link-based ranking, through the use of appropriate pruning techniques that scale well with the collection size. We describe several techniques and perform an initial experimental evaluation on a research prototype engine with £ ¤ ¦ million pages that we have built in our group. The next section gives some technical background. Section 3 describes our contributions, and Section 4 discusses related work. The proposed techniques are described in Section 5 and experimental results are given in Section 6.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="2">Preliminaries</head><p>In this section, we provide some background on ranking in search engines. We assume that <ref type="bibr">we</ref>  . Each posting contains the ID of the document where the word occurs, the (byte or approximate) position within the document, and possibly information about the context (in a title, in large or bold font, in an anchor text) in which the word occurs. The postings in each inverted list are often sorted by document IDs, which enables compression of the list, or by some other measure as described later. Thus, Boolean queries can be implemented as unions and intersections of these lists, while phrase searches (e.g., New York) can be answered by looking at the positions of the two words. We refer to <ref type="bibr" target="#b39">[40]</ref> for more details.</p><p>Term-based ranking: The most common way to perform ranking in IR systems is based on comparing the words (terms) contained in the document and in the query. More precisely, documents are modeled as unordered sets of words, and a ranking function assigns a score to each document with respect to the current query, based on the frequency of each query word in the page ("higher score for multiple occurrences") and in the overall collection ("rare words are more significant"), the length of the document ("long documents should not have too much of an advantage"), and maybe the context of the occurrence ("higher score if word occurs in title or bold face"). Formally, a ranking function is a function d ocuments, it suffices to assign a score to all documents that contain at least one query word (i.e., the union of the inverted lists). Note that in general it does not suffice to score only documents in the intersection since, e.g., a document containing two out of three query words multiple times or in the title may score higher than a longer document containing all three query words. However, most large search engines default to such an AND semantic, due to reasons involving user expectations, collection size, and the preponderance of short queries. We focus on this case.</p><p>Several authors have proposed techniques that can identify (or guess) the top @ d ocuments without scoring all documents in the lists; see e.g., <ref type="bibr" target="#b0">[1,</ref><ref type="bibr" target="#b1">2,</ref><ref type="bibr" target="#b13">14,</ref><ref type="bibr" target="#b14">15,</ref><ref type="bibr" target="#b17">18,</ref><ref type="bibr" target="#b31">32]</ref> for recent work and <ref type="bibr" target="#b37">[38]</ref> for an overview of older work. Typically, these techniques reorder the inverted lists such that highscoring documents are likely to be at the beginning, and then terminate the search over the inverted lists once most of the high-scoring documents have been scored.</p><p>Link-based and other ranking techniques: None of the current major engines perform ranking solely based on term-based techniques. In general, ranking is performed through a combination of term-based and link-based techniques, plus other factors such as user feedback and off-line preprocessing for spam identification and cluster analysis.</p><p>A large amount of research has recently focused on linkbased ranking techniques, i.e., techniques that use the hyperlink (or graph) structure of the web to identify interesting pages or relationships between pages. One important technique is the Pagerank technique underlying the Google search engine <ref type="bibr" target="#b7">[8]</ref>, which assigns a global importance measure to each page on the web that is proportional to the number and importance of other pages linking to it. A number of other approaches have also been proposed, see, e.g., <ref type="bibr" target="#b5">[6,</ref><ref type="bibr" target="#b12">13,</ref><ref type="bibr" target="#b21">22,</ref><ref type="bibr" target="#b23">24,</ref><ref type="bibr" target="#b24">25,</ref><ref type="bibr" target="#b32">33]</ref>, that perform link-based ranking either at query time or as a preprocessing step.</p><p>Integrating term-based and other factors: Despite the large amount of work on link-based ranking, there is almost no published work on how to efficiently integrate the techniques into a large search engine. We are particularly interested in Pagerank and other techniques that precompute a global ranking function for all documents, independent of the query, that is then at query time combined with term-based and other results. While it has been argued that a query-dependent link analysis might give better results, global techniques such as Pagerank that allow precomputation are very attractive for reasons of efficiency and simplicity. Brin and Page allude to the possible advantages in their paper on the architecture of the original Google engine <ref type="bibr" target="#b7">[8]</ref>, which contains what is essentially a simple term-based pruning technique based on the idea of fancy hits.</p><p>A natural way to build a combined ranking function is to add up a term-based score and a suitably normalized score derived, e.g., from Pagerank. This is the approach suggested in <ref type="bibr" target="#b32">[33]</ref> that we follow in our experiments. Formally, we consider ranking functions of the forms</p><formula xml:id="formula_0">2 6 5 £ 7 § 3 ¥ § § 3$ 8 9¡ 5 £ 9 U $ A B C ¥ a 1 5 £ § 3 B 9</formula><p>In fact, as discussed further below, we use the logarithm of the value returned by the Pagerank computation, rather than the raw value, as input in the above function. Moreover, following <ref type="bibr" target="#b32">[33]</ref>, before adding up the terms we perform a query-dependent normalization that assigns approximately the same weight to the term-based and link-based contribution, and that is derived from the mean of the ¡ highest term-based and link-based values in each inverted list. <ref type="bibr" target="#b0">1</ref> We note that in search engines, the score may also depend on the distance between the query words in the document, with words occurring close to each other getting a higher score. Formally, this adds a third term <ref type="bibr" target="#b0">1</ref> The purpose of choosing not the maximum value, but the mean of the ¢ highest is to discount the effect of outliers. In <ref type="bibr" target="#b32">[33]</ref>, a value of</p><formula xml:id="formula_1">¢ ¤ £ ¦ ¥ ¨ §</formula><p>is chosen, while we use a larger value due to the much larger data set.</p><formula xml:id="formula_2">© 5 £ 7 § 3 ¥ ¨ § § 3 4 $ 8 9</formula><p>that depends on all query terms. Dealing with this case is an open problem for future research.</p><p>Search engine architecture: Answering thousands of queries per second on a terabyte collection requires the equivalent of a small supercomputer, and all current major engines are based on large clusters of servers connected by high-speed LANs or SANs. There are two basic ways to partition an inverted index structure over the nodes: (a) a local index organization where each node builds a complete index on its own subset of documents (used by AltaVista and Inktomi), or (b) a global index organization where each node contains complete inverted lists for a subset of the words. <ref type="bibr" target="#b1">2</ref> Each scheme has advantages and disadvantages that we do not have space to discuss here; see <ref type="bibr" target="#b3">[4,</ref><ref type="bibr" target="#b27">28,</ref><ref type="bibr" target="#b36">37]</ref>.</p><p>In this paper, we assume a local index organization, although some of the ideas also apply to a global index. Thus, we have a number of machines, in our case £ , each containing an index on a subset of the documents. Another machine acts as a query integrator that receives queries from the users, broadcasts them, and then merges the returned results into a proper ranking that is sent back to the user; see <ref type="bibr" target="#b25">[26]</ref>  . This is relevant to our work since pruning techniques are much more efficient for small values of @ . In fact, some of the proposed methods can be implemented in an incremental fashion, so that each machine returns the top-£ , top-¤ , topresults as soon as each is discovered during the computation, and the query integrator can first ask for the top-¤ results and then later request additional values to obtain the topor top-from some of the nodes as needed.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3">Contributions of this Paper</head><p>In this paper, we study optimized query processing in search engines with a locally partitioned inverted index and a ranking function that combines term-based techniques with a global page ordering obtained through link analysis, user feedback, or other offline preprocessing. In particular:</p><p>(1) We describe several pruning techniques that can significantly improve query throughput and response times on large document collections. million web pages built in our research group, using a real query trace from the Excite search engine. Our experiments show the limits and benefits of the proposed techniques in terms of query throughput and response time for varying levels of concurrency.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.1">Significance of the work</head><p>We believe that our work is interesting from two angles. First, query processing efficiency is a very important issue in large search engines that is not addressed much in the published literature. Increasing efficiency say, by a factor of two, allows a major engine to run on hundreds or thousands of fewer machines. It seems that there are still significant differences in query execution efficiency among the major engines, which are based on different proprietary index organizations and query execution schemes. The problem of scaling with collection size and load is also important in the context of intranet or enterprise search in larger organizations (multinational companies, federal agencies) where query load is smaller but nonetheless significant, requiring a small cluster of machines. <ref type="bibr" target="#b2">3</ref> We note that pruning schemes such as the ones we propose are particularly attractive during peak times when the query load is significantly larger than average, and they can adapt to the load in a continuous and online fashion. It appears that several search engines are already using techniques for dealing with high loads by modifying query execution <ref type="bibr" target="#b6">[7]</ref>, though no details have been published.</p><p>Second, we believe our results are interesting in the context of the ongoing discussion about different approaches to link analysis, in particular the issues of preprocessingbased <ref type="bibr" target="#b21">[22,</ref><ref type="bibr" target="#b30">31,</ref><ref type="bibr" target="#b32">33]</ref> vs. online <ref type="bibr" target="#b23">[24,</ref><ref type="bibr" target="#b24">25]</ref> techniques, and global <ref type="bibr" target="#b30">[31]</ref> vs. topic-specific <ref type="bibr" target="#b21">[22]</ref> vs. query-specific <ref type="bibr" target="#b23">[24,</ref><ref type="bibr" target="#b24">25,</ref><ref type="bibr" target="#b32">33]</ref> techniques. Our results indicate that a global precomputed ordering is highly desirable from a performance point of view, as it allows optimized index layout and pruning. While it is not clear yet that query-specific and online approaches are really superior in terms of results, such methods could possibly be more efficiently implemented as corrective measures on top of a strong global ordering such as Pagerank that can be used for index layout and pruning. <ref type="bibr" target="#b3">4</ref> </p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.2">Limitations and Loose Ends</head><p>There are a number of important issues that we do not address in this paper and that are left for future work. Firstly, our focus here is on query throughput and response time, and in our experiments we try to bypass the issue of result quality which is of course very important. We do so by fixing a particular ranking function from <ref type="bibr" target="#b32">[33]</ref> that combines the cosine measure and the Pagerank method of <ref type="bibr" target="#b7">[8]</ref>, and that we believe to be a reasonable approach to ranking. We then attempt to compute or approximate this function in the most efficient manner. While our techniques do not assume any particular ranking function, the savings obtained in our experimental evaluation clearly depend on the choice of this function. If the function weighs the termbased score much higher than the link-based score, then our approach will give little or no benefit over the standard ap-proach. However, it appears from the Google Toolbar that link-based scores have a significant impact on ranking.</p><p>In future work, we intend to investigate what savings would be obtained by pruning a more finely tuned ranking function, involving factors such as term context (title, font size, anchor text), within our search engine prototype. On the other hand, we also plan to evaluate our techniques using the TREC web data set, in order to explore the trade-off between efficiency and the result quality in terms of precision and recall. Other problems for future research are the impact of using distances between terms in the document, and topic-specific link analysis techniques such as <ref type="bibr" target="#b21">[22,</ref><ref type="bibr" target="#b32">33]</ref>.</p><p>In addition, there are several loose ends in our experimental evaluation that we plan to resolve first. This includes experiments for more than two keywords, results for deterministic pruning with an incremental query integrator, the effects of significantly increasing the collection size on a single node, and an analysis of the impact of query characteristics such as the number of terms and their selectivity and correlation. We intend to include these results in a longer journal version of this paper.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="4">Discussion of Related Work</head><p>For background on indexing and query execution in IR and search engines, we refer to <ref type="bibr" target="#b2">[3,</ref><ref type="bibr" target="#b4">5,</ref><ref type="bibr" target="#b39">40]</ref>, and for basics of parallel search engine architecture we refer to <ref type="bibr" target="#b6">[7,</ref><ref type="bibr" target="#b7">8,</ref><ref type="bibr" target="#b25">26,</ref><ref type="bibr" target="#b33">34]</ref>. Discussions and comparisons of local and global index partitioning schemes and their performance are given, e.g., in <ref type="bibr" target="#b3">[4,</ref><ref type="bibr" target="#b11">12,</ref><ref type="bibr" target="#b22">23,</ref><ref type="bibr" target="#b27">28,</ref><ref type="bibr" target="#b36">37]</ref>. A large amount of recent work has focused on link-based ranking and analysis schemes; see <ref type="bibr" target="#b5">[6,</ref><ref type="bibr" target="#b21">22,</ref><ref type="bibr" target="#b23">24,</ref><ref type="bibr" target="#b24">25,</ref><ref type="bibr" target="#b30">31,</ref><ref type="bibr" target="#b32">33]</ref> for a small sample.</p><p>Previous work on pruning techniques for top-@ queries can be divided into two fairly disjoint sets of literature. In the IR community, researcher have studied pruning techniques for the fast evaluation of vector space queries since at least the 1980s. Some early work is described in <ref type="bibr" target="#b10">[11,</ref><ref type="bibr" target="#b20">21,</ref><ref type="bibr" target="#b37">38,</ref><ref type="bibr" target="#b40">41]</ref>. Most relevant to our work are the techniques by Persin, Zobel, and Sacks-Davis <ref type="bibr" target="#b31">[32]</ref> and the follow-up work in <ref type="bibr" target="#b0">[1,</ref><ref type="bibr" target="#b1">2]</ref>, which study effective early termination (pruning) schemes for the cosine measure based on the idea of sorting the postings in the inverted lists by their contribution to the score of the document. A scheme in <ref type="bibr" target="#b31">[32]</ref> also proposed to partition the inverted list into several partitions, somewhat reminiscent of our scheme in Subsection 5.2, but for the purpose of achieving good compression of the index, rather than to integrate a global page ordering.</p><p>More recently, there has been a lot of work on top-@ queries in the database community; see <ref type="bibr" target="#b15">[16]</ref> for a survey and <ref type="bibr" target="#b14">[15,</ref><ref type="bibr" target="#b17">18]</ref> for a formal analysis of some schemes. This work was originally motivated by queries to multimedia databases, e.g., to retrieve images. Stated in IR terms, the algorithms also assume that postings in the inverted lists are sorted by their contributions and are accessed in sorted order. However, several of the algorithms proposed in <ref type="bibr" target="#b14">[15,</ref><ref type="bibr" target="#b17">18,</ref><ref type="bibr" target="#b18">19,</ref><ref type="bibr" target="#b29">30,</ref><ref type="bibr" target="#b38">39]</ref> also assume that once a document is encountered in one of the inverted lists, we can efficiently compute its complete score by performing lookups into the other inverted lists. This gives much better pruning than sorted access alone, but in a search engine context it may not be efficient as it results in many random lookups on disk. <ref type="bibr" target="#b4">5</ref> Other schemes <ref type="bibr" target="#b9">[10,</ref><ref type="bibr" target="#b17">18,</ref><ref type="bibr" target="#b19">20]</ref> work without random lookups or in cases where only some of the lists are sorted.</p><p>Thus, there are a variety of previous pruning schemes, though many have objectives or assumptions that are different from ours. For example, work in IR is often focused on queries with very large numbers of terms per query (e.g., between and £ in <ref type="bibr" target="#b31">[32]</ref>), or concerned with main memory consumption or CPU resources for evaluating the cosine measure. Other work assumes that random lookups are feasible. Schemes can be either precise or only compute approximate top-@ results <ref type="bibr" target="#b13">[14,</ref><ref type="bibr" target="#b17">18]</ref>, or use precomputation to reduce the lengths of the stored inverted lists <ref type="bibr" target="#b16">[17]</ref>. We also note that much of the previous work performs ranking on the union, rather than intersection, of the inverted lists. This results in increased work for the CPU for evaluating the cosine measure, and some schemes store precomputed floating point scores as part of the inverted lists. One the other hand, using the union can help some pruning schemes by allowing them to lower-bound the total score of a document seen in only some of the lists, by assuming a score of zero for the others. Our approach uses ideas from several schemes, but we are not aware of any previous work considering integration of a global page ordering such as Pagerank into pruning methods.</p><p>Finally, in their paper on the original Google architecture <ref type="bibr" target="#b7">[8]</ref>, Brin and Page discuss an optimization called "fancy hits" that stores term occurrences in special contexts such as title, bold face, or anchortext in a separate much smaller structure that can be quickly scanned for likely good documents. Since these special contexts can be modeled in the vector space model by increasing weights appropriately, this approach is closely related to the one described by us in Subsection 5.2. Note that <ref type="bibr" target="#b7">[8]</ref> does not give much detail on how fancy hits are used and we do not know what types of pruning schemes are used in the current Google engine. However, to our knowledge several of the major engines still scan the entire inverted lists for most queries. With the exception of <ref type="bibr" target="#b26">[27]</ref>, we are not aware of any previous large-scale study on query throughput in large engines under web query loads.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="5">Pruning Techniques</head><p>We now describe the different pruning techniques that we study in this paper. Recall that we are given a global ordering of the web pages and an associated global score for each page. In our experiments, we are using the Pagerank ordering, with pages numbered from £ (most important) to ! (least important) and with real-valued scores produced through an iterative computation. However, any other global ordering would also work. For simplicity, we <ref type="bibr" target="#b4">5</ref> The situation may be different in highly distributed environments with limited bandwidth <ref type="bibr" target="#b35">[36]</ref>. describe all techniques for the case of ¤ query terms. One subtle issue is how to utilize the output of the Pagerank computation. Initially, we tried to use the raw Pagerank score. However, the distribution of these values is extremely skewed and very different from that of the termbased values which contain logarithms as part of the cosine measure. We found that the distribution of the logarithm of the Pagerank value is much closer to that of the term values, as shown in <ref type="figure">Figure 5</ref>.1. We thus decided to use the logarithm as input to the normalization procedure below, and throughout the following ¢ ¡ refers to the logarithm of the raw value. We note that the Pagerank scores between ¦ and £ ¦ returned by the Google Toolbar are conjectured to also be logarithmic in nature. The base of the logarithm does not matter due to the subsequent normalization, though we could give a higher relative importance to either term-based or global scores by modifying the normalization.  We note that the way the Pagerank score is preprocessed and normalized does of course have an impact on performance. In particular, if we use the raw Pagerank score instead of the logarithm and perform normalization using the mean of the top</p><formula xml:id="formula_3">£ ¥ ¦ § ¦</formula><p>as above, then Pagerank would not have much impact on the result of most queries, and thus no significant pruning based on Pagerank would be possible. This is because for most queries, there would not be any document with significant normalized Pagerank containing both keywords, due to the extreme skew of the values. This would seem to contradict our (unscientific) observation that Pagerank, as displayed by the Google Toolbar, does seem to have a strong influence on query results. If we normalize using average values instead, then the top-£ ¦ results would be decided primarily based on Pagerank for most queries, and even the first-m heuristic would get great performance benefits without much loss in precision. By using the logarithm of the raw Pagerank value, both terms are important in the ranking of query results.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="5.1">A Naive Pruning Heuristic</head><p>For the first heuristic, we assume that inverted lists are sorted in descending order by the Pagerank scores of the documents; this is easily achieved by using the global rank as document ID during indexing. The pruning heuristic, called first-m, simply scans the inverted lists until it finds the first pages that contain all query terms. Since our indexes are sorted by Pagerank, these are the pages with the highest Pagerank that contain all query terms. After scoring these pages, the top @ a re returned. While this technique may not provide the best way to approximate our ranking function, we are interested in it for two reasons. First, for the case of ¡ @ , this technique might be considered as a reasonable upper bound on the efficiency gain that can be obtained by pruning, since its cost is essentially that of identifying @ p ages in the intersections of the lists. <ref type="bibr" target="#b5">6</ref> Second, in the case where is a moderate multiple of @ , this technique might be seen as a reasonable baseline from which to start.</p><p>We note that instead of sorting by Pagerank only and leaving the term values completely unsorted, we could also sort each list by term value and leave the Pageranks unsorted. This approach would be similar to earlier approaches for purely term-based ranking, and it would not perform well for our ranking function. Moreover, it would require additional data structures for matching up postings from the different lists that would slow down computation.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="5.2">Separating Large Term Values</head><p>The next approach is motivated by the "fancy hits" approach of Brin and Page <ref type="bibr" target="#b7">[8]</ref> and the work by Persin et al. in <ref type="bibr" target="#b31">[32]</ref>. As discussed, previous pruning techniques for termbased queries sort the postings in each list by their contribution to the final score. In this case, since we are combining term-based and link-based scores according to Equation (1), a natural approach would be to sort the postings in each list by a combination of their term-based and linkbased scores. For example, for queries with two terms, we <ref type="bibr" target="#b5">6</ref> It is however not a strict upper bound if query terms are correlated. could sort each list by the term value plus half the Pagerank contribution, so that by adding up the values from both lists we get the complete document score. Intuitively, this should introduce a strong correlation between the two lists that makes it more likely to encounter good documents early in both lists.</p><p>However, there are problems with this simple idea. First, the above formulation depends on the number of terms in the query. Things are further complicated by the queryspecific normalization in Equation (1), and thus it is not clear by what combination of term-based and link-based scores we should sort since we cannot cleanly separate contributions due to different terms. Second, since postings are not ordered by document ID, we need additional data structures to match postings from different lists, and list compression also becomes less effective.</p><p>We thus decided to go with the following simpler scheme, which partitions each list into two parts by term value. More precisely, we have a short list containing the © postings in the list with the highest term value according to the cosine measure, and a longer list containing all other postings. The short list, called "fancy list" and inspired by <ref type="bibr" target="#b7">[8]</ref>, contains maybe a few thousand or more postings, and both lists are sorted by Pagerank. The intuition is that a document scoring high overall should be either in one of the fancy lists or close to the beginning of the longer lists. We utilize this structure in all subsequent heuristics.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="5.3">A Better Pruning Heuristic</head><p>The next heuristic, called fancy first-m, is an extension of first-m to the new structure. We first process the two fancy lists. For all documents occurring in both of the lists, we compute their complete score and keep the top-@ results. We also maintain two structures ¥ and for documents that occur only in the first or second fancy list, respectively. Afterwards, we simultaneously scan the two longer lists. Whenever we find a document occurring in both longer lists, or a document in one longer list that has already occurred in the other fancy list, we evaluate its score and consider it for inclusion in the top-@ results. We again terminate after encountering documents in the intersection.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="5.4">A Reliable Pruning Technique</head><p>The fancy first-m approach from the previous section was again a heuristic that does not guarantee the correct top @ results. We now describe a technique based on fancy lists that stops only when it can safely determine that it has obtained the top-@ results. To do this, we periodically perform the following check while traversing the longer lists, after processing the fancy lists as described before.</p><formula xml:id="formula_4">Let ¢ ¡ ¢ ¡ % c</formula><p>b e the Pagerank score of the last document encountered in the longer lists, and note that all subsequent documents must have lower Pagerank. Also, let , we can also decide if any documents not yet encountered at all can still make it into the top @ . We stop when this test fails and both ¥ and are empty, and return the current top-@ results. We note that a very similar scheme can also be applied when postings are sorted by Pagerank only, as in Subsection 5.1. However, we observed only negligible performance gains even for top-£ queries and thus decided to not investigate this variant any further.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="5.5">Probabilistic Pruning Techniques</head><p>We have also studied unreliable techniques that take a similar perspective as the reliable pruning technique. In particular, during the scan of the longer list, we again maintain the sets ¥ and of candidate documents that have only been encountered in one of the fancy lists and that could still make it into the top-@ if they appear in the other list with a sufficient term score. After scanning a small portion of the longer lists, the Pageranks encountered usually become so small that no document not already in ¥ or can make it into the top-@ anymore. At this point, we can assign to each document in ¥ and a probability that its total score is larger than the current value 3 5@ 9 , under some basic assumptions about the underlying document collection (in particular independence between Pagerank and term values and an upper bound on the correlation between the terms).</p><p>Using simple statistics about the distribution of term values in the list where the document has not yet been encountered, we can estimate the likelyhood that the unknown value is larger than the difference between 3 5@ 9</p><p>and the known part of the document score. The procedure terminates whenever the probability of having the correct top-@ results goes above some threshold, say</p><formula xml:id="formula_5">¦ ¦ ¤ or ¦ ¦ ¤</formula><p>. We note that statistics could be kept in the form of a histogram or a Zipf parameter for each inverted list that upperbounds the value distribution, and that correlations could be estimated based on hashing techniques similar to those in <ref type="bibr" target="#b8">[9]</ref>.</p><p>For the fancy list organization, we have only implemented a very crude version of this idea where we terminate the scan whenever the number of candidates in is the number of remaining candidates. A full implementation of the technique is left for future work. We also note that in some cases it might be useful to perform a limited number of random accesses to resolve some of the remaining candidates.</p><p>As before, the techniques are also in principle applicable to the index organization in Subsection 5.1. In fact, we have implemented the more general technique above, assuming term independence and using a simple histogram to upperbound term distributions, for this basic index organization. However, benefits in this case are extremely limited.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="6">Experimental Results</head><p>We now present the experimental evaluation of the different approaches. We first describe the machine setup, data sets, and preprocessing steps. Subsection 6.2 contains results for the exhaustive baseline method and the first-m pruning technique from Subsection 5.1. Subsection 6.3 gives results for the fancy first-m scheme. Subsection 6.4 evaluates the reliable and the last-k pruning techniques for the fancy list organization. Subsection 6.5 summarizes results for all techniques. All results up to this point are on a single node of the search engine. Subsection 6.6 finally gives results for a £ -node search engine architecture with query integrator frontend. Due to space constraints, we can only include a small sample of the main results.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="6.1">Experimental Setup</head><p>Hardware: For our experiments, we used a set of Software and Data Sets: Our experiments were run on a search engine prototype, named pingo, that is currently being developed in our research group. The document collection consisted of about £ ¤ ¦ million web pages crawled by the PolyBot web crawler <ref type="bibr" target="#b34">[35]</ref> in October of 2002. Not all of the pages are distinct and the set contains a significant number of duplicates due to pages being repeatedly downloaded because of crawl interruptions. The crawl started at a hundred homepages of US Universities, and was performed in a breadth-first manner. <ref type="bibr" target="#b6">7</ref> As observed in <ref type="bibr" target="#b28">[29]</ref>, such a crawl will quickly find most pages with significant Pagerank value. The total uncompressed size of the data was around £ TB. An I/O-efficient implementation of Pagerank was used to compute the global ranks and scores.</p><p>This data set was distributed over the nodes in a (fairly) random fashion, with each node receiving about ¡ £ million pages (120 GB uncompressed) of data. Indexing took about £ § £ hours per disk, and the resulting inverted lists, sorted according to Pagerank, were stored in Berkeley DB in highly compressed form, using the compression macros available as part of the mg system <ref type="bibr" target="#b39">[40]</ref>. 5000 queries with two terms were taken from a trace of over £ million queries issued to the Excite search engine on December 20, 1999. For the experiments, we removed queries with stopwords, although our approach actually does relatively better for queries with very frequent words.</p><p>Fancy lists were implemented in a separate Berkeley DB database. Note that we did not delete postings included in the fancy lists from the longer lists in the basic index. This allowed us to experiment with different sizes for the fancy lists without having to rebuild the basic index, but as a consequence the basic index is slightly larger than needed. We also stored position information for all post- interval between accesses to the same server that may cause reordering from strict breadth-first. ings even though this is not needed for the simple ranking functions we consider here. Removing the postings, or using improved compression macros, would increase query throughput. Overall, however, we are confident that our index and query execution implementations are fairly optimized towards high performance.</p><p>Evaluation Methodology: We first compare the performance of the various techniques on a single node of the search engine. At the end, we show selected results on £ machines with a query integrator. The cost of a technique is usually stated in terms of the average number of KB blocks that are scanned per query, but we also investigate how this translates into the query throughput and latency that is achieved under various degrees of concurrency.</p><p>The quality of the techniques is always measured relative to the ranking function that we are approximating; thus, the reliable pruning technique has zero error. We consider two measures. An error of , assuming random allocation of documents to nodes.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="6.2">Performance for Baseline and first-m</head><p>In our first set of experiments, we compared the following two approaches: </p><formula xml:id="formula_6">¡ £ ¦ § £ ¦ ¦ § £ ¦ § ¦ ¦ .</formula><p>Figures 6.1 and 6.2 show the throughput and average latency achieved for various levels of concurrency, i.e, the number of queries that are allowed to be executed concurrently on a node. As expected, the throughput improves at first with the degree of concurrency, but the average latency soon starts to increase significantly as the CPU is shared between too many active queries. Note that in the case of "AND" queries, the cosine measure has essentially no computational overhead beyond simple list intersection; hence we did not plot the cost of intersection without cosine evaluation as it was almost identical. As we see, the first-m methods achieve significantly higher throughput and lower latency than the baseline method. For  , throughput further increases and latency decreases, and the optimum degree of concurrency increases as expected for smaller disk accesses.  , only a few blocks of each inverted list are retrieved as shown in <ref type="table" target="#tab_3">Table 6</ref>.1, implying that disk time is already dominated by seek times. Note that the baseline method scans about , respectively. Thus, the results are at best mixed. While we get great performance benefits, they come at a significant error rate. Our hope is that the error rate will be significantly reduced as we move to the fancy list organization.  </p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="6.3">Performance of fancy first Schemes</head><p>We now look at the fancy first-m scheme. <ref type="figure">Figure 6</ref>.5 shows the number of blocks scanned per query for various values of and sizes of the fancy list. We see that the cost increases moderately with the length of the fancy lists, primarily due to the extra cost of scanning these lists. We do not consider caching effects and simply count the number of blocks that are accessed by our program, though Berkeley DB automatically takes care of caching.</p><p>As shown in Figures 6.6 and 6.7, the fancy first-m schemes achieve significantly lower error rates than the , fancy first-100 obtains the correct top-results for more than</p><formula xml:id="formula_7">¦ § ¦ ¤</formula><p>of all queries. We note that fancy first-1000 obtained the correct top-£ result for all queries in our query set except for fancy lists of length ¦ ; thus, only this point is plotted. Also, we see that choosing the lengths of the fancy lists as a percentage of the total list length leads to better error bounds when compared to a fixed length organization with about the same cost. , and different lengths of the fancy lists.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="6.4">Reliable and last-k Pruning</head><p>First, we look at the cost of the reliable pruning technique with different fancy list lengths, shown in . Due to space limitations, we cannot include detailed plots. However, both cases are inferior to the fancy first-m schemes in terms of the cost/error tradeoff, as shown in the summary plot further below. <ref type="figure">Figure 6</ref>.9 finally gives a comparison of the various methods for the case of top-queries. We can identify clusters of results: first, on the ¡ -axis we have the reliable pruning technique, which outperforms the fancy first-1000 schemes located above it to the right. To the left of the reliable scheme are the clusters for fancy first-100 and fancy first-50, which have lower cost but higher error than reliable pruning. Above these two to the right are the last-10 schemes which are strictly worse. Finally, at the top are the last-100 schemes which are marginally faster than fancy first-50, but have much higher error. In fact, by using, say, fancy first-25, we could outperform last-100 in both cost and error. Thus, the best schemes appear to be reliable pruning and fancy first-m with moderate values of . for fancy first-m or l100 for last-100) and length of the fancy lists.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="6.5">Comparison of the Various Methods</head></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="6.6">Performance on £ Machines</head><p>We now look at the performance of the best schemes when we run queries on the entire set of   Note that for reliable pruning, the query integrator asks for the same number of results @ f rom all nodes, and for each query we used the minimum @ t hat allowed the query integrator to determine the top-£ ¦ . This number was precomputed for each query for ease of experimentation. This is not an unrealistic shortcut however, since the reliable pruning scheme can be implemented in an incremental manner, so that the query integrator could ask for the top-5@ % U £ 9 results after receiving the top-@ results (with no extra overhead). In fact, the reliable pruning technique would be improved if the query integrator asks only for the minimum number of results needed from each particular node.</p><p>As shown in Figures 6.10 and 6.11, throughput is again limited to less than queries per second for the baseline method. Using reliable pruning, we get a throughput of more than Looking at the error rate for the fancy first-m schemes in <ref type="figure">Figure 6</ref>.12 we get a pleasant surprise. Even for the fancy first-30 scheme, we obtain exactly the correct top-£ ¦ results for almost ¦ ¤ of all queries, and the error rate is even lower for fancy first-100. This is due to our prior observation that we usually only need the correct top-¤ or topfrom each node to determine the global top-£ ¦ correctly. We finish with a few remarks on scaling with problem size, although <ref type="bibr">we</ref> have not yet obtained conclusive results. We ran experiments with the above four techniques on a single node with collection sizes from to £ ¥ ¤ ¤ million pages. We observed no significant changes in error rate, but some increase in query cost. Partly this is due to the fact that we chose the lengths of the fancy lists as a fixed percentage of the list lengths; it might be better to decrease the percentage as collection size grows. For search engines we are particularly interested in the following question: if total index size is not an issue, is it better to build a complete index for the entire collection on each node (or subset of nodes) and forward each query to only one node (subset), or should we partition the index and broadcast to all nodes? The answer is still open for the presented pruning techniques, but we hope to resolve this by measuring throughput and latency on significantly larger indexes.</p></div><figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_0"><head>( 2 )</head><label>2</label><figDesc>We perform a preliminary experimental evaluation based on a search engine prototype with £ nodes and £ ¤ ¦</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_1"><head>Figure 5 . 1 :</head><label>51</label><figDesc>Figure 5.1: Distributions of raw Pagerank, log of Pagerank, and term scores in a subset of the collection (from left to right). For the latter two, between</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_2"><head></head><label></label><figDesc>We refer to this technique as last- , where</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_3"><head>£</head><label></label><figDesc>Dell Optiplex 240GX machines with £ GHz Pentium- 4, £ GB of memory, and two ¦ GB Seagate Barracuda (ST380021A) hard disks, connected by switched fast Eth- ernet. Each node used only one disk for the index structure.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_5"><head>¦</head><label></label><figDesc>¦ £ under the strict-k measure means that the technique we consider returns ex- actly the same top-@ results as the ranking function for ¦ ¦ ¤ of all queries. An error of ¦ ¦ £ under the loose-k measure means that ¦ § ¦ ¥ ¤ of all documents returned within the top-@ belong in the top-@ . We typically report results for @ ¡ £ , , and £ ¦ . We note that the cases of small @ a re of inter- est because in a parallel search engine we do not need the correct top-£ ¦ from each node to determine the global top- £ ¦ . In particular, retrieving the top-results from each of £ nodes suffices to reliably determine the global top-£ ¥ ¦ with probability about ¦ § ¦ ¤</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_6"><head>(</head><label></label><figDesc>a) Baseline (no pruning): We compute top £ ¦ results by scanning the complete inverted lists, except when the inverted lists differ significantly in size in which case a binary search approach kicks in automatically. (b) first-m: We return the top £ ¥ ¦ results out of the first documents in the intersection, for</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_8"><head>Figure 6 . 1 :</head><label>61</label><figDesc>Figure 6.1: Query throughput per second.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_9"><head>Figure 6 . 2 :</head><label>62</label><figDesc>Figure 6.2: Average latency for each query. If we decrease</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_10"><head></head><label></label><figDesc>£ ¡ MB of compressed postings data (about £ £ MB uncompressed data) per query, even on a sin- gle node of ¡ £ million documents. In Figures 6.3 and 6.4, we show how well the heuristic performs at identifying the correct top-@ results. For exam- ple, first-1000 returns the correct top document for almost ¦ § ¦ ¥ ¤ of all queries, and correctly identifies all top-results for ¦ ¤ of all queries. One the other hand, of all the re- sults returned in the top-, almost ¦ § ¦ ¤ really belong there. However, for first-100 the results drop to around £ ¤ , £ ¤ , and ¡ ¤</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_11"><head></head><label></label><figDesc>Figure 6.3: Error rate for loose-@ , for different</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_12"><head>Figure 6 . 4 :</head><label>64</label><figDesc>Figure 6.4: Error rate for strict-@ , for different</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_13"><head>Figure 6 . 5 :</head><label>65</label><figDesc>Figure 6.5: Average cost per query, for fancy first-m schemes with</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_14"><head>lengthFigure 6 . 6 :</head><label>66</label><figDesc>Figure 6.6: Error rate for loose-@ measure, for different values of and</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_15"><head>Figure 6 .Figure 6 . 7 :Figure 6 . 8 :</head><label>66768</label><figDesc>Figure 6.7: Error rate for strict-@ measure, for different values of and</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_16"><head>Figure 6 . 9 :</head><label>69</label><figDesc>Figure 6.9: Comparison of various pruning techniques. Each technique and parameter setting is plotted as a point showing its cost in disk blocks on the</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_17"><head></head><label></label><figDesc>with a query integrator on a sepa- rate machine that merges the results. In particular, we plot results for the baseline scheme, reliable pruning with fancy list length £ ¦ ¤ , fancy first-30 with fancy list length £ ¤ , and fancy first-100 with fancy list length £ ¥ ¦ ¤ . All results are for top-£ ¦ queries. The concurrency level in this case is the total number of queries that are allowed to be active at the query integrator at any time.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_18"><head>Figure 6 . 10 :</head><label>610</label><figDesc>Figure 6.10: Query throughput per second on</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_19"><head>Figure 6 . 11 :</head><label>611</label><figDesc>Figure 6.11: Query latency in seconds on</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_20"><head>Figure 6 . 12 :</head><label>612</label><figDesc>Figure 6.12: Errors for fancy first-m on</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_3" validated="false"><head>Table 6 .1: Average number of KB block accesses per node and per query.</head><label>6</label><figDesc></figDesc><table>is limited to less than 
+
+queries per second. For 
+
+¡ 
+
+£ 
+¦ 
+¦ 
+
+and 
+
+¡ 
+
+£ 
+¦ 
+
+</table></figure>
+
+			<note place="foot" n="2"> In addition, there are hybrid schemes [37], and replication is often used in conjunction with partitioning for better performance.</note>
+
+			<note place="foot" n="3"> In some cases, intranet collection sizes may be even larger than the  § TB size of the Google collection. 4 We note that this issue is not really limited to link-based techniques, but also includes other approaches such as user feedback or offline text analysis that might be used to arrive at a global ordering.</note>
+		</body>
+		<back>
+
+			<div type="acknowledgement">
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>Acknowledgements</head><p>Thanks to Jiangong Zhang for help with simulation results and to Yen-Yu Chen for providing the Pagerank values.</p></div>
+			</div>
+
+			<div type="references">
+
+				<listBibl>
+
+<biblStruct xml:id="b0">
+	<analytic>
+		<title level="a" type="main">Vector-space ranking with effective early termination</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">V</forename><surname>Anh</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">O</forename><surname>Kretser</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Moffat</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of the 24th Annual SIGIR Conf. on Research and Development in information retrieval</title>
+		<meeting>of the 24th Annual SIGIR Conf. on Research and Development in information retrieval</meeting>
+		<imprint>
+			<date type="published" when="2001-09" />
+			<biblScope unit="page" from="35" to="42" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b1">
+	<analytic>
+		<title level="a" type="main">Compressed inverted files with reduced decoding overheads</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">V</forename><surname>Anh</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Moffat</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. 21st Annual SIGIR Conf. on Research and Development in Information Retrieval</title>
+		<meeting>21st Annual SIGIR Conf. on Research and Development in Information Retrieval</meeting>
+		<imprint>
+			<date type="published" when="1998" />
+			<biblScope unit="page" from="290" to="297" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b2">
+	<analytic>
+		<title level="a" type="main">Searching the web</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Arasu</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Cho</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">H</forename><surname>Garcia-Molina</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Raghavan</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">ACM Transactions on Internet Technologies</title>
+		<imprint>
+			<biblScope unit="volume">1</biblScope>
+			<biblScope unit="issue">1</biblScope>
+			<date type="published" when="2001-06" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b3">
+	<analytic>
+		<title level="a" type="main">Distributed query processing using partitioned inverted files</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Badue</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Baeza-Yates</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">B</forename><surname>Ribeiro-Neto</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">N</forename><surname>Ziviani</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of the 9th String Processing and Information Retrieval Symposium (SPIRE)</title>
+		<meeting>of the 9th String essing and Information Retrieval Symposium (SPIRE)</meeting>
+		<imprint>
+			<date type="published" when="2002-09" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b4">
+	<monogr>
+				<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Baeza-Yates</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">B</forename><surname>Ribeiro-Neto</surname></persName>
+		</author>
+		<title level="m">Modern Information Retrieval</title>
+		<imprint>
+			<publisher>Addision Wesley</publisher>
+			<date type="published" when="1999" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b5">
+	<analytic>
+		<title level="a" type="main">Finding authorities and hubs from link structures on the World Wide Web</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Borodin</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">G</forename><surname>Roberts</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Rosenthal</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>Tsaparas</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">10th Int. World Wide Web Conference</title>
+		<imprint>
+			<date type="published" when="2001" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b6">
+	<analytic>
+		<title level="a" type="main">Lessons from giant scale services</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">E</forename><surname>Brewer</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">IEEE Internet Computing</title>
+		<imprint>
+			<biblScope unit="page" from="46" to="55" />
+			<date type="published" when="2001-08" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b7">
+	<analytic>
+		<title level="a" type="main">The anatomy of a large-scale hypertextual web search engine</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Brin</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">L</forename><surname>Page</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of the Seventh World Wide Web Conference</title>
+		<meeting>of the Seventh World Wide Web Conference</meeting>
+		<imprint>
+			<date type="published" when="1998" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b8">
+	<analytic>
+		<title level="a" type="main">On the resemblance and containment of documents</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Broder</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Compression and Complexity of Sequences (SE-QUENCES&apos;97)</title>
+		<imprint>
+			<date type="published" when="1997" />
+			<biblScope unit="page" from="21" to="29" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b9">
+	<analytic>
+		<title level="a" type="main">Evaluating top-k queries over web-accessible databases</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">N</forename><surname>Bruno</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">L</forename><surname>Gravano</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Marian</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of the 18th Annual Int. Conf. on Data Engineering</title>
+		<meeting>of the 18th Annual Int. Conf. on Data Engineering</meeting>
+		<imprint>
+			<date type="published" when="2002" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b10">
+	<analytic>
+		<title level="a" type="main">Optimization of inverted vector searches</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Buckley</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Lewit</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. 8th Annual SIGIR Conf. on Research and Development in Information Retrieval</title>
+		<meeting>8th Annual SIGIR Conf. on Research and Development in Information Retrieval</meeting>
+		<imprint>
+			<date type="published" when="1985" />
+			<biblScope unit="page" from="97" to="110" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b11">
+	<analytic>
+		<title level="a" type="main">Evaluating the performance of distributed architectures for information retrieval using a variety of workloads</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">B</forename><surname>Cahoon</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">K</forename><surname>Mckinley</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Z</forename><surname>Lu</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">IEEE Transactions on Information Systems</title>
+		<imprint>
+			<biblScope unit="volume">18</biblScope>
+			<biblScope unit="issue">1</biblScope>
+			<biblScope unit="page" from="1" to="43" />
+			<date type="published" when="2000-01" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b12">
+	<analytic>
+		<title level="a" type="main">Automatic resource list compilation by analyzing hyperlink structure and associated text</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Chakrabarti</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">B</forename><surname>Dom</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Gibson</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Kleinberg</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>Raghavan</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Rajagopalan</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of the 7th Int. World Wide Web Conference</title>
+		<meeting>of the 7th Int. World Wide Web Conference</meeting>
+		<imprint>
+			<date type="published" when="1998-05" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b13">
+	<analytic>
+		<title level="a" type="main">Optimizing queries over multimedia repositories</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Chaudhuri</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">L</forename><surname>Gravano</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Data Engineering Bulletin</title>
+		<imprint>
+			<biblScope unit="volume">19</biblScope>
+			<biblScope unit="issue">4</biblScope>
+			<biblScope unit="page" from="45" to="52" />
+			<date type="published" when="1996" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b14">
+	<analytic>
+		<title level="a" type="main">Combining fuzzy information from multiple systems</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Fagin</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of ACM Symp. on Principles of Database Systems</title>
+		<meeting>of ACM Symp. on Principles of Database Systems</meeting>
+		<imprint>
+			<date type="published" when="1996" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b15">
+	<monogr>
+		<title level="m" type="main">Combining fuzzy information: an overview. SIG-MOD Record</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Fagin</surname></persName>
+		</author>
+		<imprint>
+			<date type="published" when="2002-06" />
+			<biblScope unit="volume">31</biblScope>
+			<biblScope unit="page" from="109" to="118" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b16">
+	<analytic>
+		<title level="a" type="main">Static index pruning for information retrieval systems</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Fagin</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Carmel</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Cohen</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">E</forename><surname>Farchi</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Herscovici</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Y</forename><surname>Maarek</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Soffer</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of the 24th Annual SI-GIR Conf. on Research and Development in Information Retrieval</title>
+		<meeting>of the 24th Annual SI-GIR Conf. on Research and Development in Information Retrieval</meeting>
+		<imprint>
+			<date type="published" when="2001-09" />
+			<biblScope unit="page" from="43" to="50" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b17">
+	<analytic>
+		<title level="a" type="main">Optimal aggregation algorithms for middleware</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Fagin</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Lotem</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Naor</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of ACM Symp. on Principles of Database Systems</title>
+		<meeting>of ACM Symp. on Principles of Database Systems</meeting>
+		<imprint>
+			<date type="published" when="2001" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b18">
+	<analytic>
+		<title level="a" type="main">Optimizing multifeature queries in image databases</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">U</forename><surname>Guntzer</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">W</forename><surname>Balke</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">W</forename><surname>Kiessling</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of the 26th Int. Conf. on Very Large Data Base</title>
+		<meeting>of the 26th Int. Conf. on Very Large Data Base</meeting>
+		<imprint>
+			<date type="published" when="2000" />
+			<biblScope unit="page" from="419" to="428" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b19">
+	<analytic>
+		<title level="a" type="main">Towards efficient multi-feature queries in heterogeneous environments</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">U</forename><surname>Guntzer</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">W</forename><surname>Balke</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">W</forename><surname>Kiessling</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of the IEEE Int. Conf. on Information Technology, Coding and Computing</title>
+		<meeting>of the IEEE Int. Conf. on Information Technology, Coding and Computing</meeting>
+		<imprint>
+			<date type="published" when="2001-04" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b20">
+	<analytic>
+		<title level="a" type="main">Retrieving records from a gigabyte of text on a minicomputer using statistical ranking</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Harman</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">G</forename><surname>Candela</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Journal of the American Society for Information Science</title>
+		<imprint>
+			<biblScope unit="volume">41</biblScope>
+			<biblScope unit="issue">8</biblScope>
+			<biblScope unit="page" from="581" to="589" />
+			<date type="published" when="1990-08" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b21">
+	<analytic>
+		<title level="a" type="main">Topic-sensitive pagerank</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">T</forename><forename type="middle">H</forename><surname>Haveliwala</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of the 11th Int. World Wide Web Conference</title>
+		<meeting>of the 11th Int. World Wide Web Conference</meeting>
+		<imprint>
+			<date type="published" when="2002-05" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b22">
+	<analytic>
+		<title level="a" type="main">Inverted file partitioning schemes in multiple disk systems</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">B</forename><surname>Jeong</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">E</forename><surname>Omiecinski</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">IEEE Transactions on Parallel and Distributed Systems</title>
+		<imprint>
+			<biblScope unit="volume">6</biblScope>
+			<biblScope unit="issue">2</biblScope>
+			<biblScope unit="page" from="142" to="153" />
+			<date type="published" when="1995" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b23">
+	<analytic>
+		<title level="a" type="main">Authoritative sources in a hyperlinked environment</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Kleinberg</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of the 9th ACM-SIAM Symposium on Discrete Algorithms</title>
+		<meeting>of the 9th ACM-SIAM Symposium on Discrete Algorithms</meeting>
+		<imprint>
+			<date type="published" when="1998-01" />
+			<biblScope unit="page" from="668" to="677" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b24">
+	<analytic>
+		<title level="a" type="main">The Stochastic Approach for Link-Structure Analysis (SALSA) and the TKC Effect</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Lempel</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Moran</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of the 9th Int. World Wide Web Conference</title>
+		<meeting>of the 9th Int. World Wide Web Conference</meeting>
+		<imprint>
+			<date type="published" when="2000-05" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b25">
+	<analytic>
+		<title level="a" type="main">Optimizing result prefetching in web search engines with segmented indices</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Lempel</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Moran</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of the 28th Int. Conf. on Very Large Data Bases</title>
+		<meeting>of the 28th Int. Conf. on Very Large Data Bases</meeting>
+		<imprint>
+			<date type="published" when="2002-08" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b26">
+	<monogr>
+		<title level="m" type="main">Scalable Distributed Architectures For Information Retrieval</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Z</forename><surname>Lu</surname></persName>
+		</author>
+		<imprint>
+			<date type="published" when="1999-05" />
+		</imprint>
+		<respStmt>
+			<orgName>Univ. of Massachusetts</orgName>
+		</respStmt>
+	</monogr>
+<note type="report_type">PhD thesis</note>
+</biblStruct>
+
+<biblStruct xml:id="b27">
+	<analytic>
+		<title level="a" type="main">Building a distributed full-text index for the web</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Melnik</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Raghavan</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">B</forename><surname>Yang</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">H</forename><surname>Garcia-Molina</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of the 10th Int. World Wide Web Conference</title>
+		<meeting>of the 10th Int. World Wide Web Conference</meeting>
+		<imprint>
+			<date type="published" when="2000-05" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b28">
+	<analytic>
+		<title level="a" type="main">Breadth-first search crawling yields high-quality pages</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Najork</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Wiener</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">10th Int. World Wide Web Conference</title>
+		<imprint>
+			<date type="published" when="2001" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b29">
+	<analytic>
+		<title level="a" type="main">Query processing issues in image (multimedia) databases</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Nepal</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Ramakrishna</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of the 15th Annual Int. Conf. on Data Engineering</title>
+		<meeting>of the 15th Annual Int. Conf. on Data Engineering</meeting>
+		<imprint>
+			<date type="published" when="1999-03" />
+			<biblScope unit="page" from="22" to="29" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b30">
+	<monogr>
+		<title level="m" type="main">The pagerank citation ranking: Bringing order to the web</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">L</forename><surname>Page</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Brin</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Motwani</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">T</forename><surname>Winograd</surname></persName>
+		</author>
+		<imprint>
+			<date type="published" when="1999" />
+		</imprint>
+		<respStmt>
+			<orgName>Stanford University</orgName>
+		</respStmt>
+	</monogr>
+<note type="report_type">Technical report</note>
+</biblStruct>
+
+<biblStruct xml:id="b31">
+	<analytic>
+		<title level="a" type="main">Filtered document retrieval with frequency-sorted indexes</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Persin</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Zobel</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Sacks-Davis</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Journal of the American Society for Information Science</title>
+		<imprint>
+			<biblScope unit="volume">47</biblScope>
+			<biblScope unit="issue">10</biblScope>
+			<biblScope unit="page" from="749" to="764" />
+			<date type="published" when="1996-05" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b32">
+	<analytic>
+		<title level="a" type="main">The intelligent surfer: Probabilistic combination of link and content information in pagerank</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Richardson</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>Domingos</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Advances in Neural Information Processing Systems</title>
+		<imprint>
+			<date type="published" when="2002" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b33">
+	<analytic>
+		<title level="a" type="main">Search engines and web dynamics</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">K</forename><surname>Risvik</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Michelsen</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Computer Networks</title>
+		<imprint>
+			<biblScope unit="volume">39</biblScope>
+			<biblScope unit="page" from="289" to="302" />
+			<date type="published" when="2002" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b34">
+	<analytic>
+		<title level="a" type="main">Design and implementation of a high-performance distributed web crawler</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">V</forename><surname>Shkapenyuk</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">T</forename><surname>Suel</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of the Int. Conf. on Data Engineering</title>
+		<meeting>of the Int. Conf. on Data Engineering</meeting>
+		<imprint>
+			<date type="published" when="2002-02" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b35">
+	<analytic>
+		<title level="a" type="main">ODISSEA: A peer-to-peer architecture for scalable web search and information retrieval</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">T</forename><surname>Suel</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Mathur</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Wu</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Zhang</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Delis</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Kharrazi</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">X</forename><surname>Long</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">K</forename><surname>Shanmugasundaram</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">International Workshop on the Web and Databases (WebDB)</title>
+		<imprint>
+			<date type="published" when="2003-06" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b36">
+	<analytic>
+		<title level="a" type="main">Performance of inverted indices in distributed text document retrieval systems</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Tomasic</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">H</forename><surname>Garcia-Molina</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of the 2nd Int. Conf. on Parallel and Distributed Information Systems (PDIS)</title>
+		<meeting>of the 2nd Int. Conf. on Parallel and Distributed Information Systems (PDIS)</meeting>
+		<imprint>
+			<date type="published" when="1993" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b37">
+	<monogr>
+		<title level="m" type="main">Query evaluation: strategies and optimizations. Information Processing and Management</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">H</forename><surname>Turtle</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Flood</surname></persName>
+		</author>
+		<imprint>
+			<date type="published" when="1995-11" />
+			<biblScope unit="volume">31</biblScope>
+			<biblScope unit="page" from="831" to="850" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b38">
+	<analytic>
+		<title level="a" type="main">Using fagin&apos;s algorithm for merging ranked results in multimedia middleware</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">E</forename><surname>Wimmers</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">L</forename><surname>Haas</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Roth</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Braendli</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Fourth IFCIS Int. Conf. on Cooperative Information Systems</title>
+		<imprint>
+			<date type="published" when="1999-09" />
+			<biblScope unit="page" from="267" to="278" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b39">
+	<monogr>
+		<title level="m" type="main">Managing Gigabytes: Compressing and Indexing Documents and Images</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">I</forename><forename type="middle">H</forename><surname>Witten</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Moffat</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">T</forename><forename type="middle">C</forename><surname>Bell</surname></persName>
+		</author>
+		<imprint>
+			<date type="published" when="1999" />
+			<publisher>Morgan Kaufmann</publisher>
+		</imprint>
+	</monogr>
+	<note>second edition</note>
+</biblStruct>
+
+<biblStruct xml:id="b40">
+	<monogr>
+		<title level="m" type="main">Implementations of partial document ranking using inverted files. Information Processing and Management</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">W</forename><surname>Wong</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Lee</surname></persName>
+		</author>
+		<imprint>
+			<date type="published" when="1993-09" />
+			<biblScope unit="volume">29</biblScope>
+			<biblScope unit="page" from="647" to="669" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+				</listBibl>
+			</div>
+		</back>
+	</text>
+</TEI>

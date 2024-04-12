@@ -1,0 +1,155 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>Be Fast, Cheap and in Control with SwitchKV</p>
+    <p>Xiaozhou Li Raghav Sethi</p>
+    <p>Michael Kaminsky</p>
+    <p>David G. Andersen</p>
+    <p>Michael J. Freedman</p>
+  </div>
+  <div class="page">
+    <p>Target: cluster-level storage for modern cloud services</p>
+    <p>Massive number of small key-value objects</p>
+    <p>Highly skewed and dynamic workloads</p>
+    <p>Aggressive latency and throughput performance goals</p>
+    <p>This talk: scale-out flash-based storage for this setting</p>
+    <p>Goal: fast and cost-effective key-value store</p>
+  </div>
+  <div class="page">
+    <p>How to handle the highly skewed and dynamic workloads?</p>
+    <p>Todays solution: data migration / replication</p>
+    <p>system overhead</p>
+    <p>consistency challenge</p>
+    <p>Key challenge: dynamic load balancing</p>
+    <p>time t</p>
+    <p>time t+x</p>
+  </div>
+  <div class="page">
+    <p>Fast, small cache can ensure load balancing</p>
+    <p>flash-based backend nodes frontend cache node</p>
+    <p>E.g., 100 backends with hundreds of billions of items + cache with 10,000 entries</p>
+    <p>Need only cache O(nlogn) items to provide good load balance, where n is the number of backend nodes. [Fan, SOCC11]</p>
+    <p>How to efficiently serve queries with cache and backend nodes?</p>
+    <p>How to efficiently update the cache under dynamic workloads?</p>
+    <p>hottest queriesless-hot queries, better-balanced loads</p>
+  </div>
+  <div class="page">
+    <p>Cache must process all queries and handle misses</p>
+    <p>In our case, cache is small and hit ratio could be low</p>
+    <p>Throughput is bounded by the cache I/O</p>
+    <p>High latency for queries for uncached keys</p>
+    <p>High overheads with traditional caching architectures</p>
+    <p>Look-aside Look-through</p>
+    <p>clients</p>
+    <p>backends cache</p>
+    <p>clients</p>
+    <p>backends cache (load balancer)</p>
+    <p>miss</p>
+  </div>
+  <div class="page">
+    <p>Switches route requests directly to the appropriate nodes</p>
+    <p>Latency can be minimized for all queries</p>
+    <p>Throughput can scale out with # of backends</p>
+    <p>Availability would not be affected by cache node failures</p>
+    <p>SwitchKV: content-aware routing</p>
+    <p>backends</p>
+    <p>cacheOpenFlow Switches</p>
+    <p>clients</p>
+    <p>controller</p>
+  </div>
+  <div class="page">
+    <p>Clients encode key information in packet headers</p>
+    <p>Encode key hash in MAC for read queries</p>
+    <p>Encode destination backend ID in IP for all queries</p>
+    <p>Switches maintain forwarding rules and route query packets</p>
+    <p>Exploit SDN and switch hardware</p>
+    <p>L2 table</p>
+    <p>TCAM table</p>
+    <p>Packet In Packet Out</p>
+    <p>miss</p>
+    <p>hit exact match rule per cached key</p>
+    <p>match rule per physical machine Packet Out</p>
+    <p>to the cache</p>
+  </div>
+  <div class="page">
+    <p>New challenges for cache updates</p>
+    <p>Only cache the hottest O(nlogn) items</p>
+    <p>Limited switch rule update rate</p>
+    <p>Goal: react quickly to workload changes with minimal updates</p>
+    <p>Keep cache and switch rules updated</p>
+    <p>cache backend</p>
+    <p>switch rule update top-k &lt;key, load&gt; list</p>
+    <p>(periodic)</p>
+    <p>fetch &lt;key, value&gt;</p>
+    <p>(instant)</p>
+    <p>bursty hot &lt;key, value&gt;</p>
+    <p>controller</p>
+  </div>
+  <div class="page">
+    <p>How well does a fast small cache improve the system load balance and throughput?</p>
+    <p>Does SwitchKV improve system performance compared to traditional architectures?</p>
+    <p>Can SwitchKV react quickly to workload changes?</p>
+    <p>Evaluation</p>
+  </div>
+  <div class="page">
+    <p>Evaluation Platform</p>
+    <p>Reference backend</p>
+    <p>1 Gb link</p>
+    <p>Intel Atom C2750 processor</p>
+    <p>Intel DC P3600 PCIe-based SSD</p>
+    <p>RocksDB with 120 million 1KB objects</p>
+    <p>99.4K queries per second</p>
+  </div>
+  <div class="page">
+    <p>Evaluation Platform</p>
+    <p>Client 40 GbE</p>
+    <p>Xeon Server 1</p>
+    <p>Cache</p>
+    <p>Xeon Server 2</p>
+    <p>Pica8 P-3922 (OVS 2.3)</p>
+    <p>Backends</p>
+    <p>Xeon Server 3 Xeon Server 4</p>
+    <p>Ryu</p>
+    <p>Backends</p>
+    <p># of backends 128</p>
+    <p>backend tput 100 KQPS</p>
+    <p>keyspace size 10 billion</p>
+    <p>key size 16 bytes</p>
+    <p>value size 128 bytes</p>
+    <p>query skewness Zipf 0.99</p>
+    <p>cache size 10,000 entries</p>
+    <p>Default settings in this talk</p>
+    <p>Use Intel DPDK to efficiently transfer packets and modify headers</p>
+    <p>Client adjusts its sending rate, keep loss rate between 0.5% and 1%</p>
+  </div>
+  <div class="page">
+    <p>Throughput with and without caching</p>
+    <p>Cache (10,000 entries)</p>
+    <p>Backends aggregate (with cache)</p>
+    <p>Backends aggregate (without cache)</p>
+  </div>
+  <div class="page">
+    <p>Throughput vs. Number of backends</p>
+    <p>backend rate limit: 50KQPS, cache rate limit: 5MQPS</p>
+  </div>
+  <div class="page">
+    <p>End-to-end latency vs. Throughput</p>
+  </div>
+  <div class="page">
+    <p>Throughput with workload changes</p>
+    <p>Make 200 cold keys become the hottest keys every 10 seconds 15</p>
+    <p>Traditional cache update method</p>
+    <p>Periodic top-k updates only</p>
+    <p>Periodic top-k updates + instant bursty hot key updates</p>
+  </div>
+  <div class="page">
+    <p>SwitchKV: high-performance and cost-efficient KV store</p>
+    <p>Fast, small cache guarantees backend load balancing</p>
+    <p>Efficient content-aware OpenFlow switching</p>
+    <p>Low (tail) latency</p>
+    <p>Scalable throughput</p>
+    <p>High availability</p>
+    <p>Keep high performance under highly dynamic workloads</p>
+    <p>Conclusion</p>
+  </div>
+</Presentation>

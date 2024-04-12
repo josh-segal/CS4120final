@@ -1,0 +1,371 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>Phoenix++: Modular MapReduce for Shared-Memory Systems</p>
+    <p>Justin Talbot, Richard Yoo, Christos Kozyrakis</p>
+    <p>Stanford University</p>
+  </div>
+  <div class="page">
+    <p>Phoenix</p>
+    <p>Phoenix [Ranger et al., HPCA 2007]</p>
+    <p>Cluster-style MapReduce on shared-memory</p>
+    <p>Phoenix 2 [Yoo et al., IISWC 2009]</p>
+    <p>Explore shared-memory-specific details</p>
+    <p>Disk and network I/O no longer the bottleneck</p>
+    <p>Handling NUMA, reducing OS interaction and synchronization</p>
+    <p>Phoenix++ [today]</p>
+    <p>High performance and simple code</p>
+  </div>
+  <div class="page">
+    <p>Outline</p>
+  </div>
+  <div class="page">
+    <p>Limitations of Phoenix</p>
+  </div>
+  <div class="page">
+    <p>Limitations of Phoenix</p>
+    <p>Fixed-width hash array + sorted key list</p>
+    <p>Combiner run at the end of the map stage</p>
+    <p>Interface exposes chunks, rather than single tasks</p>
+  </div>
+  <div class="page">
+    <p>Limitations of Phoenix</p>
+    <p>void map(pixel p) {</p>
+    <p>emit(p.r, 1);</p>
+    <p>emit(p.g+256, 1);</p>
+    <p>emit(p.b+512, 1);</p>
+    <p>}</p>
+    <p>void hist_map(map_args_t *args) {</p>
+    <p>unsigned char *data = (unsigned char *) args-&gt;data;</p>
+    <p>/* Manually buffer intermediate results */</p>
+    <p>intptr_t red[256] = {0};</p>
+    <p>intptr_t green[256] = {0};</p>
+    <p>intptr_t blue[256] = {0};</p>
+    <p>/* Count occurrences, amounts to manual combine */</p>
+    <p>for (int i = 0; i &lt; args-&gt;length * 3; i +=3) {</p>
+    <p>red[data[i]]++;</p>
+    <p>green[data[i+1]]++;</p>
+    <p>blue[data[i+2]]++;</p>
+    <p>}</p>
+    <p>/* Selectively emit key-value pairs */</p>
+    <p>for (int i = 0; i &lt; 256; i++) {</p>
+    <p>if(red[i] &gt; 0) emit(i, red[i]);</p>
+    <p>if(green[i] &gt; 0) emit(i+256, green[i]);</p>
+    <p>if(blue[i] &gt; 0) emit(i+512, blue[i]);</p>
+    <p>}</p>
+    <p>}</p>
+  </div>
+  <div class="page">
+    <p>Limitations of Phoenix</p>
+    <p>void map(pixel p) {</p>
+    <p>emit(p.r, 1);</p>
+    <p>emit(p.g+256, 1);</p>
+    <p>emit(p.b+512, 1);</p>
+    <p>}</p>
+    <p>void hist_map(map_args_t *args) {</p>
+    <p>unsigned char *data = (unsigned char *) args-&gt;data;</p>
+    <p>/* Manually buffer intermediate results */</p>
+    <p>intptr_t red[256] = {0};</p>
+    <p>intptr_t green[256] = {0};</p>
+    <p>intptr_t blue[256] = {0};</p>
+    <p>/* Count occurrences, amounts to manual combine */</p>
+    <p>for (int i = 0; i &lt; args-&gt;length * 3; i +=3) {</p>
+    <p>red[data[i]]++;</p>
+    <p>green[data[i+1]]++;</p>
+    <p>blue[data[i+2]]++;</p>
+    <p>}</p>
+    <p>/* Selectively emit key-value pairs */</p>
+    <p>for (int i = 0; i &lt; 256; i++) {</p>
+    <p>if(red[i] &gt; 0) emit(i, red[i]);</p>
+    <p>if(green[i] &gt; 0) emit(i+256, green[i]);</p>
+    <p>if(blue[i] &gt; 0) emit(i+512, blue[i]);</p>
+    <p>}</p>
+    <p>}</p>
+    <p>histogram: 10x slowdown</p>
+    <p>linear_regression: 24x slowdown</p>
+  </div>
+  <div class="page">
+    <p>Previous work</p>
+  </div>
+  <div class="page">
+    <p>Previous Work</p>
+  </div>
+  <div class="page">
+    <p>Previous Work</p>
+    <p>[Tiled MapReduce, Chen et al. 2010]</p>
+    <p>Overlap map/reduce phases, shrinking working set</p>
+    <p>Reduction function must be commutative, associative</p>
+  </div>
+  <div class="page">
+    <p>Previous Work</p>
+    <p>[MATE, Jiang et al. 2010]</p>
+    <p>Reduce run in map stage (as a combiner)</p>
+    <p>Reduction function must be commutative, associative</p>
+    <p>User manually fuses map and combiner/reduction</p>
+    <p>functions</p>
+  </div>
+  <div class="page">
+    <p>Previous Work</p>
+    <p>[Metis, Mao et al. 2010]</p>
+    <p>Fixed-width hash table + b-tree</p>
+    <p>Estimate hash table width from 7% run</p>
+    <p>Run combiner if value buffer has more than 8 items</p>
+  </div>
+  <div class="page">
+    <p>Phoenix++ Design and Implementation</p>
+  </div>
+  <div class="page">
+    <p>Design Goals</p>
+    <p>Pure keep map, combiner, reduce functions distinct</p>
+    <p>no user-maintained state</p>
+    <p>no exposed chunking</p>
+    <p>Complete no arbitrary restrictions on workloads</p>
+    <p>handle non-associative reductions</p>
+    <p>Clean simple programmatic interface</p>
+    <p>type safe</p>
+    <p>Fast make performance workarounds unnecessary</p>
+  </div>
+  <div class="page">
+    <p>Design</p>
+    <p>Modular storage options: Containers and Combiner objects abstractions support mix and match</p>
+    <p>Aggressively call combiner after every map emit</p>
+    <p>User-exposed functions called with one task at a time</p>
+    <p>Compile-time optimizations eliminate overhead</p>
+  </div>
+  <div class="page">
+    <p>Design: Modular storage options</p>
+    <p>Key distribution varies by workload</p>
+    <p>*:* (word count)</p>
+    <p>*:k (histogram)</p>
+  </div>
+  <div class="page">
+    <p>Design: Modular storage options</p>
+    <p>Key distribution varies by workload</p>
+    <p>Container type</p>
+    <p>*:* (word count) variable-size hash table</p>
+    <p>*:k (histogram) array with fixed mapping</p>
+  </div>
+  <div class="page">
+    <p>Design: Modular storage options</p>
+    <p>// Begin map stage (Phoenix++ library)</p>
+    <p>storage = Container.get()</p>
+    <p>while(chunk in queue) {</p>
+    <p>for(task in chunk) {</p>
+    <p>user_map_fn(task.data, storage)</p>
+    <p>}</p>
+    <p>}</p>
+    <p>Container.put(storage)</p>
+    <p>// End map stage</p>
+    <p>// User map function</p>
+    <p>user_map_fn() {</p>
+    <p>emit(storage, key, value)</p>
+    <p>}</p>
+  </div>
+  <div class="page">
+    <p>Design: Modular storage options</p>
+    <p>// Begin map stage (Phoenix++ library)</p>
+    <p>storage = Container.get()</p>
+    <p>while(chunk in queue) {</p>
+    <p>for(task in chunk) {</p>
+    <p>user_map_fn(task.data, storage)</p>
+    <p>}</p>
+    <p>}</p>
+    <p>Container.put(storage)</p>
+    <p>// End map stage</p>
+    <p>// User map function</p>
+    <p>user_map_fn() {</p>
+    <p>emit(storage, key, value)</p>
+    <p>}</p>
+  </div>
+  <div class="page">
+    <p>Design: Modular storage options</p>
+    <p>// Begin map stage (Phoenix++ library)</p>
+    <p>storage = Container.get()</p>
+    <p>while(chunk in queue) {</p>
+    <p>for(task in chunk) {</p>
+    <p>user_map_fn(task.data, storage)</p>
+    <p>}</p>
+    <p>}</p>
+    <p>Container.put(storage)</p>
+    <p>// End map stage</p>
+    <p>// User map function</p>
+    <p>user_map_fn() {</p>
+    <p>emit(storage, key, value)</p>
+    <p>}</p>
+  </div>
+  <div class="page">
+    <p>Design: Modular storage options</p>
+    <p>// Begin map stage (Phoenix++ library)</p>
+    <p>storage = Container.get()</p>
+    <p>while(chunk in queue) {</p>
+    <p>for(task in chunk) {</p>
+    <p>user_map_fn(task.data, storage)</p>
+    <p>}</p>
+    <p>}</p>
+    <p>Container.put(storage)</p>
+    <p>// End map stage</p>
+    <p>// User map function</p>
+    <p>user_map_fn() {</p>
+    <p>emit(storage, key, value)</p>
+    <p>}</p>
+  </div>
+  <div class="page">
+    <p>Design: Modular storage options</p>
+    <p>// Begin map stage (Phoenix++ library)</p>
+    <p>storage = Container.get()</p>
+    <p>while(chunk in queue) {</p>
+    <p>for(task in chunk) {</p>
+    <p>user_map_fn(task.data, storage)</p>
+    <p>}</p>
+    <p>}</p>
+    <p>Container.put(storage)</p>
+    <p>// End map stage</p>
+    <p>// User map function</p>
+    <p>user_map_fn() {</p>
+    <p>emit(storage, key, value)</p>
+    <p>}</p>
+  </div>
+  <div class="page">
+    <p>Design: Modular storage options</p>
+    <p>Container::get() Container::put()</p>
+    <p>variable-size hash table thread-local hash table rehash table to</p>
+    <p># of reduce tasks</p>
+    <p>array thread-local array swap pointer to global</p>
+    <p>memory</p>
+    <p>shared array pointer to global array</p>
+  </div>
+  <div class="page">
+    <p>Design: Modular storage options</p>
+    <p>Advantages:</p>
+    <p>Storage can be optimized for a particular workload</p>
+    <p>Users may provide own container implementation</p>
+    <p>Hash tables resize dynamically and independently</p>
+    <p>Thread-local storage can be optimized by compiler</p>
+    <p>Disadvantages:</p>
+    <p>Introduces rehash between map and reduce stages</p>
+  </div>
+  <div class="page">
+    <p>Design: Effective combiners</p>
+    <p>Combiners are stateful objects in Phoenix++</p>
+    <p>Used to store all emitted values with the same key</p>
+    <p>buffer_combiner</p>
+    <p>standard MapReduce behavior</p>
+    <p>associative_combiner:</p>
+    <p>applies associative function on every emit</p>
+    <p>only stores cumulative value</p>
+  </div>
+  <div class="page">
+    <p>Design: Effective combiners</p>
+    <p>Advantages:</p>
+    <p>associative combiners minimize storage</p>
+    <p>associative combiners have no buffer maintenance</p>
+    <p>overhead</p>
+    <p>preserve support for non-associative reductions</p>
+  </div>
+  <div class="page">
+    <p>Design: Encapsulated Chunking</p>
+    <p>// Begin map stage (Phoenix++ library)</p>
+    <p>thread_local_storage = Container.get()</p>
+    <p>while(chunk in queue) {</p>
+    <p>for(task in chunk) {</p>
+    <p>user_map_fn(task_data, thread_local_storage)</p>
+    <p>}</p>
+    <p>}</p>
+    <p>Container.put(thread_local_storage)</p>
+    <p>// End map stage</p>
+  </div>
+  <div class="page">
+    <p>Design: Encapsulated Chunking</p>
+    <p>// Begin map stage (Phoenix++ library)</p>
+    <p>thread_local_storage = Container.get()</p>
+    <p>while(chunk in queue) {</p>
+    <p>for(task in chunk) {</p>
+    <p>user_map_fn(task_data, thread_local_storage)</p>
+    <p>}</p>
+    <p>}</p>
+    <p>Container.put(thread_local_storage)</p>
+    <p>// End map stage</p>
+  </div>
+  <div class="page">
+    <p>Design: Encapsulated Chunking</p>
+    <p>Introduces large number of function calls</p>
+    <p>(also, calling combiner on every emit)</p>
+    <p>C++ templates to statically inline functions</p>
+  </div>
+  <div class="page">
+    <p>Design: Encapsulated Chunking</p>
+    <p>class Histogram : public MapReduceSort&lt;</p>
+    <p>Histogram, pixel, intptr_t, uint64_t,</p>
+    <p>array_container&lt;intptr_t, uint64_t, sum_combiner, 768&gt; &gt; {</p>
+    <p>public:</p>
+    <p>void map(pixel const&amp; p, container&amp; out) const {</p>
+    <p>emit(out, p.r, 1);</p>
+    <p>emit(out, p.g+256, 1);</p>
+    <p>emit(out, p.b+512, 1);</p>
+    <p>}</p>
+    <p>};</p>
+    <p>.L734:</p>
+    <p>movzbl -3(%rsi), %eax</p>
+    <p>addq $1, (%rbx,%rax,8)</p>
+    <p>movzbl -2(%rsi), %eax</p>
+    <p>addq $1, 2048(%rbx,%rax,8)</p>
+    <p>movzbl -1(%rsi), %eax</p>
+    <p>addq $3, %rsi</p>
+    <p>addq $1, 4096(%rbx,%rax,8)</p>
+    <p>cmpq %rsi, %rdx</p>
+    <p>je .L752</p>
+    <p>jmp .L734</p>
+    <p>emit r</p>
+    <p>emit g</p>
+    <p>emit b</p>
+    <p>loop over tasks</p>
+  </div>
+  <div class="page">
+    <p>Performance Results</p>
+  </div>
+  <div class="page">
+    <p>Performance Summary 32-core, 64-HW context Nehalem</p>
+  </div>
+  <div class="page">
+    <p>Container Sensitivity</p>
+    <p>fixed-width hash table (Phoenix 2)</p>
+    <p>variable-width hash table</p>
+    <p>array</p>
+    <p>shared array</p>
+  </div>
+  <div class="page">
+    <p>Combiner Performance</p>
+    <p>buffer_combiner associative_combiner</p>
+  </div>
+  <div class="page">
+    <p>Function Call Overhead</p>
+    <p>no function inlining</p>
+    <p>inlining</p>
+  </div>
+  <div class="page">
+    <p>Performance Summary</p>
+    <p>All 3 changes contributed to observed higher</p>
+    <p>performance</p>
+    <p>Average improvement over Phoenix 2: 4.7x</p>
+  </div>
+  <div class="page">
+    <p>Code Size Comparison</p>
+  </div>
+  <div class="page">
+    <p>Summary</p>
+    <p>Phoenix++</p>
+    <p>A modular, flexible, high performance MapReduce</p>
+    <p>library for shared memory machines</p>
+    <p>Demonstrated high performance without sacrificing</p>
+    <p>simple, standard MapReduce interface</p>
+    <p>Based on adapting pipeline to workload properties and</p>
+    <p>carefully leveraging compiler optimizations for</p>
+    <p>performance</p>
+  </div>
+  <div class="page">
+    <p>Questions?</p>
+    <p>Code available at</p>
+    <p>http://mapreduce.stanford.edu</p>
+    <p>Justin Talbot: jtalbot@stanford.edu</p>
+  </div>
+</Presentation>

@@ -1,0 +1,304 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>FlexSCFlexSC Flexible System Call Scheduling with</p>
+    <p>Exception-Less System Calls</p>
+    <p>LivioLivio SoaresSoares and Michael Stumm University of Toronto</p>
+  </div>
+  <div class="page">
+    <p>Motivation</p>
+    <p>The synchronoussynchronous system call interface is a legacy from the single core era</p>
+    <p>FlexSC implements efficient and flexibleefficient and flexible system calls for the multicore era</p>
+    <p>Expensive! Costs are:  direct: mode-switch  indirect: processor structure pollution</p>
+  </div>
+  <div class="page">
+    <p>FlexSC overview</p>
+    <p>Two contributions: FlexSC and FlexSC-Threads</p>
+    <p>Results in:</p>
+  </div>
+  <div class="page">
+    <p>Performance impact of synchronous syscalls</p>
+    <p>Xalan from SPEC CPU 2006  Virtually no time in the OS</p>
+    <p>Linux on Intel Core i7 (Nehalem)  Injected exceptions with varying frequencies</p>
+    <p>DirectDirect: emulate null system call  IndirectIndirect: emulate write() system call</p>
+    <p>Measured only user-mode time  Kernel time ignored</p>
+    <p>Ideally, user-mode performance is unaltered</p>
+  </div>
+  <div class="page">
+    <p>Indirect Direct</p>
+    <p>user-mode instructions between exceptions (log scale)</p>
+    <p>D e</p>
+    <p>g ra</p>
+    <p>d a</p>
+    <p>ti o</p>
+    <p>n (</p>
+    <p>lo w</p>
+    <p>e r</p>
+    <p>is f</p>
+    <p>a s</p>
+    <p>te r)</p>
+    <p>Degradation due to sync. syscalls</p>
+    <p>Apache</p>
+    <p>MySQL</p>
+    <p>System calls can halfhalf processor efficiency; indirectindirect cause is major contributor</p>
+  </div>
+  <div class="page">
+    <p>Processor state pollution</p>
+    <p>Key source of performance impact</p>
+    <p>On a Linux write() call:  up to 2/3rd of the L1 data cache and data</p>
+    <p>TLB are evictedevicted</p>
+    <p>Kernel performance equally affected  Processor efficiency for OS code is also cut</p>
+    <p>in halfhalf</p>
+  </div>
+  <div class="page">
+    <p>Synchronous system calls are expensive</p>
+    <p>User</p>
+    <p>Kernel</p>
+    <p>Traditional system calls are synchronous and use exceptions to cross domains</p>
+  </div>
+  <div class="page">
+    <p>Alternative: side-step the boundary</p>
+    <p>User</p>
+    <p>Kernel</p>
+    <p>Exception-less syscallsException-less syscalls remove synchronicity by decoupling invocation from execution</p>
+  </div>
+  <div class="page">
+    <p>Benefits of exception-less system calls</p>
+    <p>User</p>
+    <p>Kernel</p>
+    <p>Significantly reduce direct costs  Fewer mode switches</p>
+    <p>Allow for batching  Reduce indirect costs</p>
+    <p>Allow for dynamic multicore specialization  Further reduce direct and indirect costs</p>
+  </div>
+  <div class="page">
+    <p>Exception-less interface: syscall page</p>
+    <p>write(fd, buf, 4096);</p>
+    <p>entry = free_syscall_entry();</p>
+    <p>/* write syscall *//* write syscall */ entry-&gt;syscall = 1; entry-&gt;num_args = 3; entry-&gt;args[0] = fd; entry-&gt;args[1] = buf; entry-&gt;args[2] = 4096; entry-&gt;status = SUBMITSUBMIT;</p>
+    <p>whilewhile (entry-&gt;status != DONEDONE) do_something_else();</p>
+    <p>returnreturn entry-&gt;return_code;</p>
+  </div>
+  <div class="page">
+    <p>Exception-less interface: syscall page</p>
+    <p>write(fd, buf, 4096);</p>
+    <p>entry = free_syscall_entry();</p>
+    <p>/* write syscall *//* write syscall */ entry-&gt;syscall = 1; entry-&gt;num_args = 3; entry-&gt;args[0] = fd; entry-&gt;args[1] = buf; entry-&gt;args[2] = 4096; entry-&gt;status = SUBMITSUBMIT;</p>
+    <p>whilewhile (entry-&gt;status != DONEDONE) do_something_else();</p>
+    <p>returnreturn entry-&gt;return_code;</p>
+    <p>SUBMITSUBMIT</p>
+  </div>
+  <div class="page">
+    <p>Exception-less interface: syscall page</p>
+    <p>write(fd, buf, 4096);</p>
+    <p>entry = free_syscall_entry();</p>
+    <p>/* write syscall *//* write syscall */ entry-&gt;syscall = 1; entry-&gt;num_args = 3; entry-&gt;args[0] = fd; entry-&gt;args[1] = buf; entry-&gt;args[2] = 4096; entry-&gt;status = SUBMITSUBMIT;</p>
+    <p>whilewhile (entry-&gt;status != DONEDONE) do_something_else();</p>
+    <p>returnreturn entry-&gt;return_code;</p>
+    <p>DONEDONE</p>
+  </div>
+  <div class="page">
+    <p>Syscall threads</p>
+    <p>Kernel-only threads  Part of application process</p>
+    <p>Execute requests from syscall page  Schedulable on a per-core basis</p>
+  </div>
+  <div class="page">
+    <p>System call batching</p>
+    <p>Request as many system calls as possible Switch to kernel-mode Start executing all posted system calls</p>
+    <p>Avoids direct and indirect costs, even on a single core</p>
+  </div>
+  <div class="page">
+    <p>Dynamic multicore specialization</p>
+    <p>FlexSC makes specializing cores simple Dynamically adapts to workload needs</p>
+  </div>
+  <div class="page">
+    <p>What programs can benefit from FlexSC? Event-driven servers (e.g., memcached, nginx webserver)</p>
+    <p>Use asynchoronous calls, similar to FlexSC  Can use FlexSC directly  Mix sync and exception-less system calls</p>
+    <p>Multi-threaded servers: FlexSC-ThreadsFlexSC-Threads  Thread library, compatible with Pthreads  No changes to app. code or recompilation required  Transparently converts legacy syscalls into</p>
+    <p>exception-less ones</p>
+  </div>
+  <div class="page">
+    <p>FlexSC-Threads library</p>
+    <p>Hybrid (M-on-N) threading model  One kernel visible thread per core  Many user threads per kernel-visible thread</p>
+    <p>Redirects system calls (libc wrappers)  Posts exception-less syscall to syscall page  Switches to other user-level thread  Resumes thread upon syscall completion</p>
+    <p>Benefits of exception-less syscalls while maintaining sequential syscall interface</p>
+  </div>
+  <div class="page">
+    <p>FlexSC-Threads in action</p>
+    <p>User</p>
+  </div>
+  <div class="page">
+    <p>FlexSC-Threads in action</p>
+    <p>On a syscall:</p>
+    <p>Post request to system call page Block user-level thread</p>
+  </div>
+  <div class="page">
+    <p>FlexSC-Threads in action</p>
+    <p>Kernel</p>
+    <p>On a syscall:</p>
+    <p>Post request to system call page Block user-level thread Switch to next ready thread</p>
+  </div>
+  <div class="page">
+    <p>FlexSC-Threads in action</p>
+    <p>User</p>
+    <p>Kernel</p>
+    <p>If all user-level threads become blocked: 1) enter kernel 2) wait for completion of at least 1 syscall</p>
+  </div>
+  <div class="page">
+    <p>Evaluation  Linux 2.6.33</p>
+    <p>Nehalem (Core i7) server, 2.3GHz  4 cores on a chip</p>
+    <p>Clients connected on 1 Gbps network</p>
+    <p>Workloads  Sysbench on MySQL (80% user, 20% kernel)  ApacheBench on Apache (50% user, 50% kernel)</p>
+    <p>Default Linux NTPL (syncsync) vs.</p>
+    <p>FlexSC-Threads (flexscflexsc)</p>
+  </div>
+  <div class="page">
+    <p>Sysbench: OLTP on MySQL (1 core)</p>
+    <p>flexsc sync</p>
+    <p>Request Concurrency</p>
+    <p>T h</p>
+    <p>ro u</p>
+    <p>g h</p>
+    <p>p u</p>
+    <p>t (r</p>
+    <p>e q</p>
+    <p>u e</p>
+    <p>s ts</p>
+    <p>/s e</p>
+    <p>c .)</p>
+  </div>
+  <div class="page">
+    <p>Sysbench: OLTP on MySQL (4 cores)</p>
+    <p>flexsc sync</p>
+    <p>Request Concurrency</p>
+    <p>T h</p>
+    <p>ro u</p>
+    <p>g h</p>
+    <p>p u</p>
+    <p>t (r</p>
+    <p>e q</p>
+    <p>u e</p>
+    <p>s ts</p>
+    <p>/s e</p>
+    <p>c .)</p>
+  </div>
+  <div class="page">
+    <p>MySQL latency per client request</p>
+    <p>sync flexsc sync flexsc sync flexsc 0</p>
+    <p>L a</p>
+    <p>te n</p>
+    <p>c y</p>
+    <p>( m</p>
+    <p>s )</p>
+    <p>Up to 30% reduction of average request latencies</p>
+  </div>
+  <div class="page">
+    <p>MySQL processor metrics</p>
+    <p>IPC L3</p>
+    <p>L2 d-cache</p>
+    <p>i-cache TLB</p>
+    <p>Branch IPC</p>
+    <p>L3 L2</p>
+    <p>d-cache i-cache</p>
+    <p>TLB Branch</p>
+    <p>R e</p>
+    <p>la ti</p>
+    <p>v e</p>
+    <p>P e</p>
+    <p>rf o</p>
+    <p>rm a</p>
+    <p>n c</p>
+    <p>e (f</p>
+    <p>le x</p>
+    <p>s c</p>
+    <p>/s y</p>
+    <p>n c</p>
+    <p>)</p>
+    <p>User Kernel</p>
+    <p>Performance improvements consequence of more efficient processor execution</p>
+  </div>
+  <div class="page">
+    <p>ApacheBench throughput (1 core)</p>
+    <p>flexsc sync</p>
+    <p>Request Concurrency</p>
+    <p>T h</p>
+    <p>ro u</p>
+    <p>g h</p>
+    <p>p u</p>
+    <p>t (r</p>
+    <p>e q</p>
+    <p>u e</p>
+    <p>s ts</p>
+    <p>/s e</p>
+    <p>c .)</p>
+  </div>
+  <div class="page">
+    <p>ApacheBench throughput (4 cores)</p>
+    <p>flexsc sync</p>
+    <p>Request Concurrency</p>
+    <p>T h</p>
+    <p>ro u</p>
+    <p>g h</p>
+    <p>p u</p>
+    <p>t (r</p>
+    <p>e q</p>
+    <p>u e</p>
+    <p>s ts</p>
+    <p>/s e</p>
+    <p>c .)</p>
+  </div>
+  <div class="page">
+    <p>Apache latency per client request</p>
+    <p>sync flexsc sync flexsc sync flexsc 0</p>
+    <p>L a</p>
+    <p>te n</p>
+    <p>c y</p>
+    <p>( m</p>
+    <p>s )</p>
+    <p>Up to 50% reduction of average request latencies</p>
+  </div>
+  <div class="page">
+    <p>Apache processor metrics</p>
+    <p>IPC L3</p>
+    <p>L2 d-cache</p>
+    <p>i-cache TLB</p>
+    <p>Branch IPC</p>
+    <p>L3 L2</p>
+    <p>d-cache i-cache</p>
+    <p>TLB Branch</p>
+    <p>Apache (1 core)</p>
+    <p>R e</p>
+    <p>la ti</p>
+    <p>v e</p>
+    <p>P e</p>
+    <p>rf o</p>
+    <p>rm a</p>
+    <p>n c</p>
+    <p>e (f</p>
+    <p>le x</p>
+    <p>s c</p>
+    <p>/s y</p>
+    <p>n c</p>
+    <p>)</p>
+    <p>User Kernel</p>
+    <p>Processor efficiency doubles for kernel and user-mode execution</p>
+  </div>
+  <div class="page">
+    <p>Discussion</p>
+    <p>New OS architecture not necessary  Exception-less syscalls can coexist with legacy ones</p>
+    <p>Foundation for non-blocking system calls  select() / poll() in user-space  Interesting case of non-blocking free()</p>
+    <p>Multicore ul tra -specialization  TCP Servers (Rutgers; Iftode et.al), FS Servers</p>
+    <p>Single-ISA asymmetric cores  OS-friendly cores (HP Labs; Mogul et. al)</p>
+  </div>
+  <div class="page">
+    <p>Concluding Remarks  System calls degrade server performance</p>
+    <p>Processor pollution is inherent to synchronous system calls</p>
+    <p>Exception-less syscallsException-less syscalls  Flexible and efficient system call execution</p>
+    <p>FlexSC-ThreadsFlexSC-Threads  Leverages exception-less syscalls  No modifications to multi-threaded applications</p>
+    <p>Throughput &amp; latency gains  2x throughput improvement for Apache and BIND  1.4x throughput improvement for MySQL</p>
+  </div>
+  <div class="page">
+    <p>FlexSCFlexSC Flexible System Call Scheduling with</p>
+    <p>Exception-Less System Calls</p>
+    <p>LivioLivio SoaresSoares and Michael Stumm University of Toronto</p>
+  </div>
+</Presentation>

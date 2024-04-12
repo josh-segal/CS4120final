@@ -1,0 +1,599 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<TEI xmlns="http://www.tei-c.org/ns/1.0" 
+xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+xsi:schemaLocation="http://www.tei-c.org/ns/1.0 /Users/atharsefid/Desktop/grobid-0.5.3/grobid-home/schemas/xsd/Grobid.xsd"
+ xmlns:xlink="http://www.w3.org/1999/xlink">
+	<teiHeader xml:lang="en">
+		<encodingDesc>
+			<appInfo>
+				<application version="0.5.3" ident="GROBID" when="2019-03-26T16:43+0000">
+					<ref target="https://github.com/kermitt2/grobid">GROBID - A machine learning software for extracting information from scholarly documents</ref>
+				</application>
+			</appInfo>
+		</encodingDesc>
+		<fileDesc>
+			<titleStmt>
+				<title level="a" type="main">Bootstrapping Semantic Analyzers from Non-Contradictory Texts</title>
+			</titleStmt>
+			<publicationStmt>
+				<publisher/>
+				<availability status="unknown"><licence/></availability>
+			</publicationStmt>
+			<sourceDesc>
+				<biblStruct>
+					<analytic>
+						<author>
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Ivan</forename><surname>Titov</surname></persName>
+							<affiliation key="aff0">
+								<orgName type="institution">Saarland University Saarbrücken</orgName>
+								<address>
+									<country key="DE">Germany</country>
+								</address>
+							</affiliation>
+						</author>
+						<author role="corresp">
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Mikhail</forename><surname>Kozhevnikov</surname></persName>
+							<email>titov|m.kozhevnikov@mmci.uni-saarland.de</email>
+							<affiliation key="aff0">
+								<orgName type="institution">Saarland University Saarbrücken</orgName>
+								<address>
+									<country key="DE">Germany</country>
+								</address>
+							</affiliation>
+						</author>
+						<title level="a" type="main">Bootstrapping Semantic Analyzers from Non-Contradictory Texts</title>
+					</analytic>
+					<monogr>
+						<imprint>
+							<date/>
+						</imprint>
+					</monogr>
+				</biblStruct>
+			</sourceDesc>
+		</fileDesc>
+		<profileDesc>
+			<abstract>
+				<p>We argue that groups of unannotated texts with overlapping and non-contradictory semantics represent a valuable source of information for learning semantic representations. A simple and efficient inference method recursively induces joint semantic representations for each group and discovers correspondence between lexical entries and latent semantic concepts. We consider the generative semantics-text correspondence model (Liang et al., 2009) and demonstrate that exploiting the non-contradiction relation between texts leads to substantial improvements over natural baselines on a problem of analyzing human-written weather forecasts.</p>
+			</abstract>
+		</profileDesc>
+	</teiHeader>
+	<text xml:lang="en">
+		<body>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="1">Introduction</head><p>In recent years, there has been increasing interest in statistical approaches to semantic parsing. However, most of this research has focused on supervised methods requiring large amounts of labeled data. The supervision was either given in the form of meaning representations aligned with sentences <ref type="bibr" target="#b24">(Zettlemoyer and Collins, 2005;</ref><ref type="bibr" target="#b9">Ge and Mooney, 2005;</ref><ref type="bibr" target="#b15">Mooney, 2007)</ref> or in a somewhat more relaxed form, such as lists of candidate meanings for each sentence <ref type="bibr" target="#b12">(Kate and Mooney, 2007;</ref><ref type="bibr" target="#b5">Chen and Mooney, 2008)</ref> or formal representations of the described world state for each text ( <ref type="bibr" target="#b13">Liang et al., 2009)</ref>. Such annotated resources are scarce and expensive to create, motivating the need for unsupervised or semi-supervised techniques ( <ref type="bibr" target="#b18">Poon and Domingos, 2009)</ref>. However, unsupervised methods have their own challenges: they are not always able to discover semantic equivalences of lexical entries or logical forms or, on the contrary, cluster semantically different or even opposite expressions <ref type="bibr" target="#b18">(Poon and Domingos, 2009</ref>). Unsupervised approaches can only rely on distributional similarity of contexts <ref type="bibr" target="#b11">(Harris, 1968)</ref> to decide on semantic relatedness of terms, but this information may be sparse and not reliable <ref type="bibr" target="#b23">(Weeds and Weir, 2005</ref>). For example, when analyzing weather forecasts it is very hard to discover in an unsupervised way which of the expressions among "south wind", "wind from west" and "southerly" denote the same wind direction and which are not, as they all have a very similar distribution of their contexts. The same challenges affect the problem of identification of argument roles and predicates.</p><p>In this paper, we show that groups of unannotated texts with overlapping and non-contradictory semantics provide a valuable source of information. This form of weak supervision helps to discover implicit clustering of lexical entries and predicates, which presents a challenge for purely unsupervised techniques. We assume that each text in a group is independently generated from a full latent semantic state corresponding to the group. Importantly, the texts in each group do not have to be paraphrases of each other, as they can verbalize only specific parts (aspects) of the full semantic state, yet statements about the same aspects must not contradict each other. Simultaneous inference of the semantic state for the noncontradictory and semantically overlapping documents would restrict the space of compatible hypotheses, and, intuitively, 'easier' texts in a group will help to analyze the 'harder' ones. <ref type="bibr">1</ref> As an illustration of why this weak supervision may be valuable, consider a group of two non-contradictory texts, where one text mentions "2.2 bn GBP decrease in profit", whereas another one includes a passage "profit fell by 2.2 billion pounds". Even if the model has not observed The sky is heavy.</p><p>It is 70 F now, temperature (time = 6-21; min = 64, max = 75, mean = 70) windDir(time=6-21,mode=S) gust(time=6-21, min=0, max=29, mean=25) precipPotential(time=6-21,min=20,max=32,mean=26) thunderChance(time=6-21,mode=chance) freezingRainChance(time=17-30,mode=--) sleetChance(time='6-21',mode=--) skycover(time=6-21,bucket=75-100) <ref type="bibr">windSpeed(time=6-21; min=14,max=22,mean=19, bucket=10-20)</ref> rainChance(time=6-21,mode=chance) windChill(time=6-21,min=0,max=0,mean=0)</p><p>...... the word "fell" before, it is likely to align these phrases to the same semantic form because of similarity of their arguments. And this alignment would suggest that "fell" and "decrease" refer to the same process, and should be clustered together. This would not happen for the pair "fell" and "increase" as similarity of their arguments would normally entail contradiction. Similarly, in the example mentioned earlier, when describing a forecast for a day with expected south winds, texts in the group can use either "south wind" or "southerly" to indicate this fact but no texts would verbalize it as "wind from west", and therefore these expressions will be assigned to different semantic clusters. However, it is important to note that the phrase "wind from west" may still appear in the texts, but in reference to other time periods, underlying the need for modeling alignment between grouped texts and their latent meaning representation.</p><p>As much of the human knowledge is redescribed multiple times, we believe that noncontradictory and semantically overlapping texts are often easy to obtain. For example, consider semantic analysis of news articles or biographies. In both cases we can find groups of documents referring to the same events or persons, and though they will probably focus on different aspects and have different subjective passages, they are likely to agree on the core information <ref type="bibr" target="#b20">(Shinyama and Sekine, 2003)</ref>. Alternatively, if such groupings are not available, it may still be easier to give each semantic representation (or a state) to multiple annotators and ask each of them to provide a textual description, instead of annotating texts with semantic expressions. The state can be communicated to them in a visual or audio form (e.g., as a picture or a short video clip) ensuring that their interpretations are consistent.</p><p>Unsupervised learning with shared latent semantic representations presents its own challenges, as exact inference requires marginalization over possible assignments of the latent semantic state, consequently, introducing non-local statistical dependencies between the decisions about the semantic structure of each text. We propose a simple and fairly general approximate inference algorithm for probabilistic models of semantics which is efficient for the considered model, and achieves favorable results in our experiments.</p><p>In this paper, we do not consider models which aim to produce complete formal meaning of text <ref type="bibr" target="#b24">(Zettlemoyer and Collins, 2005;</ref><ref type="bibr" target="#b15">Mooney, 2007;</ref><ref type="bibr" target="#b18">Poon and Domingos, 2009)</ref>, instead focusing on a simpler problem studied in ( <ref type="bibr" target="#b13">Liang et al., 2009</ref>). They investigate grounded language acquisition set-up and assume that semantics (world state) can be represented as a set of records each consisting of a set of fields. Their model segments text into utterances and identifies records, fields and field values discussed in each utterance. Therefore, one can think of this problem as an extension of the semantic role labeling problem <ref type="bibr" target="#b4">(Carreras and Marquez, 2005)</ref>, where predicates (i.e. records in our notation) and their arguments should be identified in text, but here arguments are not only assigned to a specific role (field) but also mapped to an underlying equivalence class (field value). For example, in the weather forecast domain field sky cover should get the same value given expressions "overcast" and "very cloudy" but a different one if the expressions are "clear" or "sunny". This model is hard to evaluate directly as text does not provide information about all the fields and does not necessarily provide it at the sufficient granularity level. Therefore, it is natural to evaluate their model on the database-text alignment problem <ref type="bibr" target="#b21">(Snyder and Barzilay, 2007)</ref>, i.e. measuring how well the model predicts the alignment between the text and the observable records describing the entire world state. We follow their set-up, but assume that instead of having access to the full semantic state for every training example, we have a very small amount of data annotated with semantic states and a larger number of unannotated texts with noncontradictory semantics.</p><p>We study our set-up on the weather forecast data ( <ref type="bibr" target="#b13">Liang et al., 2009</ref>) where the original textual weather forecasts were complemented by additional forecasts describing the same weather states (see <ref type="figure" target="#fig_1">figure 1</ref> for an example). The average overlap between the verbalized fields in each group of noncontradictory forecasts was below 35%, and more than 60% of fields are mentioned only in a single forecast from a group. Our model, learned from 100 labeled forecasts and 259 groups of unannotated non-contradictory forecasts (750 texts in total), achieved 73.9% F 1 . This compares favorably with 69.1% shown by a semi-supervised learning approach, though, as expected, does not reach the score of the model which, in training, observed semantics states for all the 750 documents (77.7% F 1 ).</p><p>The rest of the paper is structured as follows. In section 2 we describe our inference algorithm for groups of non-contradictory documents. Section 3 redescribes the semantics-text correspondence model ( <ref type="bibr" target="#b13">Liang et al., 2009</ref>) in the context of our learning scenario. In section 4 we provide an empirical evaluation of the proposed method. We conclude in section 5 with an examination of additional related work.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="2">Inference with Non-Contradictory Documents</head><p>In this section we will describe our inference method on a higher conceptual level, not specifying the underlying meaning representation and the probabilistic model. An instantiation of the algorithm for the semantics-text correspondence model is given in section 3.2. Statistical models of parsing can often be regarded as defining the probability distribution of meaning m and its alignment a with the given text w, P (m, a, w) = P (a, w|m)P (m). The semantics m can be represented either as a logical formula (see, e.g., <ref type="bibr" target="#b18">(Poon and Domingos, 2009)</ref>) or as a set of field values if database records are used as a meaning representation ( <ref type="bibr" target="#b13">Liang et al., 2009</ref>). The alignment a defines how semantics is verbalized in the text w, and it can be represented by a meaning derivation tree in case of full semantic parsing ( <ref type="bibr" target="#b18">Poon and Domingos, 2009)</ref> or, e.g., by a hierarchical segmentation into utterances along with an utterance-field alignment in a more shallow variation of the problem. In semantic parsing, we aim to find the most likely underlying semantics and alignment given the text:</p><formula xml:id="formula_0">( ˆ m, ˆ a) = arg max m,a P (a, w|m)P (m).<label>(1)</label></formula><p>In the supervised case, where a and m are observable, estimation of the generative model parameters is generally straightforward. However, in a semi-supervised or unsupervised case variational techniques, such as the EM algorithm <ref type="bibr">(Demp- ster et al., 1977)</ref>, are often used to estimate the model. As common for complex generative models, the most challenging part is the computation of the posterior distributions P (a, m|w) on the E-step which, depending on the underlying model P (m, a, w), may require approximate inference. As discussed in the introduction, our goal is to integrate groups of non-contradictory documents into the learning procedure. Let us denote by w 1 ,..., w K a group of non-contradictory documents. As before, the estimation of the posterior probabilities P (m i , a i |w 1 . . . w K ) presents the main challenge. Note that the decision about m i is now conditioned on all the texts w j rather than only on w i . This conditioning is exactly what drives learning, as the information about likely semantics m j of text j affects the decision about choice of m i :</p><formula xml:id="formula_1">P (m i |w 1 ,..., w K ) ∝ a i P (a i , w i |m i )× × m −i ,a −i P (m i |m −i )P (m −i , a −i , w −i ), (2)</formula><p>where x −i denotes {x j : j = i}. P (m i |m −i ) is the probability of the semantics m i given all the meanings m −i . This probability assigns zero weight to inconsistent meanings, i.e. such mean-</p><formula xml:id="formula_2">ings (m 1 ,..., m K ) that ∧ K i=1 m i</formula><p>is not satisfiable, 2 and models dependencies between components in the composite meaning representation (e.g., arguments values of predicates). As an illustration, in the forecast domain it may express that clouds, and not sunshine, are likely when it is raining. Note, that this probability is different from the probability that m i is actually verbalized in the text.</p><p>Unfortunately, these dependencies between m i and w j are non-local. Even though the dependencies are only conveyed via {m j : j = i} the space of possible meanings m is very large even for relatively simple semantic representations, and, therefore, we need to resort to efficient approximations.</p><p>One natural approach would be to use a form of belief propagation <ref type="bibr" target="#b17">(Pearl, 1982;</ref><ref type="bibr" target="#b16">Murphy et al., 1999</ref>), where messages pass information about likely semantics between the texts. However, this approach is still expensive even for simple models, both because of the need to represent distributions over m and also because of the large number of iterations of message exchange needed to reach convergence (if it converges).</p><p>An even simpler technique would be to parse texts in a random order conditioning each meaning m k for k ∈ {1,..., K} on all the previous semantics m &lt;k = m 1 ,..., m k−1 :</p><formula xml:id="formula_3">m k = arg max m k P (w k |m k )P (m k |m &lt;k ).</formula><p>Here, and in further discussion, we assume that the above search problem can be efficiently solved, exactly or approximately. However, a major weakness of this algorithm is that decisions about components of the composite semantic representation (e.g., argument values) are made only on the basis of a single text, which first mentions the corresponding aspects, without consulting any future texts k &gt; k, and these decisions cannot be revised later. We propose a simple algorithm which aims to find an appropriate order of the greedy inference by estimating how well each candidate semanticsˆm semanticsˆ semanticsˆm k would explain other texts and at each step selecting k (andˆmandˆ andˆm k ) which explains them best.</p><p>The algorithm, presented in figure 2 3 , constructs an ordering of texts n = (n 1 ,..., n K ) 1: n := (), m := () 2: for i := 1 : K − 1 do <ref type="bibr">3:</ref> for j / ∈ n do 4:</p><formula xml:id="formula_4">ˆ m j := arg max m j P (m j , w j |m ) 5:</formula><p>end for 6:</p><formula xml:id="formula_5">n i := arg max j / ∈n P ( ˆ m j , w j |m )× × k / ∈n∪{j} max m k P (m k , w k |m , ˆ m j )</formula><p>7: , where m k is the predicted meaning representation of text w n k . It starts with an empty ordering n = () and an empty list of meanings m = () (line 1). Then it iteratively predicts meaning representationsˆmrepresentationsˆ representationsˆm j conditioned on the list of semantics m = (m 1 ,..., m i−1 ) fixed on the previous stages and does it for all the remaining texts w j (lines 3-5). The algorithm selects a single meaningˆmmeaningˆ meaningˆm j which maximizes the probability of all the remaining texts and excludes the text j from future consideration (lines 6-7).</p><formula xml:id="formula_6">m i := ˆ m n i 8: end for 9: n K := {1,..., K}\n 10: m K := arg max mn K P (m n K , w n K |m )</formula><p>Though the semantics m k (k / ∈ n∪{j}) used in the estimates (line 6) can be inconsistent with each other, the final list of meanings m is guaranteed to be consistent. It holds because on each iteration we add a single meaningˆmmeaningˆ meaningˆm n i to m (line 7), andˆm andˆ andˆm n i is guaranteed to be consistent with m , as the semanticsˆmsemanticsˆ semanticsˆm n i was conditioned on the meaning m during inference (line 4).</p><p>An important aspect of this algorithm is that unlike usual greedy inference, the remaining ('future') texts do affect the choice of meaning representations made on the earlier stages. As soon as semantics m k are inferred for every k, we find ourselves in the set-up of learning with unaligned semantic states considered in <ref type="figure" target="#fig_2">(Liang et al., 2009)</ref>.</p><p>The induced alignments a 1 ,..., a K of semantics m to texts w 1 ,..., w K at the same time induce alignments between the texts. The problem of producing multiple sequence alignment, especially in the context of sentence alignments, has been extensively studied in NLP ( <ref type="bibr" target="#b1">Barzilay and Lee, 2003)</ref>.</p><p>In this paper, we use semantic structures as a pivot for finding the best alignment in the hope that presence of meaningful text alignments will improve the quality of the resulting semantic structures by enforcing a form of agreement between them.</p><p>In this section we redescribe the semantics-text correspondence model ( <ref type="bibr" target="#b13">Liang et al., 2009</ref>) with an extension needed to model examples with latent states, and also explain how the inference algorithm defined in section 2 can be applied to this model.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.1">Model definition</head><p>Liang et al. <ref type="formula">(2009)</ref> considered a scenario where each text was annotated with a world state, even though alignment between the text and the state was not observable. This is a weaker form of supervision than the one traditionally considered in supervised semantic parsing, where the alignment is also usually provided in training <ref type="bibr" target="#b5">(Chen and Mooney, 2008;</ref><ref type="bibr" target="#b24">Zettlemoyer and Collins, 2005</ref>). Nevertheless, both in training and testing the world state is observable, and the alignment and the text are conditioned on the state during inference. Consequently, there was no need to model the distribution of the world state. This is different for us, and we augment the generative story by adding a simplistic world state generation step. As explained in the introduction, the world states s are represented by sets of records (see the block in the middle of <ref type="figure" target="#fig_1">figure 1</ref> for an example of a world state). Each record is characterized by a record type t ∈ {1,..., T }, which defines the set of fields F (t) . There are n (t) records of type t and this number may change from document to document. For example, there may be more than a single record of type wind speed, as they may refer to different time periods but all these records have the same set of fields, such as minimal, maximal and average wind speeds. Each field has an associated type: in our experiments we consider only categorical and integer fields. We write s (t) n,f = v to denote that n-th record of type t has field f set to value v.</p><p>Each document k verbalizes a subset of the entire world state, and therefore semantics m k of the document is an assignment to |m k | verbalized fields:</p><formula xml:id="formula_7">∧ |m k | q=1 (s (tq)</formula><p>nq,fq = v q ), where t q , n q , f q are the verbalized record types, records and fields, respectively, and v q is the assigned field value. The probability of meaning m k then equals the probability of this assignment with other state variables left non-observable (and therefore marginalized out). In this formalism checking for contradiction is trivial: two meaning representations contradict each other if they assign different values to the same field of the same record.</p><p>The semantics-text correspondence model defines a hierarchical segmentation of text: first, it segments the text into fragments discussing different records, then the utterances corresponding to each record are further segmented into fragments verbalizing specific fields of that record. An example of a segmented fragment is presented in <ref type="figure" target="#fig_4">fig- ure 4</ref>. The model has a designated null-record which is aligned to words not assigned to any record. Additionally there is a null-field in each record to handle words not specific to any field. In <ref type="figure" target="#fig_3">figure 3</ref> the corresponding graphical model is presented. The formal definition of the model for documents w 1 ,..., w K sharing a semantic state is as follows:</p><p>• Generation of world state s: -For each type τ ∈ {1,..., T } choose a number of records of that type n (τ ) ∼ Unif(1,..., nmax).</p><formula xml:id="formula_8">-For each record s (τ ) n , n ∈ {1, .., n (τ ) } choose field values s (τ )</formula><p>nf for all fields f ∈ F (τ ) from the type-specific distribution.</p><p>• Generation of the verbalizations, for each document w k , k ∈ {1,..., K}: 4 -Record Types: Choose a sequence of verbalized record types t = (t1,..., t |t| ) from the first-order Markov chain. -Records: For each type ti choose a verbalized record ri from all the records of that type: l ∼ Unif(1,..., n (τ ) ), ri := s (t i ) l . -Fields: For each record ri choose a sequence of verbalized fields f i = (fi1,..., f i|f i | ) from the first-order Markov chain (fij ∈ F (t i ) ). -Length: For each field fij, choose length cij ∼ Unif(1,..., cmax). -Words: Independently generate cij words from the field-specific distribution P (w|fij, r if ij ). Note that, when generating fields, the Markov chain is defined over fields and the transition parameters are independent of the field values r if ij . On the contrary, when drawing a word, the distribution of words is conditioned on the value of the corresponding field.</p><p>The form of word generation distributions P (w|f ij , r if ij ) depends on the type of the field f i,j . For categorical fields, the distribution of words is modeled as a distinct multinomial for each field value. Verbalizations of numerical fields are generated via a perturbation on the field value r if ij : the value r if ij can be perturbed by either rounding it (up or down) or distorting (up or down, modeled by a geometric distribution). The parameters corresponding to each form of generation are estimated during learning. For details on these emission models, as well as for details on modeling record and field transitions, we refer the reader to the original publication ( <ref type="bibr" target="#b13">Liang et al., 2009</ref>).</p><p>In our experiments, when choosing a world state s, we generate the field values independently. This is clearly a suboptimal regime as often there are very strong dependencies between field values: e.g., in the weather domain many record types contain groups of related fields defining minimal, maximal and average values of some parameter. Extending the method to model, e.g., pairwise dependencies between field values is relatively straightforward.</p><p>As explained above, semantics of a text m is defined by the assignment of state variables s. Analogously, an alignment a between semantics m and a text w is represented by all the remaining latent variables: by the sequence of record types t = (t 1 ,..., t |t| ), choice of records r i for each t i , the field sequence f i and the segment length c ij for every field f ij .</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.2">Learning and inference</head><p>We select the model parameters θ by maximizing the marginal likelihood of the data, where the data D is given in the form of groups w = To estimate the parameters, we use the Expectation-Maximization algorithm <ref type="bibr" target="#b6">(Dempster et al., 1977)</ref>. When the world state is observable, learning does not require any approximations, as dynamic programming (a form of the forward-backward algorithm) can be used to infer the posterior distribution on the E-step ( <ref type="bibr" target="#b13">Liang et al., 2009)</ref>. However, when the state is latent, dependencies are not local anymore, and approximate inference is required.</p><p>We use the algorithm described in section 2 ( <ref type="figure" target="#fig_2">fig- ure 2)</ref> to infer the state. In the context of the semantics-text correspondence model, as we discussed above, semantics m defines the subset of admissible world states. In order to use the algorithm, we need to understand how the conditional probabilities of the form P (m |m) are computed, as they play the key role in the inference procedure (see equation <ref type="formula">(2)</ref>). If there is a contradiction (m ⊥m) then P (m |m) = 0, conversely, if m is subsumed by m (m → m ) then this probability is 1. Otherwise, P (m |m) equals the probability of new assignments ∧ |m \m| q=1 (s (t q ) n q ,f q = v q ) (defined by m \m) conditioned on the previously fixed values of s (given by m). Summarizing, when predicting the most likely semanticsˆmsemanticsˆ semanticsˆm j (line 4), for each span the decoder weighs alternatives of either (1) aligning this span to the previously induced meaning m , or (2) aligning it to a new field and paying the cost of generation of its value.</p><p>The exact computation of the most probable semantics (line 4 of the algorithm) is intractable, and we have to resort to an approximation. Instead of predicting the most probable semanticsˆmsemanticsˆ semanticsˆm j we search for the most probable pair (ˆ a j , ˆ m j ), thus assuming that the probability mass is mostly concentrated on a single alignment. The alignment a j is then discarded and not used in any other computations. Though the most likely alignmentâalignmentˆalignmentâ j for a fixed semantic representationˆmrepresentationˆ representationˆm j can be found efficiently using a Viterbi algorithm, computing the most probable pair (ˆ a j , ˆ m j ) is still intractable. We use a modification of the beam search algorithm, where we keep a set of candidate meanings (partial semantic representations) and compute an alignment for each of them using a form of the Viterbi algorithm.</p><p>As soon as the meaning representations m are inferred, we find ourselves in the set-up studied in ( <ref type="bibr" target="#b13">Liang et al., 2009</ref>): the state s is no longer latent and we can run efficient inference on the E-step. Though some fields of the state s may still not be specified by m , we prohibit utterances from aligning to these non-specified fields.</p><p>On the M-step of EM the parameters are estimated as proportional to the expected marginal counts computed on the E-step. We smooth the distributions of values for numerical fields with convolution smoothing equivalent to the assumption that the fields are affected by distortion in the form of a two-sided geometric distribution with the success rate parameter equal to 0.67. We use add-0.1 smoothing for all the remaining multinomial distributions.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="4">Empirical Evaluation</head><p>In this section, we consider the semi-supervised set-up, and present evaluation of our approach on on the problem of aligning weather forecast reports to the formal representation of weather.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="4.1">Experiments</head><p>To perform the experiments we used a subset of the weather dataset introduced in ( <ref type="bibr" target="#b13">Liang et al., 2009</ref>). The original dataset contains 22,146 texts of 28.7 words on average, there are 12 types of records (predicates) and 36.0 records per forecast on average. We randomly chose 100 texts along with their world states to be used as the labeled data. <ref type="bibr">6</ref> To produce groups of noncontradictory texts we have randomly selected a subset of weather states, represented them in a visual form (icons accompanied by numerical and symbolic parameters) and then manually annotated these illustrations. These newly-produced forecasts, when combined with the original texts, resulted in 259 groups of non-contradictory texts (650 texts, 2.5 texts per group). An example of such a group is given in <ref type="figure" target="#fig_1">figure 1</ref>.</p><p>The dataset is relatively noisy: there are inconsistencies due to annotation mistakes (e.g., number distortions), or due to different perception of the weather by the annotators (e.g., expressions such as 'warm' or 'cold' are subjective). The overlap between the verbalized fields in each group was estimated to be below 35%. Around 60% of fields are mentioned only in a single forecast from a group, consequently, the texts cannot be regarded as paraphrases of each other.</p><p>The test set consists of 150 texts, each corresponding to a different weather state. Note that during testing we no longer assume that documents share the state, we treat each document in isolation. We aimed to preserve approximately the same proportion of new and original examples as we had in the training set, therefore, we combined 50 texts originally present in the weather dataset with additional 100 newly-produced texts. We annotated these 100 texts by aligning each line to one or more records, 7 whereas for the original texts the alignments were already present. Following <ref type="bibr" target="#b13">Liang et al. (2009)</ref> we evaluate the models on how well they predict these alignments.</p><p>When estimating the model parameters, we followed the training regime prescribed in ( <ref type="bibr" target="#b13">Liang et al., 2009)</ref>. Namely, 5 iterations of EM with a basic model (with no segmentation or coherence modeling), followed by 5 iterations of EM with the model which generates fields independently and, at last, 5 iterations with the full model. Only then, in the semi-supervised learning scenarios, we added unlabeled data and ran 5 additional iterations of EM.</p><p>Instead of prohibiting records from crossing punctuation, as suggested by <ref type="bibr" target="#b13">Liang et al. (2009)</ref>, in our implementation we disregard the words not attached to specific fields (attached to the nullfield, see section 3.1) when computing spans of records. To speed-up training, only a single record of each type is allowed to be generated when running inference for unlabeled examples on the E-P R F1</p><p>Supervised BL 63.3 52.9 57.6</p><p>Semi-superv BL 68.8 69.4 69.1 Semi-superv, non-contr 78.8 69.5 73.9</p><p>Supervised UB 69.4 88.6 77.9 <ref type="table">Table 1</ref>: Results (precision, recall and F 1 ) on the weather forecast dataset.</p><p>step of the EM algorithm, as it significantly reduces the search space. Similarly, though we preserved all records which refer to the first time period, for other time periods we removed all the records which declare that the corresponding event (e.g., rain or snowfall) is not expected to happen. This preprocessing results in the oracle recall of 93%.</p><p>We compare our approach (Semi-superv, noncontr) with two baselines: the basic supervised training on 100 labeled forecasts (Supervised BL) and with the semi-supervised training which disregards the non-contradiction relations (Semi-superv BL). The learning regime, the inference procedure and the texts for the semi-supervised baseline were identical to the ones used for our approach, the only difference is that all the documents were modeled as independent. Additionally, we report the results of the model trained with all the 750 texts labeled (Supervised UB), its scores can be regarded as an upper bound on the results of the semi-supervised models. The results are reported in table 1.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="4.2">Discussion</head><p>Our training strategy results in a substantially more accurate model, outperforming both the supervised and semi-supervised baselines. Surprisingly, its precision is higher than that of the model trained on 750 labeled examples, though admittedly it is achieved at a very different recall level. The estimation of the model with our approach takes around one hour on a standard desktop PC, which is comparable to 40 minutes required to train the semi-supervised baseline.</p><p>In these experiments, we consider the problem of predicting alignment between text and the corresponding observable world state. The direct evaluation of the meaning recognition (i.e. semantic parsing) accuracy is not possible on this dataset, as the data does not contain information which fields are discussed. Even if it would pro-  <ref type="table">Table 2</ref>: Top 5 words in the word distribution for field mode of record sky cover, function words and punctuation are omitted.</p><p>vide this information, the documents do not verbalize the state at the necessary granularity level to predict the field values. For example, it is not possible to decide to which bucket of the field sky cover the expression 'cloudy' refers to, as it has a relatively uniform distribution across 3 (out of 4) buckets. The problem of predicting text-meaning alignments is interesting in itself, as the extracted alignments can be used in training of a statistical generation system or information extractors, but we also believe that evaluation on this problem is an appropriate test for the relative comparison of the semantic analyzers' performance. Additionally, note that the success of our weaklysupervised scenario indirectly suggests that the model is sufficiently accurate in predicting semantics of an unlabeled text, as otherwise there would be no useful information passed in between semantically overlapping documents during learning and, consequently, no improvement from sharing the state. <ref type="bibr">8</ref> To confirm that the model trained by our approach indeed assigns new words to correct fields and records, we visualize top words for the field characterizing sky cover (table 2). Note that the words "sun", "cloudiness" or "gaps" were not appearing in the labeled part of the data, but seem to be assigned to correct categories. However, correlation between rain and overcast, as also noted in ( <ref type="bibr" target="#b13">Liang et al., 2009)</ref>, results in the wrong assignment of the rain-related words to the field value corresponding to very cloudy weather.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="5">Related Work</head><p>Probably the most relevant prior work is an approach to bootstrapping lexical choice of a generation system using a corpus of alternative pas-sages ( <ref type="bibr" target="#b0">Barzilay and Lee, 2002</ref>), however, in their work all the passages were annotated with unaligned semantic expressions. Also, they assumed that the passages are paraphrases of each other, which is stronger than our non-contradiction assumption. Sentence and text alignment has also been considered in the related context of paraphrase extraction (see, e.g., <ref type="bibr" target="#b8">(Dolan et al., 2004;</ref><ref type="bibr" target="#b1">Barzilay and Lee, 2003)</ref>) but this prior work did not focus on inducing or learning semantic representations. Similarly, in information extraction, there have been approaches for pattern discovery using comparable monolingual corpora (Shinyama and Sekine, 2003) but they generally focused only on discovery of a single pattern from a pair of sentences or texts.</p><p>Radev <ref type="formula">(2000)</ref> considered types of potential relations between documents, including contradiction, and studied how this information can be exploited in NLP. However, this work considered primarily multi-document summarization and question answering problems.</p><p>Another related line of research in machine learning is clustering or classification with constraints ( <ref type="bibr" target="#b2">Basu et al., 2004</ref>), where supervision is given in the form of constraints. Constraints declare which pairs of instances are required to be assigned to the same class (or required to be assigned to different classes). However, we are not aware of any previous work that generalized these methods to structured prediction problems, as trivial equality/inequality constraints are probably too restrictive, and a notion of consistency is required instead.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="6">Summary and Future Work</head><p>In this work we studied the use of weak supervision in the form of non-contradictory relations between documents in learning semantic representations. We argued that this type of supervision encodes information which is hard to discover in an unsupervised way. However, exact inference for groups of documents with overlapping semantic representation is generally prohibitively expensive, as the shared latent semantics introduces nonlocal dependences between semantic representations of individual documents. To combat it, we proposed a simple iterative inference algorithm. We showed how it can be instantiated for the semantics-text correspondence model ( <ref type="bibr" target="#b13">Liang et al., 2009)</ref> and evaluated it on a dataset of weather forecasts. Our approach resulted in an improvement over the scores of both the supervised baseline and of the traditional semi-supervised learning.</p><p>There are many directions we plan on investigating in the future for the problem of learning semantics with non-contradictory relations. A promising and challenging possibility is to consider models which induce full semantic representations of meaning. Another direction would be to investigate purely unsupervised set-up, though it would make evaluation of the resulting method much more complex. One potential alternative would be to replace the initial supervision with a set of posterior constraints ( <ref type="bibr" target="#b10">Graca et al., 2008)</ref> or generalized expectation criteria <ref type="bibr" target="#b14">(McCallum et al., 2007</ref>).</p></div><figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_0"><head></head><label></label><figDesc>South wind between 15 and 20 mph, Chance of precipitation is 30%. with gusts as high as 30 mph. and thunderstorms after noon. Thunderstorms and pouring are possible throughout the day, with precipitation chance of about 25%. possibly growing up to 75 F during the day, as south wind blows at about 20 mph.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_1"><head>Figure 1 :</head><label>1</label><figDesc>Figure 1: An example of three non-contradictory weather forecasts and their alignment to the semantic representation. Note that the semantic representation (the block in the middle) is not observable in training.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_2"><head>Figure 2 :</head><label>2</label><figDesc>Figure 2: The approximate inference algorithm.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_3"><head>Figure 3 :</head><label>3</label><figDesc>Figure 3: The semantics-text correspondence model with K documents sharing the same latent semantic state.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_4"><head>Figure 4 :</head><label>4</label><figDesc>Figure 4: A segmentation of a text fragment into records and fields.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_5"><head></head><label></label><figDesc>{w 1 ,..., w K } sharing the same latent state: 5 max θ w∈D s P (s) k r,f ,c P (r, f , c, w k |s, θ).</figDesc></figure>
+
+			<note place="foot" n="1"> This view on this form of supervision is evocative of cotraining (Blum and Mitchell, 1998) which, roughly, exploits the fact that the same example can be &apos;easy&apos; for one model but &apos;hard&apos; for another one.</note>
+
+			<note place="foot" n="2"> Note that checking for satisfiability may be expensive or intractable depending on the formalism. 3 We slightly abuse notation by using set operations with the lists n and m as arguments. Also, for all the document indices j we use j / ∈ S to denote j ∈ {1,..., K}\S.</note>
+
+			<note place="foot" n="4"> We omit index k in the generative story and figure 3 to simplify the notation.</note>
+
+			<note place="foot" n="5"> For simplicity, we assume here that all the examples are unlabeled.</note>
+
+			<note place="foot" n="6"> In order to distinguish from completely unlabeled examples, we refer to examples labeled with world states as labeled examples. Note though that the alignments are not observable even for these labeled examples. Similarly, we call the models trained from this data supervised though full supervision was not available.</note>
+
+			<note place="foot" n="7"> The text was automatically tokenized and segmented into lines, with line breaks at punctuation characters. Information about the line breaks is not used during learning and inference.</note>
+
+			<note place="foot" n="8"> We conducted preliminary experiments on synthetic data generated from a random semantic-correspondence model. Our approach outperformed the baselines both in predicting &apos;text&apos;-state correspondence and in the F1 score on the predicted set of field assignments (&apos;text meanings&apos;).</note>
+		</body>
+		<back>
+
+			<div type="acknowledgement">
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>Acknowledgements</head><p>The authors acknowledge the support of the Excellence Cluster on Multimodal Computing and Interaction (MMCI). Thanks to Alexandre Klementiev, Alexander Koller, Manfred Pinkal, Dan Roth, Caroline Sporleder and the anonymous reviewers for their suggestions, and to Percy Liang for answering questions about his model.</p></div>
+			</div>
+
+			<div type="references">
+
+				<listBibl>
+
+<biblStruct xml:id="b0">
+	<analytic>
+		<title level="a" type="main">Bootstrapping lexical choice via multiple-sequence alignment</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Regina</forename><surname>Barzilay</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Lillian</forename><surname>Lee</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the Conference on Empirical Methods in Natural Language Processing (EMNLP)</title>
+		<meeting>the Conference on Empirical Methods in Natural Language Processing (EMNLP)</meeting>
+		<imprint>
+			<date type="published" when="2002" />
+			<biblScope unit="page" from="164" to="171" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b1">
+	<analytic>
+		<title level="a" type="main">Learning to paraphrase: An unsupervised approach using multiple-sequence alignment</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Regina</forename><surname>Barzilay</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Lillian</forename><surname>Lee</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the Conference on Human Language Technology and North American chapter of the Association for Computational Linguistics (HLT-NAACL)</title>
+		<meeting>the Conference on Human Language Technology and North American chapter of the Association for Computational Linguistics (HLT-NAACL)</meeting>
+		<imprint>
+			<date type="published" when="2003" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b2">
+	<analytic>
+		<title level="a" type="main">Active semi-supervision for pairwise constrained clustering</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Sugatu</forename><surname>Basu</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Arindam</forename><surname>Banjeree</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Raymond</forename><surname>Mooney</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of the SIAM International Conference on Data Mining (SDM)</title>
+		<meeting>of the SIAM International Conference on Data Mining (SDM)</meeting>
+		<imprint>
+			<date type="published" when="2004" />
+			<biblScope unit="page" from="333" to="344" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b3">
+	<analytic>
+		<title level="a" type="main">Combining labeled and unlabeled data with co-training</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Blum</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">T</forename><surname>Mitchell</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">COLT: Proceedings of the Workshop on Computational Learning Theory</title>
+		<imprint>
+			<publisher>Morgan Kaufmann Publishers</publisher>
+			<date type="published" when="1998" />
+			<biblScope unit="page" from="209" to="214" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b4">
+	<analytic>
+		<title level="a" type="main">Introduction to the conll-2005 shared task: Semantic role labeling</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Xavier</forename><surname>Carreras</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Lluis</forename><surname>Marquez</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of CoNLL-2005</title>
+		<meeting>CoNLL-2005<address><addrLine>Ann Arbor, MI USA</addrLine></address></meeting>
+		<imprint>
+			<date type="published" when="2005" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b5">
+	<analytic>
+		<title level="a" type="main">Learning to sportcast: A test of grounded language acquisition</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">L</forename><surname>David</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Raymond</forename><forename type="middle">L</forename><surname>Chen</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><surname>Mooney</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of International Conference on Machine Learning</title>
+		<meeting>of International Conference on Machine Learning</meeting>
+		<imprint>
+			<date type="published" when="2008" />
+			<biblScope unit="page" from="128" to="135" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b6">
+	<analytic>
+		<title level="a" type="main">Maximum likelihood from incomplete data via the EM algorithms</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><forename type="middle">P</forename><surname>Dempster</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">N</forename><forename type="middle">M</forename><surname>Laird</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><forename type="middle">B</forename><surname>Rubin</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Journal of the Royal Statistical Society. Series B (Methodological)</title>
+		<imprint>
+			<biblScope unit="volume">39</biblScope>
+			<biblScope unit="issue">1</biblScope>
+			<biblScope unit="page" from="1" to="38" />
+			<date type="published" when="1977" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b7">
+	<analytic>
+		<title level="a" type="main">Computer-intensive methods in statistics</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>Diaconis</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">B</forename><surname>Efron</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Scientific American</title>
+		<imprint>
+			<biblScope unit="page" from="116" to="130" />
+			<date type="published" when="1983" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b8">
+	<analytic>
+		<title level="a" type="main">Unsupervised construction of large paraphrase corpora: Exploiting massively parallel news sources</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Bill</forename><surname>Dolan</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Chris</forename><surname>Quirk</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Chris</forename><surname>Brockett</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the Conference on Computational Linguistics (COLING)</title>
+		<meeting>the Conference on Computational Linguistics (COLING)</meeting>
+		<imprint>
+			<date type="published" when="2004" />
+			<biblScope unit="page" from="350" to="356" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b9">
+	<analytic>
+		<title level="a" type="main">A statistical semantic parser that integrates syntax and semantics</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Ruifang</forename><surname>Ge</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Raymond</forename><forename type="middle">J</forename><surname>Mooney</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the Ninth Conference on Computational Natural Language Learning (CONLL-05)</title>
+		<meeting>the Ninth Conference on Computational Natural Language Learning (CONLL-05)<address><addrLine>Ann Arbor, Michigan</addrLine></address></meeting>
+		<imprint>
+			<date type="published" when="2005" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b10">
+	<analytic>
+		<title level="a" type="main">Expectation maximization and posterior constraints</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Joao</forename><surname>Graca</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Kuzman</forename><surname>Ganchev</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Ben</forename><surname>Taskar</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Advances in Neural Information Processing Systems</title>
+		<imprint>
+			<biblScope unit="volume">20</biblScope>
+			<date type="published" when="2008" />
+			<publisher>NIPS</publisher>
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b11">
+	<monogr>
+		<title level="m" type="main">Mathematical structures of language</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Zellig</forename><surname>Harris</surname></persName>
+		</author>
+		<imprint>
+			<date type="published" when="1968" />
+			<publisher>Wiley</publisher>
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b12">
+	<analytic>
+		<title level="a" type="main">Learning language semantics from ambigous supervision</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Rohit</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Raymond</forename><forename type="middle">J</forename><surname>Kate</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><surname>Mooney</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Association for the Advancement of Artificial Intelligence (AAAI)</title>
+		<imprint>
+			<date type="published" when="2007" />
+			<biblScope unit="page" from="895" to="900" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b13">
+	<analytic>
+		<title level="a" type="main">Learning semantic correspondences with less supervision</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Percy</forename><surname>Liang</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Michael</forename><forename type="middle">I</forename><surname>Jordan</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Dan</forename><surname>Klein</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of the Annual Meeting of the Association for Computational Linguistics and International Joint Conference on Natural Language Processing (ACL-IJCNLP)</title>
+		<meeting>of the Annual Meeting of the Association for Computational Linguistics and International Joint Conference on Natural Language essing (ACL-IJCNLP)</meeting>
+		<imprint>
+			<date type="published" when="2009" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b14">
+	<monogr>
+		<title level="m" type="main">Generalized expectation criteria</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Andrew</forename><surname>Mccallum</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Gideon</forename><surname>Mann</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Gregory</forename><surname>Druck</surname></persName>
+		</author>
+		<idno>TR 2007-60</idno>
+		<imprint>
+			<date type="published" when="2007" />
+			<pubPlace>Amherst, MA</pubPlace>
+		</imprint>
+		<respStmt>
+			<orgName>University of Massachusetts</orgName>
+		</respStmt>
+	</monogr>
+<note type="report_type">Technical Report</note>
+</biblStruct>
+
+<biblStruct xml:id="b15">
+	<analytic>
+		<title level="a" type="main">Learning for semantic parsing</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Raymond</forename><forename type="middle">J</forename><surname>Mooney</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the 8th International Conference on Computational Linguistics and Intelligent Text Processing</title>
+		<meeting>the 8th International Conference on Computational Linguistics and Intelligent Text Processing</meeting>
+		<imprint>
+			<date type="published" when="2007" />
+			<biblScope unit="page" from="982" to="991" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b16">
+	<analytic>
+		<title level="a" type="main">Loopy belief propagation for approximate inference: An empirical study</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Kevin</forename><forename type="middle">P</forename><surname>Murphy</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Yair</forename><surname>Weiss</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Michael</forename><forename type="middle">I</forename><surname>Jordan</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of Uncertainty in Artificial Intelligence (UAI)</title>
+		<meeting>of Uncertainty in Artificial Intelligence (UAI)</meeting>
+		<imprint>
+			<date type="published" when="1999" />
+			<biblScope unit="page" from="467" to="475" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b17">
+	<analytic>
+		<title level="a" type="main">Reverend bayes on inference engines: A distributed hierarchical approach</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Judea</forename><surname>Pearl</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of the National Conference on Artificial Intelligence (AAAI)</title>
+		<meeting>of the National Conference on Artificial Intelligence (AAAI)</meeting>
+		<imprint>
+			<date type="published" when="1982" />
+			<biblScope unit="page" from="133" to="136" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b18">
+	<analytic>
+		<title level="a" type="main">Unsupervised semantic parsing</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Hoifung</forename><surname>Poon</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Pedro</forename><surname>Domingos</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the 2009 Conference on Empirical Methods in Natural Language Processing</title>
+		<meeting>the 2009 Conference on Empirical Methods in Natural Language Processing</meeting>
+		<imprint>
+			<date type="published" when="2009" />
+			<biblScope unit="page">9</biblScope>
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b19">
+	<analytic>
+		<title level="a" type="main">A common theory of information fusion from multiple text sources step one: Cross-document structure</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Dragomir</forename><surname>Radev</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">1st SIGdial Workshop on Discourse and Dialogue</title>
+		<imprint>
+			<date type="published" when="2000" />
+			<biblScope unit="page" from="74" to="83" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b20">
+	<analytic>
+		<title level="a" type="main">Paraphrase acquisition for information extraction</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Yusuke</forename><surname>Shinyama</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Satoshi</forename><surname>Sekine</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of Second International Workshop on Paraphrasing (IWP2003)</title>
+		<meeting>Second International Workshop on Paraphrasing (IWP2003)</meeting>
+		<imprint>
+			<date type="published" when="2003" />
+			<biblScope unit="page" from="65" to="71" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b21">
+	<monogr>
+		<title/>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Benjamin</forename><surname>Snyder</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Regina</forename><surname>Barzilay</surname></persName>
+		</author>
+		<imprint>
+			<date type="published" when="2007" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b22">
+	<analytic>
+		<title level="a" type="main">Database-text alignment via structured multilabel classification</title>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of International Joint Conference on Artificial Intelligence (IJCAI-05)</title>
+		<meeting>International Joint Conference on Artificial Intelligence (IJCAI-05)</meeting>
+		<imprint>
+			<biblScope unit="page" from="1713" to="1718" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b23">
+	<analytic>
+		<title level="a" type="main">Co-occurrence retrieval: A flexible framework for lexical distributional similarity</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Weeds</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">W</forename><surname>Weir</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Computational Linguistics</title>
+		<imprint>
+			<biblScope unit="volume">31</biblScope>
+			<biblScope unit="issue">4</biblScope>
+			<biblScope unit="page" from="439" to="475" />
+			<date type="published" when="2005" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b24">
+	<analytic>
+		<title level="a" type="main">Learning to map sentences to logical form: Structured classification with probabilistic categorial grammar</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Luke</forename><surname>Zettlemoyer</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Michael</forename><surname>Collins</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the Twenty-first Conference on Uncertainty in Artificial Intelligence</title>
+		<meeting>the Twenty-first Conference on Uncertainty in Artificial Intelligence<address><addrLine>Edinburgh, UK</addrLine></address></meeting>
+		<imprint>
+			<date type="published" when="2005-08" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+				</listBibl>
+			</div>
+		</back>
+	</text>
+</TEI>

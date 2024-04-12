@@ -1,0 +1,153 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>OPERATING SYSTEMS SHOULD PROVIDE TRANSACTIONS</p>
+    <p>Donald E. Porter and Emmett Witchel</p>
+    <p>The University of Texas at Austin</p>
+  </div>
+  <div class="page">
+    <p>Example: browser plug-in upgrade</p>
+    <p>write new plug-in binary start browser, old config,</p>
+    <p>old plug-in arguments corrupt data files exec post-install script (updates browser config)</p>
+    <p>API cant ensure consistent updates to OS resources</p>
+    <p>Concurrency and crashes cause subtle inconsistencies</p>
+  </div>
+  <div class="page">
+    <p>System Transactions</p>
+    <p>Express consistency requirements to OS  Transaction wraps group of system calls</p>
+    <p>Results isolated until commit  Interfering operations automatically</p>
+    <p>serialized  Long-overdue OS feature</p>
+    <p>Natural abstraction  Solves important problems  Practical implementation</p>
+  </div>
+  <div class="page">
+    <p>Transactional Software Install</p>
+    <p>sys_xbegin();</p>
+    <p>apt-get upgrade</p>
+    <p>sys_xend();</p>
+    <p>A failed install is automatically rolled back  Concurrent operations are not</p>
+    <p>System crash: reboot to entire upgrade or none</p>
+    <p>Concurrent apps see consistent state</p>
+  </div>
+  <div class="page">
+    <p>System Transactions 5</p>
+    <p>Operating systems should provide them  Operating systems can provide them</p>
+  </div>
+  <div class="page">
+    <p>The POSIX API is broken 6</p>
+    <p>System resources have long-standing race conditions  Time-of-check-to-time-of-use (TOCTTOU)  Temporary file creation  Signal handling</p>
+    <p>Correct, concurrent apps need systemlevel isolation</p>
+    <p>Multi-core chips raise importance of concurrency</p>
+  </div>
+  <div class="page">
+    <p>System-level races</p>
+    <p>if(access(foo)) {</p>
+    <p>fd = open(foo);  }</p>
+    <p>(root)</p>
+    <p>foo == secret</p>
+  </div>
+  <div class="page">
+    <p>Complex work-arounds</p>
+    <p>TOCTTOU: users write their own directory traversal  openat(), fstatat(), etc.  User re-implements filename translation</p>
+    <p>Race between open/fcntl  Add CLOSE_ON_EXEC flags to 15 system calls</p>
+    <p>Temporary file creation libraries  mkstemp,tmpfile, etc.</p>
+  </div>
+  <div class="page">
+    <p>Work-arounds dont work 9</p>
+    <p>Complex APIs do not yield secure programs  Experts cant even agree</p>
+    <p>mkstemp man page: Dont use this function, use tmpfile(3) instead.</p>
+    <p>www.securecoding.cert.org - VOID FI039-C: It is thus recommended thatmkstemp() be</p>
+    <p>used [instead of tmpfile()]</p>
+    <p>Transactions can fix the problem</p>
+  </div>
+  <div class="page">
+    <p>TOCTTOU redux</p>
+    <p>sys_xbegin(); if(access(foo)) { fd = open(foo); read(fd,);  } sys_xend();</p>
+    <p>(root)</p>
+  </div>
+  <div class="page">
+    <p>Transactions solve important problems 11</p>
+    <p>Applications  Replace databases for simple</p>
+    <p>synchronization  Support system calls in transactional</p>
+    <p>memory apps  Tolerate faults in untrusted software</p>
+    <p>modules  Atomically update file contents and access</p>
+    <p>control list  Easier to write OS extensions</p>
+    <p>System Tx + Journal = Tx Filesystem</p>
+  </div>
+  <div class="page">
+    <p>Hasnt this already been done? donporter@wesley:~$ man transaction</p>
+    <p>No manual entry for transaction</p>
+  </div>
+  <div class="page">
+    <p>Related Systems 13</p>
+    <p>Similar interface, different implementation  QuickSilver [SOSP 91], TABS [SOSP 85]</p>
+    <p>Weaker guarantees  TxF, Valor [FAST 09]</p>
+    <p>Only file system transactions</p>
+    <p>Different interface, similar implementation  Speculator [SOSP 05, OSDI 06]</p>
+    <p>Terms transaction and OS appear in paper title  TxLinux [SOSP 07, ASPLOS 09]</p>
+  </div>
+  <div class="page">
+    <p>Can OSes provide transactions?</p>
+    <p>TxOS: Extends Linux 2.6.22 to support transactions  Runs on commodity hardware</p>
+    <p>Rest of talk:  Approach  Validation</p>
+  </div>
+  <div class="page">
+    <p>Version Management 15</p>
+    <p>How to keep old and new data?  Need old data to roll back</p>
+    <p>TxOS approach:  Transactions operate on private copies of</p>
+    <p>data  Replace old data structures at commit</p>
+    <p>Example: kernel data structures</p>
+  </div>
+  <div class="page">
+    <p>TxOS Version Management</p>
+    <p>Transacti on</p>
+    <p>sys_xbegin(); if(access(foo)){ fd = open(foo); write(fd, Hi); } sys_xend();</p>
+    <p>File foo</p>
+    <p>Hi</p>
+  </div>
+  <div class="page">
+    <p>Object versioning in TxOS</p>
+    <p>Deadlock-free  Transactions do not hold kernel locks across</p>
+    <p>syscalls  Follows existing locking discipline</p>
+    <p>Previous work used 2-phase locking, undo log  Prone to deadlock</p>
+    <p>Efficient  a pointer swap per committed object  Copy-on-write optimizations</p>
+  </div>
+  <div class="page">
+    <p>Serializing Tx with No-Tx 18</p>
+    <p>Important property for intuitive semantics  Supports incremental adoption</p>
+    <p>Serialize TOCTTOU attacker  Attacker will not use transactions</p>
+    <p>Hard to support in software systems  Not provided by historical OSes, many STMs</p>
+  </div>
+  <div class="page">
+    <p>Validation 19</p>
+    <p>Is implementation tractable?  Is performance acceptable?</p>
+  </div>
+  <div class="page">
+    <p>Tractable, challenging implementation</p>
+    <p>Transactions:  Add 8,600 LOC to Linux  Minor modifications to 14,000 LOC</p>
+    <p>Simple API, not a simple implementation  Hard to write concurrent programs  Developers need good abstractions</p>
+    <p>Transactions are worth the effort</p>
+  </div>
+  <div class="page">
+    <p>Acceptable Performance 21</p>
+    <p>Seq Write Seq Read Rand Write Rand Read -300</p>
+    <p>-200</p>
+    <p>-100</p>
+    <p>Speedup compared to unmodified Linux LFS Large File Phase</p>
+    <p>% S</p>
+    <p>lo w</p>
+    <p>d o w</p>
+    <p>n %</p>
+    <p>S p</p>
+    <p>e e d</p>
+    <p>u p 40% overhead for dpkg install</p>
+  </div>
+  <div class="page">
+    <p>OSes can support transactions</p>
+    <p>Tractable Implementation  Acceptable Performance</p>
+  </div>
+  <div class="page">
+    <p>OSes should provide transactions  Solve long-standing problems</p>
+    <p>Replace ad hoc solutions  Broad range of applications  Acceptable cost</p>
+    <p>http://www.cs.utexas.edu/~porterde/txos porterde@cs.utexas.edu</p>
+  </div>
+</Presentation>

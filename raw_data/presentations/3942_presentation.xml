@@ -1,0 +1,148 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>Cosh Clear OS data sharing in an incoherent world</p>
+    <p>Andrew Baumann Chris Hawblitzel Kornilios Kour=s</p>
+    <p>Tim Harris Timothy Roscoe</p>
+    <p>MicrosoD Research  ETH Zurich  Oracle Labs</p>
+  </div>
+  <div class="page">
+    <p>Mo=va=on: heterogeneous mul=cores</p>
+    <p>Accelerators, co-processors, offload engines  Discrete GPGPUs  AMD Fusion  Intel MIC  ARM big.LITTLE</p>
+  </div>
+  <div class="page">
+    <p>Intel MIC prototype</p>
+    <p>32 cores  4 threads  x86 + extensions</p>
+  </div>
+  <div class="page">
+    <p>Target pla^orm</p>
+    <p>4 NUMA domains  3 islands of cache-coherence</p>
+    <p>Knights Ferry (32 cores) RAM</p>
+    <p>Knights Ferry (32 cores) RAM</p>
+    <p>RAM Nehalem (8 cores)</p>
+    <p>RAM Nehalem (8 cores)</p>
+    <p>PCIe</p>
+    <p>PCIe</p>
+  </div>
+  <div class="page">
+    <p>Breaks exis=ng OS assump=ons</p>
+    <p>Core uniformity  Performance proper=es  Instruc=on set architecture</p>
+    <p>Global, cache-coherent shared memory  Used for OS data structures</p>
+    <p>How can we extend one OS across all cores?</p>
+  </div>
+  <div class="page">
+    <p>Possible OS models</p>
+    <p>Cluster-on-a-chip  Avoid changing the OS  Treat as devices,</p>
+    <p>hide behind driver API  One OS per island  Paper over the gaps at</p>
+    <p>applica=on/run=me level  CUDA, OpenCL, etc.</p>
+    <p>Mul2kernel  Its a distributed system!  Base OS on message passing</p>
+    <p>Dont assume shared memory  Single OS across all cores</p>
+    <p>Process management  File system  Networking  Inter-process communica=on</p>
+    <p>e.g. Barrelfish</p>
+  </div>
+  <div class="page">
+    <p>but sharing data is useful!</p>
+    <p>Par=cularly for bulk data  I/O buffers, networking, etc.  Computa=ons on large data</p>
+    <p>Pla^orm specific  dont want to expose it  Need an abstrac=on: Cosh</p>
+  </div>
+  <div class="page">
+    <p>Why is this hard?</p>
+    <p>Between any pair of cores, may have:  Cache-coherent shared memory  Non-cache-coherent shared memory  No shared memory</p>
+    <p>Different mechanisms to transfer data  Page remapping (sharing)  DMA controllers (copies)</p>
+  </div>
+  <div class="page">
+    <p>Transfers</p>
+    <p>MOVE</p>
+    <p>SHARE</p>
+    <p>COPY R*</p>
+    <p>R*</p>
+    <p>RW NO</p>
+    <p>access</p>
+    <p>RO</p>
+    <p>Same</p>
+    <p>RW</p>
+    <p>RO</p>
+    <p>RW copy</p>
+    <p>Sender requires</p>
+    <p>Sender retains</p>
+    <p>Receiver gains</p>
+    <p>Design Principles:  Rights never upgraded</p>
+    <p>- No RW sharing</p>
+    <p>All transfers can be implemented as copies - Permits DMA - Fast small transfers</p>
+    <p>Page mappings</p>
+    <p>established through transfer - Permits op=miza=ons</p>
+    <p>RW: Read/Write, RO: Read-Only, R*: RW or RO</p>
+  </div>
+  <div class="page">
+    <p>Making it prac=cal</p>
+  </div>
+  <div class="page">
+    <p>Weak transfers</p>
+    <p>Changing memory permissions is costly  Update page tables, TLB shootdown, etc.</p>
+    <p>Not always necessary (e.g., trusted services)  Weak transfers permit implementa=on to defer permission changes  e.g. sender of a weak share may retain write permissions, but is trusted not to do so</p>
+  </div>
+  <div class="page">
+    <p>Aggregates</p>
+    <p>Page-granularity doesnt work for everything  Byte-oriented APIs (e.g., POSIX read/write)  Differing page sizes</p>
+    <p>Cosh adds high-level aggregate abstrac=on  Byte-granularity buffer access, transfers  Derived from IO-Lite</p>
+    <p>Aggregate structure is not maintained across transfers</p>
+  </div>
+  <div class="page">
+    <p>Trivial example: pipes void pipe_write(wpipe *pipe, cosh_agg *agg) { cosh_agg_transfer(agg, pipe-&gt;dest, COSH_MOVE, COSH_TRANSFER_STRONG); cosh_agg_decref(agg); }</p>
+    <p>cosh_agg *pipe_read(rpipe *pipe) { ... cosh_agg_receive(pipe-&gt;src, &amp;agg, &amp;mode, &amp;flags); if (mode != COSH_MOVE || (flags &amp; COSH_TRANSFER_WEAK)) { // protocol error by sender ... } return agg; }</p>
+    <p>Untrusted sender: strong transfer  Zero-copy (where permiwed)</p>
+  </div>
+  <div class="page">
+    <p>Real example: file system</p>
+    <p>Aggregates for POSIX read()/write()  Zero-copy where appropriate</p>
+    <p>Works exactly the same on MIC cores</p>
+    <p>FS service Client Buff READ</p>
+    <p>(WEAK SHARE)</p>
+    <p>FS service Client Buff WRITE</p>
+    <p>(STRONG SHARE)</p>
+  </div>
+  <div class="page">
+    <p>Prototype implementa=on</p>
+    <p>Ported Barrelfish OS to MIC  Heterogeneous system of x86 and MIC cores  Sharing where possible  DMA between MIC and PC</p>
+    <p>Asynchronous C (AC) language [OOPSLA11]  Lightweight extensions to C for asynchrony</p>
+    <p>Simple user-space implementa=on  Not performant</p>
+  </div>
+  <div class="page">
+    <p>Transfers between host cores</p>
+    <p>La te nc y (k cy cl es )</p>
+    <p>Size (kB)</p>
+    <p>Copy Strong move Weak move</p>
+  </div>
+  <div class="page">
+    <p>DMA transfer to Knights Ferry</p>
+    <p>La te nc y (k cy cl es a t h</p>
+    <p>os t)</p>
+    <p>Size (kB)</p>
+    <p>One-way transfer latency Pipelined mean inter-arrival =me</p>
+  </div>
+  <div class="page">
+    <p>Panorama s=tching</p>
+    <p>Capture trace on Linux, replay it on Barrelfish  RamFS  CoshFS</p>
+    <p>File System Host (ms) Co-processor (ms)</p>
+    <p>RamFS 145 -</p>
+    <p>CoshFS 144 49742</p>
+    <p>CoshFS + cache 2464</p>
+  </div>
+  <div class="page">
+    <p>Related work</p>
+    <p>High-performance I/O systems  Shared-memory op=misa=ons are similar to previous bulk data transport systems</p>
+    <p>IO-Lite inspired our aggregate API  OS support for specialised cores  Research OSes picked message-like seman=cs; e.g. copy [Hydra, Barrelfish] or move [Helios]</p>
+    <p>Other work has been driven by limita=ons of GPUs [PTask, GPUfs]</p>
+  </div>
+  <div class="page">
+    <p>Conclusion</p>
+    <p>Cosh: new abstrac=on for managing bulk data  Used within OS for:  Shared file system  Inter-process communica=on  Networking, etc.</p>
+    <p>Can exploit shared memory; doesnt rely on it</p>
+  </div>
+  <div class="page">
+    <p>BACKUP SLIDES</p>
+  </div>
+  <div class="page">
+    <p>Aggregate API alloc(len, flags) -&gt; agg incref(agg) decref(agg) getlen(agg) -&gt; length getrights(agg) -&gt; rights iter_start(agg, read|write, offset) -&gt; iter iter_next(iter) -&gt; addr, length iter_end(iter) concat(agg1, agg2) -&gt; agg select(agg, offset, length) -&gt; agg find_related(agg, minrights) -&gt; [agg] downgrade(agg, rights) transfer(agg, dest, transfer_mode, flags) receive(src) -&gt; agg, transfer_mode, flags</p>
+  </div>
+</Presentation>

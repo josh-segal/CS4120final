@@ -1,0 +1,311 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>Silhouette: Efficient Protected Shadow Stacks for Embedded Systems</p>
+    <p>Jie Zhou Yufei Du Zhuojia Shen University of Rochester University of Rochester University of Rochester</p>
+    <p>Lele Ma John Criswell Robert J. Walls College of William &amp; Mary University of Rochester Worcester Polytechnic Institute</p>
+    <p>Presented at USENIX Security 2020</p>
+  </div>
+  <div class="page">
+    <p>Microcontroller-based Systems are Almost Everywhere</p>
+    <p>ECU</p>
+    <p>Bluetooth module</p>
+    <p>Wi-Fi module</p>
+  </div>
+  <div class="page">
+    <p>Microcontroller-based Embedded Devices</p>
+    <p>Limited CPU speed  Limited memory  Real-time constraints  Frequent direct operations on hardware</p>
+  </div>
+  <div class="page">
+    <p>C is Not Memory Safe</p>
+    <p>Control-flow Hijacking: corrupting control-data to divert control flow to attacker-selected destinations</p>
+    <p>void bar() {   return; }</p>
+    <p>void foo() {  bar();  }</p>
+  </div>
+  <div class="page">
+    <p>C is Not Memory Safe</p>
+    <p>void bar() {   return; }</p>
+    <p>void foo() {  bar();  } attacker-selected destination</p>
+    <p>Control-flow Hijacking: corrupting control-data to divert control flow to attacker-selected destinations</p>
+  </div>
+  <div class="page">
+    <p>Control-Flow Integrity (CFI)</p>
+    <p>void bar() {   return; }</p>
+    <p>void foo() {  bar();  }</p>
+    <p>void bar() {   return; }</p>
+    <p>void bar() {   return; }</p>
+    <p>Common weakness of practical CFI*: allowing a return instruction to return back to multiple places</p>
+    <p>void f2() {  call   }</p>
+    <p>void f3() {  call   }</p>
+    <p>allowed by practical CFI</p>
+    <p>*Exploited by Out of Control @Oakland14, ROP is Still Dangerous @USENIX Security14, Control-flow Bending @USENIX Security15, etc.</p>
+    <p>void f1() {  add  sub  }</p>
+  </div>
+  <div class="page">
+    <p>Silhouette</p>
+    <p>Silhouette: a compiler-based defense that  guarantees the integrity of return addresses  coarse-grained forward-edge CFI  low performance overhead (1.3% and 3.4% overhead on two benchmark suites)</p>
+    <p>Developed for ARMv7-M due to its popularity  Also working on other ARM embedded processors</p>
+  </div>
+  <div class="page">
+    <p>Outline</p>
+    <p>Silhouette Design</p>
+    <p>Evaluation</p>
+    <p>Summary</p>
+  </div>
+  <div class="page">
+    <p>Outline</p>
+    <p>Silhouette Design</p>
+    <p>Evaluation</p>
+    <p>Summary</p>
+  </div>
+  <div class="page">
+    <p>Shadow Stack</p>
+    <p>Protecting return addresses</p>
+    <p>Shadow stack itself also needs protection!</p>
+    <p>ret. addr. of foo ret. addr. of bar</p>
+    <p>shadow stack SSP</p>
+    <p>ret. addr. of foo</p>
+    <p>ret. addr. of bar regular stack</p>
+    <p>SP</p>
+  </div>
+  <div class="page">
+    <p>From a Shadow Stacks Point of View</p>
+    <p>stores writing to the shadow stack all other stores</p>
+    <p>Legal Illegal</p>
+    <p>Can we make the shadow stack writable only by its legal stores?</p>
+    <p>All Store Instructions</p>
+  </div>
+  <div class="page">
+    <p>Background on ARMv7-M  Execution Mode: Privileged and Unprivileged. (Embedded devices usually run everything in privileged mode.)  Memory access permissions are configurable.</p>
+    <p>ret. addr. of foo ret. addr. of bar</p>
+    <p>shadow stack SSP</p>
+    <p>ret. addr. of foo</p>
+    <p>ret. addr. of bar regular stack SP</p>
+    <p>can be configured to be writable only by privileged stores</p>
+    <p>Can we make the shadow stack only writable by its legal stores?</p>
+    <p>Is it possible to make  only the shadow-stack-legal stores privileged  all other stores unprivileged?</p>
+    <p>Yes</p>
+  </div>
+  <div class="page">
+    <p>Unprivileged Store</p>
+    <p>Act as if running in unprivileged mode when running in privileged mode.</p>
+    <p>// running in privileged mode strt r1, [r0, #12] writable only by privileged stores</p>
+    <p>This instruction would fail!</p>
+  </div>
+  <div class="page">
+    <p>Use Unprivileged Store to Protect Shadow Stack</p>
+    <p>Transform all stores to be unprivileged stores except  shadow-stack-legal stores  those that require to run as privileged such as some I/O-related operations.</p>
+    <p>Effect: even if memory is corrupted and control flow is diverted, illegal store instructions do not have write access to corrupt the shadow stack.</p>
+    <p>Configure the memory region for shadow stack to be writable only by privileged stores.</p>
+    <p>Store Hardening</p>
+  </div>
+  <div class="page">
+    <p>Store Instructions of ARMv7-M</p>
+    <p>Addressing Mode Number of Types</p>
+    <p>Normal Store Instructions</p>
+    <p>source register, base register, offset register, immediate, left shift, write back, store multiple, floating-point stores over 40</p>
+    <p>Unprivileged Store Instructions source register, base register, immediate 3</p>
+    <p>Comparison of Normal and Unprivileged Store Instructions</p>
+  </div>
+  <div class="page">
+    <p>Store Hardening Examples</p>
+    <p>// example 1</p>
+    <p>str r0, [r1, #4]</p>
+    <p>strt r0, [r1, #4]</p>
+    <p>// example 2</p>
+    <p>str r0, [sp, #-12]</p>
+    <p>sub sp, #12 strt r0, [sp, #0] add sp, #12</p>
+    <p>no performance overhead no code size overhead performance and code size overhead</p>
+  </div>
+  <div class="page">
+    <p>Forward-edge Control-flow Issues</p>
+    <p>Transform all stores to be unprivileged stores except  shadow-stack-legal stores  those that require to run as privileged</p>
+    <p>Forward-edge Control Flow How Silhouette Handles Them</p>
+    <p>Indirect Function Calls Restricted by Label-based Forward-edge CFI</p>
+    <p>Large switch Statements Compiled to Bounds-checked TBB or TBH instructions</p>
+    <p>Computed goto Statements Transformed to switch statements</p>
+  </div>
+  <div class="page">
+    <p>Silhouette Architecture</p>
+    <p>Simplified Architecture of Silhouette</p>
+    <p>LLVM IR</p>
+    <p>Shadow Stack Transform</p>
+    <p>Nat ive</p>
+    <p>Cod e</p>
+    <p>Gen erat</p>
+    <p>ion</p>
+    <p>LLVM Machine</p>
+    <p>IR Generation</p>
+    <p>Store Hardening Label-based Forward-edge CFI</p>
+    <p>Executable with Protected Shadow Stack</p>
+    <p>Security guarantee:  Return instruction always returns to its legal destination  Forward-edge control flows are restricted to selected destinations</p>
+  </div>
+  <div class="page">
+    <p>Outline</p>
+    <p>Silhouette Design</p>
+    <p>Evaluation</p>
+    <p>Summary</p>
+  </div>
+  <div class="page">
+    <p>Experiment Setup</p>
+    <p>Development board: STM32F469  Cortex-M4 processor, run at 180 MHz  384 KB SRAM  16 MB SDRAM  2 MB Flash Memory</p>
+    <p>Base compiler: Clang/LLVM 9.0</p>
+    <p>Optimization level: -O3</p>
+    <p>Benchmarks: all 9 programs in CoreMark-Pro 29 programs in BEEBS</p>
+    <p>Evaluated both performance and code size overhead</p>
+  </div>
+  <div class="page">
+    <p>Performance on CoreMark-Pro Benchmarks</p>
+    <p>Shadow Stack Store Hardening CFI Silhouette Min 0 0 -0.1% 0.1% Max 1.3% 4.9% 0.1% 4.9%</p>
+    <p>Geo. Mean 0.2% 1% 0 1.3%</p>
+    <p>N or</p>
+    <p>m al</p>
+    <p>iz ed</p>
+    <p>P er</p>
+    <p>fo rm</p>
+    <p>an ce</p>
+    <p>cjpeg-rose7...</p>
+    <p>core</p>
+    <p>linear_alg-..</p>
+    <p>loops-all-...</p>
+    <p>nnet_test</p>
+    <p>parser-125k</p>
+    <p>radix2-big-64k</p>
+    <p>sha-test</p>
+    <p>zip-test Shadow Stack Store Hardening CFI Silhouette</p>
+  </div>
+  <div class="page">
+    <p>Code Size on CoreMark-Pro Benchmarks</p>
+    <p>N or</p>
+    <p>m al</p>
+    <p>iz ed</p>
+    <p>C od</p>
+    <p>e S</p>
+    <p>iz e</p>
+    <p>cjpeg-rose7...</p>
+    <p>core</p>
+    <p>linear_alg-..</p>
+    <p>loops-all-...</p>
+    <p>nnet_test</p>
+    <p>parser-125k</p>
+    <p>radix2-big-64k</p>
+    <p>sha-test</p>
+    <p>zip-test Shadow Stack Store Hardening CFI Silhouette</p>
+    <p>Shadow Stack Store Hardening CFI Silhouette Min 0.5% 2.8% 0.2% 3.6% Max 1.7% 11.1% 9.4% 19.3%</p>
+    <p>Geo. Mean 0.8% 6.8% 1.2% 8.9%</p>
+  </div>
+  <div class="page">
+    <p>Performance Overhead on BEEBS Benchmarks</p>
+    <p>Shadow Stack Store Hardening CFI Silhouette Min 0 -0.3% -0.3% -0.3% Max 9.2% 24.7% 2.2% 24.8%</p>
+    <p>Geo. Mean 1.1% 1.8% 0.1% 3.4%</p>
+    <p>N or</p>
+    <p>m al</p>
+    <p>iz ed</p>
+    <p>P er</p>
+    <p>fo rm</p>
+    <p>an ce</p>
+    <p>bubblesort</p>
+    <p>ctl-string</p>
+    <p>levenshtein</p>
+    <p>matmult-int</p>
+    <p>ndes</p>
+    <p>picojpeg</p>
+    <p>qrduino</p>
+    <p>sglib-queue</p>
+    <p>sglib-rbtree</p>
+    <p>slre</p>
+    <p>stb_perlin</p>
+    <p>trio-sscanf</p>
+    <p>wikisort</p>
+    <p>Shdaow Stack Store Hardening CFI Silhouette</p>
+  </div>
+  <div class="page">
+    <p>Code Size on BEEBS Benchmarks</p>
+    <p>Shadow Stack Store Hardening CFI Silhouette Min 0.3% 0.5% 0 0.9% Max 0.6% 6.1% 1.3% 6.8%</p>
+    <p>Geo. Mean 0.4% 1.8% 0.1% 2.3%</p>
+    <p>N or</p>
+    <p>m al</p>
+    <p>iz ed</p>
+    <p>C od</p>
+    <p>e S</p>
+    <p>iz e</p>
+    <p>bubblesort</p>
+    <p>ctl-string</p>
+    <p>levenshtein</p>
+    <p>matmult-int</p>
+    <p>ndes</p>
+    <p>picojpeg</p>
+    <p>qrduino</p>
+    <p>sglib-queue</p>
+    <p>sglib-rbtree</p>
+    <p>slre</p>
+    <p>stb_perlin</p>
+    <p>trio-sscanf</p>
+    <p>wikisort</p>
+    <p>Shdaow Stack Store Hardening CFI Silhouette</p>
+  </div>
+  <div class="page">
+    <p>Silhouette-Invert</p>
+    <p>Not supported on ARMv7-M</p>
+    <p>Proposed two solutions with minor hardware changes. See the paper for details.</p>
+    <p>ret. addr. of foo ret. addr. of bar</p>
+    <p>shadow stack SSP</p>
+    <p>ret. addr. of foo</p>
+    <p>ret. addr. of bar regular stack</p>
+    <p>SP</p>
+    <p>Writable only by unprivileged stores but not by privileged stores?</p>
+    <p>Configure shadow stack to be unprivileged-write-only  Transform shadow-stack-legal stores to be unprivileged  Leave all other stores unchanged</p>
+    <p>Silhouette-Invert</p>
+  </div>
+  <div class="page">
+    <p>Silhouette v.s. Silhouette-Invert on CoreMark-Pro</p>
+    <p>N or</p>
+    <p>m al</p>
+    <p>iz ed</p>
+    <p>P er</p>
+    <p>fo rm</p>
+    <p>an ce</p>
+    <p>cjpeg-rose7...</p>
+    <p>core</p>
+    <p>linear_alg-..</p>
+    <p>loops-all-...</p>
+    <p>nnet_test</p>
+    <p>parser-125k</p>
+    <p>radix2-big-64k</p>
+    <p>sha-test</p>
+    <p>zip-test Silhouette Silhouette-Invert</p>
+    <p>Silhouette Silhouette-Invert Min 0.1% 0 Max 4.9% 1.5%</p>
+    <p>Geo. Mean 1.3% 0.3%</p>
+  </div>
+  <div class="page">
+    <p>Silhouette v.s. Silhouette-Invert on BEEBS</p>
+    <p>N or</p>
+    <p>m al</p>
+    <p>iz ed</p>
+    <p>P er</p>
+    <p>fo rm</p>
+    <p>an ce</p>
+    <p>bubblesort</p>
+    <p>ctl-string</p>
+    <p>levenshtein matmult-int</p>
+    <p>ndes</p>
+    <p>picojpeg</p>
+    <p>qrduino</p>
+    <p>sglib-queue sglib-rbtree</p>
+    <p>slre</p>
+    <p>stb_perlin</p>
+    <p>trio-sscanf</p>
+    <p>wikisort</p>
+    <p>Silhouette Silhouette-Invert</p>
+    <p>Silhouette Silhouette-Invert Min -0.3% 0 Max 24.8% 18.6%</p>
+    <p>Geo. Mean 3.4% 1.9%</p>
+  </div>
+  <div class="page">
+    <p>Summary</p>
+    <p>Silhouette: an efficient defense to protect return addresses for ARM embedded systems</p>
+    <p>Low performance and code size overhead  Silhouette-Invert:  Further decreases performance and code size penalty  Minor hardware change</p>
+    <p>Open-Source:</p>
+    <p>Question?</p>
+    <p>https://github.com/URSec/Silhouette Contacts: Jie Zhou (jzhou41@cs.rochester.edu) Zhuojia Shen (zshen10@cs.rochester.edu) John Criswell (criswell@cs.rochester.edu)</p>
+  </div>
+</Presentation>

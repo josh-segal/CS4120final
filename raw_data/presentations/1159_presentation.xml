@@ -1,0 +1,932 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>MeCC: Memory Comparisonbased Clone Detector</p>
+    <p>Heejung Kim1, Yungbum Jung1, Sunghun Kim2, and Kwangkeun Yi1 1 Seoul National University</p>
+    <p>http://ropas.snu.ac.kr/mecc/</p>
+  </div>
+  <div class="page">
+    <p>Code Clones</p>
+    <p>similar code fragments (syntactically or semantically)</p>
+    <p>static PyObject * float_add(PyObject *v, PyObject *w) { double a,b; CONVERT_TO_DOUBLE(v,a); CONVERT_TO_DOUBLE(w,b); PyFPE_START_PROTECT(add,return 0) a = a + b; PyFPE_END_PROTECT(a) return PyFloat_FromDouble(a); }</p>
+    <p>static PyObject * float_mul(PyObject *v, PyObject *w) { double a,b; CONVERT_TO_DOUBLE(v,a); CONVERT_TO_DOUBLE(w,b); PyFPE_START_PROTECT(multiply,return 0) a = a * b; PyFPE_END_PROTECT(a) return PyFloat_FromDouble(a); }</p>
+  </div>
+  <div class="page">
+    <p>Applications of Code Clones</p>
+    <p>software refactoring  detecting potential bugs  understanding software evolution  detecting software plagiarism</p>
+    <p>(malicious duplication)</p>
+  </div>
+  <div class="page">
+    <p>Clone Detectors  CCFinder [TSE02]</p>
+    <p>textual tokens</p>
+    <p>DECKARD [ICSE07] AST characteristic vectors</p>
+    <p>PDG-based [ICSE08, SAS01] program dependence graph</p>
+    <p>Effective for syntactic code clones</p>
+    <p>limited for semantic code clones</p>
+  </div>
+  <div class="page">
+    <p>Three code clones missed by syntax-based</p>
+    <p>clone detection</p>
+  </div>
+  <div class="page">
+    <p>PyObject *PyBool_FromLong (long ok) { PyObject *result; if (ok) result = Py_True; else result = Py_False; Py_INCREF(result); return result; }</p>
+    <p>#1 Control Replacement</p>
+    <p>static PyObject *get_pybool (int istrue) { PyObject *result = istrue? Py_True: Py_False;</p>
+    <p>Py_INCREF(result); return result; }</p>
+    <p>syntactically different but semantically identical</p>
+  </div>
+  <div class="page">
+    <p>void appendPQExpBufferChar (PQExpBuffer str, char ch) { /* Make more room if needed *. if (!enlargePQExpBuffer(str, 1)) return; /* OK, append the data */ str-&gt;data[str-&gt;len] = ch; str-&gt;len++; str-&gt;data[str-&gt;len] = \0; }</p>
+    <p>#2 Capturing Procedural Effects</p>
+    <p>understanding memory behavior of procedures</p>
+    <p>void appendBinaryPQExpBuffer (PQExpBuffer str, const char* data, size_t datalen) { /* Make more room if needed *. if (!enlargePQExpBuffer(str, datalen)) return; /* OK, append the data */ memcpy(str-&gt;data + str-&gt;len, data, datalen); str-&gt;len+= datalen; str-&gt;data[str-&gt;len] = \0; }</p>
+  </div>
+  <div class="page">
+    <p>... *set_access_name(cmd_parms *cmd, void *dummy, const char *arg){ void *sconf = cmd-&gt;server-&gt;module_config; core_server_config *conf =</p>
+    <p>ap_get_module_config(sconf, &amp;core_module); const char *err = ap_check_cmd_context(sconf,NOT_IN_DIR_LOC_FILE | NOT_IN_LIMIT); if (err != NULL) {</p>
+    <p>return err; } conf-&gt;access_name = apr_pstrdup(cmd-&gt;pool,arg); return NULL;</p>
+    <p>}</p>
+    <p>... *set_protocol(cmd_parms *cmd, void *dummy, const char *arg){ const char *err = ap_check_cmd_context(cmd,NOT_IN_DIR_LOC_FILE | NOT_IN_LIMIT); core_server_config *conf =</p>
+    <p>ap_get_module_config(cmd-&gt;server-&gt;module_config, &amp;core_module); char *proto;</p>
+    <p>if (err != NULL) { return err; } proto = apr_pstrdup(cmd-&gt;pool,arg); ap_str_tolower(proto); conf-&gt;protocol = proto; return NULL;</p>
+    <p>} 8</p>
+    <p>#3 More Complex Clone</p>
+  </div>
+  <div class="page">
+    <p>... *set_protocol(cmd_parms *cmd, void *dummy, const char *arg){ const char *err = ap_check_cmd_context(cmd,NOT_IN_DIR_LOC_FILE | NOT_IN_LIMIT); core_server_config *conf =</p>
+    <p>ap_get_module_config(cmd-&gt;server-&gt;module_config, &amp;core_module); char *proto;</p>
+    <p>if (err != NULL) { return err; } proto = apr_pstrdup(cmd-&gt;pool,arg); ap_str_tolower(proto); conf-&gt;protocol = proto; return NULL;</p>
+    <p>}</p>
+    <p>... *set_access_name(cmd_parms *cmd, void *dummy, const char *arg){ void *sconf = cmd-&gt;server-&gt;module_config; core_server_config *conf =</p>
+    <p>ap_get_module_config(sconf, &amp;core_module); const char *err = ap_check_cmd_context(sconf,NOT_IN_DIR_LOC_FILE | NOT_IN_LIMIT); if (err != NULL) {</p>
+    <p>return err; } conf-&gt;access_name = apr_pstrdup(cmd-&gt;pool,arg); return NULL;</p>
+    <p>}</p>
+    <p>statement reordering</p>
+  </div>
+  <div class="page">
+    <p>... *set_access_name(cmd_parms *cmd, void *dummy, const char *arg){ void *sconf = cmd-&gt;server-&gt;module_config; core_server_config *conf =</p>
+    <p>ap_get_module_config(sconf, &amp;core_module); const char *err = ap_check_cmd_context(sconf,NOT_IN_DIR_LOC_FILE | NOT_IN_LIMIT); if (err != NULL) {</p>
+    <p>return err; } conf-&gt;access_name = apr_pstrdup(cmd-&gt;pool,arg); return NULL;</p>
+    <p>}</p>
+    <p>... *set_protocol(cmd_parms *cmd, void *dummy, const char *arg){ const char *err = ap_check_cmd_context(cmd,NOT_IN_DIR_LOC_FILE | NOT_IN_LIMIT); core_server_config *conf =</p>
+    <p>ap_get_module_config(cmd-&gt;server-&gt;module_config, &amp;core_module); char *proto;</p>
+    <p>if (err != NULL) { return err; } proto = apr_pstrdup(cmd-&gt;pool,arg); ap_str_tolower(proto); conf-&gt;protocol = proto; return NULL;</p>
+    <p>}</p>
+    <p>intermediate variables</p>
+    <p>statement reordering</p>
+  </div>
+  <div class="page">
+    <p>... *set_access_name(cmd_parms *cmd, void *dummy, const char *arg){ void *sconf = cmd-&gt;server-&gt;module_config; core_server_config *conf =</p>
+    <p>ap_get_module_config(sconf, &amp;core_module); const char *err = ap_check_cmd_context(sconf,NOT_IN_DIR_LOC_FILE | NOT_IN_LIMIT); if (err != NULL) {</p>
+    <p>return err; } conf-&gt;access_name = apr_pstrdup(cmd-&gt;pool,arg); return NULL;</p>
+    <p>}</p>
+    <p>intermediate variables</p>
+    <p>statement splitting</p>
+    <p>statement reordering</p>
+    <p>... *set_protocol(cmd_parms *cmd, void *dummy, const char *arg){ const char *err = ap_check_cmd_context(cmd,NOT_IN_DIR_LOC_FILE | NOT_IN_LIMIT); core_server_config *conf =</p>
+    <p>ap_get_module_config(cmd-&gt;server-&gt;module_config, &amp;core_module); char *proto;</p>
+    <p>if (err != NULL) { return err; } proto = apr_pstrdup(cmd-&gt;pool,arg); ap_str_tolower(proto); conf-&gt;protocol = proto; return NULL;</p>
+    <p>}</p>
+  </div>
+  <div class="page">
+    <p>... *set_access_name(cmd_parms *cmd, void *dummy, const char *arg){ void *sconf = cmd-&gt;server-&gt;module_config; core_server_config *conf =</p>
+    <p>ap_get_module_config(sconf, &amp;core_module); const char *err = ap_check_cmd_context(sconf,NOT_IN_DIR_LOC_FILE | NOT_IN_LIMIT); if (err != NULL) {</p>
+    <p>return err; } conf-&gt;access_name = apr_pstrdup(cmd-&gt;pool,arg); return NULL;</p>
+    <p>}</p>
+    <p>... *set_protocol(cmd_parms *cmd, void *dummy, const char *arg){ const char *err = ap_check_cmd_context(cmd,NOT_IN_DIR_LOC_FILE | NOT_IN_LIMIT); core_server_config *conf =</p>
+    <p>ap_get_module_config(cmd-&gt;server-&gt;module_config, &amp;core_module); char *proto;</p>
+    <p>if (err != NULL) { return err; } proto = apr_pstrdup(cmd-&gt;pool,arg); ap_str_tolower(proto); conf-&gt;protocol = proto; return NULL;</p>
+    <p>} 12</p>
+    <p>intermediate variables</p>
+    <p>statement splitting</p>
+    <p>statement reordering</p>
+  </div>
+  <div class="page">
+    <p>These Semantic Clones are Identified by MeCC</p>
+  </div>
+  <div class="page">
+    <p>MeCC: Our Approach</p>
+    <p>Static analyzer estimates the semantics of programs</p>
+    <p>Abstract memories are results of analysis  Comparing abstract memories is a measure</p>
+  </div>
+  <div class="page">
+    <p>Clone Detection Process</p>
+    <p>program</p>
+    <p>procedures</p>
+    <p>P1</p>
+    <p>P3 P4</p>
+    <p>P2</p>
+    <p>P</p>
+  </div>
+  <div class="page">
+    <p>program</p>
+    <p>procedures abstract memoriesP1</p>
+    <p>P3 P4</p>
+    <p>P2</p>
+    <p>P</p>
+    <p>Static Analyzer</p>
+    <p>F(P) = M</p>
+    <p>Clone Detection Process</p>
+  </div>
+  <div class="page">
+    <p>program</p>
+    <p>procedures</p>
+    <p>Comparing Memories</p>
+    <p>abstract memories</p>
+    <p>similarities</p>
+    <p>S(M, M)</p>
+    <p>P1</p>
+    <p>P3 P4</p>
+    <p>P2</p>
+    <p>P</p>
+    <p>Static Analyzer</p>
+    <p>F(P) = M</p>
+    <p>Clone Detection Process</p>
+  </div>
+  <div class="page">
+    <p>program</p>
+    <p>procedures</p>
+    <p>Comparing Memories</p>
+    <p>Grouping</p>
+    <p>abstract memories</p>
+    <p>similarities</p>
+    <p>S(M, M)</p>
+    <p>P1</p>
+    <p>P3 P4</p>
+    <p>P2</p>
+    <p>P1</p>
+    <p>P3</p>
+    <p>P2</p>
+    <p>P4</p>
+    <p>Code Clones</p>
+    <p>P</p>
+    <p>Static Analyzer</p>
+    <p>F(P) = M</p>
+    <p>Clone Detection Process</p>
+  </div>
+  <div class="page">
+    <p>program</p>
+    <p>procedures</p>
+    <p>Comparing Memories</p>
+    <p>Grouping</p>
+    <p>abstract memories</p>
+    <p>similarities</p>
+    <p>S(M, M)</p>
+    <p>Static Analyzer</p>
+    <p>P1</p>
+    <p>P3 P4</p>
+    <p>P2</p>
+    <p>P1</p>
+    <p>P3</p>
+    <p>P2</p>
+    <p>P4</p>
+    <p>Code Clones</p>
+    <p>P</p>
+    <p>F(P) = M</p>
+    <p>Clone Detection Process</p>
+  </div>
+  <div class="page">
+    <p>Estimating Semantics by Abstract Memories</p>
+    <p>int make (list *a, int count){ int r = count + 1; if (a!=0){ a-&gt;next = malloc(...); a-&gt;next-&gt;val = count; } else { return r - 1; } return r; }</p>
+    <p>Estimating an abstract memory at the procedures exit point</p>
+    <p>Abstract memory is a map from abstract addresses to abstract values</p>
+    <p>Address Values</p>
+    <p>S(M1, M2)</p>
+    <p>log MinEntry</p>
+    <p>log(| M1 | + | M2 |)</p>
+    <p>a  {(true, )} count  {(true, )} r  {(true,  + 1)} .next  {( = 0, )} .val  {( = 0, )} RETV  {( = 0,  + 1  1), ( = 0,  + 1)}</p>
+    <p>a  {(true, )} b  {(true, )} .n  {( = 0, )} .v  {( = 0, )} RETV  {( = 0, ), ( = 0,  + 2)}</p>
+    <p>{}, {}  P  v, M</p>
+    <p>{}, {}  P :</p>
+    <p>type list = {int x, list next}</p>
+    <p>let list node = {x:=1, next:={}} in</p>
+    <p>node.next.x</p>
+    <p>let x := {a:=1, b:=2} in E</p>
+    <p>type list = {int x, list next} type tsil = {int x, tsil prev}</p>
+    <p>let ... {x:=1, next:={}} ... {x:=1, prev:={}}</p>
+    <p>...</p>
+    <p>T  :</p>
+    <p>,   E :</p>
+    <p>T  :  ,   E :  ,   T  E :</p>
+  </div>
+  <div class="page">
+    <p>Estimating Semantics by Abstract Memories</p>
+    <p>int make (list *a, int count){ int r = count + 1; if (a!=0){ a-&gt;next = malloc(...); a-&gt;next-&gt;val = count; } else { return r - 1; } return r; }</p>
+    <p>Estimating an abstract memory at the procedures exit point</p>
+    <p>Abstract memory is a map from abstract addresses to abstract values</p>
+    <p>Address Values</p>
+    <p>S(M1, M2)</p>
+    <p>log MinEntry</p>
+    <p>log(| M1 | + | M2 |)</p>
+    <p>a  {(true, )} count  {(true, )} r  {(true,  + 1)} .next  {( = 0, )} .val  {( = 0, )} RETV  {( = 0,  + 1  1), ( = 0,  + 1)}</p>
+    <p>a  {(true, )} b  {(true, )} .n  {( = 0, )} .v  {( = 0, )} RETV  {( = 0, ), ( = 0,  + 2)}</p>
+    <p>{}, {}  P  v, M</p>
+    <p>{}, {}  P :</p>
+    <p>type list = {int x, list next}</p>
+    <p>let list node = {x:=1, next:={}} in</p>
+    <p>node.next.x</p>
+    <p>let x := {a:=1, b:=2} in E</p>
+    <p>type list = {int x, list next} type tsil = {int x, tsil prev}</p>
+    <p>let ... {x:=1, next:={}} ... {x:=1, prev:={}}</p>
+    <p>...</p>
+    <p>T  :</p>
+    <p>,   E :</p>
+    <p>T  :  ,   E :  ,   T  E :</p>
+  </div>
+  <div class="page">
+    <p>int make (list *a, int count){ int r = count + 1; if (a!=0){ a-&gt;next = malloc(...); a-&gt;next-&gt;val = count; } else { return r - 1; } return r; }</p>
+    <p>Address Values</p>
+    <p>Estimating Semantics by Abstract MemoriesS(M1, M2)</p>
+    <p>log MinEntry</p>
+    <p>log(| M1 | + | M2 |)</p>
+    <p>a  {(true, )} count  {(true, )} r  {(true,  + 1)} .next  {( = 0, )} .val  {( = 0, )} RETV  {( = 0,  + 1  1), ( = 0,  + 1)}</p>
+    <p>a  {(true, )} b  {(true, )} .n  {( = 0, )} .v  {( = 0, )} RETV  {( = 0, ), ( = 0,  + 2)}</p>
+    <p>{}, {}  P  v, M</p>
+    <p>{}, {}  P :</p>
+    <p>type list = {int x, list next}</p>
+    <p>let list node = {x:=1, next:={}} in</p>
+    <p>node.next.x</p>
+    <p>let x := {a:=1, b:=2} in E</p>
+    <p>type list = {int x, list next} type tsil = {int x, tsil prev}</p>
+    <p>let ... {x:=1, next:={}} ... {x:=1, prev:={}}</p>
+    <p>...</p>
+    <p>T  :</p>
+    <p>,   E :</p>
+    <p>T  :  ,   E :  ,   T  E :</p>
+    <p>Use symbols for unknown input values  All abstract values are guarded by execution</p>
+    <p>path conditions</p>
+  </div>
+  <div class="page">
+    <p>int make (list *a, int count){ int r = count + 1; if (a!=0){ a-&gt;next = malloc(...); a-&gt;next-&gt;val = count; } else { return r - 1; } return r; }</p>
+    <p>Estimating Semantics by Abstract Memories</p>
+    <p>Use symbols for unknown input values  All abstract values are guarded by execution</p>
+    <p>path conditions</p>
+    <p>Address Values</p>
+    <p>S(M1, M2)</p>
+    <p>log MinEntry</p>
+    <p>log(| M1 | + | M2 |)</p>
+    <p>a  {(true, )} count  {(true, )} r  {(true,  + 1)} .next  {( = 0, )} .val  {( = 0, )} RETV  {( = 0,  + 1  1), ( = 0,  + 1)}</p>
+    <p>a  {(true, )} b  {(true, )} .n  {( = 0, )} .v  {( = 0, )} RETV  {( = 0, ), ( = 0,  + 2)}</p>
+    <p>{}, {}  P  v, M</p>
+    <p>{}, {}  P :</p>
+    <p>type list = {int x, list next}</p>
+    <p>let list node = {x:=1, next:={}} in</p>
+    <p>node.next.x</p>
+    <p>let x := {a:=1, b:=2} in E</p>
+    <p>type list = {int x, list next} type tsil = {int x, tsil prev}</p>
+    <p>let ... {x:=1, next:={}} ... {x:=1, prev:={}}</p>
+    <p>...</p>
+    <p>T  :</p>
+    <p>,   E :</p>
+    <p>T  :  ,   E :  ,   T  E :</p>
+  </div>
+  <div class="page">
+    <p>copy and modify</p>
+    <p>Estimating Semantics by Abstract Memories</p>
+    <p>int make (list *a, int count){ int r = count + 1; if (a!=0){ a-&gt;next = malloc(...); a-&gt;next-&gt;val = count; } else { return r - 1; } return r; }</p>
+    <p>Address Values</p>
+    <p>S(M1, M2)</p>
+    <p>log MinEntry</p>
+    <p>log(| M1 | + | M2 |)</p>
+    <p>a  {(true, )} count  {(true, )} r  {(true,  + 1)} .next  {( = 0, )} .val  {( = 0, )} RETV  {( = 0,  + 1  1), ( = 0,  + 1)}</p>
+    <p>a  {(true, )} b  {(true, )} .n  {( = 0, )} .v  {( = 0, )} RETV  {( = 0, ), ( = 0,  + 2)}</p>
+    <p>{}, {}  P  v, M</p>
+    <p>{}, {}  P :</p>
+    <p>type list = {int x, list next}</p>
+    <p>let list node = {x:=1, next:={}} in</p>
+    <p>node.next.x</p>
+    <p>let x := {a:=1, b:=2} in E</p>
+    <p>type list = {int x, list next} type tsil = {int x, tsil prev}</p>
+    <p>let ... {x:=1, next:={}} ... {x:=1, prev:={}}</p>
+    <p>...</p>
+    <p>T  :</p>
+    <p>,   E :</p>
+    <p>T  :  ,   E :  ,   T  E :</p>
+    <p>int make2 (list2 *a, int b){ if (a==0) return b; a-&gt;n = malloc(...); a-&gt;n-&gt;v = b; return b + 2; }</p>
+  </div>
+  <div class="page">
+    <p>Estimating Semantics by Abstract Memories</p>
+    <p>int make2 (list2 *a, int b){ if (a==0) return b; a-&gt;n = malloc(...); a-&gt;n-&gt;v = b; return b + 2; }</p>
+    <p>S(M1, M2)</p>
+    <p>log MinEntry</p>
+    <p>log(| M1 | + | M2 |)</p>
+    <p>a  {(true, )} count  {(true, )} r  {(true,  + 1)} .next  {( = 0, )} .val  {( = 0, )} RETV  {( = 0,  + 1  1), ( = 0,  + 1)}</p>
+    <p>a  {(true, )} b  {(true, )} .n  {( = 0, )} .v  {( = 0, )} RETV  {( = 0, ), ( = 0,  + 2)}</p>
+    <p>{}, {}  P  v, M</p>
+    <p>{}, {}  P :</p>
+    <p>type list = {int x, list next}</p>
+    <p>let list node = {x:=1, next:={}} in</p>
+    <p>node.next.x</p>
+    <p>let x := {a:=1, b:=2} in E</p>
+    <p>type list = {int x, list next} type tsil = {int x, tsil prev}</p>
+    <p>let ... {x:=1, next:={}} ... {x:=1, prev:={}}</p>
+    <p>...</p>
+    <p>T  :</p>
+    <p>,   E :</p>
+    <p>T  :  ,   E :  ,   T  E :</p>
+    <p>int make (list *a, int count){ int r = count + 1; if (a!=0){ a-&gt;next = malloc(...); a-&gt;next-&gt;val = count; } else { return r - 1; } return r; }</p>
+    <p>Address Values copy and modify</p>
+    <p>Address Values</p>
+    <p>S(M1, M2)</p>
+    <p>log MinEntry</p>
+    <p>log(| M1 | + | M2 |)</p>
+    <p>a  {(true, )} count  {(true, )} r  {(true,  + 1)} .next  {( = 0, )} .val  {( = 0, )} RETV  {( = 0,  + 1  1), ( = 0,  + 1)}</p>
+    <p>a  {(true, )} b  {(true, )} .n  {( = 0, )} .v  {( = 0, )} RETV  {( = 0, ), ( = 0,  + 2)}</p>
+    <p>{}, {}  P  v, M</p>
+    <p>{}, {}  P :</p>
+    <p>type list = {int x, list next}</p>
+    <p>let list node = {x:=1, next:={}} in</p>
+    <p>node.next.x</p>
+    <p>let x := {a:=1, b:=2} in E</p>
+    <p>type list = {int x, list next} type tsil = {int x, tsil prev}</p>
+    <p>let ... {x:=1, next:={}} ... {x:=1, prev:={}}</p>
+    <p>...</p>
+    <p>T  :</p>
+    <p>,   E :</p>
+    <p>T  :  ,   E :  ,   T  E :</p>
+  </div>
+  <div class="page">
+    <p>program</p>
+    <p>procedures</p>
+    <p>Comparing Memories</p>
+    <p>Grouping</p>
+    <p>abstract memories</p>
+    <p>similarities</p>
+    <p>S(M, M)</p>
+    <p>P1</p>
+    <p>P3 P4</p>
+    <p>P2</p>
+    <p>P1</p>
+    <p>P3</p>
+    <p>P2</p>
+    <p>P4</p>
+    <p>Code Clones</p>
+    <p>P</p>
+    <p>Static Analyzer</p>
+    <p>F(P) = M</p>
+    <p>Clone Detection Process</p>
+  </div>
+  <div class="page">
+    <p>S(M1, M2)</p>
+    <p>log MinEntry</p>
+    <p>log(| M1 | + | M2 |)</p>
+    <p>.val .v</p>
+    <p>a  {(true, )} count  {(true, )} r  {(true,  + 1)} .next  {( = 0, )} .val  {( = 0, )} RETV  {( = 0,  + 1  1), ( = 0,  + 1)}</p>
+    <p>a  {(true, )} b  {(true, )} .n  {( = 0, )} .v  {( = 0, )} RETV  {( = 0, ), ( = 0,  + 2)}</p>
+    <p>{}, {}  P  v, M</p>
+    <p>{}, {}  P :</p>
+    <p>type list = {int x, list next}</p>
+    <p>let list node = {x:=1, next:={}} in</p>
+    <p>node.next.x</p>
+    <p>let x := {a:=1, b:=2} in E</p>
+    <p>type list = {int x, list next} type tsil = {int x, tsil prev}</p>
+    <p>let ... {x:=1, next:={}} ... {x:=1, prev:={}}</p>
+    <p>...</p>
+    <p>T  :</p>
+    <p>,   E :</p>
+    <p>T  :  ,   E :  ,   T  E :</p>
+    <p>S(M1, M2)</p>
+    <p>log MinEntry</p>
+    <p>log(| M1 | + | M2 |)</p>
+    <p>.val .v .n</p>
+    <p>a  {(true, )} count  {(true, )} r  {(true,  + 1)} .next  {( = 0, )} .val  {( = 0, )} RETV  {( = 0,  + 1  1), ( = 0,  + 1)}</p>
+    <p>a  {(true, )} b  {(true, )} .n  {( = 0, )} .v  {( = 0, )} RETV  {( = 0, ), ( = 0,  + 2)}</p>
+    <p>{}, {}  P  v, M</p>
+    <p>{}, {}  P :</p>
+    <p>type list = {int x, list next}</p>
+    <p>let list node = {x:=1, next:={}} in</p>
+    <p>node.next.x</p>
+    <p>let x := {a:=1, b:=2} in E</p>
+    <p>type list = {int x, list next} type tsil = {int x, tsil prev}</p>
+    <p>let ... {x:=1, next:={}} ... {x:=1, prev:={}}</p>
+    <p>...</p>
+    <p>T  :</p>
+    <p>,   E :</p>
+    <p>T  :  ,   E :  ,   T  E :</p>
+    <p>a {(true, )} count {(true, )} r {(true,  + 1)} .next {( = 0, )} .val {( = 0, )} RETV {( = 0,  + 1  1), ( = 0,  + 1)}</p>
+    <p>a {(true, )} b {(true, )} .n {( = 0, )} .v {( = 0, )} RETV {( = 0, ), ( = 0,  + 1)}</p>
+    <p>{}, {}  P  v, M</p>
+    <p>{}, {}  P :</p>
+    <p>type list = {int x, list next}</p>
+    <p>let list node = {x:=1, next:={}} in</p>
+    <p>node.next.x</p>
+    <p>let x := {a:=1, b:=2} in E</p>
+    <p>type list = {int x, list next} type tsil = {int x, tsil prev}</p>
+    <p>let ... {x:=1, next:={}} ... {x:=1, prev:={}}</p>
+    <p>...</p>
+    <p>T  :</p>
+    <p>,   E :</p>
+    <p>T  :  ,   E :  ,   T  E :</p>
+    <p>,   E :  (y) = {x   loc} ,   {x := E} : y</p>
+    <p>,   {} : x</p>
+    <p>[t  t/f][t loc/x],   E1 : t [t  t/f],   E2 : t</p>
+    <p>,   let procedure f(t x) : t = E1 in E2 : t</p>
+    <p>T1 : 1 1  T2 : 2   T1 T2 : 2</p>
+    <p>x1 = x2   type x = {t1 x1, ..., tk xk} : [{x1  t1 loc, ..., xk  tk loc}/x]</p>
+    <p>field addresses</p>
+    <p>S(M1, M2)</p>
+    <p>log MinEntry</p>
+    <p>log(| M1 | + | M2 |)</p>
+    <p>.val .v .n</p>
+    <p>a  {(true, )} count  {(true, )} r  {(true,  + 1)} .next  {( = 0, )} .val  {( = 0, )} RETV  {( = 0,  + 1  1), ( = 0,  + 1)}</p>
+    <p>a  {(true, )} b  {(true, )} .n  {( = 0, )} .v  {( = 0, )} RETV  {( = 0, ), ( = 0,  + 2)}</p>
+    <p>{}, {}  P  v, M</p>
+    <p>{}, {}  P :</p>
+    <p>type list = {int x, list next}</p>
+    <p>let list node = {x:=1, next:={}} in</p>
+    <p>node.next.x</p>
+    <p>let x := {a:=1, b:=2} in E</p>
+    <p>type list = {int x, list next} type tsil = {int x, tsil prev}</p>
+    <p>let ... {x:=1, next:={}} ... {x:=1, prev:={}}</p>
+    <p>...</p>
+    <p>T  :</p>
+    <p>,   E :</p>
+    <p>T  :  ,   E :  ,   T  E :</p>
+    <p>a {(true, )} count {(true, )} r {(true,  + 1)} .next {( = 0, )} .val {( = 0, )} RETV {( = 0,  + 1  1), ( = 0,  + 1)}</p>
+    <p>a {(true, )} b {(true, )} .n {( = 0, )} .v {( = 0, )} RETV {( = 0, ), ( = 0,  + 1)}</p>
+    <p>{}, {}  P  v, M</p>
+    <p>{}, {}  P :</p>
+    <p>type list = {int x, list next}</p>
+    <p>let list node = {x:=1, next:={}} in</p>
+    <p>node.next.x</p>
+    <p>let x := {a:=1, b:=2} in E</p>
+    <p>type list = {int x, list next} type tsil = {int x, tsil prev}</p>
+    <p>let ... {x:=1, next:={}} ... {x:=1, prev:={}}</p>
+    <p>...</p>
+    <p>T  :</p>
+    <p>,   E :</p>
+    <p>T  :  ,   E :  ,   T  E :</p>
+    <p>,   E :  (y) = {x   loc} ,   {x := E} : y</p>
+    <p>,   {} : x</p>
+    <p>[t  t/f][t loc/x],   E1 : t [t  t/f],   E2 : t</p>
+    <p>,   let procedure f(t x) : t = E1 in E2 : t</p>
+    <p>T1 : 1 1  T2 : 2   T1 T2 : 2</p>
+    <p>x1 = x2   type x = {t1 x1, ..., tk xk} : [{x1  t1 loc, ..., xk  tk loc}/x]</p>
+    <p>local variables</p>
+    <p>Comparing Abstract Memories</p>
+    <p>parameters</p>
+    <p>a {(true, )} count {(true, )} r {(true,  + 1)} .next {( = 0, )} .val {( = 0, )} RETV {( = 0,  + 1  1), ( = 0,  + 1)}</p>
+    <p>a {(true, )} b {(true, )} .n {( = 0, )} .v {( = 0, )} RETV {( = 0, ), ( = 0,  + 1)}</p>
+    <p>{}, {}  P  v, M</p>
+    <p>{}, {}  P :</p>
+    <p>type list = {int x, list next}</p>
+    <p>let list node = {x:=1, next:={}} in</p>
+    <p>node.next.x</p>
+    <p>let x := {a:=1, b:=2} in E</p>
+    <p>type list = {int x, list next} type tsil = {int x, tsil prev}</p>
+    <p>let ... {x:=1, next:={}} ... {x:=1, prev:={}}</p>
+    <p>...</p>
+    <p>T  :</p>
+    <p>,   E :</p>
+    <p>T  :  ,   E :  ,   T  E :</p>
+    <p>,   E :  (y) = {x   loc} ,   {x := E} : y</p>
+    <p>,   {} : x</p>
+    <p>[t  t/f][t loc/x],   E1 : t [t  t/f],   E2 : t</p>
+    <p>,   let procedure f(t x) : t = E1 in E2 : t</p>
+    <p>T1 : 1 1  T2 : 2   T1 T2 : 2</p>
+    <p>x1 = x2   type x = {t1 x1, ..., tk xk} : [{x1  t1 loc, ..., xk  tk loc}/x]</p>
+    <p>a {(true, )} count {(true, )} r {(true,  + 1)} .next {( = 0, )} .val {( = 0, )} RETV {( = 0,  + 1  1), ( = 0,  + 1)}</p>
+    <p>a {(true, )} b {(true, )} .n {( = 0, )} .v {( = 0, )} RETV {( = 0, ), ( = 0,  + 1)}</p>
+    <p>{}, {}  P  v, M</p>
+    <p>{}, {}  P :</p>
+    <p>type list = {int x, list next}</p>
+    <p>let list node = {x:=1, next:={}} in</p>
+    <p>node.next.x</p>
+    <p>let x := {a:=1, b:=2} in E</p>
+    <p>type list = {int x, list next} type tsil = {int x, tsil prev}</p>
+    <p>let ... {x:=1, next:={}} ... {x:=1, prev:={}}</p>
+    <p>...</p>
+    <p>T  :</p>
+    <p>,   E :</p>
+    <p>T  :  ,   E :  ,   T  E :</p>
+    <p>,   E :  (y) = {x   loc} ,   {x := E} : y</p>
+    <p>,   {} : x</p>
+    <p>[t  t/f][t loc/x],   E1 : t [t  t/f],   E2 : t</p>
+    <p>,   let procedure f(t x) : t = E1 in E2 : t</p>
+    <p>T1 : 1 1  T2 : 2   T1 T2 : 2</p>
+    <p>x1 = x2   type x = {t1 x1, ..., tk xk} : [{x1  t1 loc, ..., xk  tk loc}/x]</p>
+    <p>a {(true, )} count {(true, )} r {(true,  + 1)} .next {( = 0, )} .val {( = 0, )} RETV {( = 0,  + 1  1), ( = 0,  + 1)}</p>
+    <p>a {(true, )} b {(true, )} .n {( = 0, )} .v {( = 0, )} RETV {( = 0, ), ( = 0,  + 1)}</p>
+    <p>{}, {}  P  v, M</p>
+    <p>{}, {}  P :</p>
+    <p>type list = {int x, list next}</p>
+    <p>let list node = {x:=1, next:={}} in</p>
+    <p>node.next.x</p>
+    <p>let x := {a:=1, b:=2} in E</p>
+    <p>type list = {int x, list next} type tsil = {int x, tsil prev}</p>
+    <p>let ... {x:=1, next:={}} ... {x:=1, prev:={}}</p>
+    <p>...</p>
+    <p>T  :</p>
+    <p>,   E :</p>
+    <p>T  :  ,   E :  ,   T  E :</p>
+    <p>,   E :  (y) = {x   loc} ,   {x := E} : y</p>
+    <p>,   {} : x</p>
+    <p>[t  t/f][t loc/x],   E1 : t [t  t/f],   E2 : t</p>
+    <p>,   let procedure f(t x) : t = E1 in E2 : t</p>
+    <p>T1 : 1 1  T2 : 2   T1 T2 : 2</p>
+    <p>x1 = x2   type x = {t1 x1, ..., tk xk} : [{x1  t1 loc, ..., xk  tk loc}/x]</p>
+    <p>a {(true, )} count {(true, )} r {(true,  + 1)} .next {( = 0, )} .val {( = 0, )} RETV {( = 0,  + 1  1), ( = 0,  + 1)}</p>
+    <p>a {(true, )} b {(true, )} .n {( = 0, )} .v {( = 0, )} RETV {( = 0, ), ( = 0,  + 1)}</p>
+    <p>{}, {}  P  v, M</p>
+    <p>{}, {}  P :</p>
+    <p>type list = {int x, list next}</p>
+    <p>let list node = {x:=1, next:={}} in</p>
+    <p>node.next.x</p>
+    <p>let x := {a:=1, b:=2} in E</p>
+    <p>type list = {int x, list next} type tsil = {int x, tsil prev}</p>
+    <p>let ... {x:=1, next:={}} ... {x:=1, prev:={}}</p>
+    <p>...</p>
+    <p>T  :</p>
+    <p>,   E :</p>
+    <p>T  :  ,   E :  ,   T  E :</p>
+    <p>,   E :  (y) = {x   loc} ,   {x := E} : y</p>
+    <p>,   {} : x</p>
+    <p>[t  t/f][t loc/x],   E1 : t [t  t/f],   E2 : t</p>
+    <p>,   let procedure f(t x) : t = E1 in E2 : t</p>
+    <p>T1 : 1 1  T2 : 2   T1 T2 : 2</p>
+    <p>x1 = x2   type x = {t1 x1, ..., tk xk} : [{x1  t1 loc, ..., xk  tk loc}/x]</p>
+    <p>return address</p>
+    <p>S(M1, M2)</p>
+    <p>log MinEntry</p>
+    <p>log(| M1 | + | M2 |)</p>
+    <p>a  {(true, )} count  {(true, )} r  {(true,  + 1)} .next  {( = 0, )} .val  {( = 0, )} RETV  {( = 0,  + 1  1), ( = 0,  + 1)}</p>
+    <p>a  {(true, )} b  {(true, )} .n  {( = 0, )} .v  {( = 0, )} RETV  {( = 0, ), ( = 0,  + 2)}</p>
+    <p>{}, {}  P  v, M</p>
+    <p>{}, {}  P :</p>
+    <p>type list = {int x, list next}</p>
+    <p>let list node = {x:=1, next:={}} in</p>
+    <p>node.next.x</p>
+    <p>let x := {a:=1, b:=2} in E</p>
+    <p>type list = {int x, list next} type tsil = {int x, tsil prev}</p>
+    <p>let ... {x:=1, next:={}} ... {x:=1, prev:={}}</p>
+    <p>...</p>
+    <p>T  :</p>
+    <p>,   E :</p>
+    <p>T  :  ,   E :  ,   T  E :</p>
+    <p>S(M1, M2)</p>
+    <p>log MinEntry</p>
+    <p>log(| M1 | + | M2 |)</p>
+    <p>a  {(true, )} count  {(true, )} r  {(true,  + 1)} .next  {( = 0, )} .val  {( = 0, )} RETV  {( = 0,  + 1  1), ( = 0,  + 1)}</p>
+    <p>a  {(true, )} b  {(true, )} .n  {( = 0, )} .v  {( = 0, )} RETV  {( = 0, ), ( = 0,  + 2)}</p>
+    <p>{}, {}  P  v, M</p>
+    <p>{}, {}  P :</p>
+    <p>type list = {int x, list next}</p>
+    <p>let list node = {x:=1, next:={}} in</p>
+    <p>node.next.x</p>
+    <p>let x := {a:=1, b:=2} in E</p>
+    <p>type list = {int x, list next} type tsil = {int x, tsil prev}</p>
+    <p>let ... {x:=1, next:={}} ... {x:=1, prev:={}}</p>
+    <p>...</p>
+    <p>T  :</p>
+    <p>,   E :</p>
+    <p>T  :  ,   E :  ,   T  E :</p>
+  </div>
+  <div class="page">
+    <p>score 0.5</p>
+    <p>a {(true, )} count {(true, )} r {(true,  + 1)} .next {( = 0, )} .val {( = 0, )} RETV {( = 0,  + 1  1), ( = 0,  + 1)}</p>
+    <p>a {(true, )} b {(true, )} .n {( = 0, )} .v {( = 0, )} RETV {( = 0, ), ( = 0,  + 2)}</p>
+    <p>{}, {}  P  v, M</p>
+    <p>{}, {}  P :</p>
+    <p>type list = {int x, list next}</p>
+    <p>let list node = {x:=1, next:={}} in</p>
+    <p>node.next.x</p>
+    <p>let x := {a:=1, b:=2} in E</p>
+    <p>type list = {int x, list next} type tsil = {int x, tsil prev}</p>
+    <p>let ... {x:=1, next:={}} ... {x:=1, prev:={}}</p>
+    <p>...</p>
+    <p>T  :</p>
+    <p>,   E :</p>
+    <p>T  :  ,   E :  ,   T  E :</p>
+    <p>,   E :  (y) = {x   loc} ,   {x := E} : y</p>
+    <p>,   {} : x</p>
+    <p>[t  t/f][t loc/x],   E1 : t [t  t/f],   E2 : t</p>
+    <p>,   let procedure f(t x) : t = E1 in E2 : t</p>
+    <p>T1 : 1 1  T2 : 2   T1 T2 : 2</p>
+    <p>x1 = x2   type x = {t1 x1, ..., tk xk} : [{x1  t1 loc, ..., xk  tk loc}/x]</p>
+    <p>{( = 0,  + 1  1), ( = 0,  + 1)}</p>
+    <p>a {(true, )} count {(true, )} r {(true,  + 1)} .next {( = 0, )} .val {( = 0, )} RETV {( = 0,  + 1  1), ( = 0,  + 1)}</p>
+    <p>a {(true, )} b {(true, )} .n {( = 0, )} .v {( = 0, )} RETV {( = 0, ), ( = 0,  + 2)}</p>
+    <p>{}, {}  P  v, M</p>
+    <p>{}, {}  P :</p>
+    <p>type list = {int x, list next}</p>
+    <p>let list node = {x:=1, next:={}} in</p>
+    <p>node.next.x</p>
+    <p>let x := {a:=1, b:=2} in E</p>
+    <p>type list = {int x, list next} type tsil = {int x, tsil prev}</p>
+    <p>let ... {x:=1, next:={}} ... {x:=1, prev:={}}</p>
+    <p>...</p>
+    <p>T  :</p>
+    <p>,   E :</p>
+    <p>T  :  ,   E :  ,   T  E :</p>
+    <p>,   E :  (y) = {x   loc} ,   {x := E} : y</p>
+    <p>,   {} : x</p>
+    <p>[t  t/f][t loc/x],   E1 : t [t  t/f],   E2 : t</p>
+    <p>,   let procedure f(t x) : t = E1 in E2 : t</p>
+    <p>T1 : 1 1  T2 : 2   T1 T2 : 2</p>
+    <p>x1 = x2   type x = {t1 x1, ..., tk xk} : [{x1  t1 loc, ..., xk  tk loc}/x]</p>
+    <p>score 1.0 a {(true, )} count {(true, )} r {(true,  + 1)} .next {( = 0, )} .val {( = 0, )} RETV {( = 0,  + 1  1), ( = 0,  + 1)}</p>
+    <p>a {(true, )} b {(true, )} .n {( = 0, )} .v {( = 0, )} RETV {( = 0, ), ( = 0,  + 2)}</p>
+    <p>{}, {}  P  v, M</p>
+    <p>{}, {}  P :</p>
+    <p>type list = {int x, list next}</p>
+    <p>let list node = {x:=1, next:={}} in</p>
+    <p>node.next.x</p>
+    <p>let x := {a:=1, b:=2} in E</p>
+    <p>type list = {int x, list next} type tsil = {int x, tsil prev}</p>
+    <p>let ... {x:=1, next:={}} ... {x:=1, prev:={}}</p>
+    <p>...</p>
+    <p>T  :</p>
+    <p>,   E :</p>
+    <p>T  :  ,   E :  ,   T  E :</p>
+    <p>,   E :  (y) = {x   loc} ,   {x := E} : y</p>
+    <p>,   {} : x</p>
+    <p>[t  t/f][t loc/x],   E1 : t [t  t/f],   E2 : t</p>
+    <p>,   let procedure f(t x) : t = E1 in E2 : t</p>
+    <p>T1 : 1 1  T2 : 2   T1 T2 : 2</p>
+    <p>x1 = x2   type x = {t1 x1, ..., tk xk} : [{x1  t1 loc, ..., xk  tk loc}/x]</p>
+    <p>Comparing Abstract Memories</p>
+    <p>S(M1, M2)</p>
+    <p>log MinEntry</p>
+    <p>log(| M1 | + | M2 |)</p>
+    <p>a  {(true, )} count  {(true, )} r  {(true,  + 1)} .next  {( = 0, )} .val  {( = 0, )} RETV  {( = 0,  + 1  1), ( = 0,  + 1)}</p>
+    <p>a  {(true, )} b  {(true, )} .n  {( = 0, )} .v  {( = 0, )} RETV  {( = 0, ), ( = 0,  + 2)}</p>
+    <p>{}, {}  P  v, M</p>
+    <p>{}, {}  P :</p>
+    <p>type list = {int x, list next}</p>
+    <p>let list node = {x:=1, next:={}} in</p>
+    <p>node.next.x</p>
+    <p>let x := {a:=1, b:=2} in E</p>
+    <p>type list = {int x, list next} type tsil = {int x, tsil prev}</p>
+    <p>let ... {x:=1, next:={}} ... {x:=1, prev:={}}</p>
+    <p>...</p>
+    <p>T  :</p>
+    <p>,   E :</p>
+    <p>T  :  ,   E :  ,   T  E :</p>
+    <p>S(M1, M2)</p>
+    <p>log MinEntry</p>
+    <p>log(| M1 | + | M2 |)</p>
+    <p>a  {(true, )} count  {(true, )} r  {(true,  + 1)} .next  {( = 0, )} .val  {( = 0, )} RETV  {( = 0,  + 1  1), ( = 0,  + 1)}</p>
+    <p>a  {(true, )} b  {(true, )} .n  {( = 0, )} .v  {( = 0, )} RETV  {( = 0, ), ( = 0,  + 2)}</p>
+    <p>{}, {}  P  v, M</p>
+    <p>{}, {}  P :</p>
+    <p>type list = {int x, list next}</p>
+    <p>let list node = {x:=1, next:={}} in</p>
+    <p>node.next.x</p>
+    <p>let x := {a:=1, b:=2} in E</p>
+    <p>type list = {int x, list next} type tsil = {int x, tsil prev}</p>
+    <p>let ... {x:=1, next:={}} ... {x:=1, prev:={}}</p>
+    <p>...</p>
+    <p>T  :</p>
+    <p>,   E :</p>
+    <p>T  :  ,   E :  ,   T  E :</p>
+  </div>
+  <div class="page">
+    <p>Comparing Abstract Memories</p>
+    <p>{(true, )}</p>
+    <p>(4  1.0 + 1  0.0 + 4  1.0 + 2  0.5) 6 + 5</p>
+    <p>= 0.82</p>
+    <p>maximum score</p>
+    <p>| M1 | + | M2 |</p>
+    <p>| F(c)  F(c) |</p>
+    <p>i := 0; while i &lt; 10</p>
+    <p>b := random_bool(); if b then i := i + 1;</p>
+    <p>end</p>
+    <p>k = 0 j = 1 k = 1 j = 2 + 1 k = 2 j = 2 + 2 + 1 ... ...</p>
+    <p>{n  0} x = bar(n) {x = 1 + 2n} {I  B} S {I}</p>
+    <p>{I} while B S {I  B}</p>
+    <p>{P  B} S1 {Q} {P  B} S2 {Q} {P} if B then S1 else S2 {Q}</p>
+    <p>{y + 7 &gt; 42} x := y + 7 {x &gt; 42}</p>
+    <p>{y = x + 10  x = 1} x := y + 7 {y = x + 10  x = 1  x := x + 10 + 7}</p>
+    <p>{y = y + 7  7  y + 7 = 18} x := y + 7 {y = x  7  x = 18}</p>
+    <p>{P} x := E {P [x/x]  (x = E[x/x])}</p>
+    <p>{y + 7 &gt; 42} x = y + 7 {x &gt; 42}</p>
+    <p>{x  0  y  0} z := x + y {z  0}</p>
+    <p>{x  0  y  0} z := x + y {z  0  x  0  y  0}</p>
+    <p>{x = 5  y = 2} z := x + y {x = 5  z = 7}</p>
+    <p>{n  0  n2 &gt; 28} m := n + 1; m := m  m {(m = 36)}</p>
+    <p>{i.a[i] = 10  k  0} a[k] = 0 {i.a[i] = 10  k  0}</p>
+    <p>F(c) = M</p>
+    <p>S(M, M)</p>
+    <p>{(true, )}</p>
+    <p>(4  1.0 + 1  0.0 + 4  1.0 + 2  0.5) 6 + 5</p>
+    <p>= 0.82</p>
+    <p>S(M1, M2) = maximum score</p>
+    <p>| M1 | + | M2 |</p>
+    <p>| F(c)  F(c) |</p>
+    <p>i := 0; while i &lt; 10</p>
+    <p>b := random_bool(); if b then i := i + 1;</p>
+    <p>end</p>
+    <p>k = 0 j = 1 k = 1 j = 2 + 1 k = 2 j = 2 + 2 + 1 ... ...</p>
+    <p>{n  0} x = bar(n) {x = 1 + 2n} {I  B} S {I}</p>
+    <p>{I} while B S {I  B}</p>
+    <p>{P  B} S1 {Q} {P  B} S2 {Q} {P} if B then S1 else S2 {Q}</p>
+    <p>{y + 7 &gt; 42} x := y + 7 {x &gt; 42}</p>
+    <p>{y = x + 10  x = 1} x := y + 7 {y = x + 10  x = 1  x := x + 10 + 7}</p>
+    <p>{y = y + 7  7  y + 7 = 18} x := y + 7 {y = x  7  x = 18}</p>
+    <p>{P} x := E {P [x/x]  (x = E[x/x])}</p>
+    <p>{y + 7 &gt; 42} x = y + 7 {x &gt; 42}</p>
+    <p>{x  0  y  0} z := x + y {z  0}</p>
+    <p>{x  0  y  0} z := x + y {z  0  x  0  y  0}</p>
+    <p>{x = 5  y = 2} z := x + y {x = 5  z = 7}</p>
+    <p>{n  0  n2 &gt; 28} m := n + 1; m := m  m {(m = 36)}</p>
+    <p>{i.a[i] = 10  k  0} a[k] = 0 {i.a[i] = 10  k  0}</p>
+    <p>F(c) = M</p>
+    <p>S(M, M)</p>
+    <p>S(M1, M2)</p>
+    <p>log MinEntry</p>
+    <p>log(| M1 | + | M2 |)</p>
+    <p>a  {(true, )} count  {(true, )} r  {(true,  + 1)} .next  {( = 0, )} .val  {( = 0, )} RETV  {( = 0,  + 1  1), ( = 0,  + 1)}</p>
+    <p>a  {(true, )} b  {(true, )} .n  {( = 0, )} .v  {( = 0, )} RETV  {( = 0, ), ( = 0,  + 2)}</p>
+    <p>{}, {}  P  v, M</p>
+    <p>{}, {}  P :</p>
+    <p>type list = {int x, list next}</p>
+    <p>let list node = {x:=1, next:={}} in</p>
+    <p>node.next.x</p>
+    <p>let x := {a:=1, b:=2} in E</p>
+    <p>type list = {int x, list next} type tsil = {int x, tsil prev}</p>
+    <p>let ... {x:=1, next:={}} ... {x:=1, prev:={}}</p>
+    <p>...</p>
+    <p>T  :</p>
+    <p>,   E :</p>
+    <p>T  :  ,   E :  ,   T  E :</p>
+    <p>S(M1, M2)</p>
+    <p>log MinEntry</p>
+    <p>log(| M1 | + | M2 |)</p>
+    <p>a  {(true, )} count  {(true, )} r  {(true,  + 1)} .next  {( = 0, )} .val  {( = 0, )} RETV  {( = 0,  + 1  1), ( = 0,  + 1)}</p>
+    <p>a  {(true, )} b  {(true, )} .n  {( = 0, )} .v  {( = 0, )} RETV  {( = 0, ), ( = 0,  + 2)}</p>
+    <p>{}, {}  P  v, M</p>
+    <p>{}, {}  P :</p>
+    <p>type list = {int x, list next}</p>
+    <p>let list node = {x:=1, next:={}} in</p>
+    <p>node.next.x</p>
+    <p>let x := {a:=1, b:=2} in E</p>
+    <p>type list = {int x, list next} type tsil = {int x, tsil prev}</p>
+    <p>let ... {x:=1, next:={}} ... {x:=1, prev:={}}</p>
+    <p>...</p>
+    <p>T  :</p>
+    <p>,   E :</p>
+    <p>T  :  ,   E :  ,   T  E :</p>
+    <p>0.8</p>
+  </div>
+  <div class="page">
+    <p>Experimental Results</p>
+  </div>
+  <div class="page">
+    <p>Subject Projects</p>
+    <p>Projects KLOC Procedures Application</p>
+    <p>Python 435 7,657 interpreter</p>
+    <p>Apache 343 9,483 web server</p>
+    <p>PostgreSQL 937 10,469 database</p>
+  </div>
+  <div class="page">
+    <p>Detected Clones Total 623</p>
+    <p>code clones6%</p>
+    <p>Type-1 Type-2 Type-3 Type-4</p>
+    <p>C. K. Roy and J. R. Cordy. A survey on software clone detection research. SCHOOL OF COMPUTING TR 2007-541, QUEENS UNIVERSITY, 115, 2007.</p>
+  </div>
+  <div class="page">
+    <p>Semantic Clones 45% Total 623</p>
+    <p>code clones6%</p>
+    <p>Type-1 Type-2 Type-3 Type-4</p>
+  </div>
+  <div class="page">
+    <p>Comparison CCfinder</p>
+    <p>PDG-based</p>
+    <p>DECKARD</p>
+    <p>MeCC</p>
+    <p>DECKARD characteristic vectors</p>
+    <p>PDG-based program</p>
+    <p>dependency graphs</p>
+    <p>CCfinder</p>
+    <p>PDG-based</p>
+    <p>DECKARD</p>
+    <p>MeCC</p>
+    <p>CCfinder textual tokens</p>
+    <p>Type-3</p>
+  </div>
+  <div class="page">
+    <p>Applications of Code Clones</p>
+    <p>software refactoring  detecting potential bugs  understanding software evolution  detecting software plagiarism</p>
+    <p>(malicious duplication)</p>
+  </div>
+  <div class="page">
+    <p>Finding Potential Bugs</p>
+    <p>A large portion of semantic clones are due to inconsistent changes</p>
+    <p>Inconsistent changes may lead to potential bugs (inconsistent clones)</p>
+    <p>Two semantic clones with potential bugs</p>
+  </div>
+  <div class="page">
+    <p>#1 Missed Null Check</p>
+    <p>const char *GetVariable (VariableSpace space, const char *name) { struct_variable *current; return NULL; for (current=space-&gt;next;current;current=current-&gt;next) { if (strcmp(current-&gt;name,name) == 0) { return current-&gt;value; } } return NULL; }</p>
+    <p>const char *PQparameterStatus (const PGconn *conn, const char *paramName) { const pgParameterStatus *pstatus; if (!conn || !paramName) return NULL; for (pstatus=conn-&gt;pstatus; pstatus!=NULL; pstatus = pstatus-&gt;next) { if (strcmp(pstatus-&gt;name,paramName)== 0) return pstatus-&gt;value; } return NULL; }</p>
+    <p>if (!space) parameter name also should be checked!</p>
+  </div>
+  <div class="page">
+    <p>A resource leak without endpwent() procedure call</p>
+    <p>#2 A Resource Leak Bug PyObject *pwd_getpwall (PyObject *self) { PyObject *d; struct passwd *p; if ((d = PyList_New(0)) == NULL) return NULL; setpwent(); while ((p = getpwent()) != NULL) { PyObject *v = mkpwent(p); if (v==NULL || PyList_Append(d,v)!=0) { Py_XDECREF(v); Py_DECREF(d); return NULL; } Py_DECREF(v); } endpwent(); return d; }</p>
+    <p>open user database</p>
+    <p>close user database</p>
+  </div>
+  <div class="page">
+    <p>PyObject *pwd_getpwall (PyObject *self) { PyObject *d; struct passwd *p; if ((d = PyList_New(0)) == NULL) return NULL; setpwent(); while ((p = getpwent()) != NULL) { PyObject *v = mkpwent(p); if (v==NULL || PyList_Append(d,v)!=0) { Py_XDECREF(v); Py_DECREF(d); return NULL; } Py_DECREF(v); } endpwent(); return d; }</p>
+    <p>A Bug-free Procedure</p>
+    <p>Python project revision #38359</p>
+    <p>PyObject *spwd_getspall (PyObject *self, PyObject *args) { PyObject *d; struct spwd *p; if ((d = PyList_New(0)) == NULL) return NULL; setspent(); while ((p = getspent()) != NULL) { PyObject *v = mkspent(p); if (v==NULL || PyList_Append(d,v)!=0) { Py_XDECREF(v); Py_DECREF(d); endspent(); return NULL; } Py_DECREF(v); } endspent(); return d; }</p>
+  </div>
+  <div class="page">
+    <p>PyObject *pwd_getpwall (PyObject *self) { PyObject *d; struct passwd *p; if ((d = PyList_New(0)) == NULL) return NULL; setpwent(); while ((p = getpwent()) != NULL) { PyObject *v = mkpwent(p); if (v==NULL || PyList_Append(d,v)!=0) { Py_XDECREF(v); Py_DECREF(d); return NULL; } Py_DECREF(v); } endpwent(); return d; }</p>
+    <p>The Bug is Fixed Later</p>
+    <p>Python project revision #73017</p>
+    <p>bug-fixedendpwent();</p>
+    <p>PyObject *spwd_getspall (PyObject *self, PyObject *args) { PyObject *d; struct spwd *p; if ((d = PyList_New(0)) == NULL) return NULL; setspent(); while ((p = getspent()) != NULL) { PyObject *v = mkspent(p); if (v==NULL || PyList_Append(d,v)!=0) { Py_XDECREF(v); Py_DECREF(d); endspent(); return NULL; } Py_DECREF(v); } endspent(); return d; }</p>
+  </div>
+  <div class="page">
+    <p>revision #20157</p>
+    <p>revision #38359</p>
+    <p>revision #73017</p>
+    <p>Procedure A was created with a resource leak</p>
+    <p>Procedure B (a code clone of A) is introduced</p>
+    <p>without resource leaks</p>
+    <p>The resource leak bug in procedure A is fixed</p>
+    <p>the resource leak can be fixed if MeCC were applied</p>
+  </div>
+  <div class="page">
+    <p>MeCC successfully identifies these procedures</p>
+    <p>const char *GetVariable (VariableSpace space, const char *name) { struct_variable *current; if (!space) return NULL; for (current=space-&gt;next;current;current=current-&gt;next) { if (strcmp(current-&gt;name,name) == 0) { return current-&gt;value; } } return NULL; }</p>
+    <p>const char *PQparameterStatus (const PGconn *conn, const char *paramName) { const pgParameterStatus *pstatus; if (!conn || !paramName) return NULL; for (pstatus=conn-&gt;pstatus; pstatus!=NULL; pstatus = pstatus-&gt;next) { if (strcmp(pstatus-&gt;name.paramName)== 0) return pstatus-&gt;value; } return NULL; }</p>
+    <p>PyObject *pwd_getpwall (PyObject *self) { PyObject *d; struct passwd *p; if ((d = PyList_New(0)) == NULL) return NULL; setpwent(); while ((p = getpwent()) != NULL) { PyObject *v = mkpwent(p); if (v==NULL || PyList_Append(d,v)!=0) { Py_XDECREF(v); Py_DECREF(d); return NULL; } Py_DECREF(v); } endpwent(); return d; }</p>
+    <p>PyObject *spwd_getspall (PyObject *self, PyObject *args) { PyObject *d; struct spwd *p; if ((d = PyList_New(0)) == NULL) return NULL; setspent(); while ((p = getspent()) != NULL) { PyObject *v = mkspent(p); if (v==NULL || PyList_Append(d,v)!=0) { Py_XDECREF(v); Py_DECREF(d); endspent(); return NULL; } Py_DECREF(v); } endspent(); return d; }</p>
+  </div>
+  <div class="page">
+    <p>Potential Bugs and Code Smells</p>
+    <p>#Semantic Clones</p>
+    <p>Potential Bugs (%)</p>
+    <p>Code Smells (%)</p>
+    <p>Python 95 26 (27.4%) 23 (24.2%)</p>
+    <p>Apache 81 8 ( 9.9%) 27 (33.3%)</p>
+    <p>PostgreSQL 102 21 (20.6%) 20 (19.6%)</p>
+    <p>Total 278 55 (19.8%) 70 (25.2%)</p>
+    <p>detected by MeCC</p>
+  </div>
+  <div class="page">
+    <p>Study Limitation</p>
+    <p>Projects are open source and may not be representative</p>
+    <p>All clones are manually inspected  Default options are used for other tools</p>
+    <p>(CCfinder, Deckard, PDG-based)</p>
+  </div>
+  <div class="page">
+    <p>Conclusion  MeCC: Memory Comparison-based Clone</p>
+    <p>Detector</p>
+    <p>a new clone detector using semanticsbased static analysis</p>
+    <p>tolerant to syntactic variations  can be used to find potential bugs</p>
+  </div>
+  <div class="page">
+    <p>Thank You!</p>
+    <p>http://ropas.snu.ac.kr/mecc/</p>
+  </div>
+  <div class="page">
+    <p>Backup Slides</p>
+  </div>
+  <div class="page">
+    <p>Time Spent Projects KLOC FP Total Time</p>
+    <p>Python 435 39 264 1h</p>
+    <p>Apache 343 24 191 5h</p>
+    <p>PostgreSQL 937 47 278 7h</p>
+    <p>False positive ratio is less than 15%  Slower than other tools</p>
+    <p>(deep semantic analysis)</p>
+    <p>Ubuntu 64-bit machine with a 2.4 GHz Intel Core 2 Quad CPU and 8 GB RAM.</p>
+  </div>
+  <div class="page">
+    <p>Structure Initialization</p>
+  </div>
+  <div class="page">
+    <p>Structure Initialization</p>
+  </div>
+  <div class="page">
+    <p>Judgement of Clones</p>
+    <p>Two parameters  In our experiment, similarity threshold</p>
+    <p>Penalty function for small size of code clones</p>
+    <p>S(M1, M2)</p>
+    <p>log MinEntry</p>
+    <p>log(| M1 | + | M2 |)</p>
+    <p>a {(true, )} count {(true, )} r {(true,  + 1)} .next {( = 0, )} .val {( = 0, )} RETV {( = 0,  + 1  1), ( = 0,  + 1)}</p>
+    <p>a {(true, )} b {(true, )} .n {( = 0, )} .v {( = 0, )} RETV {( = 0, ), ( = 0,  + 2)}</p>
+    <p>{}, {}  P  v, M</p>
+    <p>{}, {}  P :</p>
+    <p>type list = {int x, list next}</p>
+    <p>let list node = {x:=1, next:={}} in</p>
+    <p>node.next.x</p>
+    <p>let x := {a:=1, b:=2} in E</p>
+    <p>type list = {int x, list next} type tsil = {int x, tsil prev}</p>
+    <p>let ... {x:=1, next:={}} ... {x:=1, prev:={}}</p>
+    <p>...</p>
+    <p>T  :</p>
+    <p>,   E :</p>
+    <p>T  :  ,   E :  ,   T  E :</p>
+  </div>
+  <div class="page">
+    <p>Static Analyzer</p>
+    <p>Flow-sensitive  Context-sensitive by procedural summaries  Path-sensitive  Abstract interpretation</p>
+    <p>http://spa-arrow.com</p>
+  </div>
+</Presentation>

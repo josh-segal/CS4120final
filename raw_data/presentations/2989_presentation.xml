@@ -1,0 +1,243 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>To Waffinity and Beyond: A Scalable Architecture for Incremental Parallelization of File System Code Matthew Curtis-Maury, PhD Vinay Devadas, PhD Vania Fang Aditya Kulkarni</p>
+    <p>NetApp, Inc  2016 NetApp, Inc. All rights reserved. 1</p>
+  </div>
+  <div class="page">
+    <p>Background</p>
+    <p>2016 NetApp, Inc. All rights reserved. 2</p>
+    <p>Data ONTAP is a storage operating system</p>
+    <p>WAFL File System processes operations in the form of messages</p>
+    <p>Competitive performance requires CPU scaling  WAFL is millions of lines of complicated code  A pure locking model is impractical  Many other techniques in the literature</p>
+    <p>Barrelfish, fos, Corey, Multikernel,</p>
+  </div>
+  <div class="page">
+    <p>WAFL Parallelization Overview</p>
+    <p>2016 NetApp, Inc. All rights reserved. 3</p>
+    <p>In the beginning WAFL processed all messages sequentially</p>
+    <p>WAFL parallelism leverages data partitioning</p>
+    <p>Set of techniques to allow incremental parallelization  Classical Waffinity  Partition user files into chunks  Hierarchical Waffinity  Partition many FS data structures  Hybrid Waffinity  Add locking within the data partition framework</p>
+    <p>These techniques have been implemented in our production OS and deployed on &gt;200K systems</p>
+  </div>
+  <div class="page">
+    <p>Classical Waffinity (2006)</p>
+    <p>2016 NetApp, Inc. All rights reserved. 4</p>
+    <p>Partition user files into fixed-size chunks called file stripes  Rotated over a set of message queues called Stripe affinities  Affinity scheduler dynamically assigns affinities to threads  Include a Serial affinity to process work outside of file stripes</p>
+    <p>msg msg msg msg msg msg msg msg</p>
+    <p>Stripe 1 Stripe 2 Stripe 3 Stripe 4 Stripe 5</p>
+    <p>User file</p>
+    <p>S2 S4S3</p>
+    <p>Idle Threads</p>
+    <p>S1 S5 Ready Affinities</p>
+    <p>Cores</p>
+    <p>S3</p>
+    <p>Affinity Scheduler</p>
+  </div>
+  <div class="page">
+    <p>Hierarchical Waffinity (2011)</p>
+    <p>2016 NetApp, Inc. All rights reserved. 5</p>
+    <p>Hierarchical data partitioning to match hierarchical data  Particular shape fine-tuned for WAFL  Hierarchical permissions / exclusion</p>
+    <p>Allows parallelization of work that used to run in Serial affinity  Friendly to incremental parallelization</p>
+    <p>AGGR</p>
+    <p>STRIPE</p>
+    <p>Node</p>
+    <p>Aggregates</p>
+    <p>Volumes</p>
+    <p>Files</p>
+    <p>Blocks</p>
+    <p>File system Hierarchy</p>
+    <p>STRIPE</p>
+    <p>Files</p>
+    <p>Blocks STRIPE</p>
+    <p>Volumes</p>
+    <p>Files</p>
+    <p>Blocks STRIPE</p>
+    <p>Files</p>
+    <p>Blocks</p>
+    <p>AGGR</p>
+    <p>VOL</p>
+    <p>STRIPE</p>
+    <p>Serial</p>
+    <p>Aggregate</p>
+    <p>Volume</p>
+    <p>Volume Logical</p>
+    <p>Stripe</p>
+    <p>Aggregate VBN</p>
+    <p>Volume VBN</p>
+    <p>STRIPEVVBN Range</p>
+    <p>STRIPEAVBN Range</p>
+    <p>Affinity Hierarchy</p>
+  </div>
+  <div class="page">
+    <p>Hierarchical Waffinity  Data mappings</p>
+    <p>2016 NetApp, Inc. All rights reserved. 6</p>
+    <p>Aggregate</p>
+    <p>Serial</p>
+    <p>Aggregate</p>
+    <p>Volume</p>
+    <p>Volume Logical</p>
+    <p>Stripe</p>
+    <p>Aggregate VBN</p>
+    <p>Volume VBN</p>
+    <p>Range</p>
+    <p>Range</p>
+    <p>Stripe Range</p>
+    <p>Volume</p>
+    <p>Volume Logical</p>
+    <p>Stripe</p>
+    <p>Volume VBN</p>
+    <p>RangeStripe Range Range</p>
+    <p>Retain Stripe affinities (now per volume)</p>
+    <p>Parallelism between user file and metafile accesses</p>
+    <p>User data Metadata</p>
+    <p>Parallelism between different volumes and aggregatesParallelism between different volumes and aggregates</p>
+  </div>
+  <div class="page">
+    <p>Classical vs. Hierarchical Waffinity</p>
+    <p>2016 NetApp, Inc. All rights reserved. 7</p>
+    <p>SFS2008 contains metadata operations (Create, Remove, etc)  Classical Waffinity: Ran in Serial affinity (48% of wallclock time)  Hierarchical Waffinity allows the messages to run in Volume Logical</p>
+    <p>~3 additional cores used translated into a 23% throughput increase</p>
+    <p>Classical Waffinity Hierarchical Waffinity</p>
+    <p>Th ro ug hp ut</p>
+    <p>(K o ps /s ec )</p>
+    <p>SFS2008</p>
+    <p>AGGR</p>
+    <p>VOL</p>
+    <p>STRIPE</p>
+    <p>Serial</p>
+    <p>Aggregate</p>
+    <p>Volume</p>
+    <p>Volume Logical</p>
+    <p>Stripe</p>
+    <p>Aggregate VBN</p>
+    <p>Volume VBN</p>
+    <p>STRIPEVVBN Range</p>
+    <p>STRIPEAVBN Range</p>
+  </div>
+  <div class="page">
+    <p>Hierarchical Waffinity CPU Scaling</p>
+    <p>2016 NetApp, Inc. All rights reserved. 8</p>
+    <p>95% average core occupancy across 6 key workloads</p>
+    <p>C or e U sa ge</p>
+    <p>RandomRead SequentialRead RandomWrite SequentialWrite SFS2008 SPC1</p>
+  </div>
+  <div class="page">
+    <p>Hybrid Waffinity (2016)</p>
+    <p>2016 NetApp, Inc. All rights reserved. 9</p>
+    <p>Some important workloads access two different file blocks  Mappings optimized for traditional cases not well-suited here</p>
+    <p>Hybrid Waffinity combines partitioning with fine-grained locking  Particular blocks are protected with locking from multiple affinities  Continues to allow incremental development</p>
+    <p>AGGR</p>
+    <p>VOL</p>
+    <p>STRIPE</p>
+    <p>Serial</p>
+    <p>Aggregate</p>
+    <p>Volume</p>
+    <p>Volume Logical</p>
+    <p>Stripe</p>
+    <p>Aggregate VBN</p>
+    <p>Volume VBN</p>
+    <p>STRIPEVVBN Range</p>
+    <p>STRIPEAVBN Range</p>
+    <p>User Data</p>
+    <p>Metadata</p>
+    <p>User Data + Metadata AGGR</p>
+    <p>VOL</p>
+    <p>STRIPE</p>
+    <p>Serial</p>
+    <p>Aggregate</p>
+    <p>Volume</p>
+    <p>Volume Logical</p>
+    <p>Stripe</p>
+    <p>Aggregate VBN</p>
+    <p>Volume VBN</p>
+    <p>STRIPEVVBN Range</p>
+    <p>STRIPEAVBN Range</p>
+    <p>User Data Metadata with locking</p>
+    <p>Lock-free Metadata No Access</p>
+  </div>
+  <div class="page">
+    <p>Hybrid vs. Hierarchical Waffinity</p>
+    <p>2016 NetApp, Inc. All rights reserved. 10</p>
+    <p>Block free operations in Volume VBN for two metafile accesses  Hybrid Waffinity parallelizes it further into VVBN Range  6 additional cores translated into a 91% throughput increase</p>
+    <p>AGGR</p>
+    <p>VOL</p>
+    <p>STRIPE</p>
+    <p>Serial</p>
+    <p>Aggregate</p>
+    <p>Volume</p>
+    <p>Volume Logical</p>
+    <p>Stripe</p>
+    <p>Aggregate VBN</p>
+    <p>Volume VBN</p>
+    <p>STRIPEVVBN Range</p>
+    <p>STRIPEAVBN Range</p>
+    <p>Sequential Overwrite</p>
+    <p>Hierarchical Waffinity Hybrid Waffinity</p>
+  </div>
+  <div class="page">
+    <p>Conclusion</p>
+    <p>2016 NetApp, Inc. All rights reserved. 11</p>
+    <p>Developed a set of techniques to allow incremental parallelization of the WAFL file system  Focused on data partitioning  Selectively added in locking in a restricted way</p>
+    <p>Provided insight into the internals of WAFL</p>
+  </div>
+  <div class="page">
+    <p>Thank you.</p>
+    <p>2016 NetApp, Inc. All rights reserved12</p>
+  </div>
+  <div class="page">
+    <p>History of Parallelism in ONTAP</p>
+    <p>2016 NetApp, Inc. All rights reserved. 13</p>
+    <p>Data ONTAP was created for single-CPU systems of 1994</p>
+    <p>Parallelism via Coarse-grained Symmetric Multi-processing  Each subsystem was assigned to a single-threaded domain  Minimal explicit locking required, message passing between domains  Scaled to 4 cores, but all of WAFL serialized</p>
+    <p>RAID WAFL Network Storage Protocol</p>
+    <p>CPUs</p>
+  </div>
+  <div class="page">
+    <p>Example Scheduler State</p>
+    <p>2016 NetApp, Inc. All rights reserved. 14</p>
+    <p>SERIAL</p>
+    <p>AGGR1</p>
+    <p>VOL1</p>
+    <p>VLOG</p>
+    <p>S1 S2 S3</p>
+    <p>VVBN</p>
+    <p>VVR1 VVR2</p>
+    <p>VOL2</p>
+    <p>VLOG</p>
+    <p>S1 S2 S3</p>
+    <p>VVBN</p>
+    <p>VVR1 VVR2</p>
+    <p>VOL3</p>
+    <p>AVBN</p>
+    <p>AVR1 AVR2</p>
+    <p>AGGR2</p>
+    <p>S3 VVR2 AVBN AVR1 AVR2</p>
+    <p>Idle threads</p>
+    <p>Runnable affinities</p>
+    <p>Hierarchical Scheduler</p>
+    <p>+</p>
+    <p>Affinity Hierarchy</p>
+    <p>Running affinity Runnable affinity Excluded affinity</p>
+    <p>S3</p>
+    <p>Scheduler keeps FIFO list of runnable affinities  Threads call into Affinity scheduler for work  Work in coarse affinities starves the system of runnable affinities</p>
+  </div>
+  <div class="page">
+    <p>Volume Remove: V W: A, MD</p>
+    <p>Volume Logical Remove: A</p>
+    <p>W: A[100..200]</p>
+    <p>Stripe0 W: A[100] R: B[200]</p>
+    <p>Volume VBN Create: MD W: MD[10..20]</p>
+    <p>Stripe1 W: A[200] R: A[200]</p>
+    <p>Stripe2 W: B[100] R: A[300]</p>
+    <p>VVR0 W: MD[20] R: MD[20]</p>
+    <p>VVR1 W: MD[10] R: MD[10]</p>
+    <p>Example Affinity Mappings</p>
+  </div>
+  <div class="page">
+    <p>Development Experiences</p>
+    <p>2016 NetApp, Inc. All rights reserved. 16</p>
+    <p>Hierarchical Waffinity  Parallelization occurs at the message granularity, changed O(hundreds) LoC  Only parallelize critical messages, in common paths, and to a suitable affinity  Infrastructure required 22k LoC</p>
+    <p>Hybrid Waffinity  Infrastructure for each access mode was ~3k LoC  Using Eject and Insert is easy, fewer than 20 lines per message optimized  Write involves updating and restructuring message handler -&gt; 2k LoC  Now applying to Inodes with modest code changes</p>
+  </div>
+</Presentation>

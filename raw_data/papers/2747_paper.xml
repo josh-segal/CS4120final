@@ -1,0 +1,1165 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<TEI xmlns="http://www.tei-c.org/ns/1.0" 
+xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+xsi:schemaLocation="http://www.tei-c.org/ns/1.0 /Users/atharsefid/Desktop/grobid-0.5.3/grobid-home/schemas/xsd/Grobid.xsd"
+ xmlns:xlink="http://www.w3.org/1999/xlink">
+	<teiHeader xml:lang="en">
+		<encodingDesc>
+			<appInfo>
+				<application version="0.5.3" ident="GROBID" when="2019-03-26T16:42+0000">
+					<ref target="https://github.com/kermitt2/grobid">GROBID - A machine learning software for extracting information from scholarly documents</ref>
+				</application>
+			</appInfo>
+		</encodingDesc>
+		<fileDesc>
+			<titleStmt>
+				<title level="a" type="main">Implementing a Language with Flow-Sensitive and Structural Typing on the JVM</title>
+			</titleStmt>
+			<publicationStmt>
+				<publisher/>
+				<availability status="unknown"><licence/></availability>
+			</publicationStmt>
+			<sourceDesc>
+				<biblStruct>
+					<analytic>
+						<author>
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">David</forename><forename type="middle">J</forename><surname>Pearce</surname></persName>
+							<affiliation key="aff0">
+								<orgName type="department" key="dep1">School of Engineering and Computer Science</orgName>
+								<orgName type="department" key="dep2">School of Engineering and Computer Science</orgName>
+								<orgName type="institution" key="instit1">Victoria University of Wellington</orgName>
+								<orgName type="institution" key="instit2">Victoria University of Wellington</orgName>
+								<address>
+									<region>NZ, NZ</region>
+								</address>
+							</affiliation>
+						</author>
+						<author>
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">James</forename><surname>Noble</surname></persName>
+							<affiliation key="aff0">
+								<orgName type="department" key="dep1">School of Engineering and Computer Science</orgName>
+								<orgName type="department" key="dep2">School of Engineering and Computer Science</orgName>
+								<orgName type="institution" key="instit1">Victoria University of Wellington</orgName>
+								<orgName type="institution" key="instit2">Victoria University of Wellington</orgName>
+								<address>
+									<region>NZ, NZ</region>
+								</address>
+							</affiliation>
+						</author>
+						<title level="a" type="main">Implementing a Language with Flow-Sensitive and Structural Typing on the JVM</title>
+					</analytic>
+					<monogr>
+						<imprint>
+							<date/>
+						</imprint>
+					</monogr>
+					<note>ByteCode 2011</note>
+				</biblStruct>
+			</sourceDesc>
+		</fileDesc>
+		<profileDesc>
+			<textClass>
+				<keywords>
+					<term>Flow-Sensitive</term>
+					<term>Structural Subtyping</term>
+					<term>Java</term>
+					<term>JVM</term>
+				</keywords>
+			</textClass>
+			<abstract>
+				<p>Dynamically typed languages are flexible and impose few burdens on the programmer. In contrast, static typing leads to software that is more efficient and has fewer errors. However, static type systems traditionally require every variable to have one type, and that relationships between types (e.g. subclassing) be declared explicitly. The Whiley language aims to hit a sweet spot between dynamic and static typing. This is achieved through structural subtyping and by typing variables in a flow-sensitive fashion. Whiley compiles to the JVM, and this presents a number of challenges. In this paper, we discuss the implementation of Whiley&apos;s type system on the JVM.</p>
+			</abstract>
+		</profileDesc>
+	</teiHeader>
+	<text xml:lang="en">
+		<body>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="1">Introduction</head><p>Statically typed programming languages (e.g. Java, C#, C++, etc) lead to programs which are more efficient and have fewer errors <ref type="bibr" target="#b10">[11,</ref><ref type="bibr" target="#b1">2]</ref>. Static typing forces some discipline on the programming process. For example, it ensures at least some documentation regarding acceptable function inputs is provided. In contrast, dynamically typed languages are more flexible which helps reduce overheads and increase productivity <ref type="bibr" target="#b36">[37,</ref><ref type="bibr" target="#b46">47,</ref><ref type="bibr" target="#b33">34,</ref><ref type="bibr" target="#b6">7]</ref>. Furthermore, in recent times, there has been a significant shift towards dynamically typed languages <ref type="bibr" target="#b37">[38]</ref>.</p><p>Numerous attempts have been made to bridge the gap between static and dynamic languages. Scala <ref type="bibr" target="#b44">[45]</ref>, C#3.0 <ref type="bibr" target="#b5">[6]</ref>, OCaml <ref type="bibr" target="#b42">[43]</ref> and, most recently, Java 7 all employ local type inference (in some form) to reduce syntactic overhead. Techniques such as gradual typing <ref type="bibr" target="#b45">[46,</ref><ref type="bibr" target="#b49">50]</ref>, soft typing <ref type="bibr" target="#b10">[11]</ref> and hybrid typing <ref type="bibr" target="#b19">[20]</ref> enable a transitory position where some parts of a program are statically typed, and others are not. Alternatively, type inference can be used (in some situations) to reconstruct types "after the fact" for programs written in dynamic languages <ref type="bibr" target="#b2">[3,</ref><ref type="bibr" target="#b22">23]</ref>.</p><p>Whiley is a statically-typed language which, for the most part, has the look and feel of a dynamic language. This is achieved with an extremely flexible type system which utilises the following features:</p><p>• Flow-sensitive types, which are adopted from flow-sensitive program analysis (e.g. <ref type="bibr" target="#b21">[22,</ref><ref type="bibr" target="#b29">30,</ref><ref type="bibr" target="#b13">14]</ref>) and allow variables to have different types at different points.</p><p>• Structural Subtyping, where subtyping between data types is implict and based on their structure.</p><p>Taken together, these offer several advantages over traditional nominal typing, where types are named and subtyping relationships explicitly declared.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="1.1">Contributions</head><p>The contributions of this paper are:</p><p>(i) We discuss the flow-sensitive and structural typing system used in the Whiley language.</p><p>(ii) We detail our implementation of these features on the JVM, and identify a number of challenges.</p><p>An open source implementation of the Whiley language is freely available from http://whiley.org. Finally, a detailed formalisation of Whiley's type system, including some discussion of JVM implementation, can be found here <ref type="bibr" target="#b38">[39]</ref>.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="2">Whiley</head><p>In this section, we present a series of examples showing Whiley's key features. In the following section, we'll discuss their implementaiton in the JVM.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="2.1">Implicit Declaration</head><p>Most contemporary statically typed languages require variables be explicitly declared (FORTRAN is one exception here). Compared with dynamically typed languages, this is an extra burden for the programmer, particularly when a variable's type can be inferred from assigned expression(s). In Whiley, local variables are declared by assignment:</p><formula xml:id="formula_0">int average([int] items): v = 0 for i in items: v = v + items[i] return v / |items|</formula><p>Here, items is a list of ints, whilst |items| returns its length. The variable v is used to accumulate the sum of all elements in the list. Variable v is declared by the assignment from 0 and, since this has type int, v has type int after the assignment.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="2.2">Union Types</head><p>Nullable references have proved a significant source of error in languages such as Java <ref type="bibr" target="#b28">[29]</ref>. The issue is that, in such languages, one can treat nullable references as though they are non-null references <ref type="bibr" target="#b39">[40]</ref>. Many solutions have been proposed which strictly distinguish these two forms using static type systems <ref type="bibr" target="#b17">[18,</ref><ref type="bibr" target="#b16">17,</ref><ref type="bibr" target="#b40">41,</ref><ref type="bibr" target="#b34">35]</ref>.</p><p>Whiley's type system lends itself naturally to handling this problem because it supports union types (see e.g. <ref type="bibr" target="#b4">[5,</ref><ref type="bibr" target="#b30">31]</ref>). These allow variables to hold values from different types, rather than just one type. The following illustrates: null|int indexOf(string str, char c):</p><p>...</p><p>[string] split(string str, char c):</p><formula xml:id="formula_1">idx = indexOf(str,c) if idx ∼= int: // matched an occurrence below = str[0..idx] above = str[idx..] return [below,above] else: return [str] // no occurrence</formula><p>Here, indexOf() returns the first index of a character in the string, or null if there is none. The type null|int is a union type, meaning it is either an int or null.</p><p>In the above example, Whiley's type system seamlessly ensures that null is never dereferenced. This is because the type null|int cannot be treated as an int. Instead, we must first perform a runtime type test to ensure it is an int. Whiley automatically retypes idx to int when this is known to be true, thereby avoiding any awkward and unnecessary syntax (e.g. a cast as required in <ref type="bibr" target="#b3">[4,</ref><ref type="bibr" target="#b34">35]</ref>).</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="2.3">Flow-Sensitive Typing</head><p>The following code shows the definition of a simple hierarchy of Shapes in Whiley, and a function that returns the area of any of these three types of Shapes. A Shape is a union type -either a Circle, Square or Rectangle (which are all themselves record types). The code employs a runtime type test, "s ∼= Circle", to distinguish the different kinds of Shapes. This is similar to Java's instanceof or Eiffel's reverse assignment. Unlike Java, Whiley retypes s to be of type Circle on the true branch of the if statement, so there is no need to cast s explicitly to Circle before accessing the Circle-specific field radius. Similary, on the false branch, Whiley retypes s to the union type Square|Rectangle, and then to Square or Rectangle within the next if.</p><p>Implementing these Shapes in most statically-typed languages would be more cumbersome and more verbose. In modern object-oriented languages, like Java, expressions must still be explicitly retyped. For example, after a test such as s instanceof Circle, we must introduce a new variable, say c, with type Circle as an alias for s, and use c whenever we wanted to access s as a circle.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="2.4">Structural Subtyping</head><p>Statically typed languages, such as Java, employ nominal typing for recursive data types. This results in rigid hierarchies which are often difficult to extend. In contrast, Whiley employs structural subtyping of records <ref type="bibr" target="#b9">[10]</ref> to give greater flexibility. For example, the following code defines a Border record: define Border as {int x, int y, int width, int height} Any instance of Border has identical structure to an instance of Rectangle. Thus, wherever a Border is required, a Rectangle can be provided and vice-versa -even if the Border definition was written long after the Rectangle, and even though Rectangle makes no mention of Border.</p><p>The focus on structural, rather than nominal, types in Whiley is also evident in the way instances are created: Here, function example() creates a record instance with fields x, y, width and height, and assigns each an initial value. Despite not being associated with a name, such as Border or Rectangle, it can be freely passed into functions expecting such types, since they have identical structure.</p><formula xml:id="formula_2">bool</formula></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="2.5">Value Semantics</head><p>In Whiley, all compound structures (e.g. lists, sets, and records) have value semantics. This means they are passed and returned by-value (as in Pascal, or most functional languages) -but unlike functional languages (and like Pascal) values of compound types can be updated in place. Value semantics implies that updates to the value of a variable can only affect that variable, and the only way information can flow out of a procedure is through that procedure's return value. Furthermore, Whiley has no general, mutable heap comparable to those found in object-oriented languages. Consider the following:</p><formula xml:id="formula_3">int f([int] xs): ys = xs ys[0] = 1 ...</formula><p>The semantics of Whiley dictate that, having assigned xs to ys as above, the subsequent update to ys does not affect xs. Arguments are also passed by value, hence xs is updated inside f() and this does not affect f's caller. That is, changes can only be communicated out of a function by explictly returning a value.</p><p>Whiley also provides strong guarantees regarding subtyping of primitive types (i.e. integers and reals). In Whiley, ints and reals represent unbounded integers and rationals, which ensures int ≤ real has true subset semantics (i.e. every int can be represented by a real). This is not true for e.g. Java, where there are int (resp. long) values which cannot be represented using float (resp. double) <ref type="bibr">[26, §5.1.2]</ref>.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="2.6">Incremental Construction</head><p>A common pattern arises in statically typed languages when a structure is built up piecemeal. Usually, the pieces are stored in local variables until all are available and the structure can be finally created. In dynamic languages it is much more common to assign pieces to the structure as they are created and, thus, at any given point a partially complete version of the structure is available. This reduces syntactic overhead, and also exposes opportunities for code reuse. For example, the partial structure can be passed to functions that can operate on what is available. In languages like Java, doing this requires creating a separate (intermediate) object.</p><p>In Whiley, structures can also be constructed piecemeal. For example:</p><formula xml:id="formula_4">BinOp parseBinaryExpression(): v = {} // empty record v.lhs = parseExpression() v.op = parseOperator() v.rhs = parseExpression() return v</formula><p>After the first assignment, v is an empty record. Then, after the second it has type {Expr lhs}, after the third it has type {Expr lhs, Op op}, and after the fourth it has type {Expr lhs,Expr rhs,Op op}. This also illustrates the benefits of Whiley's value semantics with update: the value semantics ensure that there can never be any alias to the value contained in v; while updates permit v to be built imperatively, one update at a time.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="2.7">Structural Updates</head><p>Static type systems normally require updates to compound types, such as list and records, to respect the element or field type in question. Whiley's value semantics also enables flexible updates to structures without the aliasing problems that typically arise in object-oriented languages. For example, assigning a float to an element of an int array is not permitted in Java. To work around this, programmers typically either clone the structure in question, or work around the type system using casting (or similar). In Whiley, updates to lists and records are always permitted. Here, the type of p is updated to {real x,int y} after p.x is assigned, and {real x,real y} after p.y is assigned. Similarly, for lists we could write:</p><p>[real] normalise([int] items, int max):</p><formula xml:id="formula_5">for i in 0..|items|: items[i] = items[i] / max return items</formula><p>Here, the type of items is updated to <ref type="bibr">[real]</ref> by the assignment. Thus, Whiley's type system permits an in-place update from integer to real without requiring any explicit casts, or other type system abuses (e.g. exploiting raw types, such as List, in Java).</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3">Implementation on the JVM</head><p>The Whiley language compiles down to Java bytecode, and runs on the JVM. In this section, we outline how Whiley's data types are represented on the JVM.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.1">Numerics</head><p>Whiley represents numbers on the JVM in a similar fashion to Clojure <ref type="bibr" target="#b27">[28]</ref>. More specifically, ints and reals are represented using custom BigInteger and BigRational classes which automatically resize to prevent overflow. Whiley requires that integers are truly treated as subtypes of reals. For example:</p><formula xml:id="formula_6">real f(int x):</formula><p>if x &gt;= 10: x = 9.99 return x</p><p>At the control-flow join after the if statement, x holds either an int or a real.</p><p>Since real values are implemented as BigRationals on the JVM, we must coerce x from a BigInteger on the false branch.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.2">Records</head><p>The implementation of Whiley's record types must enable structural subtyping. A simple approach (used in many dynamic languages), is to translate them as HashMaps which map field names to values. This ensures that record objects can be passed around freely, provided they have the required fields.</p><p>One issue with this approach, is that each field access requires a HashMap lookup which, although relatively fast, does not compare well with Java (where field accesses are constant time). Whiley's semantics enable more efficient implementations. In particular, the type {int x} is a record containing exactly one field x. Thus, records can have a static layout to give constant time access <ref type="bibr" target="#b39">[40]</ref>. For example, records can be implemented on the JVM using arrays of references, rather than HashMaps. In this approach, every field corresponds to a slot in the array whose index is determined by a lexicographic ordering of fields.</p><p>To implement records using a static layout requires the compiler to insert coercions to support subtyping. Consider the following: define R1 as {int x, int y} define R2 as {int y} R1 r1 = {x: 10, y: 20} R2 r2 = r1</p><p>Let us assume our records are implemented using a static layout where fields are ordered alphabetically. Thus, in R1, field x occupies the first slot, and field y the second. Similarly, field y corresponds to the first slot of R2 and, hence, R1 is not compatible with R2. Instead, we must convert an instance of R1 into an instance of R2 by constructing a new array consisting of a single field, and populating that with the second slot (i.e. field y). This conversion is safe because of Whiley's value semantics -that is, two variables' values can never be aliased.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.3">Collections</head><p>Whiley provides first-class lists, sets and maps which are translated on the JVM into ArrayLists, HashSets and HashMaps respectively. Of course, all these collection types must have value semantics in Whiley. Recall that, in the following, updating ys does not update xs: A naive translation of this code to the JVM would clone() the ArrayList referred to by xs, and assign this to ys. This can result in a lot of unnecessary copying of data and there are several simple strategies to reduce this cost:</p><p>(i) Use a CopyOnWriteArrayList to ensure that a full copy of the data is only made when it is actually necessary.</p><p>(ii) Use an intraprocedural dataflow analysis to determine when a variable is no longer used. For example, in the above, if xs is not live after the assignment to ys then cloning it is unnecessary.</p><p>(iii) Exploit compiler inferred read-only modifiers for function parameters. Such modifiers can be embedded into the JVM bytecode, and used to identify situations when an argument for an invocation does not need to be cloned.</p><p>Currently, we employ only CopyOnWriteArrayLists to improve performance, although we would like to further examine the benefits of those other approaches.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.4">Runtime Type Tests</head><p>Implementing runtime type tests on the JVM represents something of a challenge. Whilst many runtime type tests translate directly using appropriate instanceof tests, this is not always the case:</p><formula xml:id="formula_7">int f(real x): if x ∼= int: return x return 0</formula><p>Although Whiley ints are implemented as Java BigIntegers, this test cannot be translated to "e instanceof BigInteger". This is because of Whiley's subtyping rules: x will be implemented by an instance of BigRational on entry, but because Whiley ints are subtypes of Whiley reals, the subtype check should succeed if the actual real passed in is actually an integer. The test is therefore translated into a check to see whether the given BigRational instance corresponds to an integer or not.</p><p>Union types also present a challenge because distinguishing the different cases is not always straightforward. For example:</p><formula xml:id="formula_8">define data as [real] | [[int]] int f(data d): if d ∼= [[int]]: return |d[0]| return |d|</formula><p>Since variable d is guaranteed to be a list of some sought, its type on entry is translated to List on the JVM. Thus, Whiley cannot use an instanceof test on d directly to distinguish the two cases. Instead, we must examine the first element of the list and test this. Thus, if the first element of the list is itself a list, then the true branch is taken 3 .</p><p>The following example presents another interesting challenge:</p><formula xml:id="formula_9">int f([real] d): if d ∼= [int]: return d[0] return 0</formula><p>To translate this test, we must loop over every element in the list and check whether or not it is an integer. Furthermore, if this is the case, we must convert the list into a list of BigInteger, rather than BigRational.</p><p>Finally, records present an interesting issue. Consider the following example:</p><p>define Rt as {int x, int y} | {int x, int z} int unpackSecond(Rt r): if r ∼= {int x,int y}: return r.y return r.z</p><p>Since variable r is guaranteed to be a record of some sort, its type on entry is translated as Object[]. Thus, implementing the type test using instanceof does not make sense, as this will not distinguish the two different kinds of record. Instead, we must check whether r has fields x and y, or not. To support this, the representation of records must also associate the corresponding field name with each slot in the Object[] array. This is achieved by reserving the first slot of the array as a reference to an array of field names, each of which identifies the name of a remaining slot from the outer array.</p><p>Distinguishing between different record types can be optimised by reducing the number of field presence checks. For example, in the above, there is little point in checking for the presence of field x, since it is guaranteed in both cases. The Whiley compiler generates the minimal number of field checks to be certain which of the possible cases is present.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="4">Related Work</head><p>In this section, we concentrate primarily on work relating to Whiley's flow-sensitive type system.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="4.1">Dataflow Analysis</head><p>Flow-sensitive dataflow analysis has been used to infer various kinds of information, including: flow-sensitive type qualifiers <ref type="bibr" target="#b20">[21,</ref><ref type="bibr" target="#b21">22,</ref><ref type="bibr" target="#b11">12,</ref><ref type="bibr" target="#b16">17,</ref><ref type="bibr" target="#b26">27,</ref><ref type="bibr" target="#b12">13,</ref><ref type="bibr" target="#b0">1,</ref><ref type="bibr" target="#b40">41,</ref><ref type="bibr" target="#b3">4,</ref><ref type="bibr" target="#b34">35]</ref>, information flow <ref type="bibr" target="#b29">[30,</ref><ref type="bibr" target="#b43">44,</ref><ref type="bibr" target="#b35">36]</ref>, typestates <ref type="bibr" target="#b48">[49,</ref><ref type="bibr" target="#b18">19,</ref><ref type="bibr" target="#b7">8]</ref>, bytecode verification <ref type="bibr" target="#b32">[33,</ref><ref type="bibr" target="#b31">32]</ref> and more.</p><p>Type qualifiers constrain the possible values a variable may hold. CQual is a flow-sensitive qualifier inference supporting numerous type qualifiers, including those for synchronisation and file I/O <ref type="bibr" target="#b20">[21,</ref><ref type="bibr" target="#b21">22]</ref>. CQual does not account for the effects of conditionals and, hence, retyping is impossible. The work of Chin et al. is similar, but flow-insensitive <ref type="bibr" target="#b11">[12,</ref><ref type="bibr" target="#b12">13]</ref> JQual extended these systems to Java, and considered whole-program (flow-insensitive) inference <ref type="bibr" target="#b26">[27]</ref>. AliasJava introduced several qualifiers for reasoning about object ownership <ref type="bibr" target="#b0">[1]</ref>. The unique qualifier indicates a variable holds the only reference to an object; similarly, owned is used to confine an object to the scope of its enclosing "owner" object.</p><p>Fähndrich and Leino discuss a system for checking non-null qualifiers in the context of C# <ref type="bibr" target="#b17">[18]</ref>. Here, variables are annotated with NonNull to indicate they cannot hold null. Non-null qualifiers are interesting because they require variables be retyped after conditionals (i.e. retyping v from Nullable to NonNull after v!=null). Fähndrich and Leino hint at the use of retyping, but focus primarily on issues related to object constructors. Ekman et al. implemented this system within the JustAdd compiler, although few details are given regarding variable retyping <ref type="bibr" target="#b16">[17]</ref>. Pominville et al. also briefly discuss a flow-sensitive non-null analysis built using SOOT, which does retype variables after !=null checks <ref type="bibr" target="#b40">[41]</ref>. The JACK tool is similar, but focuses on bytecode verification instead <ref type="bibr" target="#b34">[35]</ref>. This extends the bytecode verifier with an extra level of indirection called type aliasing. This enables the system to retype a variable x as @NonNull in the body a if(x!=null) conditional. The algorithm is formalised using a flow-sensitive type system operating on Java bytecode. JavaCOP provides an expressive language for writing type system extensions, including non-null types <ref type="bibr" target="#b3">[4]</ref>. This system is flow-insensitive and cannot account for the effects of conditionals; as a work around, the tool allows assignment from a nullable variable x to a non-null variable if this is the first statement after a x!=null conditional.</p><p>Information Flow Analysis is the problem is tracking the flow of information, usually to restrict certain flows based for security reasons. The work of Hunt and Sands is relevant here, since they adopt a flow-sensitive approach <ref type="bibr" target="#b29">[30]</ref>. Their system is presented in the context of a simple While language not dissimilar to ours, although they do not account for the effect of conditionals. Russo et al. use an extended version of this system to compare dynamic and static approaches <ref type="bibr" target="#b43">[44]</ref>. They demonstrate that a purely dynamic system will reject programs that are considered type-safe under the Hunt and Sands system. JFlow extends Java with statically checked flow annotations which are flow-insensitive <ref type="bibr" target="#b35">[36]</ref>. Finally, Chugh et al. developed a constraint-based (flow-insensitive) information flow analysis of JavaScript <ref type="bibr" target="#b14">[15]</ref>.</p><p>Typestate Analysis focuses on flow-sensitive reasoning about the state of objects, normally to enforce temporal safety properties. Typestates are finite-state automatons which can encode usage rules for common APIs (e.g. a file is never read before being opened), and were pioneered by Strom and Yellin <ref type="bibr" target="#b47">[48,</ref><ref type="bibr" target="#b48">49]</ref>. <ref type="bibr">Fink et al. present</ref> an interprocedural, flow-sensitive typestate verification system which is staged to reduce overhead <ref type="bibr" target="#b18">[19]</ref>. Bodden et al. develop an interprocedural typestate analysis which is flow-sensitive at the intra-procedural level <ref type="bibr" target="#b8">[9]</ref>. This is a hybrid system which attempts to eliminate all failure points statically, but uses dynamic checks when necessary. This was later extended to include a backward propagation step that improves precision <ref type="bibr" target="#b7">[8]</ref>.</p><p>Java Bytecode Verification requires a flow-sensitive typing algorithm <ref type="bibr" target="#b32">[33]</ref>. Since locals and stack locations are untyped in Java Bytecode, it must infer their types to ensure type safety. Like Whiley, the verifier updates the type of a variable after an assignment, and combines types at control-flow join points using a least upper bound operator. However, it does not update the type of a variable after an instanceof test. Furthermore, the Java class hierarchy does not form a join semi-lattice. To deal with this, the bytecode verifier uses a simplified least upper bound operator which ignores interfaces altogether, instead relying on runtime checks to catch type errors (see e.g. <ref type="bibr" target="#b31">[32]</ref>). However, several works on formalising the bytecode verifier have chosen to resolve this issue with intersection types instead (see e.g. <ref type="bibr" target="#b24">[25,</ref><ref type="bibr" target="#b41">42]</ref>).</p><p>Gagnon et al. present a technique for converting Java Bytecode into an intermediate representation with a single static type for each variable <ref type="bibr" target="#b23">[24]</ref>. Key to this is the ability to infer static types for the local variables and stack locations used in the bytecode. Since local variables are untyped in Java bytecode, this is not always possible as they can -and often do -have different types at different points; in such situations, a variable is split as necessary into multiple variables each with a different type.</p><p>Dubochet and Odersky <ref type="bibr" target="#b15">[16]</ref> describe how structural types are implemented in Scala in some detail, and compare reflexive and generative approaches to implementing methods calls on structural types. They recognise that structural types always impose a penalty on current JVMs, but describe how both techniques generally provide sufficient performance in practice -about seven times slower than Java interface calls in the worse case.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="5">Conclusion</head><p>The Whiley language implements a flow-sensitive and structural type system on the JVM. This permits variables to be declared implicitly, have multiple types within a function, and be retyped after runtime type tests. The result is a statically-typed language which, for the most part, has the look and feel of a dynamic language. In this paper, we have discussed various details relating to Whiley's implementation on the JVM. Finally, an open source implementation of the Whiley language is freely available from http://whiley.org.</p></div><figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_0"><head>define</head><label></label><figDesc>Circle as {int x, int y, int radius} define Square as {int x, int y, int dimension} define Rectangle as {int x, int y, int width, int height} define Shape as Circle | Square | Rectangle real area(Shape s): if s ∼= Circle: return PI * s.radius * s.radius else if s ∼= Square: return s.dimension * s.dimension else: return s.width * s.height</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_1"><head></head><label></label><figDesc>contains(int x, int y, Border b): return b.x &lt;= x &amp;&amp; x &lt; (b.x + b.width) &amp;&amp; b.y &lt;= y &amp;&amp; y &lt; (b.y + b.height) bool example(int x, int y): rect = {x: 1, y: 2, width: 10, height: 3} return contains(x,y,rect)</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_2"><head></head><label></label><figDesc>For example: define Point as {int x, int y} define RealPoint as {real x, real y} RealPoint normalise(Point p, int w, int h): p.x = p.x / w p.y = p.y / h return p</figDesc></figure>
+
+			<note place="foot" n="3"> Note that in the case of an empty list, then type test always holds</note>
+		</body>
+		<back>
+			<div type="references">
+
+				<listBibl>
+
+<biblStruct xml:id="b0">
+	<analytic>
+		<title level="a" type="main">Alias Annotations for Program Understanding</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Aldrich</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">V</forename><surname>Kostadinov</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Chambers</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. OOPSLA</title>
+		<meeting>OOPSLA</meeting>
+		<imprint>
+			<date type="published" when="2002" />
+			<biblScope unit="page" from="311" to="330" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b1">
+	<analytic>
+		<title level="a" type="main">RPython: a step towards reconciling dynamically and statically typed OO languages</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Ancona</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Ancona</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Cuni</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">N</forename><forename type="middle">D</forename><surname>Matsakis</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. DLS</title>
+		<meeting>DLS</meeting>
+		<imprint>
+			<publisher>ACM Press</publisher>
+			<date type="published" when="2007" />
+			<biblScope unit="page" from="53" to="64" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b2">
+	<analytic>
+		<title level="a" type="main">Towards type inference for javascript</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Anderson</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>Giannini</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Drossopoulou</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. ECOOP</title>
+		<meeting>ECOOP</meeting>
+		<imprint>
+			<publisher>Springer-Verlag</publisher>
+			<date type="published" when="2005" />
+			<biblScope unit="volume">3586</biblScope>
+			<biblScope unit="page" from="428" to="452" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b3">
+	<analytic>
+		<title level="a" type="main">A framework for implementing pluggable type systems</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Andreae</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Noble</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Markstrum</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">T</forename><surname>Millstein</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. OOPSLA</title>
+		<meeting>OOPSLA</meeting>
+		<imprint>
+			<publisher>ACM Press</publisher>
+			<date type="published" when="2006" />
+			<biblScope unit="page" from="57" to="74" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b4">
+	<analytic>
+		<title level="a" type="main">Intersection and union types</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">F</forename><surname>Barbanera</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Dezani-Ciancaglini</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of TACS</title>
+		<meeting>of TACS</meeting>
+		<imprint>
+			<date type="published" when="1991" />
+			<biblScope unit="volume">526</biblScope>
+			<biblScope unit="page" from="651" to="674" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b5">
+	<analytic>
+		<title level="a" type="main">Lost in translation: formalizing proposed extensions to C#</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">G</forename><surname>Bierman</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">E</forename><surname>Meijer</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Torgersen</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. OOPSLA</title>
+		<meeting>OOPSLA</meeting>
+		<imprint>
+			<date type="published" when="2007" />
+			<biblScope unit="page" from="479" to="498" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b6">
+	<analytic>
+		<title level="a" type="main">Thorn: robust, concurrent, extensible scripting on the JVM</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">B</forename><surname>Bloom</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Field</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">N</forename><surname>Nystrom</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Ostlund</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">G</forename><surname>Richards</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Strnisa</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Vitek</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">T</forename><surname>Wrigstad</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. OOPSLA</title>
+		<meeting>OOPSLA</meeting>
+		<imprint>
+			<date type="published" when="2009" />
+			<biblScope unit="page" from="117" to="136" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b7">
+	<analytic>
+		<title level="a" type="main">Efficient hybrid typestate analysis by determining continuation-equivalent states</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">E</forename><surname>Bodden</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. ICSE</title>
+		<meeting>ICSE</meeting>
+		<imprint>
+			<date type="published" when="2010" />
+			<biblScope unit="page" from="5" to="14" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b8">
+	<analytic>
+		<title level="a" type="main">Finding programming errors earlier by evaluating runtime monitors ahead-of-time</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">E</forename><surname>Bodden</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>Lam</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">L</forename><forename type="middle">J</forename><surname>Hendren</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. ESEC/FSE</title>
+		<meeting>ESEC/FSE</meeting>
+		<imprint>
+			<publisher>ACM Press</publisher>
+			<date type="published" when="2008" />
+			<biblScope unit="page" from="36" to="47" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b9">
+	<analytic>
+		<title level="a" type="main">Structural subtyping and the notion of power type</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">L</forename><surname>Cardelli</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. POPL</title>
+		<meeting>POPL</meeting>
+		<imprint>
+			<publisher>ACM Press</publisher>
+			<date type="published" when="1988" />
+			<biblScope unit="page" from="70" to="79" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b10">
+	<analytic>
+		<title level="a" type="main">Soft typing</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Cartwright</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Fagan</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. PLDI</title>
+		<meeting>PLDI</meeting>
+		<imprint>
+			<publisher>ACM Press</publisher>
+			<date type="published" when="1991" />
+			<biblScope unit="page" from="278" to="292" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b11">
+	<analytic>
+		<title level="a" type="main">Semantic type qualifiers</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">B</forename><surname>Chin</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Markstrum</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">T</forename><surname>Millstein</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. PLDI</title>
+		<meeting>PLDI</meeting>
+		<imprint>
+			<publisher>ACM Press</publisher>
+			<date type="published" when="2005" />
+			<biblScope unit="page" from="85" to="95" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b12">
+	<analytic>
+		<title level="a" type="main">Inference of user-defined type qualifiers and qualifier rules</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">B</forename><surname>Chin</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Markstrum</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">T</forename><surname>Millstein</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Palsberg</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. ESOP</title>
+		<meeting>ESOP</meeting>
+		<imprint>
+			<date type="published" when="2006" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b13">
+	<analytic>
+		<title level="a" type="main">Efficient flow-sensitive interprocedural computation of pointerinduced aliases and side effects</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J.-D</forename><surname>Choi</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Burke</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>Carini</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. POPL</title>
+		<meeting>POPL</meeting>
+		<imprint>
+			<publisher>ACM Press</publisher>
+			<date type="published" when="1993" />
+			<biblScope unit="page" from="232" to="245" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b14">
+	<analytic>
+		<title level="a" type="main">Staged information flow for javascript</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Chugh</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><forename type="middle">A</forename><surname>Meister</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Jhala</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Lerner</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. PLDI</title>
+		<meeting>PLDI</meeting>
+		<imprint>
+			<date type="published" when="2009" />
+			<biblScope unit="page" from="50" to="62" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b15">
+	<analytic>
+		<title level="a" type="main">Compiling structural types on the JVM</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">G</forename><surname>Dubochet</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Odersky</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">ECOOP 2009 Workshop on Implementation, Compilation, Optimization of Object-Oriented Languages, Programs and Systems (ICLOOPS)</title>
+		<imprint>
+			<date type="published" when="2009" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b16">
+	<analytic>
+		<title level="a" type="main">Pluggable checking and inferencing of non-null types for</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">T</forename><surname>Ekman</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">G</forename><surname>Hedin</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Java. JOT</title>
+		<imprint>
+			<biblScope unit="volume">6</biblScope>
+			<biblScope unit="issue">9</biblScope>
+			<biblScope unit="page" from="455" to="475" />
+			<date type="published" when="2007" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b17">
+	<analytic>
+		<title level="a" type="main">Declaring and checking non-null types in an object-oriented language</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Fähndrich</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">K</forename><forename type="middle">R M</forename><surname>Leino</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. OOPSLA</title>
+		<meeting>OOPSLA</meeting>
+		<imprint>
+			<publisher>ACM Press</publisher>
+			<date type="published" when="2003" />
+			<biblScope unit="page" from="302" to="312" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b18">
+	<monogr>
+		<title level="m" type="main">Effective typestate verification in the presence of aliasing</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Fink</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">E</forename><surname>Yahav</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">N</forename><surname>Dor</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">G</forename><surname>Ramalingam</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">E</forename><surname>Geay</surname></persName>
+		</author>
+		<imprint>
+			<date type="published" when="2008" />
+			<publisher>ACM TOSEM</publisher>
+			<biblScope unit="volume">17</biblScope>
+			<biblScope unit="page" from="1" to="9" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b19">
+	<analytic>
+		<title level="a" type="main">Hybrid type checking</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Flanagan</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. POPL</title>
+		<meeting>POPL</meeting>
+		<imprint>
+			<publisher>ACM Press</publisher>
+			<date type="published" when="2006" />
+			<biblScope unit="page" from="245" to="256" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b20">
+	<analytic>
+		<title level="a" type="main">A theory of type qualifiers</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><forename type="middle">S</forename><surname>Foster</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Fähndrich</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Aiken</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. PLDI</title>
+		<meeting>PLDI</meeting>
+		<imprint>
+			<publisher>ACM Press</publisher>
+			<date type="published" when="1999" />
+			<biblScope unit="page" from="192" to="203" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b21">
+	<analytic>
+		<title level="a" type="main">Flow-sensitive type qualifiers</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><forename type="middle">S</forename><surname>Foster</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">T</forename><surname>Terauchi</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Aiken</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. PLDI</title>
+		<meeting>PLDI</meeting>
+		<imprint>
+			<publisher>ACM Press</publisher>
+			<date type="published" when="2002" />
+			<biblScope unit="page" from="1" to="12" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b22">
+	<analytic>
+		<title level="a" type="main">Static type inference for Ruby</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Furr</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J.-H</forename><surname>An</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Foster</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Hicks</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. SAC</title>
+		<meeting>SAC</meeting>
+		<imprint>
+			<publisher>ACM Press</publisher>
+			<date type="published" when="2009" />
+			<biblScope unit="page" from="1859" to="1866" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b23">
+	<analytic>
+		<title level="a" type="main">Efficient inference of static types for java bytecode</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">E</forename><surname>Gagnon</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">L</forename><surname>Hendren</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">G</forename><surname>Marceau</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. SAS</title>
+		<meeting>SAS</meeting>
+		<imprint>
+			<date type="published" when="2000" />
+			<biblScope unit="page" from="199" to="219" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b24">
+	<analytic>
+		<title level="a" type="main">A specification of java loading and bytecode verification</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Goldberg</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. CCS</title>
+		<meeting>CCS</meeting>
+		<imprint>
+			<date type="published" when="1998" />
+			<biblScope unit="page" from="49" to="58" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b25">
+	<monogr>
+		<title level="m" type="main">The Java Language Specification</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Gosling</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">G</forename><forename type="middle">S B</forename><surname>Joy</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">G</forename><surname>Bracha</surname></persName>
+		</author>
+		<imprint>
+			<date type="published" when="2005" />
+			<publisher>Prentice Hall</publisher>
+		</imprint>
+	</monogr>
+	<note>3rd Edition</note>
+</biblStruct>
+
+<biblStruct xml:id="b26">
+	<analytic>
+		<title level="a" type="main">Type qualifier inference for java</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Greenfieldboyce</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><forename type="middle">S</forename><surname>Foster</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. OOPSLA</title>
+		<meeting>OOPSLA</meeting>
+		<imprint>
+			<publisher>ACM Press</publisher>
+			<date type="published" when="2007" />
+			<biblScope unit="page" from="321" to="336" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b27">
+	<monogr>
+		<title level="m" type="main">Programming Clojure. Pragmatic Programmers</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Halloway</surname></persName>
+		</author>
+		<imprint>
+			<date type="published" when="2009" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b28">
+	<monogr>
+		<title level="m" type="main">Null references: The billion dollar mistake, presentation at qcon</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">T</forename><surname>Hoare</surname></persName>
+		</author>
+		<imprint>
+			<date type="published" when="2009" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b29">
+	<analytic>
+		<title level="a" type="main">On flow-sensitive security types</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Hunt</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Sands</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. POPL</title>
+		<meeting>POPL</meeting>
+		<imprint>
+			<publisher>ACM Press</publisher>
+			<date type="published" when="2006" />
+			<biblScope unit="page" from="79" to="90" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b30">
+	<analytic>
+		<title level="a" type="main">Union types for object-oriented programming</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Igarashi</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">H</forename><surname>Nagira</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">JOT</title>
+		<imprint>
+			<biblScope unit="volume">6</biblScope>
+			<biblScope unit="issue">2</biblScope>
+			<date type="published" when="2007" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b31">
+	<analytic>
+		<title level="a" type="main">Java bytecode verification: algorithms and formalizations</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">X</forename><surname>Leroy</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Journal of Automated Reasoning</title>
+		<imprint>
+			<biblScope unit="volume">30</biblScope>
+			<biblScope unit="issue">3/4</biblScope>
+			<biblScope unit="page" from="235" to="269" />
+			<date type="published" when="2003" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b32">
+	<monogr>
+		<title level="m" type="main">The Java Virtual Machine Specification</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">T</forename><surname>Lindholm</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">F</forename><surname>Yellin</surname></persName>
+		</author>
+		<imprint>
+			<date type="published" when="1999" />
+			<publisher>Addison Wesley</publisher>
+		</imprint>
+	</monogr>
+	<note>second edition</note>
+</biblStruct>
+
+<biblStruct xml:id="b33">
+	<analytic>
+		<title level="a" type="main">In praise of scripting: Real programming pragmatism</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><forename type="middle">P</forename><surname>Loui</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">IEEE Computer</title>
+		<imprint>
+			<biblScope unit="volume">41</biblScope>
+			<biblScope unit="issue">7</biblScope>
+			<biblScope unit="page" from="22" to="26" />
+			<date type="published" when="2008" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b34">
+	<analytic>
+		<title level="a" type="main">Java bytecode verification for @NonNull types</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Male</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><forename type="middle">J</forename><surname>Pearce</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Potanin</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Dymnikov</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. CC</title>
+		<meeting>CC</meeting>
+		<imprint>
+			<date type="published" when="2008" />
+			<biblScope unit="page" from="229" to="244" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b35">
+	<analytic>
+		<title level="a" type="main">JFlow: Practical mostly-static information flow control</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><forename type="middle">C</forename><surname>Myers</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. POPL</title>
+		<meeting>POPL</meeting>
+		<imprint>
+			<date type="published" when="1999" />
+			<biblScope unit="page" from="228" to="241" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b36">
+	<analytic>
+		<title level="a" type="main">Scripting: Higher-level programming for the 21st century</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><forename type="middle">K</forename><surname>Ousterhout</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">IEEE Computer</title>
+		<imprint>
+			<biblScope unit="volume">31</biblScope>
+			<biblScope unit="issue">3</biblScope>
+			<biblScope unit="page" from="23" to="30" />
+			<date type="published" when="1998" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b37">
+	<analytic>
+		<title level="a" type="main">Developers shift to dynamic programming languages</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">L</forename><forename type="middle">D</forename><surname>Paulson</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">IEEE Computer</title>
+		<imprint>
+			<biblScope unit="volume">40</biblScope>
+			<biblScope unit="issue">2</biblScope>
+			<biblScope unit="page" from="12" to="15" />
+			<date type="published" when="2007" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b38">
+	<monogr>
+		<title level="m" type="main">Flow-sensitive types for whiley</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><forename type="middle">J</forename><surname>Pearce</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Noble</surname></persName>
+		</author>
+		<idno>ECSTR10-23</idno>
+		<imprint>
+			<date type="published" when="2010" />
+		</imprint>
+		<respStmt>
+			<orgName>Victoria University of Wellington</orgName>
+		</respStmt>
+	</monogr>
+<note type="report_type">Technical Report</note>
+</biblStruct>
+
+<biblStruct xml:id="b39">
+	<monogr>
+		<title level="m" type="main">Types and Programming Languages</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">B</forename><forename type="middle">C</forename><surname>Pierce</surname></persName>
+		</author>
+		<imprint>
+			<date type="published" when="2002" />
+			<publisher>MIT Press</publisher>
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b40">
+	<analytic>
+		<title level="a" type="main">A framework for optimizing Java using attributes</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>Pominville</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">F</forename><surname>Qian</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Vallée-Rai</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">L</forename><surname>Hendren</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Verbrugge</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. CC</title>
+		<meeting>CC</meeting>
+		<imprint>
+			<date type="published" when="2001" />
+			<biblScope unit="page" from="334" to="554" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b41">
+	<analytic>
+		<title level="a" type="main">Proving the soundness of a java bytecode verifier specification in isabelle/hol</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Pusch</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. TACAS</title>
+		<meeting>TACAS</meeting>
+		<imprint>
+			<date type="published" when="1999" />
+			<biblScope unit="page" from="89" to="103" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b42">
+	<monogr>
+		<title level="m" type="main">Objective ML: An effective object-oriented extension to ML. Theory and Practice of Object Systems</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Remy</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Vouillon</surname></persName>
+		</author>
+		<imprint>
+			<date type="published" when="1998" />
+			<biblScope unit="volume">4</biblScope>
+			<biblScope unit="page" from="27" to="50" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b43">
+	<analytic>
+		<title level="a" type="main">Dynamic vs. static flow-sensitive security analysis</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Russo</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Sabelfeld</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. CSF</title>
+		<meeting>CSF</meeting>
+		<imprint>
+			<date type="published" when="2010" />
+			<biblScope unit="page" from="186" to="199" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b44">
+	<monogr>
+		<title level="m" type="main">The scala programming language</title>
+		<ptr target="http://lamp.epfl.ch/scala/" />
+		<imprint/>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b45">
+	<analytic>
+		<title level="a" type="main">Gradual typing for objects</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Siek</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">W</forename><surname>Taha</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. ECOOP</title>
+		<meeting>ECOOP</meeting>
+		<imprint>
+			<publisher>Springer-Verlag</publisher>
+			<date type="published" when="2007" />
+			<biblScope unit="volume">4609</biblScope>
+			<biblScope unit="page" from="151" to="175" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b46">
+	<analytic>
+		<title level="a" type="main">Java makes scripting languages irrelevant?</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Spinellis</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">IEEE Software</title>
+		<imprint>
+			<biblScope unit="volume">22</biblScope>
+			<biblScope unit="issue">3</biblScope>
+			<biblScope unit="page" from="70" to="71" />
+			<date type="published" when="2005" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b47">
+	<analytic>
+		<title level="a" type="main">Typestate: A programming language concept for enhancing software reliability</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Strom</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Yemini</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">IEEE TSE</title>
+		<imprint>
+			<biblScope unit="volume">12</biblScope>
+			<biblScope unit="issue">1</biblScope>
+			<biblScope unit="page" from="157" to="171" />
+			<date type="published" when="1986" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b48">
+	<analytic>
+		<title level="a" type="main">Extending typestate checking using conditional liveness analysis</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><forename type="middle">E</forename><surname>Strom</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><forename type="middle">M</forename><surname>Yellin</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">IEEE TSE</title>
+		<imprint>
+			<biblScope unit="volume">19</biblScope>
+			<biblScope unit="issue">5</biblScope>
+			<biblScope unit="page" from="478" to="485" />
+			<date type="published" when="1993" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b49">
+	<analytic>
+		<title level="a" type="main">Integrating typed and untyped code in a scripting language</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">T</forename><surname>Wrigstad</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">F</forename><forename type="middle">Z</forename><surname>Nardelli</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Lebresne</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Ostlund</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Vitek</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. POPL</title>
+		<meeting>POPL</meeting>
+		<imprint>
+			<publisher>ACM Press</publisher>
+			<date type="published" when="2010" />
+			<biblScope unit="page" from="377" to="388" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+				</listBibl>
+			</div>
+		</back>
+	</text>
+</TEI>

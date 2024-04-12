@@ -1,0 +1,401 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>iSCSI SANs Dont Have To Suck</p>
+    <p>Derek J. Balling Data Center Manager derekb@answers.com</p>
+  </div>
+  <div class="page">
+    <p>What is iSCSI?</p>
+    <p>iSCSI is a network-based block-level disk protocol  Essentially SCSI commands stuffed into the payload</p>
+    <p>of TCP packets</p>
+  </div>
+  <div class="page">
+    <p>When Can iSCSI Typically Suck?</p>
+    <p>iSCSI is extremely vulnerable to latency and even super-short (millisecond) interruptions, just as conventional SCSI disks might be problematic if the cable between the controller and disks didnt have 100% reliability</p>
+    <p>Ethernet networks often have bursts of poor performance (latency) and interruptions</p>
+    <p>Principally, network issues are the main cause of iSCSI pain and suffering</p>
+  </div>
+  <div class="page">
+    <p>How To Make iSCSI Not Suck</p>
+    <p>Need to build a network infrastructure with nearzero outage or packet-loss.</p>
+    <p>Great for iSCSI SANs, but the same principles apply for any normal data LAN.</p>
+    <p>Really could have called this talk How To Build A Really Robust Ethernet Network, but it just doesnt capture the level of effect this has on iSCSI</p>
+    <p>This is all stuff you already know, but may not have actually put it all together</p>
+  </div>
+  <div class="page">
+    <p>Our Server Design Principles</p>
+    <p>Every machine has four NICs, two data-network and, if it needs access to the SAN, two for the SAN</p>
+    <p>Each network has A and B sides for redundancy</p>
+    <p>A and B side NICs are in a bonded-pair using active/passive failover</p>
+  </div>
+  <div class="page">
+    <p>The Initial Design</p>
+    <p>CAB SWITCH A</p>
+    <p>CAB SWITCH B</p>
+    <p>Blade Svr</p>
+    <p>BLADE SWITCH 1 (A)</p>
+    <p>BLADE SWITCH 2 (B)</p>
+    <p>BLADE SWITCH 4 (B)</p>
+    <p>BLADE SWITCH 3 (A)CORE A</p>
+    <p>CORE B</p>
+    <p>SAN</p>
+    <p>Trunk LAN SAN STP Down</p>
+  </div>
+  <div class="page">
+    <p>The Initial Network Design</p>
+    <p>Common Core switching gear between datanetwork and SAN</p>
+    <p>Multiple VLANs, mostly on the data-network side, but one VLAN for the SAN traffic</p>
+    <p>Dual Cabinet Switches / Quad Blade Switches</p>
+  </div>
+  <div class="page">
+    <p>Some Things To Note</p>
+    <p>Each NIC in a Blade maps to an individual switch in the enclosure, so there are two A side switches and two B side switches. The only difference is which port VLANs are mapped to (data-network or SAN)</p>
+    <p>The SAN appliances are directly connected to the Core switches</p>
+    <p>The links connecting Cab-A/Cab-B, BladeSW1/ BladeSW2, and BladeSW3/BladeSW4 are inactive via Spanning Tree</p>
+  </div>
+  <div class="page">
+    <p>What is Spanning Tree Protocol?</p>
+    <p>At the macro level, its a protocol that switches use to communicate with each other to ensure that there are no loops in the switching fabric</p>
+    <p>Where a loop exists, it figures out which links to disable to make the loop go away</p>
+    <p>Can be configured to prioritize certain links over other links</p>
+    <p>Internally we refer to it as controlling the links which cross the A/B divide since thats what causes the actual loop.</p>
+  </div>
+  <div class="page">
+    <p>Benefits of This Architecture</p>
+    <p>Every device has multiple, redundant paths to everything it needs</p>
+    <p>Spanning-Tree Protocol ensures that lowpriority (failover) links stay down until they are needed</p>
+  </div>
+  <div class="page">
+    <p>Problems We Noticed</p>
+    <p>Only one really.  Spanning Tree Protocol</p>
+  </div>
+  <div class="page">
+    <p>The Problem: Spanning Tree Events</p>
+    <p>Every time a switch is connected, and most times a switch is removed, every switch on the fabric does a quick re-evaluation of what the network looks like</p>
+    <p>Generally speaking they dont pass packets while theyre doing this, other than their own STP packets</p>
+    <p>iSCSI is moderately unsuccessful at staying up while the switches refuse to send its packets</p>
+  </div>
+  <div class="page">
+    <p>Low Hanging Fruit</p>
+    <p>Biggest cause of STP for us was new blade chassis being installed during roll-out</p>
+    <p>For Blade Switches, disabling Spanning Tree Protocol and enabling instead Uplink Failure Detection</p>
+    <p>Instead of having the A side switch hand traffic over to the B side switch to get up to the cores, let the servers just immediately notice the outage and direct traffic directly to the B side network equipment</p>
+  </div>
+  <div class="page">
+    <p>Uplink Failure Detection</p>
+    <p>Feature of the Blade Networks blade switches. Juniper and Cisco appear to also support it on some of their product line.</p>
+    <p>Switch has two categories of ports, Link To Monitor (LTM) and Link To Disable (LTD)</p>
+    <p>If the Link on the LTM ports (or a LACP group) goes dark, it immediately disables all ports in the LTD group</p>
+    <p>Put the core-uplink port-channel in the LTM group, the blades in the LTD group</p>
+  </div>
+  <div class="page">
+    <p>Before Uplink Failure Detection</p>
+    <p>CAB SWITCH A</p>
+    <p>CAB SWITCH B</p>
+    <p>Blade Svr</p>
+    <p>BLADE SWITCH 1 (A)</p>
+    <p>BLADE SWITCH 2 (B)</p>
+    <p>BLADE SWITCH 4 (B)</p>
+    <p>BLADE SWITCH 3 (A)CORE A</p>
+    <p>CORE B</p>
+    <p>SAN</p>
+    <p>Trunk LAN SAN STP Down</p>
+  </div>
+  <div class="page">
+    <p>After Uplink Failure Detection</p>
+    <p>CAB SWITCH A</p>
+    <p>CAB SWITCH B</p>
+    <p>Blade Svr</p>
+    <p>BLADE SWITCH 1 (A)</p>
+    <p>BLADE SWITCH 2 (B)</p>
+    <p>BLADE SWITCH 4 (B)</p>
+    <p>BLADE SWITCH 3 (A)CORE A</p>
+    <p>CORE B</p>
+    <p>SAN</p>
+    <p>Trunk LAN SAN STP Down</p>
+  </div>
+  <div class="page">
+    <p>After Uplink Failure Detection</p>
+    <p>Lots of STP events went away, since the Blade Switches no longer participated in the STP negotiation</p>
+    <p>Connecting new blade chassis to the network didnt trigger an STP event, meaning iSCSI didnt see as many problems</p>
+    <p>Still not 100% success - we still need to install cabinet switches from time to time, and they dont have Uplink Failure Detection, and any network maintenance is extremely problematic</p>
+  </div>
+  <div class="page">
+    <p>The Ultimate Decision</p>
+    <p>We want/need spanning tree on our data LAN so that our servers in standard pizza-box cabinets can have redundant upstream links, without all needing to be consuming expensive core switchports</p>
+    <p>We dont want it on the SAN, at all  Were almost never using our 2U servers as SAN</p>
+    <p>consumers</p>
+    <p>Build out a new, flat, network, for the SAN. For the few 2Us that need to connect to it, well jack them into the new SAN Cores</p>
+  </div>
+  <div class="page">
+    <p>The Plan to Eliminate STP</p>
+    <p>The dreaded phrase, Flat Network  Done right, and within certain scales, it can work</p>
+    <p>just fine</p>
+    <p>Lots of network folks will tell you, its bad, its wrong, etc., but it seems to have been the right solution for us</p>
+  </div>
+  <div class="page">
+    <p>What It Will Look Like</p>
+    <p>Small number of 2U Consumers directly connected to the A and B side SAN Core switches</p>
+    <p>A and B side SAN Core switches interconnected</p>
+    <p>A and B side SAN Blade switches connected only to their consumer blades and to their respective core</p>
+    <p>Only one A/B Bridge - No loops, no STP needed</p>
+  </div>
+  <div class="page">
+    <p>How Do We Get There?</p>
+    <p>This is where it gets a little tricky to visualize  We can disable and isolate any given piece of</p>
+    <p>hardware in our network environment safely</p>
+    <p>Once a piece of hardware has been isolated, we can swap it out for new hardware</p>
+    <p>Swap here can also simply mean move the cables to some other similarly isolated new piece of hardware</p>
+  </div>
+  <div class="page">
+    <p>Step By Step Walk-Through</p>
+    <p>CAB SWITCH A</p>
+    <p>CAB SWITCH B</p>
+    <p>Blade Svr</p>
+    <p>BLADE SWITCH 1 (A)</p>
+    <p>BLADE SWITCH 2 (B)</p>
+    <p>BLADE SWITCH 4 (B)</p>
+    <p>BLADE SWITCH 3 (A)CORE A</p>
+    <p>CORE B</p>
+    <p>SAN</p>
+    <p>Trunk LAN SAN STP Down</p>
+  </div>
+  <div class="page">
+    <p>Disable All SAN B Sides and Disconnect</p>
+    <p>CAB SWITCH A</p>
+    <p>CAB SWITCH B</p>
+    <p>Blade Svr</p>
+    <p>BLADE SWITCH 1 (A)</p>
+    <p>BLADE SWITCH 2 (B)</p>
+    <p>BLADE SWITCH 4 (B)</p>
+    <p>BLADE SWITCH 3 (A)CORE A</p>
+    <p>CORE B</p>
+    <p>SAN</p>
+    <p>Trunk LAN SAN STP Down</p>
+  </div>
+  <div class="page">
+    <p>Install New B Side SANCore Switch</p>
+    <p>CAB SWITCH A</p>
+    <p>CAB SWITCH B</p>
+    <p>Blade Svr</p>
+    <p>BLADE SWITCH 1 (A)</p>
+    <p>BLADE SWITCH 2 (B)</p>
+    <p>BLADE SWITCH 4 (B)</p>
+    <p>BLADE SWITCH 3 (A)CORE A</p>
+    <p>CORE B</p>
+    <p>SAN</p>
+    <p>Trunk LAN SAN STP Down</p>
+    <p>SanCore B</p>
+  </div>
+  <div class="page">
+    <p>Connect Temp Cable From A Core to B SanCore</p>
+    <p>CAB SWITCH A</p>
+    <p>CAB SWITCH B</p>
+    <p>Blade Svr</p>
+    <p>BLADE SWITCH 1 (A)</p>
+    <p>BLADE SWITCH 2 (B)</p>
+    <p>BLADE SWITCH 4 (B)</p>
+    <p>BLADE SWITCH 3 (A)CORE A</p>
+    <p>CORE B</p>
+    <p>SAN</p>
+    <p>Trunk LAN SAN STP Down</p>
+    <p>SanCore B</p>
+  </div>
+  <div class="page">
+    <p>Connect B Side SAN Equipment to SanCore B</p>
+    <p>CAB SWITCH A</p>
+    <p>CAB SWITCH B</p>
+    <p>Blade Svr</p>
+    <p>BLADE SWITCH 1 (A)</p>
+    <p>BLADE SWITCH 2 (B)</p>
+    <p>BLADE SWITCH 4 (B)</p>
+    <p>BLADE SWITCH 3 (A)CORE A</p>
+    <p>CORE B</p>
+    <p>SAN</p>
+    <p>Trunk LAN SAN STP Down</p>
+    <p>SanCore B</p>
+  </div>
+  <div class="page">
+    <p>Step-By-Step Example</p>
+    <p>Disable all the B side SAN links on the 2U and blade consumers, as well as the SAN modules themselves</p>
+    <p>Install the new B side SANCore Switch near the existing B side Core switch</p>
+    <p>KEY! Connect a temporary cable from the A side Core to the B side SANCore</p>
+    <p>Move all the B side SAN cables from the B side Core to the B side SANCore.</p>
+  </div>
+  <div class="page">
+    <p>Why The Temporary Cable?</p>
+    <p>Youre working in a load-balanced/NIC-teaming environment</p>
+    <p>Packets might originate on the A side for MAC addresses that are presenting themselves on the B side hardware</p>
+    <p>You definitely dont want any piece of hardware to have its A and B side NICs on networks that cant see each other, especially when your systems all expect that they can do so.</p>
+  </div>
+  <div class="page">
+    <p>What Youve Got Right Now</p>
+    <p>Right now youve got this hybrid FrankenNetwork, with B side NICs connected to their own independent network</p>
+    <p>Light up all the B side NICs, ports, etc. Run for a little while on this hybrid network and let things settle down</p>
+    <p>But, that temporary cable is your lifeblood right now, because you dont want to separate live A and B networks ever. Badness and pain will ensue</p>
+    <p>Lather, rinse, repeat 29Thursday, November 11, 2010</p>
+  </div>
+  <div class="page">
+    <p>Lather, Rinse, Repeat</p>
+    <p>CAB SWITCH A</p>
+    <p>CAB SWITCH B</p>
+    <p>Blade Svr</p>
+    <p>BLADE SWITCH 1 (A)</p>
+    <p>BLADE SWITCH 2 (B)</p>
+    <p>BLADE SWITCH 4 (B)</p>
+    <p>BLADE SWITCH 3 (A)CORE A</p>
+    <p>CORE B</p>
+    <p>SAN</p>
+    <p>Trunk LAN SAN STP Down</p>
+    <p>SanCore B</p>
+  </div>
+  <div class="page">
+    <p>Disable and Disconnect A Side SAN Ports</p>
+    <p>CAB SWITCH A</p>
+    <p>CAB SWITCH B</p>
+    <p>Blade Svr</p>
+    <p>BLADE SWITCH 1 (A)</p>
+    <p>BLADE SWITCH 2 (B)</p>
+    <p>BLADE SWITCH 4 (B)</p>
+    <p>BLADE SWITCH 3 (A)CORE A</p>
+    <p>CORE B</p>
+    <p>SAN</p>
+    <p>Trunk LAN SAN STP Down</p>
+    <p>SanCore B</p>
+  </div>
+  <div class="page">
+    <p>Install New SanCore A Switch</p>
+    <p>CAB SWITCH A</p>
+    <p>CAB SWITCH B</p>
+    <p>Blade Svr</p>
+    <p>BLADE SWITCH 1 (A)</p>
+    <p>BLADE SWITCH 2 (B)</p>
+    <p>BLADE SWITCH 4 (B)</p>
+    <p>BLADE SWITCH 3 (A)CORE A</p>
+    <p>CORE B</p>
+    <p>SAN</p>
+    <p>Trunk LAN SAN STP Down</p>
+    <p>SanCore B</p>
+    <p>SanCore A</p>
+  </div>
+  <div class="page">
+    <p>Connect All A Side Cables To The New SanCore A</p>
+    <p>CAB SWITCH A</p>
+    <p>CAB SWITCH B</p>
+    <p>Blade Svr</p>
+    <p>BLADE SWITCH 1 (A)</p>
+    <p>BLADE SWITCH 2 (B)</p>
+    <p>BLADE SWITCH 4 (B)</p>
+    <p>BLADE SWITCH 3 (A)CORE A</p>
+    <p>CORE B</p>
+    <p>SAN</p>
+    <p>Trunk LAN SAN STP Down</p>
+    <p>SanCore B</p>
+    <p>SanCore A</p>
+  </div>
+  <div class="page">
+    <p>Remove The Temporary Cable</p>
+    <p>CAB SWITCH A</p>
+    <p>CAB SWITCH B</p>
+    <p>Blade Svr</p>
+    <p>BLADE SWITCH 1 (A)</p>
+    <p>BLADE SWITCH 2 (B)</p>
+    <p>BLADE SWITCH 4 (B)</p>
+    <p>BLADE SWITCH 3 (A)CORE A</p>
+    <p>CORE B</p>
+    <p>SAN</p>
+    <p>Trunk LAN SAN STP Down</p>
+    <p>SanCore B</p>
+    <p>SanCore A</p>
+  </div>
+  <div class="page">
+    <p>Lather, Rinse, Repeat</p>
+    <p>Disable all the A side SAN ports on blades, 2Us, and SAN modules</p>
+    <p>Everything should seamlessly switch to using the B side infrastructure</p>
+    <p>Once the A side ports have isolated themselves from the Core switch, install the new A side SAN Core, and move all their cables to the new switch</p>
+  </div>
+  <div class="page">
+    <p>Lather, Rinse, Repeat (part 2)</p>
+    <p>You should remove that temporary cable  (Theres nothing SAN related on the legacy</p>
+    <p>network, its time to cut the cord)</p>
+    <p>Light up the A side SAN NICs on all the consumers</p>
+    <p>Lo and behold, you just ripped the core networks out of your SAN and (likely) your iSCSI clients didnt even notice</p>
+  </div>
+  <div class="page">
+    <p>Your Entire Network After The Change</p>
+    <p>CAB SWITCH A</p>
+    <p>CAB SWITCH B</p>
+    <p>Blade Svr</p>
+    <p>BLADE SWITCH 1 (A)</p>
+    <p>BLADE SWITCH 2 (B)</p>
+    <p>BLADE SWITCH 4 (B)</p>
+    <p>BLADE SWITCH 3 (A)CORE A</p>
+    <p>CORE B</p>
+    <p>SAN</p>
+    <p>Trunk LAN SAN STP Down</p>
+    <p>SanCore B</p>
+    <p>SanCore A</p>
+  </div>
+  <div class="page">
+    <p>Just The SAN-Related Components</p>
+    <p>BLADE SWITCH 4 (B)</p>
+    <p>BLADE SWITCH 3 (A)</p>
+    <p>SAN</p>
+    <p>Trunk LAN SAN STP Down</p>
+    <p>SanCore B</p>
+    <p>SanCore A</p>
+  </div>
+  <div class="page">
+    <p>Just The LAN-Related Components</p>
+    <p>CAB SWITCH A</p>
+    <p>CAB SWITCH B</p>
+    <p>Blade Svr</p>
+    <p>BLADE SWITCH 1 (A)</p>
+    <p>BLADE SWITCH 2 (B)</p>
+    <p>CORE A</p>
+    <p>CORE B</p>
+    <p>Trunk LAN SAN STP Down</p>
+  </div>
+  <div class="page">
+    <p>Caution: Results May Prove Addictive</p>
+    <p>Once you realize you can swap out your core switches without missing a beat, youll be tempted to do it from time to time</p>
+    <p>Done this procedure now four other times since then - replaced the core switches twice, replaced the SAN Core switches twice</p>
+    <p>Only dropped the ball once</p>
+  </div>
+  <div class="page">
+    <p>Dropping The Ball</p>
+    <p>How do we NOT drop the ball?  Plan, plan and plan again  Have some friends of yours read the plan  Sleep a bit  Plan some more</p>
+  </div>
+  <div class="page">
+    <p>The Power of the Whiteboard</p>
+    <p>Draw your network diagram on the whiteboard, including every link to every switch (representative samples are fine, obviously)</p>
+    <p>For each step in your process, erase/draw lines to represent your changes</p>
+    <p>Then, for each step, for every device, ask yourself what path does this device now use to get from A to B?</p>
+    <p>Be cognizant of events you may trigger</p>
+  </div>
+  <div class="page">
+    <p>Follow That Procedure</p>
+    <p>After spending hours working on this procedure, youll start to have dreams (nightmares) about it</p>
+    <p>Youll think you know it inside and out  You dont.  When Change Day comes, follow the procedure</p>
+    <p>exactly as you have written it down already!</p>
+    <p>You will forget some important reason for the order of operations, and you will be very unhappy.</p>
+  </div>
+  <div class="page">
+    <p>Conclusions</p>
+    <p>Again, none of this is rocket-science. Its everything you probably had ever read about redundant networking</p>
+    <p>Network administrators, really, have known about how to do this sort of thing forever, but as sysadmins, we dont mess about with it that often ourselves</p>
+  </div>
+  <div class="page">
+    <p>Conclusions (part 2)</p>
+    <p>iSCSI isnt a broadcast laden protocol. Even a largish flat network, used only for iSCSI, probably isnt a big problem for a lot of sites</p>
+    <p>Meticulously craft your procedure, and follow it like you might a religious text. If you say to yourself oh, I can merge steps 17 and 19, and do 18 after, its likely that youre wrong.</p>
+    <p>Find your optimizations of process on the whiteboard, not on the fly.</p>
+  </div>
+  <div class="page">
+    <p>Questions?</p>
+  </div>
+  <div class="page">
+    <p>Thanks!</p>
+    <p>e-mail: derekb@answers.com or dredd@megacity.org  slides: http://www.megacity.org/slides/</p>
+  </div>
+</Presentation>

@@ -1,0 +1,157 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>Automatic Generation of Compact Printable Shellcodes For x86 WOOT 20</p>
+    <p>Dhrumil Patel Aditya Basu Anish Mathuria</p>
+    <p>August 11, 2020</p>
+  </div>
+  <div class="page">
+    <p>Outline</p>
+    <p>Introduction Currently used Algorithms Motivation Printable Shellcode Compiler (psc) Results Conclusion</p>
+  </div>
+  <div class="page">
+    <p>Printable Shellcodes</p>
+    <p>Defensive filters strip all the printable characters from input. This ruins most injection attacks.</p>
+    <p>Attackers Goal is to generate code that consists only of: 0123456789 ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz !\&quot;#$%&amp;\()*+,-./:;&lt;=&gt;?@[\\]^_{|}~</p>
+  </div>
+  <div class="page">
+    <p>Currently Used Algorithms Riley Eller Algorithm Any dword (4 bytes) can be derived from two or three SUB instructions whose operands are printable bytes</p>
+    <p>Available as a Metasploit plugin</p>
+    <p>Ex. 0x89e3cd80 bytes from execv /bin/sh shellcode</p>
+    <p># Constants are printable (0x21-0x7E) sub $0x256d6d2d, %eax sub $0x256d6d25, %eax sub $0x34574225, %eax push %eax</p>
+    <p>Each byte is encoded with &gt; 2.5 bytes</p>
+    <p>Source to Source Conversion Geczi and Ivanyi replace all non-printable instructions with a sequence of printable instruction(s)</p>
+    <p>Not publicly available</p>
+  </div>
+  <div class="page">
+    <p>We Need Compact Shellcodes</p>
+    <p>Transforming to printable  increases shellcode size Size restrictions on input</p>
+    <p>Example Buer overflow exploits are limited by the buer size.</p>
+  </div>
+  <div class="page">
+    <p>Printable Shellcode Compiler</p>
+    <p>Overview Encoding Scheme Runtime Decoder Testing</p>
+  </div>
+  <div class="page">
+    <p>psc: Printable Shellcode Compiler</p>
+    <p>Arbitrary shellcode  Printable shellcode Special encoding scheme Hand-crafted decoder that is printable</p>
+    <p>Printable shellcode</p>
+    <p>Encoded payload</p>
+    <p>Printable shellcode</p>
+    <p>Encoded shellcode</p>
+    <p>Custom XOR</p>
+    <p>Patcher</p>
+    <p>Decoder loop (size = 73 bytes) Encoded payload</p>
+    <p>Printable shellcode</p>
+    <p>Encoded shellcodeDecoder (size = 146 bytes)</p>
+  </div>
+  <div class="page">
+    <p>psc Encoding Scheme</p>
+    <p>b2b0 b3b10 0 00</p>
+    <p>b100 b110 b13 b14 b15b12</p>
+    <p>b10b8 b11b9 b13 b14 b15b12</p>
+    <p>Original Byte #2</p>
+    <p>Encoded B1 = 0x3F +</p>
+    <p>Encoded B2 = 0x3F +</p>
+    <p>Encoded B3 = 0x3F +</p>
+    <p>Encoded Range = 0x3F  0x7E</p>
+    <p>b2b0 b3b1 b5 b6 b7b4</p>
+    <p>Original Byte #1</p>
+    <p>Range of Encoded Bytes</p>
+    <p>(0x3F, 0x7E)</p>
+  </div>
+  <div class="page">
+    <p>psc Runtime Decoding</p>
+    <p>ECX: Read Pointer EDX: Write Pointer</p>
+    <p>Initializer</p>
+    <p>B1 = 0x26</p>
+    <p>Recover first byte, R1  (B1 &lt;&lt; 4) + (B2 &amp; 0x3F) &gt;&gt; 2</p>
+    <p>Recover second byte, R2  (B2 &lt;&lt; 6) + (B3 &amp; 0x3F)</p>
+    <p>Recovered Shellcode</p>
+    <p>Loop</p>
+    <p>YES</p>
+    <p>NO</p>
+    <p>Write R1 to [EDX] Write R2 to [EDX+1]</p>
+    <p>EDX  EDX +2 ECX  ECX + 3</p>
+    <p>Let, B1  [ECX] B2  [ECX + 1] B3  [ECX + 2]</p>
+    <p>Read &amp; (=0x26)  jump to recovered shellcode</p>
+  </div>
+  <div class="page">
+    <p>Testing</p>
+    <p>Custom XOR</p>
+    <p>Patcher</p>
+    <p>Decoder loop (size = 73 bytes) Encoded payload</p>
+    <p>Encoded shellcodeDecoder</p>
+    <p>SIGTERM</p>
+    <p>For Testing</p>
+    <p>Signal handler checks Recovered Shellcode == Original Shellcode</p>
+  </div>
+  <div class="page">
+    <p>psc In Action</p>
+    <p>Shellcode to spawn shell on 4444/TCP</p>
+    <p>\x31\xc0\x31\xdb\x53\x43\x53\x6a\x02\x89\xe1\ xb0\x66\xcd\x80\x97\x31\xc0\x43\x50\x66\x68\ x11\x5c\x66\x53\x89\xe1\x6a\x10\x51\x57\x89\ xe1\xb0\x66\xcd\x80\x50\x57\x89\xe1\xb0\x66\ x83\xc3\x02\xcd\x80\x50\x50\x57\x89\xe1\x04\ x66\x43\xcd\x80\x93\x31\xc0\x31\xc9\xb1\x02\ xb0\x3f\xcd\x80\x49\x79\xf9\x50\x66\x68\x73\ x68\x68\x2f\x2f\x62\x61\x68\x2f\x62\x69\x6e\ x89\xe3\x50\x89\xe2\x53\x89\xe1\xb0\x0b\xcd\ x80</p>
+    <p>binary to</p>
+    <p>printable</p>
+    <p>PYj0X40HP[j0X0Y50AO0YO0Y0 Aa0Ya0Ab0Yi0Aj0Y j0Ak0Ym0Yn rII0Y70A80Y80A90Y=0Y&gt;0YGQZOyI&amp;t&lt;j0X40P[2 YIC?,42AJ@$&lt;?20wBIj0X40P[2YJC2AK@?,6$ ?0wBJBBAAAuAa5he4i/DZ2Fu4XR5gA7f;u?4} V8Mo5XU5Xg/Sx5XR7f5gO4DV7f;u?:@e: KC4XV7f;u?:@e3LU4XV7f;u?4dX:CA8Mo2~ L7@H6fx:?J5_n1|r5g1|a5dm7fb3EH;jL7AO&amp;</p>
+    <p>Find at https://github.com/dhrumil29699/Printable-Encoder/</p>
+  </div>
+  <div class="page">
+    <p>Results</p>
+    <p>Encoding Performance Total Output Size</p>
+  </div>
+  <div class="page">
+    <p>Results: Only Encoded Shellcode</p>
+    <p>execve /bin/sh</p>
+    <p>add root user</p>
+    <p>copy /etc/passwd</p>
+    <p>shell on 4444/TCP</p>
+    <p>download file &amp; execute</p>
+    <p>HTTP Server on 8800/TCP</p>
+    <p>shell on 8080/TCP over SSL</p>
+    <p>bytes</p>
+    <p>Encoding Performance</p>
+    <p>Original</p>
+    <p>Riley Eller</p>
+    <p>psc</p>
+    <p>psc encoding is more compact than Riley Eller algorithm</p>
+  </div>
+  <div class="page">
+    <p>Results: Decoder &amp; Encoded Shellcode</p>
+    <p>execve /bin/sh</p>
+    <p>add root user</p>
+    <p>copy /etc/passwd</p>
+    <p>shell on 4444/TCP</p>
+    <p>download file &amp; execute</p>
+    <p>HTTP Server on 8800/TCP</p>
+    <p>shell on 8080/TCP over SSL</p>
+    <p>bytes</p>
+    <p>Total Output Size</p>
+    <p>Original</p>
+    <p>Riley Eller</p>
+    <p>psc</p>
+    <p>For large shellcodes, psc beats the Riley Eller algorithm</p>
+  </div>
+  <div class="page">
+    <p>psc vs ALPHA3</p>
+    <p>psc encoding outperforms ALPHA3. ALPHA3 changes 1 byte  2 bytes psc changes 1 byte  1.5 bytes</p>
+    <p>However, the compact encoding makes our decoder complicated.</p>
+    <p>psc beats ALPHA3 for larger shellcodes (size &gt; 236 bytes).</p>
+  </div>
+  <div class="page">
+    <p>Concluding Remarks</p>
+    <p>We present a new encoding algorithm that uses looped decoding to reduce the size of the auto-generated printable shellcodes.</p>
+    <p>We produce about 40% 50% smaller printable shellcodes as compared to the Riley Eller algorithm.</p>
+    <p>Future Plan Add support for x86_64 shellcodes</p>
+  </div>
+  <div class="page">
+    <p>References</p>
+    <p>Riley Eller Bypassing MSB Data Filters for Buffer Overflow Exploits on Intel Platforms http://julianor.tripod.com/bc/bypass-msb.txt.</p>
+    <p>Zsolt Gczi and Peter Ivnyi (2018) Automatic translation of assembly shellcodes to printable byte codes Pollack Periodica 13(04), 320.</p>
+    <p>B.J. Wever ALPHA3 https://github.com/SkyLined/alpha3.</p>
+  </div>
+  <div class="page">
+    <p>Thanks! Dhrumil Patel Devops at Acko Technology and Services Private Ltd. 201601228@daiict.ac.in</p>
+    <p>Aditya Basu PhD Student at Penn State aditya.basu@psu.edu</p>
+    <p>Anish Mathuria Professor at DA-IICT anish_mathuria@daiict.ac.in</p>
+  </div>
+</Presentation>

@@ -1,0 +1,230 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>Is Transactional Programming Actually Easier? Christopher J. Rossbach,</p>
+    <p>Owen S. Hofmann, Emmett Witchel</p>
+    <p>UT Austin</p>
+  </div>
+  <div class="page">
+    <p>TM Research Mantra We need better parallel programming tools</p>
+    <p>CMP ubiquity (Concurrent programming == programming</p>
+    <p>w/locks) Locks are difficult</p>
+    <p>Transactional memory is promising: No deadlock, livelock, etc. Optimistic  likely more scalable</p>
+    <p>Therefore: Transactional Memory is easier than locks All TM papers should be published</p>
+  </div>
+  <div class="page">
+    <p>Is TM really easier than locks? Programmers still must write critical</p>
+    <p>sections Realizable TM will have new issues</p>
+    <p>HTM overflow STM performance Trading one set of difficult issues for another?</p>
+    <p>Ease-of-use is a critical motivator for TM research</p>
+    <p>Its important to know the answer to this question</p>
+  </div>
+  <div class="page">
+    <p>How can we answer this question?</p>
+    <p>Step 2: have them write the same program with TM and locks</p>
+    <p>Step 4: Evaluate their code Step 3: Ask them how it went</p>
+    <p>Step 1: Get some programmers (preferrably inexperienced)This talk:</p>
+    <p>TM vs. locks user study  UT Austin OS undergrads  same program using  locks (fine/coarse)  monitors  transactional memory</p>
+  </div>
+  <div class="page">
+    <p>Outline Motivation Programming Problem User Study Methodology Results Conclusion</p>
+  </div>
+  <div class="page">
+    <p>The programming problem sync-gallery: a rogues gallery of</p>
+    <p>synchronization Metaphor  shooting gallery (welcome to UT) Rogues  shoot paint-balls in lanes</p>
+    <p>Each rogue has a unique color Shooting  target takes rogues color Cleaners  change targets back to white Rogues/cleaners must synchronize</p>
+    <p>maintain 4 invariants</p>
+  </div>
+  <div class="page">
+    <p>Sync-gallery invariants  Only one shooter per lane (Uh, hello,</p>
+    <p>dangerous?!)</p>
+    <p>Dont shoot colored lanes (no fun)  Clean only when all lanes shot (be lazy)  Only one cleaner thread</p>
+  </div>
+  <div class="page">
+    <p>Task: single-lane rogue Rogue() {</p>
+    <p>while(true) { Lane lane = randomLane(); if(lane.getColor() == WHITE) lane.shoot(); if(allLanesShot()) clean();</p>
+    <p>} }</p>
+    <p>Invariants:  One shooter per lane  Dont shoot colored lanes  One cleaner thread  Clean only when all lanes shot</p>
+    <p>globalLock.lock( )</p>
+    <p>globalLock.unlock( )</p>
+    <p>lane.lock()</p>
+    <p>lane.unlock()</p>
+    <p>lockAllLanes() ?? ?</p>
+    <p>beginTransactio n()</p>
+    <p>endTransaction()</p>
+    <p>Coarse-grain locking Fine-grain lockingTransactions</p>
+  </div>
+  <div class="page">
+    <p>Variation: two-lane rogue Rogue() {</p>
+    <p>while(true) { Lane a = randomLane(); Lane b = randomLane(); if(a.getColor() == WHITE &amp;&amp;</p>
+    <p>b.getColor() == WHITE) { a.shoot(); b.shoot(); } if(allLanesShot()) clean();</p>
+    <p>}}</p>
+    <p>Invariants:  One shooter per lane  Dont shoot colored lanes  One cleaner thread  Clean only when all lanes shot</p>
+    <p>globalLock.lock( )</p>
+    <p>globalLock.unlock( )</p>
+    <p>Coarse-grain locking Fine-grain locking</p>
+    <p>a.lock(); b.lock();Requires lock-ordering!</p>
+    <p>lockAllLanes() ???</p>
+  </div>
+  <div class="page">
+    <p>Variation 2: cleaner rogues Rogue() {</p>
+    <p>while(true) Lane lane = randomLane();</p>
+    <p>if(lane.getColor() == WHITE) lane.shoot(); } }</p>
+    <p>Cleaner() { while(true) { if(allLanesShot())</p>
+    <p>clean(); } }</p>
+    <p>Invariants:  One shooter per lane  Dont shoot colored lanes  One cleaner thread  Clean only when all lanes shot</p>
+    <p>if(allLanesShot() ) lanesFull.signal( );</p>
+    <p>while(! allLanesShot() lanesFull.await()</p>
+    <p>(still need other locks!)</p>
+  </div>
+  <div class="page">
+    <p>Sync-gallery in action</p>
+  </div>
+  <div class="page">
+    <p>Synchronization Cross-product</p>
+    <p>Coarse Fine TM</p>
+    <p>Singlelane</p>
+    <p>Coarse Fine TM</p>
+    <p>Two-lane Coarse2 Fine2 TM2</p>
+    <p>Cleaner CoarseCleaner FineCleaner TMCleaner</p>
+  </div>
+  <div class="page">
+    <p>Outline Motivation Programming Problem User Study Methodology</p>
+    <p>TM Support Survey details</p>
+    <p>Results Conclusion</p>
+  </div>
+  <div class="page">
+    <p>TM Support Year 1: DSTM2 [Herlihy 06] Year 2: JDASTM [Ramadan 09] Library, not language support</p>
+    <p>No atomic blocks Different concrete syntax Read/write barriers</p>
+  </div>
+  <div class="page">
+    <p>DSTM2 concrete syntax Callable c = new Callable&lt;Void&gt; { public Void call() {</p>
+    <p>GalleryLane l = randomLane(); if(l.color() == WHITE))</p>
+    <p>l.shoot(myColor); return null;</p>
+    <p>} } Thread.doIt(c);</p>
+  </div>
+  <div class="page">
+    <p>JDASTM concrete syntax Transaction tx = new Transaction(id); boolean done = false; while(!done) { try { tx.BeginTransaction(); GalleryLane l = randomLane(); if(l.color() == WHITE))</p>
+    <p>l.TM_shoot(myColor); done = tx.CommitTransaction(); } catch(AbortException e) { tx.AbortTransaction(); done = false; }}</p>
+  </div>
+  <div class="page">
+    <p>Undergrads: the ideal TM user-base TM added to undergrad OS curriculum Survey students Analyze programming mistakes TMs benchmark for success</p>
+    <p>Easier to use than fine grain locks or conditions</p>
+  </div>
+  <div class="page">
+    <p>Survey Measure previous exposure</p>
+    <p>Used locks/TM before, etc Track design/code/debug time Rank primitives according along several axes:</p>
+    <p>Ease of reasoning about Ease of coding/debugging Ease of understanding others code</p>
+    <p>http://www.cs.utexas.edu/~witchel/tx/sync-gallery-survey.html</p>
+  </div>
+  <div class="page">
+    <p>Data collection Surveyed 4 sections of OS students</p>
+    <p>2 sections x 2 semesters 147 students 1323 rogue implementations</p>
+    <p>Defect Analysis Examined year 2 (604 implementations) Automated testing using condor</p>
+  </div>
+  <div class="page">
+    <p>Outline Motivation Programming Problem User Study Methodology Results Conclusion</p>
+  </div>
+  <div class="page">
+    <p>Development Effort</p>
+    <p>debug code design</p>
+    <p>hours</p>
+  </div>
+  <div class="page">
+    <p>debug code design</p>
+    <p>Development Effort</p>
+    <p>hours</p>
+    <p>Implementation order: Coarse</p>
+    <p>rand&amp;2?</p>
+    <p>Fine TM</p>
+  </div>
+  <div class="page">
+    <p>Development Effort</p>
+    <p>debug code design</p>
+    <p>hours</p>
+  </div>
+  <div class="page">
+    <p>Development Effort</p>
+    <p>debug code design</p>
+    <p>hours</p>
+  </div>
+  <div class="page">
+    <p>Qualitative preferences Ranking 1 2 3 4</p>
+    <p>Coarse 62% 30% 1% 4%</p>
+    <p>Fine 6% 21% 45% 40%</p>
+    <p>TM 26% 32% 19% 21%</p>
+    <p>Conditio ns</p>
+    <p>Ranking 1 2 3 4</p>
+    <p>Coarse 81% 14% 1% 3%</p>
+    <p>Fine 1% 38% 30% 29%</p>
+    <p>TM 16% 32% 30% 21%</p>
+    <p>Conditio ns</p>
+    <p>Best Syntax</p>
+    <p>Easiest to Think about</p>
+    <p>(Year 2)</p>
+  </div>
+  <div class="page">
+    <p>Qualitative preferences Ranking 1 2 3 4</p>
+    <p>Coarse 62% 30% 1% 4%</p>
+    <p>Fine 6% 21% 45% 40%</p>
+    <p>TM 26% 32% 19% 21%</p>
+    <p>Conditio ns</p>
+    <p>Ranking 1 2 3 4</p>
+    <p>Coarse 81% 14% 1% 3%</p>
+    <p>Fine 1% 38% 30% 29%</p>
+    <p>TM 16% 32% 30% 21%</p>
+    <p>Conditio ns</p>
+    <p>Best Syntax</p>
+    <p>Easiest to Think about</p>
+    <p>(Year 2)</p>
+    <p>Coarse &gt; (TM|Coarse) &gt; Fine &gt; (Fine|Conditions)</p>
+    <p>Coarse &gt; (Fine|TM) &gt; Conditions</p>
+    <p>Best Syntax</p>
+    <p>Easiest to Think about</p>
+  </div>
+  <div class="page">
+    <p>Analyzing Programming Errors Error taxonomy: 8 classes Lock-ord: lock ordering Lock-cond: checking condition outside critsec Lock-forgot: forgotten Synchronization Cv-exotic: exotic condition variable usage Cv-use: condition variable errors TM-exotic: TM primitive misuse TM-forgot: Forgotten TM synchronization TM-order: Ordering in TM</p>
+  </div>
+  <div class="page">
+    <p>Error Rates by Defect Type</p>
+  </div>
+  <div class="page">
+    <p>Overall Error Rates</p>
+    <p>Proportion of errors</p>
+  </div>
+  <div class="page">
+    <p>Outline Motivation Programming Problem User Study Methodology Results Conclusion</p>
+  </div>
+  <div class="page">
+    <p>Conclusion General qualitative ranking:</p>
+    <p>(hardest) Error rates overwhelmingly in favor</p>
+    <p>of TM TM may actually be easier</p>
+  </div>
+  <div class="page">
+    <p>P-values</p>
+  </div>
+  <div class="page">
+    <p>Development Effort</p>
+    <p>design code debug</p>
+    <p>hours</p>
+  </div>
+  <div class="page">
+    <p>Synchronization Potpourri Rogue Synchronization R/C</p>
+    <p>Threads Additional Requiremen ts</p>
+    <p>Coarse Global lock not distinct</p>
+    <p>Coarse2 Global lock not distinct</p>
+    <p>Shoot at 2 lanes</p>
+    <p>CoarseClean er</p>
+    <p>Global lock, conditions</p>
+    <p>Distinct wait/notify</p>
+    <p>Fine Per-lane locks not distinct</p>
+    <p>Fine2 Per-lane locks not distinct</p>
+    <p>Shoot at 2 lanes</p>
+    <p>FineCleaner Per-lane locks, conditions</p>
+    <p>Distinct wait/notify</p>
+    <p>TM TM not distinct</p>
+    <p>TM2 TM not distinct</p>
+    <p>Shoot at 2 lanes</p>
+    <p>TMCleaner TM distinct</p>
+  </div>
+</Presentation>

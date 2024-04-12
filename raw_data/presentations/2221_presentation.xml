@@ -1,0 +1,163 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>DenseFS: A Cache-Compact Filesystem</p>
+    <p>Zev Weiss, Andrea C. ArpaciDusseau, Remzi H. ArpaciDusseau</p>
+    <p>July 9, 2018</p>
+  </div>
+  <div class="page">
+    <p>Filesystems in light of NVM Existing filesystems mostly disk/flash-oriented</p>
+    <p>Large storage unit Access latency  memory</p>
+    <p>Nonvolatile memory (NVM) beginning to arrive</p>
+    <p>Small storage unit Access latency ~= memory</p>
+    <p>Problem: many assumptions of FS design inverted</p>
+  </div>
+  <div class="page">
+    <p>Performance inversion</p>
+    <p>Software CPU performance becomes critical</p>
+    <p>Goals:</p>
+    <p>Understand sources of overhead in existing software Implement lightweight, low-overhead filesystem</p>
+  </div>
+  <div class="page">
+    <p>Software performance Major factor: CPU cache</p>
+    <p>Fixed hardware resource (32KiB)</p>
+    <p>Shared by all code that runs on CPU</p>
+    <p>Different pieces compete, interfere with each other</p>
+    <p>Executing kernel code degrades application performance</p>
+  </div>
+  <div class="page">
+    <p>Outline Background</p>
+    <p>Analysis</p>
+    <p>DenseFS</p>
+    <p>Evaluation</p>
+    <p>Conclusions</p>
+  </div>
+  <div class="page">
+    <p>Analysis First step: examine cache behavior of existing filesystems</p>
+    <p>btrfs ext4 f2fs xfs tmpfs</p>
+    <p>Methodology: dynamic instruction tracing</p>
+    <p>Every kernel instruction executed</p>
+    <p>Size &amp; address of every memory access (code &amp; data)</p>
+    <p>Full stack backtraces</p>
+    <p>Visualizations: cachemaps, cgstacks</p>
+  </div>
+  <div class="page">
+    <p>Visualization: cachemaps</p>
+  </div>
+  <div class="page">
+    <p>Visualization: cachemaps</p>
+    <p>creat on xfs</p>
+  </div>
+  <div class="page">
+    <p>Visualization: cachemaps</p>
+    <p>creat on xfs</p>
+  </div>
+  <div class="page">
+    <p>Visualization: cachemaps</p>
+    <p>creat on xfs</p>
+  </div>
+  <div class="page">
+    <p>Visualization: cachemaps</p>
+    <p>creat on xfs</p>
+  </div>
+  <div class="page">
+    <p>Visualization: cachemaps</p>
+    <p>creat on xfs</p>
+  </div>
+  <div class="page">
+    <p>Visualization: cachemaps</p>
+    <p>creat on xfs</p>
+  </div>
+  <div class="page">
+    <p>Visualization: cgstacks Coarse-grained stack traces</p>
+    <p>Classify source locations into categories:</p>
+    <p>VFS memory allocation pagecache ...</p>
+    <p>Coalesce backtraces by category</p>
+    <p>Result: high-level &quot;origin&quot; of each instruction</p>
+    <p>e.g., &quot;pagecache code called by VFS code&quot;</p>
+  </div>
+  <div class="page">
+    <p>Visualization: cgstacks</p>
+    <p>creat</p>
+  </div>
+  <div class="page">
+    <p>Observations Data:</p>
+    <p>Large footprint (&gt;  L1)</p>
+    <p>Little spatial locality</p>
+    <p>Code:</p>
+    <p>Even larger footprint (&gt; L1)</p>
+    <p>Little reuse</p>
+    <p>Sizable overhead for generic FS infrastructure</p>
+  </div>
+  <div class="page">
+    <p>DenseFS Experimental Linux filesystem aiming for compactness</p>
+    <p>In-memory (pseudo-NVM)</p>
+    <p>Simple structure</p>
+    <p>Short code paths ~2.5KLoC</p>
+    <p>Avoids VFS &amp; pagecache entirely</p>
+    <p>Dedicated syscalls (dfs_open(), dfs_read(), etc.) Dedicated file descriptor table per process</p>
+  </div>
+  <div class="page">
+    <p>DenseFS cachemaps</p>
+    <p>creat</p>
+  </div>
+  <div class="page">
+    <p>DenseFS: inode compaction Initial inode struct: essentially struct stat</p>
+    <p>struct dfs_inode { uint16_t nlink; ino_t inum; uid_t uid; gid_t gid; mode_t mode; off_t size; struct timespec mtime, ctime, atime; union { struct list_head dirents; struct rb_root chunks; } data; refcount_t pincount; spinlock_t lock; };</p>
+  </div>
+  <div class="page">
+    <p>DenseFS: inode compaction Modifications:</p>
+    <p>+struct imeta { uid_t uid; gid_t gid; mode_t mode; };</p>
+    <p>+/* FS-wide */ +struct { struct imeta* arr; uint16_t num; } imeta;</p>
+    <p>struct dfs_inode { /* ... */ - ino_t inum;</p>
+    <p>- uid_t uid; - gid_t gid; - mode_t mode; + uint16_t meta_idx; /* index into imeta.arr */</p>
+    <p>- struct timespec mtime, ctime, atime; + ktime_t mtime, ctime; /* ... */ };</p>
+    <p>Size reduced to 56 bytes  one cache line</p>
+  </div>
+  <div class="page">
+    <p>DenseFS: data compaction results</p>
+    <p>creat</p>
+  </div>
+  <div class="page">
+    <p>DenseFS: code compaction Three techniques:</p>
+    <p>Function alignment:</p>
+    <p>Branch hinting:</p>
+    <p>Function ordering:</p>
+  </div>
+  <div class="page">
+    <p>DenseFS: code compaction results</p>
+    <p>creat</p>
+  </div>
+  <div class="page">
+    <p>DenseFS: cgstacks</p>
+    <p>creat</p>
+    <p>DenseFS is smaller than generic VFS code alone 23</p>
+  </div>
+  <div class="page">
+    <p>DenseFS microbenchmark Specialized DenseFS-aware microbenchmark</p>
+    <p>Inner loop:</p>
+    <p>variable-footprint user code optional syscall</p>
+    <p>Measures performance of user and kernel execution independently</p>
+  </div>
+  <div class="page">
+    <p>DenseFS microbenchmark Impact of syscalls on user-mode performance:</p>
+    <p>creat</p>
+  </div>
+  <div class="page">
+    <p>DenseFS microbenchmark Impact of syscalls on user-mode performance:</p>
+    <p>creat</p>
+  </div>
+  <div class="page">
+    <p>DenseFS microbenchmark Impact of syscalls on user-mode performance:</p>
+    <p>creat</p>
+    <p>Reduced cache pollution, increased user-mode performance</p>
+  </div>
+  <div class="page">
+    <p>DenseFS Conclusions NVM inverts performance bottlenecks</p>
+    <p>Software overhead dominates</p>
+    <p>Existing filesystems are large and heavy</p>
+    <p>Slows execution of user code</p>
+    <p>DenseFS demonstrates performance potential of a much smaller, lighter filesystem:</p>
+    <p>fi n 28</p>
+  </div>
+</Presentation>

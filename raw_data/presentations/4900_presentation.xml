@@ -1,0 +1,672 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>Heuristics for ProfileHeuristics for Profile--driven Methoddriven Method-level Speculative Parallelizationlevel Speculative Parallelization</p>
+    <p>John Whaley and Christos Kozyrakis Stanford University</p>
+    <p>June 15, 2005</p>
+  </div>
+  <div class="page">
+    <p>Speculative Multithreading  Speculatively parallelize an application</p>
+    <p>Uses speculation to overcome ambiguous dependencies</p>
+    <p>Uses hardware support to recover from misspeculation</p>
+    <p>Promising technique for automatically extracting parallelism from programs</p>
+    <p>Problem: Where to put the threads?</p>
+  </div>
+  <div class="page">
+    <p>Method-Level Speculation  Idea: Use method boundaries as</p>
+    <p>speculative threads  Computation is naturally partitioned into</p>
+    <p>methods  Execution often independent  Well-defined interface</p>
+    <p>Extract parallelism from irregular, non-numerical applications</p>
+  </div>
+  <div class="page">
+    <p>Method-Level Speculation Example</p>
+    <p>main() { work_A;</p>
+    <p>foo();</p>
+    <p>work_C; // reads *q }</p>
+    <p>foo() { work_B; // writes *p</p>
+    <p>}</p>
+  </div>
+  <div class="page">
+    <p>main() { work_A; foo() { work_B; // writes *p</p>
+    <p>} work_C; // reads *q</p>
+    <p>}</p>
+    <p>Method-Level Speculation Example</p>
+  </div>
+  <div class="page">
+    <p>main() { work_A; foo() { work_B; // writes *p</p>
+    <p>} work_C; // reads *q</p>
+    <p>}</p>
+    <p>work_A</p>
+    <p>foo() work_B</p>
+    <p>work_C</p>
+    <p>Sequential execution</p>
+    <p>Method-Level Speculation Example</p>
+  </div>
+  <div class="page">
+    <p>main() { work_A; foo() { work_B; // writes *p</p>
+    <p>} work_C; // reads *q</p>
+    <p>}</p>
+    <p>TLS execution  no violation</p>
+    <p>work_A</p>
+    <p>foo() work_B</p>
+    <p>work_C</p>
+    <p>overhead</p>
+    <p>fork</p>
+    <p>p!=q No violation</p>
+    <p>Method-Level Speculation Example</p>
+  </div>
+  <div class="page">
+    <p>main() { work_A; foo() { work_B; // writes *p</p>
+    <p>} work_C; // reads *q</p>
+    <p>}</p>
+    <p>TLS execution  violation</p>
+    <p>work_A</p>
+    <p>foo() work_B</p>
+    <p>work_C</p>
+    <p>overhead</p>
+    <p>fork</p>
+    <p>p=q Violation!</p>
+    <p>overhead</p>
+    <p>work_C (aborted)</p>
+    <p>Method-Level Speculation Example</p>
+  </div>
+  <div class="page">
+    <p>work_A</p>
+    <p>foo() work_B</p>
+    <p>work_C</p>
+    <p>work_A</p>
+    <p>foo() work_B</p>
+    <p>work_C</p>
+    <p>overhead</p>
+    <p>fork</p>
+    <p>p!=q No violation</p>
+    <p>work_A</p>
+    <p>foo() work_B</p>
+    <p>work_C</p>
+    <p>overhead</p>
+    <p>p=q Violation!</p>
+    <p>overhead</p>
+    <p>work_C (aborted)</p>
+    <p>fork</p>
+    <p>Method-Level Speculation Example Sequential TLS  no violation TLS  violation</p>
+  </div>
+  <div class="page">
+    <p>Nested Speculation</p>
+    <p>foo() work_A</p>
+    <p>work_B</p>
+    <p>overhead</p>
+    <p>fork</p>
+    <p>bar() work_C</p>
+    <p>main() {</p>
+    <p>foo() { work_A;</p>
+    <p>} work_B; bar() {</p>
+    <p>work_C; } work_D;</p>
+    <p>}</p>
+    <p>fork</p>
+    <p>overhead</p>
+    <p>work_D</p>
+    <p>Sequences of method calls can cause nested speculation.</p>
+  </div>
+  <div class="page">
+    <p>This Talk: Choosing Speculation Points</p>
+    <p>Which methods to speculate?  Low chance of violation  Not too short, not too long  Not too many stores</p>
+    <p>Idea: Use profile data to choose good speculation points  Used for profile-driven and dynamic compiler  Should be low-cost but accurate</p>
+    <p>We evaluated 7 different heuristics  ~80% effective compared to perfect oracle</p>
+  </div>
+  <div class="page">
+    <p>Difficulties in Method-Level Speculation</p>
+    <p>Method invocations can have varying execution times  Too short: Doesnt overcome speculation</p>
+    <p>overhead  Too long: More likely to violate or overflow,</p>
+    <p>prevents other threads from retiring  Return values</p>
+    <p>Mispredicted return value causes violation</p>
+  </div>
+  <div class="page">
+    <p>Classes of Heuristics  Simple Heuristics</p>
+    <p>Use only simple information, such as method runtime</p>
+    <p>Single-Pass Heuristics  More advanced information, such as</p>
+    <p>sequence of store addresses  Single pass through profile data</p>
+    <p>Multi-Pass Heuristics  Multiple passes through profile data</p>
+  </div>
+  <div class="page">
+    <p>Classes of Heuristics  Simple Heuristics</p>
+    <p>Use only simple information, such as method runtime</p>
+    <p>Single-Pass Heuristics  More advanced information, such as</p>
+    <p>sequence of store addresses  Single pass through profile data</p>
+    <p>Multi-Pass Heuristics  Multiple passes through profile data</p>
+  </div>
+  <div class="page">
+    <p>Runtime Heuristic (SI-RT)  Speculate on all methods with:</p>
+    <p>MIN &lt; runtime &lt; MAX  Idea: Should be long enough to</p>
+    <p>amortize overhead, but not long enough to violate</p>
+    <p>Data required:  Average runtime of each method</p>
+  </div>
+  <div class="page">
+    <p>Store Heuristic (SI-SC)  Speculate on all methods with:</p>
+    <p>dynamic # of stores &lt; MAX  Idea: Stores cause violations, so</p>
+    <p>speculate on methods with few stores  Data required:</p>
+    <p>Average dynamic store count of each method</p>
+  </div>
+  <div class="page">
+    <p>Classes of Heuristics  Simple Heuristics</p>
+    <p>Use only simple information, such as method runtime</p>
+    <p>Single-Pass Heuristics  More advanced information, such as</p>
+    <p>sequence of store addresses  Single pass through profile data</p>
+    <p>Multi-Pass Heuristics  Multiple passes through profile data</p>
+  </div>
+  <div class="page">
+    <p>Stalled Threads</p>
+    <p>bar() work_A</p>
+    <p>work_B overhead</p>
+    <p>fork</p>
+    <p>foo() { bar() { work_A;</p>
+    <p>} work_B;</p>
+    <p>}</p>
+    <p>idle</p>
+    <p>Speculative threads may stall while waiting to become main thread.</p>
+  </div>
+  <div class="page">
+    <p>Fork at intermediate points</p>
+    <p>bar() work_A</p>
+    <p>work_B overhead</p>
+    <p>fork</p>
+    <p>foo() { bar() { work_A;</p>
+    <p>} work_B;</p>
+    <p>}</p>
+    <p>Fork at an intermediate point within a method to avoid violations and stalling</p>
+  </div>
+  <div class="page">
+    <p>Best Speedup Heuristic (SP-SU)</p>
+    <p>Speculate on methods with:  predicted speedup &gt; THRES</p>
+    <p>Calculate predicted speedup by:</p>
+    <p>Scan store stream backwards to find fork point  Choose fork point to avoid violations and</p>
+    <p>stalling</p>
+    <p>expected sequential run time expected parallel run time</p>
+  </div>
+  <div class="page">
+    <p>Most Cycles Saved Heuristic (SP-CS)</p>
+    <p>Speculate on methods with:  predicted cycle savings &gt; THRES</p>
+    <p>Calculate predicted cycle savings by:</p>
+    <p>Place fork point such that:  predicted probability of violation &lt; RATIO</p>
+    <p>Uses same information as SP-SU</p>
+    <p>sequential cycle count  parallel cycle count</p>
+  </div>
+  <div class="page">
+    <p>Classes of Heuristics  Simple Heuristics</p>
+    <p>Use only simple information, such as method runtime</p>
+    <p>Single-Pass Heuristics  More advanced information, such as</p>
+    <p>sequence of store addresses  Single pass through profile data</p>
+    <p>Multi-Pass Heuristics  Multiple passes through profile data</p>
+  </div>
+  <div class="page">
+    <p>Nested Speculation</p>
+    <p>foo() work_A</p>
+    <p>work_D</p>
+    <p>overhead</p>
+    <p>fork</p>
+    <p>bar() work_B</p>
+    <p>overhead</p>
+    <p>foo() work_C</p>
+    <p>idle</p>
+    <p>fork</p>
+    <p>main() {</p>
+    <p>foo() { work_A; bar() {</p>
+    <p>work_B; } work_C;</p>
+    <p>} work_D;</p>
+    <p>} Effectiveness of speculation choice</p>
+    <p>depends on choices for caller methods!</p>
+  </div>
+  <div class="page">
+    <p>Best Speedup Heuristic with Parent Info (MP-SU)</p>
+    <p>Iterative algorithm:  Choose speculation with best speedup  Readjust all callee methods to account for</p>
+    <p>speculation in caller  Repeat until best speedup &lt; THRES</p>
+    <p>Max # of iterations: depth of call graph</p>
+  </div>
+  <div class="page">
+    <p>Most Cycles Saved Heuristic with Parent Info (MP-CS)</p>
+    <p>Iterative algorithm: 1.Choose speculation with most cycles</p>
+    <p>saved and predicted violations &lt; RATIO 2.Readjust all callee methods to account</p>
+    <p>for speculation in caller 3.Repeat until most cycles saved &lt; THRES</p>
+    <p>Multi-pass version of SP-CS</p>
+  </div>
+  <div class="page">
+    <p>Most Cycles Saved Heuristic with No Nesting (MP-CSNN)</p>
+    <p>Iterative algorithm:  Choose speculation with most cycles</p>
+    <p>saved and predicted violations &lt; RATIO.  Eliminate all callee methods from</p>
+    <p>consideration.  Repeat until most cycles saved &lt; THRES.</p>
+    <p>Disallows nested speculation to avoid double-counting the benefits</p>
+    <p>Faster to compute than MP-CS</p>
+  </div>
+  <div class="page">
+    <p>Experimental ResultsExperimental Results</p>
+  </div>
+  <div class="page">
+    <p>Trace-Driven Simulation  How to find the optimal parameters</p>
+    <p>(THRES, RATIO, etc.) ?  Parameter sweeps</p>
+    <p>For each benchmark  For each heuristic</p>
+    <p>Multiple parameters for each heuristic</p>
+    <p>For cycle-accurate simulation: &gt;100 CPU years?!</p>
+    <p>Alternative: trace-driven simulation</p>
+  </div>
+  <div class="page">
+    <p>Trace-Driven Simulation 1. Collect trace on Pentium III (3-way out-of</p>
+    <p>order CPU, 32K L1, 256K L2)  Record all memory accesses, enter/exit</p>
+    <p>method events, etc. 2. Recalibrate to remove instrumentation</p>
+    <p>overhead 3. Simulate trace on 4-way CMP hardware</p>
+    <p>Model shared cache, speculation overheads, dependencies, squashing, etc.</p>
+    <p>Spot check with cycle-accurate simulator: Accurate within ~3%</p>
+  </div>
+  <div class="page">
+    <p>Simulated Architecture  Four 3-way out-of-order CPUs</p>
+    <p>32K L1, 256K shared L2  Single speculative buffer per CPU  Forking, retiring, squashing overhead:</p>
+    <p>Low priority speculations can be squashed by higher priority ones</p>
+  </div>
+  <div class="page">
+    <p>The Oracle  A Perfect Oracle</p>
+    <p>Preanalyzes entire trace  Makes a separate decision on every</p>
+    <p>method invocation  Chooses fork points to never violate  Zero overhead for forking or retiring</p>
+    <p>threads  Upper-bound on performance of any</p>
+    <p>heuristic</p>
+  </div>
+  <div class="page">
+    <p>Benchmarks  SpecJVM</p>
+    <p>compress: Lempel-Ziv compression  jack: Java parser generator  javac: Java compiler from the JDK 1.0.2  jess: Java expert shell system  mpeg: Mpeg layer 3 audio decompression  raytrace: Raytracer that works on a dinosaur scene</p>
+    <p>SPLASH-2  barnes: Hierarchical N-body solver  water: Simulation of water molecules</p>
+  </div>
+  <div class="page">
+    <p>Heuristic Parameter Tuning</p>
+    <p>S pe</p>
+    <p>ed up</p>
+    <p>MAX</p>
+    <p>MIN</p>
+    <p>Runtime (SI-RT)</p>
+    <p>N um</p>
+    <p>be r</p>
+    <p>of v</p>
+    <p>io la</p>
+    <p>tio ns</p>
+    <p>MAX</p>
+    <p>MIN</p>
+    <p>Runtime (SI-RT)</p>
+  </div>
+  <div class="page">
+    <p>Heuristic Parameter Tuning Store (SI-SC)</p>
+    <p>Threshold</p>
+    <p>S pe</p>
+    <p>ed up Void only</p>
+    <p>Constant Perfect</p>
+  </div>
+  <div class="page">
+    <p>Heuristic Parameter Tuning Store (SI-SC)</p>
+    <p>Threshold</p>
+    <p>N um</p>
+    <p>be r</p>
+    <p>of v</p>
+    <p>io la</p>
+    <p>ti on</p>
+    <p>s</p>
+    <p>Void only Constant Perfect</p>
+  </div>
+  <div class="page">
+    <p>Heuristic Parameter Tuning Best Speedup (SP-SU)</p>
+    <p>Threshold</p>
+    <p>S p</p>
+    <p>ee d</p>
+    <p>u p Void only</p>
+    <p>Constant Perfect</p>
+  </div>
+  <div class="page">
+    <p>Heuristic Parameter Tuning Best Speedup (SP-SU)</p>
+    <p>Threshold</p>
+    <p>N u</p>
+    <p>m b</p>
+    <p>er o</p>
+    <p>f V io</p>
+    <p>la tio</p>
+    <p>n s</p>
+    <p>Void only Constant Perfect</p>
+  </div>
+  <div class="page">
+    <p>Heuristic Parameter Tuning</p>
+    <p>S pe</p>
+    <p>ed up</p>
+    <p>RATIO THRES</p>
+    <p>Most Cycles Saved (SP-CS)</p>
+    <p>N um</p>
+    <p>be r</p>
+    <p>of v</p>
+    <p>io la</p>
+    <p>tio ns</p>
+    <p>RATIO THRES</p>
+    <p>Most Cycles Saved (SP-CS)</p>
+  </div>
+  <div class="page">
+    <p>Heuristic Parameter Tuning Best Speedup with Parent Info (MP-SU)</p>
+    <p>Threshold</p>
+    <p>S p</p>
+    <p>ee d</p>
+    <p>u p Void only</p>
+    <p>Constant Perfect</p>
+  </div>
+  <div class="page">
+    <p>Heuristic Parameter Tuning Best Speedup with Parent Info (MP-SU)</p>
+    <p>Threshold</p>
+    <p>N u</p>
+    <p>m be</p>
+    <p>r o f v</p>
+    <p>io la</p>
+    <p>tio n</p>
+    <p>s</p>
+    <p>Void only Constant Perfect</p>
+  </div>
+  <div class="page">
+    <p>Heuristic Parameter Tuning</p>
+    <p>S pe</p>
+    <p>ed up</p>
+    <p>RATIO THRES</p>
+    <p>Most Cycles Saved with Parent Info (MP-CS)</p>
+    <p>N um</p>
+    <p>be r</p>
+    <p>of v</p>
+    <p>io la</p>
+    <p>tio ns</p>
+    <p>RATIO THRES</p>
+    <p>Most Cycles Saved with Parent Info (MP-CS)</p>
+  </div>
+  <div class="page">
+    <p>Heuristic Parameter Tuning</p>
+    <p>S pe</p>
+    <p>ed up</p>
+    <p>RATIO THRES</p>
+    <p>Most Cycles Saved with No Nesting (MP-CSNN)</p>
+    <p>N um</p>
+    <p>be r</p>
+    <p>of v</p>
+    <p>io la</p>
+    <p>tio ns</p>
+    <p>RATIO THRES</p>
+    <p>Most Cycles Saved with No Nesting (MP-CSNN)</p>
+  </div>
+  <div class="page">
+    <p>Tuning Summary  Runtime (SI-RT):</p>
+    <p>MIN = 103 cycles, MAX = 107 cycles  Store (SI-SC):</p>
+    <p>MAX = 105 stores  Best speedup (SP-SU, MP-SU):</p>
+    <p>Single pass: MIN = 1.2x speedup  Multi pass: MIN = 1.4x speedup</p>
+    <p>Most cycles saved (SP-CS, MP-CS, MP-CSNN):  THRES = 105 cycles saved, RATIO = 70% violation</p>
+    <p>Return value prediction:  Constant is within 15% of perfect value prediction</p>
+  </div>
+  <div class="page">
+    <p>barnes compress jack javac jess mpeg raytrace water Average</p>
+    <p>S p</p>
+    <p>ee d</p>
+    <p>u p</p>
+    <p>SI-RT SI-SC SP-SU SP-CS MP-SU MP-CS MP-CSNN Oracle</p>
+    <p>Overall Speedups</p>
+  </div>
+  <div class="page">
+    <p>Breakdown of Speculative Threads</p>
+    <p>S I-R</p>
+    <p>T S</p>
+    <p>I-S C</p>
+    <p>S P</p>
+    <p>-S U</p>
+    <p>S P</p>
+    <p>-C S</p>
+    <p>M P</p>
+    <p>-S U</p>
+    <p>M P</p>
+    <p>-C S</p>
+    <p>M P</p>
+    <p>-C S</p>
+    <p>N N</p>
+    <p>S I-R</p>
+    <p>T S</p>
+    <p>I-S C</p>
+    <p>S P</p>
+    <p>-S U</p>
+    <p>S P</p>
+    <p>-C S</p>
+    <p>M P</p>
+    <p>-S U</p>
+    <p>M P</p>
+    <p>-C S</p>
+    <p>M P</p>
+    <p>-C S</p>
+    <p>N N</p>
+    <p>S I-R</p>
+    <p>T S</p>
+    <p>I-S C</p>
+    <p>S P</p>
+    <p>-S U</p>
+    <p>S P</p>
+    <p>-C S</p>
+    <p>M P</p>
+    <p>-S U</p>
+    <p>M P</p>
+    <p>-C S</p>
+    <p>M P</p>
+    <p>-C S</p>
+    <p>N N</p>
+    <p>S I-R</p>
+    <p>T S</p>
+    <p>I-S C</p>
+    <p>S P</p>
+    <p>-S U</p>
+    <p>S P</p>
+    <p>-C S</p>
+    <p>M P</p>
+    <p>-S U</p>
+    <p>M P</p>
+    <p>-C S</p>
+    <p>M P</p>
+    <p>-C S</p>
+    <p>N N</p>
+    <p>S I-R</p>
+    <p>T S</p>
+    <p>I-S C</p>
+    <p>S P</p>
+    <p>-S U</p>
+    <p>S P</p>
+    <p>-C S</p>
+    <p>M P</p>
+    <p>-S U</p>
+    <p>M P</p>
+    <p>-C S</p>
+    <p>M P</p>
+    <p>-C S</p>
+    <p>N N</p>
+    <p>S I-R</p>
+    <p>T S</p>
+    <p>I-S C</p>
+    <p>S P</p>
+    <p>-S U</p>
+    <p>S P</p>
+    <p>-C S</p>
+    <p>M P</p>
+    <p>-S U</p>
+    <p>M P</p>
+    <p>-C S</p>
+    <p>M P</p>
+    <p>-C S</p>
+    <p>N N</p>
+    <p>S I-R</p>
+    <p>T S</p>
+    <p>I-S C</p>
+    <p>S P</p>
+    <p>-S U</p>
+    <p>S P</p>
+    <p>-C S</p>
+    <p>M P</p>
+    <p>-S U</p>
+    <p>M P</p>
+    <p>-C S</p>
+    <p>M P</p>
+    <p>-C S</p>
+    <p>N N</p>
+    <p>S I-R</p>
+    <p>T S</p>
+    <p>I-S C</p>
+    <p>S P</p>
+    <p>-S U</p>
+    <p>S P</p>
+    <p>-C S</p>
+    <p>M P</p>
+    <p>-S U</p>
+    <p>M P</p>
+    <p>-C S</p>
+    <p>M P</p>
+    <p>-C S</p>
+    <p>N N</p>
+    <p>barnes compress jack javac jess mpeg raytrace water</p>
+    <p>N o</p>
+    <p>rm al</p>
+    <p>iz ed</p>
+    <p>n u</p>
+    <p>m b</p>
+    <p>er o</p>
+    <p>f t h</p>
+    <p>re ad</p>
+    <p>s</p>
+    <p>Successful Preempted Killed</p>
+  </div>
+  <div class="page">
+    <p>Breakdown of Execution Time</p>
+    <p>S I-R</p>
+    <p>T S</p>
+    <p>I-S C</p>
+    <p>S P</p>
+    <p>-S U</p>
+    <p>S P</p>
+    <p>-C S</p>
+    <p>M P</p>
+    <p>-S U</p>
+    <p>M P</p>
+    <p>-C S</p>
+    <p>M P</p>
+    <p>-C S</p>
+    <p>N N</p>
+    <p>S I-R</p>
+    <p>T S</p>
+    <p>I-S C</p>
+    <p>S P</p>
+    <p>-S U</p>
+    <p>S P</p>
+    <p>-C S</p>
+    <p>M P</p>
+    <p>-S U</p>
+    <p>M P</p>
+    <p>-C S</p>
+    <p>M P</p>
+    <p>-C S</p>
+    <p>N N</p>
+    <p>S I-R</p>
+    <p>T S</p>
+    <p>I-S C</p>
+    <p>S P</p>
+    <p>-S U</p>
+    <p>S P</p>
+    <p>-C S</p>
+    <p>M P</p>
+    <p>-S U</p>
+    <p>M P</p>
+    <p>-C S</p>
+    <p>M P</p>
+    <p>-C S</p>
+    <p>N N</p>
+    <p>S I-R</p>
+    <p>T S</p>
+    <p>I-S C</p>
+    <p>S P</p>
+    <p>-S U</p>
+    <p>S P</p>
+    <p>-C S</p>
+    <p>M P</p>
+    <p>-S U</p>
+    <p>M P</p>
+    <p>-C S</p>
+    <p>M P</p>
+    <p>-C S</p>
+    <p>N N</p>
+    <p>S I-R</p>
+    <p>T S</p>
+    <p>I-S C</p>
+    <p>S P</p>
+    <p>-S U</p>
+    <p>S P</p>
+    <p>-C S</p>
+    <p>M P</p>
+    <p>-S U</p>
+    <p>M P</p>
+    <p>-C S</p>
+    <p>M P</p>
+    <p>-C S</p>
+    <p>N N</p>
+    <p>S I-R</p>
+    <p>T S</p>
+    <p>I-S C</p>
+    <p>S P</p>
+    <p>-S U</p>
+    <p>S P</p>
+    <p>-C S</p>
+    <p>M P</p>
+    <p>-S U</p>
+    <p>M P</p>
+    <p>-C S</p>
+    <p>M P</p>
+    <p>-C S</p>
+    <p>N N</p>
+    <p>S I-R</p>
+    <p>T S</p>
+    <p>I-S C</p>
+    <p>S P</p>
+    <p>-S U</p>
+    <p>S P</p>
+    <p>-C S</p>
+    <p>M P</p>
+    <p>-S U</p>
+    <p>M P</p>
+    <p>-C S</p>
+    <p>M P</p>
+    <p>-C S</p>
+    <p>N N</p>
+    <p>S I-R</p>
+    <p>T S</p>
+    <p>I-S C</p>
+    <p>S P</p>
+    <p>-S U</p>
+    <p>S P</p>
+    <p>-C S</p>
+    <p>M P</p>
+    <p>-S U</p>
+    <p>M P</p>
+    <p>-C S</p>
+    <p>M P</p>
+    <p>-C S</p>
+    <p>N N</p>
+    <p>barnes compress jack javac jess mpeg raytrace water</p>
+    <p>N o</p>
+    <p>rm al</p>
+    <p>iz ed</p>
+    <p>E xe</p>
+    <p>cu tio</p>
+    <p>n Ti</p>
+    <p>m e</p>
+    <p>Useful Idle Wasted</p>
+  </div>
+  <div class="page">
+    <p>Speculative Store Buffer Size</p>
+    <p>waterrtracempegjessjavacjackcompbarnes</p>
+    <p>Maximum speculative store buffer size: 16KB</p>
+  </div>
+  <div class="page">
+    <p>Related Work  Loop-level parallelism  Method-level parallelism</p>
+    <p>Warg and Stenstrom  ICPAC01: Limit study  IPDPS03: Heuristic based on runtime  CF05: Misspeculation prediction</p>
+    <p>Compilers  Multiscalar: Vijaykumar and Sohi, JPDC99  SpMT: Bhowmik &amp; Chen, SPAA02</p>
+  </div>
+  <div class="page">
+    <p>Conclusions  Evaluated 7 heuristics for method</p>
+    <p>level speculation  Take-home points:</p>
+    <p>Method-level speculation has complex interactions, very hard to predict</p>
+    <p>Single-pass heuristics do a good job: 80% of a perfect oracle</p>
+    <p>Most important issue is the balance between over- and under-speculating</p>
+  </div>
+</Presentation>

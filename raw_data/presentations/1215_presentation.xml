@@ -1,0 +1,349 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>Lightweight Preemptible Functions Sol Boucher, Carnegie Mellon University</p>
+    <p>Joint work with: Anuj Kalia, Microsoft Research</p>
+    <p>David G. Andersen, CMU Michael Kaminsky, BrdgAI/CMU</p>
+  </div>
+  <div class="page">
+    <p>Why?  Bound resource use  Balance load of different tasks  Meet a deadline (e.g., real time)</p>
+    <p>Lightweight (adj.): Low overhead, cheap Preemptible (adj.): Able to be stopped</p>
+    <p>Run a preemptible function (PF) Do something else important time</p>
+  </div>
+  <div class="page">
+    <p>Desiderata</p>
+    <p>Retain programmers control over the CPU</p>
+    <p>Be able to interrupt arbitrary unmodified code</p>
+    <p>Introduce minimal overhead in the common case</p>
+    <p>Support cancellation</p>
+    <p>Maintain compatibility with the existing systems stack</p>
+  </div>
+  <div class="page">
+    <p>Agenda  Why contemporary approaches are insufficient</p>
+    <p>Futures  Threads  Processes</p>
+    <p>Function calls with timeouts  Backwards compatibility  Preemptive userland threading</p>
+  </div>
+  <div class="page">
+    <p>Problem: calling a function cedes control</p>
+    <p>Run a preemptible function (PF) Do something else important time</p>
+    <p>func()</p>
+  </div>
+  <div class="page">
+    <p>Two approaches to multitasking</p>
+    <p>cooperative vs. preemptive</p>
+    <p>lightweightness vs. generality</p>
+  </div>
+  <div class="page">
+    <p>Agenda  Why contemporary approaches are insufficient</p>
+    <p>Futures  Threads  Processes</p>
+    <p>Function calls with timeouts  Backwards compatibility  Preemptive userland threading</p>
+  </div>
+  <div class="page">
+    <p>Problem: futures are cooperative</p>
+    <p>future: lightweight userland thread scheduled by the language runtime</p>
+    <p>One future can depend on anothers result at a yield point</p>
+    <p>func()</p>
+    <p>PNG</p>
+  </div>
+  <div class="page">
+    <p>Agenda  Why contemporary approaches are insufficient</p>
+    <p>Futures (cooperative not preemptive)  Threads  Processes</p>
+    <p>Function calls with timeouts  Backwards compatibility  Preemptive userland threading</p>
+  </div>
+  <div class="page">
+    <p>// Problem</p>
+    <p>buffer = decode(&amp;img);</p>
+    <p>time_sensitive_task();</p>
+    <p>Alternative: kernel threading</p>
+    <p>// Tempting approach</p>
+    <p>pthread_create(&amp;tid, NULL,</p>
+    <p>decode, &amp;img);</p>
+    <p>usleep(TIMEOUT);</p>
+    <p>time_sensitive_task();</p>
+    <p>pthread_join(&amp;tid, &amp;buffer);</p>
+  </div>
+  <div class="page">
+    <p>Run a preemptible function (PF) Do something else important</p>
+    <p>Problem: SLAs and graceful degradation</p>
+    <p>SLA</p>
+    <p>time</p>
+  </div>
+  <div class="page">
+    <p>Call to malloc()</p>
+    <p>Observation: cancellation is hard</p>
+    <p>Process</p>
+    <p>Thread PF Thread  CANCELLED</p>
+  </div>
+  <div class="page">
+    <p>Agenda  Why contemporary approaches are insufficient</p>
+    <p>Futures (cooperative not preemptive)  Threads (poor ergonomics, no cancellation)  Processes</p>
+    <p>Function calls with timeouts  Backwards compatibility  Preemptive userland threading</p>
+  </div>
+  <div class="page">
+    <p>Problem: object ownership and lifetime</p>
+    <p>Process PF Process</p>
+    <p>Shared objectPointer</p>
+    <p>CANCEL LED</p>
+  </div>
+  <div class="page">
+    <p>Agenda  Why contemporary approaches are insufficient</p>
+    <p>Futures (cooperative not preemptive)  Threads (poor ergonomics, no cancellation) (sacrifice programmer control)  Processes (poor performance and ergonomics)</p>
+    <p>Function calls with timeouts  Backwards compatibility  Preemptive userland threading</p>
+    <p>}</p>
+  </div>
+  <div class="page">
+    <p>Idea: function calls with timeouts</p>
+    <p>Retain programmers control over the CPU</p>
+    <p>Be able to interrupt arbitrary unmodified code</p>
+    <p>Introduce minimal overhead in the common case</p>
+    <p>Support cancellation</p>
+    <p>Maintain compatibility with the existing systems stack</p>
+  </div>
+  <div class="page">
+    <p>Why contemporary approaches are insufficient  Function calls with timeouts  Backwards compatibility  Preemptive userland threading</p>
+    <p>Agenda</p>
+  </div>
+  <div class="page">
+    <p>lightweight preemptible function: function invoked with a timeout</p>
+    <p>Faster than spawning a process or thread</p>
+    <p>Runs on the callers thread</p>
+    <p>A new application primitive</p>
+  </div>
+  <div class="page">
+    <p>lightweight preemptible function: function invoked with a timeout</p>
+    <p>Interrupts at 10100s microseconds granularity</p>
+    <p>Pauses on timeout for low overhead and flexibility to resume</p>
+    <p>A new application primitive</p>
+  </div>
+  <div class="page">
+    <p>lightweight preemptible function: function invoked with a timeout</p>
+    <p>Preemptible code is a normal function or closure</p>
+    <p>Invoked via wrapper like pthread_create(), but synchronous</p>
+    <p>A new application primitive</p>
+  </div>
+  <div class="page">
+    <p>funcstate = launch(func, 400 /*us*/, NULL);</p>
+    <p>The interface: launch() and resume()</p>
+    <p>if(!funcstate.is_complete) {</p>
+    <p>work_queue.push(funcstate);</p>
+    <p>}</p>
+    <p>// ...</p>
+    <p>funcstate = work_queue.pop();</p>
+    <p>resume(&amp;funcstate, 200 /*us*/);</p>
+  </div>
+  <div class="page">
+    <p>The interface: cancel()</p>
+    <p>funcstate = launch(func, 400 /*us*/, NULL);</p>
+    <p>if(!funcstate.is_complete) {</p>
+    <p>work_queue.push(funcstate);</p>
+    <p>}</p>
+    <p>// ...</p>
+    <p>funcstate = work_queue.pop();</p>
+    <p>cancel(&amp;funcstate);</p>
+  </div>
+  <div class="page">
+    <p>// counter == ?!</p>
+    <p>counter = 0;</p>
+    <p>funcstate = launch(a. ++counter, 1, NULL);</p>
+    <p>++counter;</p>
+    <p>if(!funcstate.is_complete) {</p>
+    <p>resume(&amp;funcstate, TO_COMPLETION);</p>
+    <p>}</p>
+    <p>assert(counter == 2);</p>
+    <p>Concurrency: explicit sharing</p>
+  </div>
+  <div class="page">
+    <p>error[E0503]: cannot use `counter` because it was mutably borrowed</p>
+    <p>Concurrency: existing protections work (e.g., Rust)</p>
+  </div>
+  <div class="page">
+    <p>libinger: library implementing LPFs, currently supports C and Rust programs</p>
+  </div>
+  <div class="page">
+    <p>Implementation: execution stack</p>
+    <p>funcstate = launch(func, TO_COMPLETION, NULL);</p>
+    <p>Callers stack:</p>
+    <p>...</p>
+    <p>launch()</p>
+    <p>Preemptible functions stack:</p>
+    <p>[stub]</p>
+    <p>func()[caller]</p>
+  </div>
+  <div class="page">
+    <p>Implementation: timer signal</p>
+    <p>funcstate = launch(func, TIMEOUT, NULL);</p>
+    <p>Callers stack:</p>
+    <p>...</p>
+    <p>launch()</p>
+    <p>Preemptible functions stack:</p>
+    <p>[stub]</p>
+    <p>func()[caller]</p>
+    <p>handler()resume()</p>
+    <p>Timeout?</p>
+  </div>
+  <div class="page">
+    <p>funcstate = launch(func, TIMEOUT, NULL);</p>
+    <p>cancel(&amp;funcstate);</p>
+    <p>Implementation: cleanup</p>
+    <p>Preemptible functions stack:</p>
+    <p>[stub]</p>
+    <p>func()</p>
+    <p>handler()</p>
+  </div>
+  <div class="page">
+    <p>launch() timeout!</p>
+    <p>Preemption mechanism</p>
+    <p>t</p>
+    <p>Timeout?</p>
+  </div>
+  <div class="page">
+    <p>libinger microbenchmarks</p>
+    <p>Operation Cost (s)</p>
+    <p>launch()  5</p>
+    <p>resume()  5</p>
+    <p>cancel()  4800*</p>
+    <p>pthread_create()  30</p>
+    <p>fork()  200 * This operation is not typically on the critical path.</p>
+  </div>
+  <div class="page">
+    <p>libinger cancels runaway image decoding quickly</p>
+  </div>
+  <div class="page">
+    <p>Why contemporary approaches are insufficient  Function calls with timeouts  Backwards compatibility  Preemptive userland threading</p>
+    <p>Agenda</p>
+  </div>
+  <div class="page">
+    <p>Signal handlers cannot call non-reentrant code</p>
+    <p>The rest of the program interrupts a preemptible function</p>
+    <p>The rest of the program cannot call non-reentrant code?!</p>
+    <p>Problem: non-reentrancy</p>
+    <p>Program Preemptible function</p>
+    <p>Preemptible function</p>
+    <p>Calls to strtok()</p>
+  </div>
+  <div class="page">
+    <p>Can reuse each library copy once function runs to completion</p>
+    <p>Approach 1: library copying</p>
+    <p>Program Preemptible function</p>
+    <p>Preemptible function</p>
+    <p>strtok()</p>
+    <p>strtok()</p>
+    <p>About the Author ~~~~~~~~~~~~~~ ~~~~~~~~~~~~~~ ~~~~~~~~~~~~~~ ~~~~~~~~~~~~~~</p>
+    <p>libc.so</p>
+    <p>About the Author ~~~~~~~~~~~~~~ ~~~~~~~~~~~~~~ ~~~~~~~~~~~~~~ ~~~~~~~~~~~~~~</p>
+    <p>libc.so</p>
+    <p>About the Author ~~~~~~~~~~~~~~ ~~~~~~~~~~~~~~ ~~~~~~~~~~~~~~ ~~~~~~~~~~~~~~</p>
+    <p>libc.so</p>
+  </div>
+  <div class="page">
+    <p>Dynamic symbol binding</p>
+    <p>Executable</p>
+    <p>k = strtok(k:v, :);</p>
+    <p>Global Offset Table (GOT)</p>
+    <p>...</p>
+    <p>...</p>
+    <p>About the Author ~~~~~~~~~~~~~~ ~~~~~~~~~~~~~~ ~~~~~~~~~~~~~~ ~~~~~~~~~~~~~~</p>
+    <p>libc</p>
+    <p>?</p>
+  </div>
+  <div class="page">
+    <p>libgotcha: runtime implementing selective relinking for linked programs</p>
+  </div>
+  <div class="page">
+    <p>Selective relinking</p>
+    <p>Executable</p>
+    <p>k = strtok(&quot;k:v&quot;, &quot;:&quot;);</p>
+    <p>About the Author ~~~~~~~~~~~~~~ ~~~~~~~~~~~~~~ ~~~~~~~~~~~~~~ ~~~~~~~~~~~~~~</p>
+    <p>libc Global Offset Table (GOT)</p>
+    <p>...</p>
+    <p>...</p>
+    <p>About the Author ~~~~~~~~~~~~~~ ~~~~~~~~~~~~~~ ~~~~~~~~~~~~~~ ~~~~~~~~~~~~~~</p>
+    <p>libc</p>
+    <p>About the Author ~~~~~~~~~~~~~~ ~~~~~~~~~~~~~~ ~~~~~~~~~~~~~~ ~~~~~~~~~~~~~~</p>
+    <p>libgotcha</p>
+    <p>SGOT</p>
+  </div>
+  <div class="page">
+    <p>libset: full set of all a programs libraries</p>
+    <p>Libsets and cancellation</p>
+    <p>Program Preemptible function</p>
+    <p>Preemptible function</p>
+    <p>Calls to strtok()</p>
+    <p>About the Author ~~~~~~~~~~~~~~ ~~~~~~~~~~~~~~ ~~~~~~~~~~~~~~ ~~~~~~~~~~~~~~</p>
+    <p>libc.so</p>
+    <p>About the Author ~~~~~~~~~~~~~~ ~~~~~~~~~~~~~~ ~~~~~~~~~~~~~~ ~~~~~~~~~~~~~~</p>
+    <p>libc.so</p>
+  </div>
+  <div class="page">
+    <p>Approach 2: uncopyable functions Copying doesnt work for everything</p>
+    <p>void *malloc(size_t size) {</p>
+    <p>PREEMPTION_ENABLED = false;</p>
+    <p>void *mem = /* Call the real malloc(). */;</p>
+    <p>check_for_timeout();</p>
+    <p>PREEMPTION_ENABLED = true;</p>
+    <p>return mem;</p>
+    <p>} 39</p>
+  </div>
+  <div class="page">
+    <p>Approach 3: blocking syscalls</p>
+    <p>int open(const char *filename) {</p>
+    <p>syscall(SYS_open, filename);</p>
+    <p>}</p>
+    <p>struct sigaction sa = {};</p>
+    <p>sa.sa_flags = SA_RESTART;</p>
+    <p>while(errno == EAGAIN)</p>
+  </div>
+  <div class="page">
+    <p>libgotcha microbenchmarks</p>
+    <p>Symbol access Time w/o libgotcha Time w/ libgotcha</p>
+    <p>Function call  2 ns  14 ns</p>
+    <p>Global variable  0 ns  3500* ns</p>
+    <p>Baseline End-to-end time w/o libgotcha</p>
+    <p>gettimeofday()  19 ns (65% overhead)</p>
+    <p>getpid()  44 ns (30% overhead)</p>
+    <p>* Exported global variables have become rare.</p>
+  </div>
+  <div class="page">
+    <p>Why contemporary approaches are insufficient  Function calls with timeouts  Backwards compatibility  Preemptive userland threading</p>
+    <p>Agenda</p>
+  </div>
+  <div class="page">
+    <p>libturquoise: preemptive version of the Rust Tokio userland thread pool</p>
+  </div>
+  <div class="page">
+    <p>Vary % long in mix</p>
+    <p>Measure short only</p>
+    <p>hyper latency benchmark: experimental setup</p>
+    <p>compute-bound request</p>
+    <p>response</p>
+  </div>
+  <div class="page">
+    <p>hyper latency benchmarks: results</p>
+    <p>No code changes! Head-of-line blockingS ho</p>
+    <p>rt la</p>
+    <p>te nc</p>
+    <p>y (m</p>
+    <p>s)</p>
+    <p>% long requests % long requests</p>
+    <p>Median 99% tail</p>
+    <p>Preemptive</p>
+    <p>Cooperative</p>
+    <p>Preemptive</p>
+    <p>Cooperative</p>
+    <p>.</p>
+    <p>.</p>
+    <p>.</p>
+    <p>.</p>
+    <p>.</p>
+    <p>.</p>
+    <p>.</p>
+  </div>
+  <div class="page">
+    <p>Summary</p>
+    <p>lightweight preemptible function: function invoked with a timeout</p>
+    <p>Synchronous preemption abstraction  Supports resuming and cancellation  Interoperable with legacy software  Exciting systems applications</p>
+  </div>
+  <div class="page">
+    <p>Thank you! Reach me at sboucher@cmu.edu</p>
+  </div>
+</Presentation>

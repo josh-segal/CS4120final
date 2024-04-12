@@ -1,0 +1,302 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>MemC3: MemCache with CLOCK and Concurrent Cuckoo Hashing</p>
+    <p>Bin Fan (CMU), Dave Andersen (CMU), Michael Kaminsky (Intel Labs)</p>
+    <p>NSDI 2013</p>
+    <p>Bin Fan @ NSDI 2013!http://www.pdl.cmu.edu/ 1</p>
+  </div>
+  <div class="page">
+    <p>Goal: Improve Memcached</p>
+    <p>Bin Fan @ NSDI 2013!http://www.pdl.cmu.edu/ 2</p>
+  </div>
+  <div class="page">
+    <p>Overview  Previous Work: Sharding</p>
+    <p>Avoid inter-thread synchronization  e.g., dedicated cores [Berezecki11]</p>
+    <p>Hotspot? Memory Efficiency?</p>
+    <p>Our Approach: Algorithm Engineering  Apply concurrent / space-efficient data structures</p>
+    <p>Bin Fan @ NSDI 2013!http://www.pdl.cmu.edu/ 3</p>
+    <p>MemC3 vs. Memcached 3x throughput 30% more small key-value items</p>
+  </div>
+  <div class="page">
+    <p>Memcached Overview</p>
+    <p>Bin Fan @ NSDI 2013!http://www.pdl.cmu.edu/ 4</p>
+    <p>A DRAM-based key-value store  GET(key)  SET(key, value)</p>
+    <p>LRU eviction for high hit rate</p>
+    <p>Typical use:  Speed up webservers  Alleviate db load</p>
+    <p>Webserver Webserver</p>
+    <p>Memcached server</p>
+    <p>Webserver</p>
+    <p>get(x) set(y,&quot;123&quot;) get(z)</p>
+    <p>Database</p>
+    <p>Memcached server</p>
+    <p>on misson miss</p>
+  </div>
+  <div class="page">
+    <p>Typical Workloads</p>
+    <p>Watch the next talk!</p>
+    <p>Often used for small objects (Facebook[Atikoglu12])  90% keys &lt; 31 bytes  Some apps only use 2-byte values</p>
+    <p>Tens of millions of queries per second for large memcached clusters (Facebook[Nishtala13])</p>
+    <p>Bin Fan @ NSDI 2013!http://www.pdl.cmu.edu/ 5</p>
+    <p>Small Objects, High Rate</p>
+  </div>
+  <div class="page">
+    <p>Bin Fan  April 13! !</p>
+    <p>http://www.pdl.cmu.edu/ 6</p>
+    <p>Hash table w/ chaining</p>
+    <p>K V</p>
+    <p>K V</p>
+    <p>K V K V</p>
+    <p>K V</p>
+    <p>Key-Value Index:  Chaining hash table</p>
+    <p>Memcached: Core Data Structures</p>
+  </div>
+  <div class="page">
+    <p>Memcached: Core Data Structures</p>
+    <p>Bin Fan @ NSDI 2013!http://www.pdl.cmu.edu/ 7</p>
+    <p>Key-Value Index:  Chaining hash table</p>
+    <p>Hash table w/ chaining</p>
+    <p>K V</p>
+    <p>K V</p>
+    <p>K V K V</p>
+    <p>K V</p>
+    <p>LRU header</p>
+    <p>Doubly-linked-list (for each slab)</p>
+    <p>LRU Eviction:  Doubly-linked lists</p>
+  </div>
+  <div class="page">
+    <p>Problems We Solve  Single-node scalability</p>
+    <p>Accessing hash table and updating LRU are serialized</p>
+    <p>Space overhead  56-byte header per object</p>
+    <p>Including 3 pointers and 1 refcount  For a 100B object, overhead &gt; 50%</p>
+    <p>Bin Fan @ NSDI 2013!http://www.pdl.cmu.edu/ 8</p>
+  </div>
+  <div class="page">
+    <p>Solutions Optimistic cuckoo hashing</p>
+    <p>Better memory efficiency: 95% table occupancy  Higher concurrency: single-writer/multi-reader</p>
+    <p>CLOCK-based LRU eviction  Better space efficiency and concurrency</p>
+    <p>Additional algo &amp; tuning improvements</p>
+    <p>Bin Fan @ NSDI 2013!http://www.pdl.cmu.edu/ 9</p>
+    <p>focus of this talk</p>
+    <p>described in paper</p>
+  </div>
+  <div class="page">
+    <p>Solutions Optimistic cuckoo hashing</p>
+    <p>Better memory efficiency: 95% table occupancy  Higher concurrency: single-writer/multi-reader</p>
+    <p>CLOCK-based LRU eviction  Better space efficiency and concurrency</p>
+    <p>Additional algo &amp; tuning improvements</p>
+    <p>Bin Fan @ NSDI 2013!http://www.pdl.cmu.edu/ 10</p>
+    <p>focus of this talk</p>
+  </div>
+  <div class="page">
+    <p>Chaining items hashed in same bucket:</p>
+    <p>Good: simple (Data Structure 101) Bad: low cache locality:</p>
+    <p>(dependent pointer dereference) Bad: pointer costs space</p>
+    <p>Memcached Default Hash Table</p>
+    <p>Bin Fan @ NSDI 2013!http://www.pdl.cmu.edu/ 11</p>
+    <p>K V K V K Vlookup</p>
+  </div>
+  <div class="page">
+    <p>Linear Probing</p>
+    <p>Bin Fan @ NSDI 2013!http://www.pdl.cmu.edu/ 12</p>
+    <p>Probing consecutive buckets for vacancy Good: simple Good: cache friendly Bad: poor memory efficiency:</p>
+    <p>( if occupancy &gt; 50%, lookup needs to search a long chain)</p>
+    <p>lookup</p>
+  </div>
+  <div class="page">
+    <p>Cuckoo Hashing[Pagh04]  Each key has two candidate buckets</p>
+    <p>Assigned by hash1(key), hash2(key)  Stored in one of its candidate buckets</p>
+    <p>Lookup: read 2 buckets in parallel</p>
+    <p>Bin Fan @ NSDI 2013!http://www.pdl.cmu.edu/ 13</p>
+    <p>hash1(x)</p>
+    <p>hash2(x)</p>
+    <p>lookup x</p>
+  </div>
+  <div class="page">
+    <p>Cuckoo Hashing[Pagh04]  Each key has two candidate buckets</p>
+    <p>Assigned by hash1(key), hash2(key)  Stored in one of its candidate buckets</p>
+    <p>Lookup: read 2 buckets in parallel</p>
+    <p>Insert:  Perform key displacement</p>
+    <p>recursively  Still O(1) on average [Pagh04]</p>
+    <p>Bin Fan @ NSDI 2013!http://www.pdl.cmu.edu/ 14</p>
+    <p>x</p>
+    <p>hash1(x)</p>
+    <p>a</p>
+    <p>b hash2(x)</p>
+    <p>hash1(b) c</p>
+    <p>hash2(c) insert</p>
+  </div>
+  <div class="page">
+    <p>Bin Fan @ NSDI 2013!http://www.pdl.cmu.edu/ 15</p>
+    <p>Increase Set-Associativity</p>
+    <p>x</p>
+    <p>b</p>
+    <p>a</p>
+    <p>x</p>
+    <p>a c d</p>
+    <p>fe g h</p>
+    <p>b</p>
+    <p>2 cacheline-sized reads per lookup  50% space utilized</p>
+    <p>2 cacheline-sized reads per lookup  95% space utilized!</p>
+    <p>Each bucket still fits in 1 cacheline</p>
+  </div>
+  <div class="page">
+    <p>Solutions Optimistic cuckoo hashing</p>
+    <p>Better memory efficiency: 95% table occupancy  Higher concurrency: single-writer/multi-reader</p>
+    <p>CLOCK-based LRU eviction  Better space efficiency and concurrency</p>
+    <p>Additional algo &amp; tuning improvements</p>
+    <p>Bin Fan @ NSDI 2013!http://www.pdl.cmu.edu/ 16</p>
+    <p>focus of this talk</p>
+  </div>
+  <div class="page">
+    <p>False Miss Problem  During insertion:</p>
+    <p>always a floating item during insertion  a reader may miss</p>
+    <p>this floating item</p>
+    <p>Bin Fan @ NSDI 2013!http://www.pdl.cmu.edu/ 17</p>
+    <p>a</p>
+    <p>Insert x b</p>
+    <p>Floating Item</p>
+  </div>
+  <div class="page">
+    <p>Our Solution: 2-Step Insert  Step1: Find a cuckoo path to an empty slot</p>
+    <p>without editing buckets</p>
+    <p>Bin Fan @ NSDI 2013!http://www.pdl.cmu.edu/ 18</p>
+    <p>a</p>
+    <p>Insert x b</p>
+  </div>
+  <div class="page">
+    <p>Our Solution: 2-Step Insert  Step1: Find a cuckoo path to an empty slot</p>
+    <p>without editing buckets</p>
+    <p>Step2: Move hole backwards:</p>
+    <p>Bin Fan @ NSDI 2013!http://www.pdl.cmu.edu/ 19</p>
+    <p>a</p>
+    <p>Insert x b</p>
+  </div>
+  <div class="page">
+    <p>Our Solution: 2-Step Insert  Step1: Find a cuckoo path to an empty slot</p>
+    <p>without editing buckets</p>
+    <p>Step2: Move hole backwards:</p>
+    <p>Bin Fan @ NSDI 2013!http://www.pdl.cmu.edu/ 20</p>
+    <p>a</p>
+    <p>Insert x</p>
+    <p>b</p>
+  </div>
+  <div class="page">
+    <p>Our Solution: 2-Step Insert  Step1: Find a cuckoo path to an empty slot</p>
+    <p>without editing buckets</p>
+    <p>Step2: Move hole backwards:</p>
+    <p>Bin Fan @ NSDI 2013!http://www.pdl.cmu.edu/ 21</p>
+    <p>a Insert x</p>
+    <p>b</p>
+  </div>
+  <div class="page">
+    <p>Our Solution: 2-Step Insert  Step1: Find a cuckoo path to an empty slot</p>
+    <p>without editing buckets</p>
+    <p>Step2: Move hole backwards:</p>
+    <p>Bin Fan @ NSDI 2013!http://www.pdl.cmu.edu/ 22</p>
+    <p>a</p>
+    <p>x</p>
+    <p>b</p>
+    <p>Only need to ensure each move is atomic w.r.t. reader</p>
+  </div>
+  <div class="page">
+    <p>How to Ensure Atomic Move  e.g., move key b from bucket 4 to bucket 2</p>
+    <p>A simple implementation:</p>
+    <p>Our approach: Optimistic locking  Optimized for read-heavy workloads  Each key mapped to a version counter  Reader detects version change</p>
+    <p>(described in paper)</p>
+    <p>Bin Fan @ NSDI 2013!http://www.pdl.cmu.edu/ 23</p>
+    <p>b</p>
+    <p>Lock bucket 2 and 4 Move key Unlock bucket 2 and 4</p>
+  </div>
+  <div class="page">
+    <p>How to Coordinate Writers  Simple (current) solution:</p>
+    <p>Serialize inserts  Works fine with read-heavy workload</p>
+    <p>Ongoing work: allow multiple writers</p>
+    <p>Bin Fan @ NSDI 2013!http://www.pdl.cmu.edu/ 24</p>
+  </div>
+  <div class="page">
+    <p>Solutions Optimistic cuckoo hashing</p>
+    <p>Better memory efficiency: 95% table occupancy  Higher concurrency: single-writer/multi-reader</p>
+    <p>CLOCK-based LRU eviction  Better space efficiency and concurrency</p>
+    <p>Additional algo &amp; tuning improvements</p>
+    <p>Bin Fan @ NSDI 2013!http://www.pdl.cmu.edu/ 25</p>
+    <p>focus of this talk</p>
+  </div>
+  <div class="page">
+    <p>Solutions Optimistic cuckoo hashing</p>
+    <p>Better memory efficiency: 95% table occupancy  Higher concurrency: single-writer/multi-reader</p>
+    <p>CLOCK-based LRU eviction  Better space efficiency and concurrency</p>
+    <p>Additional algo &amp; tuning improvements</p>
+    <p>Bin Fan @ NSDI 2013!http://www.pdl.cmu.edu/ 26</p>
+    <p>focus of this talk</p>
+    <p>Avoid unnecessary full-key comparisons on hash collision</p>
+  </div>
+  <div class="page">
+    <p>Problems We Solve  Single-node scalability</p>
+    <p>Accessing hash table and updating LRU are serialized  GET requires no mutex  Single-writer/multiple-reader</p>
+    <p>Space overhead</p>
+    <p>56-byte header per object  3 pointers + 1 refcount =&gt; 1 pointer + 1 refbit</p>
+    <p>Bin Fan @ NSDI 2013!http://www.pdl.cmu.edu/ 27</p>
+  </div>
+  <div class="page">
+    <p>Hash Table Microbenchmark</p>
+    <p>Bin Fan @ NSDI 2013!http://www.pdl.cmu.edu/ 28</p>
+    <p>Lookups all hit</p>
+    <p>Base Chaining w/ Bkt Lock</p>
+    <p>Optimistic Cuckoo</p>
+    <p>Base Chaining w/ Bkt Lock</p>
+    <p>Optimistic Cuckoo</p>
+    <p>Lookups all miss</p>
+    <p>Server: Low Power Xeon CPU w/ 12 cores, 12 MB L3 cache</p>
+    <p>M ill</p>
+    <p>io n</p>
+    <p>Lo ok</p>
+    <p>up s/</p>
+    <p>se c</p>
+  </div>
+  <div class="page">
+    <p>Hash Table Microbenchmark</p>
+    <p>Bin Fan @ NSDI 2013!http://www.pdl.cmu.edu/ 29</p>
+    <p>Lookups all hit</p>
+    <p>Base Chaining w/ Bkt Lock</p>
+    <p>Optimistic Cuckoo</p>
+    <p>Base Chaining w/ Bkt Lock</p>
+    <p>Optimistic Cuckoo</p>
+    <p>Lookups all miss</p>
+    <p>Server: Low Power Xeon CPU w/ 12 cores, 12 MB L3 cache</p>
+    <p>M ill</p>
+    <p>io n</p>
+    <p>Lo ok</p>
+    <p>up s/</p>
+    <p>se c</p>
+  </div>
+  <div class="page">
+    <p>M Q PS %</p>
+    <p>Number%of%Server%Threads%%</p>
+    <p>End-to-end Performance</p>
+    <p>Bin Fan @ NSDI 2013!http://www.pdl.cmu.edu/ 30</p>
+    <p>MemC3</p>
+    <p>Sharding</p>
+    <p>Memcached</p>
+    <p>max tput 4.3 MOPS</p>
+    <p>max tput 1.5 MOPS</p>
+    <p>max tput 0.6 MOPS</p>
+  </div>
+  <div class="page">
+    <p>Conclusion  Optimistic cuckoo hashing</p>
+    <p>High space efficiency  Optimized for read-heavy workloads  Source Code available:</p>
+    <p>github.com/efficient/libcuckoo</p>
+    <p>MemC3 improves Memcached  3x throughput, 30% more (small) objects  Optimistic Cuckoo Hashing, CLOCK, other system</p>
+    <p>tuning</p>
+    <p>Bin Fan @ NSDI 2013!http://www.pdl.cmu.edu/ 31</p>
+  </div>
+  <div class="page">
+    <p>References [Atikoglu12] Workload analysis of a large-scale key- value store. [Berezecki11] Many-core key-value store [Nishtala13] Scaling Memcache at Facebook</p>
+    <p>[Pagh04] Cuckoo hashing</p>
+    <p>Bin Fan @ NSDI 2013!http://www.pdl.cmu.edu/ 32</p>
+  </div>
+  <div class="page">
+    <p>Q &amp; A  Thanks!</p>
+    <p>Bin Fan @ NSDI 2013!http://www.pdl.cmu.edu/ 33</p>
+  </div>
+</Presentation>

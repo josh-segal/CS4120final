@@ -1,0 +1,254 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>How Double-Fetch Situations turn into Double-Fetch Vulnerabilities: A Study of Double Fetches in the Linux Kernel</p>
+    <p>Pengfei Wang, Jens Krinke, Kai Lu, Gen Li, Steve Dodier-Lazaro</p>
+    <p>Centre for Research on Evolution, Search and Testing University College London</p>
+    <p>College of Computer National University of Defense Technology, China</p>
+  </div>
+  <div class="page">
+    <p>OUTLINE</p>
+    <p>What is a double fetch</p>
+    <p>A static pattern-based double fetch analysis.</p>
+    <p>Results and Findings.</p>
+  </div>
+  <div class="page">
+    <p>Double Fetch First Appearance - Fermin J. Serna, CVE-2008-2252</p>
+  </div>
+  <div class="page">
+    <p>Double Fetch First Study: Jurczyk &amp; Coldwind - 2013</p>
+  </div>
+  <div class="page">
+    <p>Double Fetch Exploit Instructions on GitHub - 2016</p>
+  </div>
+  <div class="page">
+    <p>Double Fetch Vulnerabilities Today: Where are they?</p>
+    <p>Linux had double fetch vulnerabilities, but no dedicated audit has been done.</p>
+    <p>We need a static analysis to cover the complete kernel including all drivers(44%).</p>
+    <p>Bochspwn Weakness</p>
+    <p>Is dynamic, slow and limited code coverage.</p>
+    <p>Did not show why double fetches happen.</p>
+    <p>Only workable for Windows.</p>
+    <p>Cannot analyze driver code without hardware.</p>
+  </div>
+  <div class="page">
+    <p>Operating Systems: Separate Address Spaces</p>
+    <p>Kernel</p>
+    <p>User Space UserSpace UserSpace</p>
+    <p>Each user process has its own virtual memory space</p>
+    <p>User spaces are isolated.</p>
+    <p>Only the kernel can access all user spaces.</p>
+  </div>
+  <div class="page">
+    <p>Operating Systems: System Call Interface</p>
+    <p>Fundamental Interface between application and kernel</p>
+    <p>Arguments are copied  either directly or  as pointers to data structures</p>
+    <p>The kernel cannot trust any data coming from the application!</p>
+    <p>Kernel</p>
+    <p>User Space</p>
+    <p>Syscall</p>
+  </div>
+  <div class="page">
+    <p>Anatomy of a Double Fetch</p>
+  </div>
+  <div class="page">
+    <p>Transfer Functions in Linux</p>
+    <p>Linux uses dedicated functions to copy data between user and kernel space:</p>
+    <p>Data in user space is not accessed directly: Ensures that the access is valid.</p>
+    <p>get_user(src) copy_from_user(dst, src, size) put_user(dst) copy_to_user(dst, src, size)</p>
+  </div>
+  <div class="page">
+    <p>Double-fetch bug in Linux (CVE-2016-5728) 522 static int mic_copy_dp_entry(...) {</p>
+    <p>... 533 if (copy_from_user(&amp;dd, argp, sizeof(dd))) {</p>
+    <p>... 536 return -EFAULT; 537 } 546 dd_config = kmalloc(mic_desc_size(&amp;dd), GFP_KERNEL); 547 if (dd_config == NULL) {</p>
+    <p>... return -ENOMEM;</p>
+    <p>} 552 if (copy_from_user(dd_config, argp, mic_desc_size(&amp;dd))) { 553 ret = -EFAULT;</p>
+    <p>... 557 } 570 for ( i = sizeof(struct mic_bootparam); 571 i &lt; MIC_DP_SIZE - mic_total_desc_size(dd_config); 572 i += mic_total_desc_size(devp)) { 573 devp = mdev-&gt;dp + i; 574 ... 577 } 578 }</p>
+    <p>... 591 memcpy(devp, dd_config, mic_desc_size(dd_config));</p>
+    <p>... 597 }</p>
+    <p>Allocate buffer use size from first fetch</p>
+    <p>Use size from second fetch</p>
+  </div>
+  <div class="page">
+    <p>Static Pattern-Based Approach</p>
+  </div>
+  <div class="page">
+    <p>Pattern-based Double Fetch Analysis Based on Coccinelle (Julia Lawall, LIP6  France)</p>
+    <p>Program matching and transformation engine used for Linux checking</p>
+    <p>Developed two analyses: 1. A simple analysis to</p>
+    <p>identify double-fetch situations 2. A refined analysis to</p>
+    <p>discover double-fetch bugs</p>
+  </div>
+  <div class="page">
+    <p>Pattern-based Double Fetch Analysis</p>
+    <p>ble fetch can be located by matching the patterns of fetch operations, the use of the fetched data varies a lot. For example, in addition to being used for validation, the first fetched value can be possibily copied to somewhere else for later use, which means the first use (or check) could be temporally absent. Besides, the fetched value can be passed as an argument to other functions for further use. Therefore, in this paper, we define the use in a double fetch to be a conditional check (read data for comparison), an assignment to other variables, a function call argument pass, or a computation using the fetched data. We need to take into consideration these double fetch characteristics.</p>
+    <p>For these reasons, identifying double-fetch bugs requires a dedicated analysis and previous approaches are either not applicable or not effective.</p>
+    <p>Since Coccinelles strategy for traversing control-flow graphs is based on temporal logic CTL (Computational Tree Logic) [3], and the pattern matching implemented on Coccinelle is path-sensitive, which achieves better code coverage. Coccinelle is highly optimized to improve performance when exhaustively traversing all the execution paths. Besides, Coccinelle is insensitive to newlines, spaces, comments, etc. Moreover, the patternbased analysis is applied directly to the source code, therefore operations that are defined as macros, such as get_user() or __get_user(), will not be expanded during the matching, which facilitates the detection of double fetches based on the identification of transfer function. Therefore, Coccinelle is the perfect tool for us to carry out our study of double fetches based on pattern matching.</p>
+    <p>In this paper, our study of double fetches in the Linux kernel is divided into two phases. As shown in Figure 4, in the first phase, we analyze the Linux kernel with the Coccinelle engine using a basic double-fetch pattern that identifies when a function has multiple invocations of a transfer function. Then we manually investigate the candidate files found by the pattern matching, to categorize the scenarios in which a double fetch occurs and when a double-fetch bug or vulnerability is prone to happen based on the context information that is relevant to the</p>
+    <p>Source FilesSource Files</p>
+    <p>Coccinelle Matching Engine</p>
+    <p>Source FilesCandidate Files</p>
+    <p>void function_name(*src) { copy_from_user(dst1, src, len1) ... copy_from_user(dst2, src, len2)</p>
+    <p>} Manual Analysis</p>
+    <p>Rule 0 : Basic pattern Rule 1 : No pointer change Rule 2 : Pointer aliasing Rule 3 : Explicit type conversion Rule 4 : Combination of element</p>
+    <p>fetch and pointer fetch Rule 5 : Loop involvement</p>
+    <p>Bug Details</p>
+    <p>Categorization</p>
+    <p>Phase 1: Basic Pattern</p>
+    <p>Phase 2: Refined Pattern Source FilesDouble Fetch</p>
+    <p>Context Information</p>
+    <p>Trigger &amp; Consequence</p>
+    <p>Figure 4: Overview of our Two-Phase Coccinelle-Based Double-Fetch Situation Detection Process</p>
+    <p>bug. In the second phase, based on the knowledge gained from the manual analysis, we developed a more precise analysis using the Coccinelle engine to systematically detect double-fetch bugs and vulnerabilities throughout the kernel, which we also used to additionally analyze FreeBSD and Android.</p>
+    <p>Our approach examines all source code files of the Linux kernel and checks whether a kernel function contains two or more invocations of transfer functions that fetch data from the same user pointer. From the 39,906 Linux source files, 17,532 files belong to drivers (44%), and 10,398 files belong to non-x86 hardware architectures (26%). We manually analyzed the matched kernel functions to infer knowledge on the characteristics of double fetches, i.e., how the user data is transferred to and used in the kernel, which helped us to carry out a categorization of double-fetch situations, as we discuss in Section 3.2. The manual analysis also helped us refine our pattern matching approach and more precisely detect actual double-fetch bugs, as explained in Section 3.3.</p>
+  </div>
+  <div class="page">
+    <p>Manual Analysis</p>
+    <p>How user data is transferred and used in the kernel</p>
+    <p>Trigger and consequence Characteristics</p>
+    <p>Context information  Implementation details  Add rules to refine the pattern</p>
+    <p>Details at C code level</p>
+    <p>Size Checking  Type Selection  Shallow Copy</p>
+    <p>Categorization</p>
+  </div>
+  <div class="page">
+    <p>Categorization  Size Checking, Type Selection</p>
+    <p>Header</p>
+    <p>struct header(*ptr) { unsigned int size; unsigned type; ...</p>
+    <p>}hdr;</p>
+    <p>User Msg content</p>
+    <p>*ptr</p>
+    <p>copy_from_user( hdr, ptr, sizeof(header)); ... buf = kalloc(hdr.size) ... copy_from_user(buf, ptr, hdr.size); ...</p>
+    <p>Size Checking</p>
+    <p>copy_from_user( hdr, ptr, sizeof(header));</p>
+    <p>switch(hdr.type){ case 1: copy_from_user() ...</p>
+    <p>case 2: copy_from_user() ...</p>
+    <p>default: ...</p>
+    <p>}</p>
+    <p>Type Selection</p>
+    <p>Size Checkin</p>
+    <p>g</p>
+    <p>Type Selection</p>
+  </div>
+  <div class="page">
+    <p>Categorization  Shallow Copy Msg is shallow copied to kernel</p>
+    <p>Get Element</p>
+    <p>msg</p>
+    <p>int</p>
+    <p>Get Msg</p>
+    <p>char * m</p>
+    <p>*ptr</p>
+    <p>msg</p>
+    <p>unsigned int len First Buffer</p>
+    <p>Second Buffer</p>
+    <p>Copy from user again to get element</p>
+    <p>User Msg</p>
+  </div>
+  <div class="page">
+    <p>Refined Double Fetch Detection</p>
+    <p>Source Code Files</p>
+    <p>DoubleFetch Bug</p>
+    <p>trans_func(dst1, src) ...</p>
+    <p>trans_func(dst2, src)</p>
+    <p>Rule 0 Rule 2</p>
+    <p>Rule 1</p>
+    <p>Rule 4</p>
+    <p>Rule 3</p>
+    <p>for( i=0; i&lt;c; i++){ trans_func(dst1, src[i]) ... trans_func(dst2, src[i])</p>
+    <p>}</p>
+    <p>trans_func(dst1, src) ...</p>
+    <p>when != src = src+ offset when != src += offset when != src ++ when != src = ptr ...</p>
+    <p>trans_func(dst2, src)</p>
+    <p>trans_func(dst1, src) ...</p>
+    <p>trans_func(dst2, (T)src)</p>
+    <p>trans_func(dst1, (T1)src) ...</p>
+    <p>trans_func(dst2, (T2)src)</p>
+    <p>trans_func(dst1, src) ...</p>
+    <p>p = src ...</p>
+    <p>trans_func(dst2, p)</p>
+    <p>Refined Rule-based Pattern Matching</p>
+    <p>Rule 5</p>
+    <p>trans_func(dst1, ptr-&gt;len) ...</p>
+    <p>trans_func(dst2, ptr)</p>
+    <p>trans_func(dst1, msg.len) ...</p>
+    <p>trans_func(dst2, &amp;msg)</p>
+    <p>Figure 9: Refined Coccinelle-Based Double-Fetch Bug Detection</p>
+    <p>Again, this is a double-fetch bug as a user may have changed the value between the two fetches in lines 68 and 74. However, this double-fetch bug is not causing a vulnerability because neither can the kernel be crashed by an invalid size given to a transfer function, nor can information leakage occur when the kernel copies back data beyond the size that it received earlier because the copied buffer is located in its own memory page. An attempt to trigger the bug will simply end in termination of the system call with an error code in line 82. The double-fetch bug has been eliminated in Linux 4.6.</p>
+    <p>As shown in Figure 9, in addition to the basic doublefetch pattern matching rule (Rule 0), which is triggered when two reads fetch data from the same source location, we added the following five additional rules to improve precision as well as discover corner cases. The Coccinelle engine applies these rules one by one when analyzing the source files. A double-fetch bug could involve different transfer functions, therefore, we have to take the four transfer functions that copy data from user space (get_user(), __get_user(), copy_from_user(), __copy_from_user()) into con</p>
+    <p>sideration. We use trans_func() in Figure 9 to represent any possible transfer functions in the Linux kernel.</p>
+    <p>Rule 1: No pointer change. The most critical rule in detecting double-fetch bugs is keeping the user pointer unchanged between two fetches. Otherwise, false positives can be caused. As can be seen from Rule 1 in Figure 9, this change might include cases of self-increment (++), adding an offset, or assignment of another value, and the corresponding subraction situations.</p>
+    <p>Rule 2: Pointer aliasing. Pointer aliasing is common in double-fetch situations. In some cases, the user pointer is assigned to another pointer, because the pointer might be changed when processing long messages, while using two pointers is more convenient, one for checking the data, and the other for using the data. As can be seen from Rule 2 in Figure 9, this kind of assignment might appear at the beginning of a function or in the middle between the two fetches. Missing aliasing situation could cause false negtives. In addition, pointer assignments are usually combined with explicit pointer type conversions.</p>
+    <p>Rule 3: Explicit type conversion. Explicit pointer type conversion is widely used when the kernel is fetching data from user space. For instance, in the size checking scenario, a message pointer would be converted to a header pointer to get the header in the first fetch, then used again as a message pointer in the second fetch. As can be seen from Rule 3 in Figure 9, any of the two source pointers could involve type conversion. Missing type conversion situations could cause false negtives.</p>
+    <p>Rue 4: Combination of element fetch and pointer fetch. In some cases, a user pointer is used to both fetch the whole data structure as well as fetching only a part by dereferencing the pointer to an element of the data structure. For instance, in the size checking scenario, a user pointer is first used to fetch the message length by get_user(len, ptr-&gt;len), then to copy the whole message in the second fetch by copy_from_user(msg, ptr, len), which means the two fetches are not using exactly the same pointer as the transfer function arguments, but they cover the same value semantically. As we can see from Rule 4 in Figure 9, this situation covers both pointer arguments and the address of the data structure. This situation usually appears with explicit pointer type conversion, and false negtives could be caused if this situation is missed.</p>
+    <p>Rule 5: Loop involvement. Since Coccinelle is pathsensitive, when a loop appears in the code, one transfer function call in a loop will be reported as two calls, which could cause false positives. Besides, as can be seen from Rule 5 in Figure 9, when there are two fetches in each iteration of a loop, the second fetch of the last iteration and the first fetch of the next iteration will be matched. This case should be removed as false positive because the user pointer should have been changed when crossing the iter</p>
+    <p>Basic rule Pointer aliasing Pointer &amp; element</p>
+    <p>No pointer change Explicit type conversion</p>
+    <p>Loop involvement</p>
+  </div>
+  <div class="page">
+    <p>Results and Findings</p>
+  </div>
+  <div class="page">
+    <p>Evaluation - Basic Double Fetch Analysis</p>
+    <p>Most double fetches dont cause double-fetch bugs.  Double fetches are more likely to occur in drivers.</p>
+    <p>About 63% (57 out of 90) of the cases were driver related.  About 80% (4 out of 5) of the true double-fetch bugs inside drivers.</p>
+    <p>value semantically. As we can see from Rule 4 in Figure 9, this situation may use a user pointer or the address of the data structure as the argument of the transfer functions. This situation usually appears with explicit pointer type conversion, and false negatives could be caused if this situation is missed.</p>
+    <p>Rule 5: Loop involvement. Since Coccinelle is pathsensitive, when a loop appears in the code, one transfer function call in a loop will be reported as two calls, which could cause false positives. Besides, as can be seen from Rule 5 in Figure 9, when there are two fetches in a loop, the second fetch of the last iteration and the first fetch of the next iteration will be matched as a double fetch. This case should be removed as false positive because the user pointer should have been changed when crossing the iterations and these two fetches are getting dierent values. Moreover, cases that use an array to copy dierent values inside a loop also cause false positives.</p>
+    <p>In this section, we present the evaluation of our study, which includes two parts: the statistics of the manual analysis, and the results of the refined approach when applied to three open source kernels: Linux, Android, and FreeBSD. We obtained the most up-to-date versions available at the time of the analysis.</p>
+    <p>Furthermore, 57 out of the 90 candidates were part of Linux drivers and among them, 22 were size checking related, 9 were type selection related and 19 were shallow copy related.</p>
+    <p>Table 1: Basic Double Fetch Analysis Results Category Occurrences In Drivers</p>
+    <p>Size Checking 30 33% 22 73% Type Selection 11 12% 9 82% Shallow Copy 31 34% 19 61% Other 18 20% 7 39% Total 90 100% 57 63%</p>
+    <p>True Bugs 5 6% 4 80%</p>
+    <p>Table 2: Refined Double-Fetch Bug Detection Results</p>
+    <p>Kernel Total Files</p>
+    <p>Reported Files</p>
+    <p>True Bugs</p>
+    <p>Size Check.</p>
+    <p>Type Sel.</p>
+    <p>Linux 4.5 39,906 53 5 23 6 Android 6.0.1 35,313 48 3 18 6 FreeBSD 32,830 16 0 8 3</p>
+    <p>Most importantly, we found five previously unknown double-fetch bugs which include four size checking scenarios and one shallow copy scenario which also belongs to the size checking scenario. Three of them are exploitable vulnerabilities. The five bugs have been reported and they all have been confirmed by the developers and have meanwhile been fixed. From the statistical result, we can observe the following:</p>
+    <p>Overall, this leads to the conclusion that most double fetches do not cause double-fetch bugs and that double fetches are more likely to occur in drivers. However, as soon as a double fetch is due to size checking, developers have to be careful: Four out of 22 size checking scenarios in drivers turned out to be double-fetch bugs.</p>
+  </div>
+  <div class="page">
+    <p>Evaluation  Refined Detection</p>
+    <p>Totally 6 bugs found:  5 new bugs in newest Linux kernel 4.5.  2 shared between Android and Linux.  1 bug only showed in Android.  No bug found in FreeBSD.</p>
+    <p>value semantically. As we can see from Rule 4 in Figure 9, this situation may use a user pointer or the address of the data structure as the argument of the transfer functions. This situation usually appears with explicit pointer type conversion, and false negatives could be caused if this situation is missed.</p>
+    <p>Rule 5: Loop involvement. Since Coccinelle is pathsensitive, when a loop appears in the code, one transfer function call in a loop will be reported as two calls, which could cause false positives. Besides, as can be seen from Rule 5 in Figure 9, when there are two fetches in a loop, the second fetch of the last iteration and the first fetch of the next iteration will be matched as a double fetch. This case should be removed as false positive because the user pointer should have been changed when crossing the iterations and these two fetches are getting dierent values. Moreover, cases that use an array to copy dierent values inside a loop also cause false positives.</p>
+    <p>In this section, we present the evaluation of our study, which includes two parts: the statistics of the manual analysis, and the results of the refined approach when applied to three open source kernels: Linux, Android, and FreeBSD. We obtained the most up-to-date versions available at the time of the analysis.</p>
+    <p>Furthermore, 57 out of the 90 candidates were part of Linux drivers and among them, 22 were size checking related, 9 were type selection related and 19 were shallow copy related.</p>
+    <p>Table 1: Basic Double Fetch Analysis Results Category Occurrences In Drivers</p>
+    <p>Size Checking 30 33% 22 73% Type Selection 11 12% 9 82% Shallow Copy 31 34% 19 61% Other 18 20% 7 39% Total 90 100% 57 63%</p>
+    <p>True Bugs 5 6% 4 80%</p>
+    <p>Table 2: Refined Double-Fetch Bug Detection Results</p>
+    <p>Kernel Total Files</p>
+    <p>Reported Files</p>
+    <p>True Bugs</p>
+    <p>Size Check.</p>
+    <p>Type Sel.</p>
+    <p>Linux 4.5 39,906 53 5 23 6 Android 6.0.1 35,313 48 3 18 6 FreeBSD 32,830 16 0 8 3</p>
+    <p>Most importantly, we found five previously unknown double-fetch bugs which include four size checking scenarios and one shallow copy scenario which also belongs to the size checking scenario. Three of them are exploitable vulnerabilities. The five bugs have been reported and they all have been confirmed by the developers and have meanwhile been fixed. From the statistical result, we can observe the following:</p>
+    <p>Overall, this leads to the conclusion that most double fetches do not cause double-fetch bugs and that double fetches are more likely to occur in drivers. However, as soon as a double fetch is due to size checking, developers have to be careful: Four out of 22 size checking scenarios in drivers turned out to be double-fetch bugs.</p>
+  </div>
+  <div class="page">
+    <p>The Confirmed Bugs</p>
+    <p>MIC VOP (Virtio Over PCIe) driver Linux-4.5/drivers/misc/mic/host/mic_virtio.cCVE-2016-5728</p>
+    <p>IBM (z-Series) s390 platform driver Linux-4.5/drivers/s390/char/sclp_ctl.cCVE-2016-6130</p>
+    <p>Auditing subsystem Linux-4.5/kernel/auditsc.cCVE-2016-6136</p>
+    <p>Expose the Chrome OS Embedded Controller to user-space Linux-4.5/drivers/platform/chrome/cros_ec_dev.cCVE-2016-6156</p>
+    <p>The aacraid driver (adds support for AdaptecRAID controllers) Linux-4.5/drivers/scsi/aacraid/commctrl.cCVE-2016-6480</p>
+    <p>File system Android-6.0.1/fs/fhandle.cCVE-2015-1420</p>
+  </div>
+  <div class="page">
+    <p>Findings</p>
+    <p>Double fetches have a long history  Windows, Linux, Android, FreeBSD  Some double-fetch bugs existed over 10 years (CVE-2016-6480).</p>
+    <p>Some double fetches are inevitable  Size checking, type selection, shallow copy  Size checking is more likely to cause true bugs (5/6)</p>
+    <p>Benign double fetches are not all safe  Can turn into harmful ones by code update (CVE-2016-5728).  Can cause performance issue.</p>
+  </div>
+  <div class="page">
+    <p>Conclusion  Double fetches occur in operating systems and can cause bugs</p>
+    <p>and vulnerabilities.</p>
+    <p>With a static pattern-matching analysis, we analyzed the complete kernel (all drivers) and categorized bug prone scenarios.</p>
+    <p>We found 6 true bugs (vulnerabilities), all have been confirmed by the maintainers and patched already.</p>
+    <p>Pengfei Wang E-mail: pfwang@nudt.edu.cn National University of Defense Technology, China Jens Krinke E-mail: j.krinke@ucl.ac.uk University College London, UK</p>
+  </div>
+</Presentation>

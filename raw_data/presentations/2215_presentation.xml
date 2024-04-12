@@ -1,0 +1,902 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>mLSM: Making Authenticated Storage Faster in Ethereum</p>
+    <p>Pandian Raju1, Soujanya Ponnapalli1, Evan Kaminsky1, Gilad Oved1, Zachary Keener1 Vijay Chidambaram1,2, Ittai Abraham2</p>
+  </div>
+  <div class="page">
+    <p>Ethereum</p>
+    <p>Distributed software platform  Cryptocurrency applications  Key-value store  Accounts : Balances  Trustless Decentralized setting</p>
+  </div>
+  <div class="page">
+    <p>Ethereum  Distributed Decentralized System</p>
+    <p>B1 B2 B3</p>
+    <p>Node1</p>
+    <p>Node2</p>
+    <p>Node4 Node3</p>
+    <p>Node4</p>
+    <p>B4</p>
+  </div>
+  <div class="page">
+    <p>Need for Authenticated Storage</p>
+    <p>User A, Balance: $500</p>
+    <p>User C, Balance: $500000</p>
+    <p>A</p>
+    <p>User B, Balance: $5000</p>
+    <p>User B, Balance: $5000</p>
+    <p>User A, Balance: $0</p>
+    <p>User C, Balance: $0</p>
+    <p>Balance (A) ?</p>
+    <p>Balance : $0</p>
+    <p>Balance : $0</p>
+  </div>
+  <div class="page">
+    <p>Authenticated Storage</p>
+    <p>Users can verify the value returned by a node  Each read is returned with the value and a proof</p>
+    <p>User A, Balance: $500</p>
+    <p>User C, Balance: $500000</p>
+    <p>A</p>
+    <p>User B, Balance: $5000</p>
+    <p>Balance (A) ?</p>
+    <p>[ $500, PROOF ]</p>
+  </div>
+  <div class="page">
+    <p>Authentication Techniques in Ethereum</p>
+    <p>Ethereum authenticated storage suffer from high IO Amplification  64x in the worst case  IO Amplification  Ratio of the amount of IO to the amount of user data</p>
+    <p>Client User data : 10 GB</p>
+    <p>Server</p>
+    <p>User data : 10 GB Total write IO : 500 GB</p>
+    <p>Write Amplification : 50</p>
+  </div>
+  <div class="page">
+    <p>Why is IO Amplification bad?</p>
+    <p>Reduces the write throughput  Directly impact the life of Flash devices  Flash devices wear out after limited write cycles</p>
+    <p>(Intel SSD DC P4600 can last ~5 years assuming ~5 TB write per day)</p>
+    <p>For the same SSD life expectancy, with 65x IO Amplification, instead of 5TB of data we can now only write ~75 GB of user data per day</p>
+  </div>
+  <div class="page">
+    <p>How to design an authenticated storage system that minimizes IO amplification?</p>
+    <p>Merkelized LSM  Maintains multiple mutually independent binary merkle trees  Decouples lookup from authentication  Minimizes IO Amplification</p>
+  </div>
+  <div class="page">
+    <p>Outline</p>
+    <p>Authentication in Ethereum  Why caching doesnt work?  Merkelized LSM</p>
+  </div>
+  <div class="page">
+    <p>Authenticated Storage in Ethereum</p>
+  </div>
+  <div class="page">
+    <p>Merkle Trees  Fundamental building blocks</p>
+    <p>K1 : v1 K2 : v2 K3 : v3 K4 : v4</p>
+    <p>H(v1-2) H(v3-4)</p>
+    <p>H(v1-4)</p>
+    <p>K4 : V4</p>
+    <p>H(v3-4)</p>
+    <p>H(v1-4)</p>
+    <p>With a constant sized root hash, we can authenticate all the key-value pairs</p>
+    <p>Root hash is publicly available to all clients</p>
+  </div>
+  <div class="page">
+    <p>Authentication using Merkle Trees</p>
+    <p>Client queries for value of key k4  Server replies with the value</p>
+    <p>K1 : v1 K2 : v2 K3 : v3</p>
+    <p>P1 P2</p>
+    <p>Root</p>
+    <p>K4 : v4K4 : v4</p>
+  </div>
+  <div class="page">
+    <p>Authentication using Merkle Trees</p>
+    <p>Client queries for value of key k4  Server replies with the value  Along with a Merkle Proof</p>
+    <p>K1 : v1 K2 : v2 K3 : v3 K4 : v4</p>
+    <p>P1 P2</p>
+    <p>Root</p>
+    <p>K4 : v4K3 : v3</p>
+    <p>P1</p>
+    <p>Root</p>
+  </div>
+  <div class="page">
+    <p>Authentication using Merkle Trees</p>
+    <p>Client queries for value of key k4  Server replies with the value  Along with a Merkle Proof</p>
+    <p>K1 : v1 K2 : v2 K3 : v3 K4 : v4</p>
+    <p>P1 P2</p>
+    <p>Root</p>
+    <p>K4 : v4</p>
+    <p>k3 : v3Root P1 K4 : v4Response :</p>
+  </div>
+  <div class="page">
+    <p>Authentication using Merkle Trees</p>
+    <p>Client verifies the value by calculating the root hash from the value and Merkle proof</p>
+    <p>K1 : v1 K2 : v2 K3 : v3 K4 : v4</p>
+    <p>P1 P2</p>
+    <p>Root</p>
+    <p>K4 : v4</p>
+    <p>k3 : v3Root P1 K4 : v4Response :</p>
+  </div>
+  <div class="page">
+    <p>Authentication using Merkle Trees</p>
+    <p>K1 : v1 K2 : v2 K3 : v3 K4 : v4</p>
+    <p>P1 P2</p>
+    <p>Root</p>
+    <p>K4 : v4</p>
+    <p>Client verifies the value by calculating the root hash from the value and Merkle proof</p>
+    <p>K3 : v3Root P1 K4 : v4Response :</p>
+  </div>
+  <div class="page">
+    <p>Authentication using Merkle Trees</p>
+    <p>K1 : v1 K2 : v2</p>
+    <p>P1 P2</p>
+    <p>Root</p>
+    <p>Client verifies the value by calculating the root hash from the value and Merkle proof</p>
+    <p>Root P1Response : P2</p>
+    <p>K3 : v3 K4 : v4</p>
+    <p>P2</p>
+  </div>
+  <div class="page">
+    <p>Authentication using Merkle Trees</p>
+    <p>Client queries for value of key k4  Server replies with value and a</p>
+    <p>Merkle Proof</p>
+    <p>K1 : v1 K2 : v2 K3 : v3</p>
+    <p>P1 P2</p>
+    <p>Root</p>
+    <p>K4 : v4</p>
+    <p>Root P1Response : P2</p>
+  </div>
+  <div class="page">
+    <p>Authentication using Merkle Trees</p>
+    <p>Client queries for value of key k4  Server replies with value and a</p>
+    <p>Merkle Proof</p>
+    <p>K1 : v1 K2 : v2 K3 : v3</p>
+    <p>P1 P2</p>
+    <p>Root</p>
+    <p>K4 : v4</p>
+    <p>Root P1Response : P2</p>
+    <p>P1</p>
+  </div>
+  <div class="page">
+    <p>Authentication using Merkle Trees</p>
+    <p>Client verifies the value by calculating the root hash from the value and Merkle proof</p>
+    <p>K1 : v1 K2 : v2 K3 : v3 K4 : v4</p>
+    <p>RootResponse : Root</p>
+    <p>Root</p>
+    <p>P1 P2</p>
+  </div>
+  <div class="page">
+    <p>Authentication using Merkle Trees</p>
+    <p>Client verifies the value by calculating the root hash from the value and Merkle proof</p>
+    <p>K1 : v1 K2 : v2 K3 : v3</p>
+    <p>P1 P2</p>
+    <p>Root</p>
+    <p>K4 : v4</p>
+    <p>RootResponse : Root ?</p>
+  </div>
+  <div class="page">
+    <p>Authentication using Merkle Trees</p>
+    <p>Server can no longer lie about the data</p>
+    <p>K1 : v1 K2 : v2 K3 : v3 K4 : v4</p>
+    <p>P1 P2</p>
+    <p>Root</p>
+    <p>K4 : v4</p>
+    <p>k3 : v3Root P1 K4 : v4Response :</p>
+  </div>
+  <div class="page">
+    <p>Authentication using Merkle Trees</p>
+    <p>K1 : v1 K2 : v2 K3 : v3 K4 : v4</p>
+    <p>P1 P2</p>
+    <p>Root</p>
+    <p>K4 : v4</p>
+    <p>Server can no longer lie about the value</p>
+    <p>K3 : v3Root P1 K4 : v4Response :</p>
+  </div>
+  <div class="page">
+    <p>Authentication using Merkle Trees</p>
+    <p>K1 : v1 K2 : v2</p>
+    <p>P1 P2</p>
+    <p>Root</p>
+    <p>Client verifies the value by calculating the root hash from the value and Merkle proof</p>
+    <p>Root P1Response : P2</p>
+    <p>K3 : v3 K4 : v4</p>
+    <p>P2</p>
+  </div>
+  <div class="page">
+    <p>Authentication using Merkle Trees</p>
+    <p>Client queries for value of key k4  Server replies with value and a</p>
+    <p>Merkle Proof</p>
+    <p>K1 : v1 K2 : v2 K3 : v3</p>
+    <p>P1 P2</p>
+    <p>Root</p>
+    <p>K4 : v4</p>
+    <p>Root P1Response : P2</p>
+  </div>
+  <div class="page">
+    <p>Authentication using Merkle Trees</p>
+    <p>Client queries for value of key k4  Server replies with value and a</p>
+    <p>Merkle Proof</p>
+    <p>K1 : v1 K2 : v2 K3 : v3</p>
+    <p>P1 P2</p>
+    <p>Root</p>
+    <p>K4 : v4</p>
+    <p>Root P1Response : P2</p>
+    <p>P1</p>
+  </div>
+  <div class="page">
+    <p>Authentication using Merkle Trees</p>
+    <p>Client verifies the value by calculating the root hash from the value and Merkle proof</p>
+    <p>K1 : v1 K2 : v2 K3 : v3 K4 : v4</p>
+    <p>RootResponse : Root</p>
+    <p>Root</p>
+    <p>P1 P2</p>
+  </div>
+  <div class="page">
+    <p>Authentication using Merkle Trees</p>
+    <p>Server cannot lie about the value</p>
+    <p>K1 : v1 K2 : v2 K3 : v3</p>
+    <p>P1 P2</p>
+    <p>Root</p>
+    <p>K4 : v4</p>
+    <p>RootResponse : Root ?</p>
+  </div>
+  <div class="page">
+    <p>Merkle Patricia Trie</p>
+    <p>Similar to Merkle trees  Lookup based on the key structure  Considering 4 bit hex key-value pairs:  0x20  V1  0x2f  V2  0x51  V3  0x5e  V4</p>
+    <p>Root Hash</p>
+    <p>P1</p>
+    <p>f 1</p>
+    <p>Branching: 0 - f</p>
+    <p>V1</p>
+    <p>P2</p>
+    <p>V2 V3</p>
+    <p>e</p>
+    <p>V4</p>
+  </div>
+  <div class="page">
+    <p>Authenticated Storage in Ethereum</p>
+    <p>Trie is flattened and stored as key value pairs  For every leaf node V, we store</p>
+    <p>[Hash(V) -&gt; V]  For every parent node P, we have an</p>
+    <p>[Hash(P) -&gt; [  ]].</p>
+    <p>Root Hash</p>
+    <p>P1</p>
+    <p>f 1</p>
+    <p>Branching: 0 - f</p>
+    <p>V1</p>
+    <p>P2</p>
+    <p>V2 V3</p>
+    <p>e</p>
+    <p>V4</p>
+  </div>
+  <div class="page">
+    <p>Authenticated Storage in Ethereum</p>
+    <p>Root Hash</p>
+    <p>P1</p>
+    <p>f 1</p>
+    <p>Branching: 0 - f</p>
+    <p>V1</p>
+    <p>P2</p>
+    <p>V2 V3</p>
+    <p>e</p>
+    <p>V4</p>
+    <p>KEY VALUE</p>
+  </div>
+  <div class="page">
+    <p>Authenticated Storage in Ethereum</p>
+    <p>Root Hash</p>
+    <p>P1</p>
+    <p>f 1</p>
+    <p>Branching: 0 - f</p>
+    <p>V1</p>
+    <p>P2</p>
+    <p>V2 V3</p>
+    <p>e</p>
+    <p>V4</p>
+    <p>KEY VALUE</p>
+    <p>Hash (V1) V1</p>
+    <p>Hash (V2) V2</p>
+    <p>Hash (V3) V3</p>
+    <p>Hash (V4) V4</p>
+  </div>
+  <div class="page">
+    <p>Authenticated Storage in Ethereum</p>
+    <p>Root Hash</p>
+    <p>P1</p>
+    <p>f 1</p>
+    <p>Branching: 0 - f</p>
+    <p>V1</p>
+    <p>P2</p>
+    <p>V2 V3</p>
+    <p>e</p>
+    <p>V4</p>
+    <p>KEY VALUE</p>
+    <p>Hash (V1) V1</p>
+    <p>Hash (V2) V2</p>
+    <p>Hash (V3) V2</p>
+    <p>Hash (V4) V3</p>
+    <p>Hash (P1) Hash (V1), Hash (V2)</p>
+    <p>Hash (P2) Hash (V3), Hash (V4)</p>
+  </div>
+  <div class="page">
+    <p>Authenticated Storage in Ethereum</p>
+    <p>Root Hash</p>
+    <p>P1</p>
+    <p>f 1</p>
+    <p>Branching: 0 - f</p>
+    <p>V1</p>
+    <p>P2</p>
+    <p>V2 V3</p>
+    <p>e</p>
+    <p>V4</p>
+    <p>KEY VALUE</p>
+    <p>Hash (V1) V1</p>
+    <p>Hash (V2) V2</p>
+    <p>Hash (V3) V3</p>
+    <p>Hash (V4) V4</p>
+    <p>Hash (P1) Hash (V1), Hash (V2)</p>
+    <p>Hash (P2) Hash (V3), Hash (V4)</p>
+    <p>Hash (RH) Hash (P1), Hash (P2)</p>
+  </div>
+  <div class="page">
+    <p>Read Amplification in Ethereum</p>
+    <p>Root Hash</p>
+    <p>P1</p>
+    <p>f 1</p>
+    <p>Branching: 0 - f</p>
+    <p>V1</p>
+    <p>P2</p>
+    <p>V2 V3</p>
+    <p>e</p>
+    <p>V4</p>
+    <p>KEY VALUE</p>
+    <p>Hash (V1) V1</p>
+    <p>Hash (V2) V2</p>
+    <p>Hash (V3) V3</p>
+    <p>Hash (V4) V4</p>
+    <p>Hash (P1) Hash (V1), Hash (V2)</p>
+    <p>Hash (P2) Hash (V3), Hash (V4)</p>
+    <p>Hash (RH) Hash (P1), Hash (P2)</p>
+    <p>Get (0x2f)</p>
+  </div>
+  <div class="page">
+    <p>Read Amplification in Ethereum</p>
+    <p>Root Hash</p>
+    <p>P1</p>
+    <p>f 1</p>
+    <p>Branching: 0 - f</p>
+    <p>V1</p>
+    <p>P2</p>
+    <p>V2 V3</p>
+    <p>e</p>
+    <p>V4</p>
+    <p>Get (0x2f)</p>
+    <p>Get (Hash(RH)) KEY VALUE</p>
+    <p>Hash (V1) V1</p>
+    <p>Hash (V2) V2</p>
+    <p>Hash (V3) V3</p>
+    <p>Hash (V4) V4</p>
+    <p>Hash (P1) Hash (V1), Hash (V2)</p>
+    <p>Hash (P2) Hash (V3), Hash (V4)</p>
+    <p>Hash (RH) Hash (P1), Hash (P2)</p>
+  </div>
+  <div class="page">
+    <p>Read Amplification in Ethereum</p>
+    <p>Root Hash</p>
+    <p>P1</p>
+    <p>f 1</p>
+    <p>Branching: 0 - f</p>
+    <p>V1</p>
+    <p>P2</p>
+    <p>V2 V3</p>
+    <p>e</p>
+    <p>V4</p>
+    <p>Get (0x2f) Get (Hash(P1))</p>
+    <p>KEY VALUE</p>
+    <p>Hash (V1) V1</p>
+    <p>Hash (V2) V2</p>
+    <p>Hash (V3) V3</p>
+    <p>Hash (V4) V4</p>
+    <p>Hash (P1) Hash (V1), Hash (V2)</p>
+    <p>Hash (P2) Hash (V3), Hash (V4)</p>
+    <p>Hash (RH) Hash (P1), Hash (P2)</p>
+  </div>
+  <div class="page">
+    <p>Read Amplification in Ethereum</p>
+    <p>Root Hash</p>
+    <p>P1</p>
+    <p>f 1</p>
+    <p>Branching: 0 - f</p>
+    <p>V1</p>
+    <p>P2</p>
+    <p>V2 V3</p>
+    <p>e</p>
+    <p>V4</p>
+    <p>Get (0x2f) Get (Hash(V2))</p>
+    <p>KEY VALUE</p>
+    <p>Hash (V1) V1</p>
+    <p>Hash (V2) V2</p>
+    <p>Hash (V3) V3</p>
+    <p>Hash (V4) V4</p>
+    <p>Hash (P1) Hash (V1), Hash (V2)</p>
+    <p>Hash (P2) Hash (V3), Hash (V4)</p>
+    <p>Hash (RH) Hash (P1), Hash (P2)</p>
+  </div>
+  <div class="page">
+    <p>Write Amplification in Ethereum</p>
+    <p>Root Hash</p>
+    <p>P1</p>
+    <p>f 1</p>
+    <p>Branching: 0 - f</p>
+    <p>V1</p>
+    <p>P2</p>
+    <p>V5 V3</p>
+    <p>e</p>
+    <p>V4</p>
+    <p>Update (0x2f, 5) Update (Hash(V5), V5)</p>
+    <p>KEY VALUE</p>
+    <p>Hash (V1) V1</p>
+    <p>Hash (V5) V5</p>
+    <p>Hash (V3) V3</p>
+    <p>Hash (V4) V4</p>
+    <p>Hash (P1) Hash (V1), Hash (V2)</p>
+    <p>Hash (P2) Hash (V3), Hash (V4)</p>
+    <p>Hash (RH) Hash (P1), Hash (P2)</p>
+  </div>
+  <div class="page">
+    <p>Write Amplification in Ethereum</p>
+    <p>Root Hash</p>
+    <p>P1</p>
+    <p>f 1</p>
+    <p>Branching: 0 - f</p>
+    <p>V1</p>
+    <p>P2</p>
+    <p>V5 V3</p>
+    <p>e</p>
+    <p>V4</p>
+    <p>Put (0x2f, 5) Update (Hash (P1))</p>
+    <p>KEY VALUE</p>
+    <p>Hash (V1) V1</p>
+    <p>Hash (V5) V5</p>
+    <p>Hash (V3) V3</p>
+    <p>Hash (V4) V4</p>
+    <p>Hash (P1) Hash (V1), Hash (V2)</p>
+    <p>Hash (P2) Hash (V3), Hash (V4)</p>
+    <p>Hash (RH) Hash (P1), Hash (P2)</p>
+  </div>
+  <div class="page">
+    <p>Write Amplification in Ethereum</p>
+    <p>Root Hash</p>
+    <p>P1</p>
+    <p>f 1</p>
+    <p>Branching: 0 - f</p>
+    <p>Hash 3 - 4</p>
+    <p>e</p>
+    <p>Put (0x2f, 5) Update (RH)</p>
+    <p>KEY VALUE</p>
+    <p>Hash (V1) V1</p>
+    <p>Hash (V5) V5</p>
+    <p>Hash (V3) V3</p>
+    <p>Hash (V4) V4</p>
+    <p>Hash (P1) Hash (V1), Hash (V2)</p>
+    <p>Hash (P2) Hash (V3), Hash (V4)</p>
+    <p>Hash (RH) Hash (P1), Hash (P2)</p>
+  </div>
+  <div class="page">
+    <p>Experimental Setup</p>
+    <p>Private Ethereum network  Importing first 1.6 M blocks of the real-world public block chain  geth - Ethereum go client  Machine</p>
+    <p>16 GB of RAM  2TB Intel 750 series SSD</p>
+  </div>
+  <div class="page">
+    <p>IO Amplification in Ethereum</p>
+    <p>State Trie  7X IO Amplification  getBalance (addr)  Returns the amount of ether balance present in the account addr  0.22M account addresses  1.4M LevelDB gets</p>
+  </div>
+  <div class="page">
+    <p>IO Amplification in Ethereum</p>
+    <p>State Trie  7X IO Amplification  Worst case  64X IO Amplification  Key : 256 bits  Every node : 4 bits  Depth of Trie : 64 in the worst case</p>
+    <p>Ignoring the IO Amplification introduced by underlying kv store  Considers the first 1.6M blocks of the block chain  Current size of blockchain : 5.9M blocks</p>
+  </div>
+  <div class="page">
+    <p>Caching - Why doesnt it work?</p>
+  </div>
+  <div class="page">
+    <p>Caching key with value, proof</p>
+    <p>Going back to our example  For a 4 bit hex string key-value pairs  0x20  1  0x2f  2  0x51  3  0x5e  4</p>
+    <p>Root Hash</p>
+    <p>P1</p>
+    <p>f 1</p>
+    <p>Branching: 0 - f</p>
+    <p>P2</p>
+    <p>e</p>
+  </div>
+  <div class="page">
+    <p>Caching key with value, proof</p>
+    <p>For every key, we cache the value and the Merkle Proof</p>
+    <p>Root Hash</p>
+    <p>P1</p>
+    <p>f 1</p>
+    <p>Branching: 0 - f</p>
+    <p>P2</p>
+    <p>e</p>
+    <p>Key Value Proof</p>
+  </div>
+  <div class="page">
+    <p>Caching key with value, proof</p>
+    <p>For every key, we cache the value and the Merkle Proof</p>
+    <p>Root Hash</p>
+    <p>P1</p>
+    <p>f 1</p>
+    <p>Branching: 0 - f</p>
+    <p>P2</p>
+    <p>e</p>
+    <p>Key Value Proof</p>
+  </div>
+  <div class="page">
+    <p>Caching key with value, proof</p>
+    <p>For every key, we cache the value and the Merkle Proof</p>
+    <p>Root Hash</p>
+    <p>P1</p>
+    <p>f 1</p>
+    <p>Branching: 0 - f</p>
+    <p>P2</p>
+    <p>e</p>
+    <p>Key Value Proof</p>
+  </div>
+  <div class="page">
+    <p>Caching key with value, proof</p>
+    <p>For every key, we cache the value and the Merkle Proof</p>
+    <p>Root Hash</p>
+    <p>P1</p>
+    <p>f 1</p>
+    <p>Branching: 0 - f</p>
+    <p>P2</p>
+    <p>e</p>
+    <p>Key Value Proof</p>
+  </div>
+  <div class="page">
+    <p>A single update invalidates the whole cache</p>
+    <p>Root Hash</p>
+    <p>P1</p>
+    <p>f 1</p>
+    <p>Branching: 0 - f</p>
+    <p>P2</p>
+    <p>e</p>
+    <p>Key Value Proof</p>
+    <p>Reads can be served from the cache</p>
+  </div>
+  <div class="page">
+    <p>A single update invalidates the whole cache</p>
+    <p>Root Hash</p>
+    <p>P1</p>
+    <p>f 1</p>
+    <p>Branching: 0 - f</p>
+    <p>P2</p>
+    <p>e</p>
+    <p>Key Value Proof</p>
+  </div>
+  <div class="page">
+    <p>A single update invalidates the whole cache</p>
+    <p>Root Hash</p>
+    <p>P1</p>
+    <p>f 1</p>
+    <p>Branching: 0 - f</p>
+    <p>P2</p>
+    <p>e</p>
+    <p>Key Value Proof</p>
+  </div>
+  <div class="page">
+    <p>A single update invalidates the whole cache</p>
+    <p>Root Hash</p>
+    <p>P1</p>
+    <p>f 1</p>
+    <p>Branching: 0 - f</p>
+    <p>P2</p>
+    <p>e</p>
+    <p>Key Value Proof</p>
+  </div>
+  <div class="page">
+    <p>A single update invalidates the whole cache</p>
+    <p>Root Hash</p>
+    <p>P1</p>
+    <p>f 1</p>
+    <p>Branching: 0 - f</p>
+    <p>P2</p>
+    <p>e</p>
+    <p>Key Value Proof</p>
+  </div>
+  <div class="page">
+    <p>A single update invalidates the whole cache</p>
+    <p>Root Hash</p>
+    <p>P1</p>
+    <p>f 1</p>
+    <p>Branching: 0 - f</p>
+    <p>P2</p>
+    <p>e</p>
+    <p>Key Value Proof</p>
+    <p>Works only for read-only workloads</p>
+  </div>
+  <div class="page">
+    <p>Merkelized LSM</p>
+  </div>
+  <div class="page">
+    <p>Why caching didnt work?</p>
+    <p>Tight coupling between any two nodes in the tree  All nodes form a single tree under the same root node</p>
+    <p>Tight coupling between Lookup and Authentication  Lookup for a value is done traversing the authenticated data structure</p>
+  </div>
+  <div class="page">
+    <p>Insights behind mLSM</p>
+    <p>Maintaining Multiple Independent structures Decoupling Lookup from Authentication</p>
+  </div>
+  <div class="page">
+    <p>Maintaining multiple independent structures</p>
+  </div>
+  <div class="page">
+    <p>Merkelized LSM : Design</p>
+    <p>In-Memory Memory</p>
+    <p>Storage</p>
+    <p>In-memory and On-disk layers</p>
+  </div>
+  <div class="page">
+    <p>Merkelized Log Structured Merge Tree (mLSM)</p>
+    <p>In memory data is periodically written as binary Merkle trees to storage</p>
+    <p>In-Memory Memory</p>
+    <p>Storage</p>
+  </div>
+  <div class="page">
+    <p>Merkelized LSM : Design</p>
+    <p>Binary Merkle Trees  Reduce the size of the Merkle Proof  Balance data better than Tries</p>
+  </div>
+  <div class="page">
+    <p>Merkelized Log Structured Merge Tree (mLSM)</p>
+    <p>In-Memory Memory</p>
+    <p>Storage Level 0</p>
+    <p>Level 1</p>
+    <p>Level n</p>
+  </div>
+  <div class="page">
+    <p>Merkelized Log Structured Merge Tree (mLSM)</p>
+    <p>Compaction is performed once #Trees in a level reaches a threshold</p>
+    <p>In-Memory Memory</p>
+    <p>Storage Level 0</p>
+    <p>Level 1</p>
+    <p>Level n</p>
+    <p>Compaction</p>
+  </div>
+  <div class="page">
+    <p>Merkelized Log Structured Merge Tree (mLSM)</p>
+    <p>Compaction is performed once #Trees in a level reaches a threshold</p>
+    <p>In-Memory Memory</p>
+    <p>Storage Level 0</p>
+    <p>Level 1</p>
+    <p>Level n</p>
+    <p>Compaction</p>
+  </div>
+  <div class="page">
+    <p>Writes in Merkelized LSM</p>
+    <p>In-Memory Memory</p>
+    <p>Storage Level 0</p>
+    <p>Level 1</p>
+    <p>Level n</p>
+    <p>Write (Key, Value)</p>
+  </div>
+  <div class="page">
+    <p>Writes in Merkelized LSM</p>
+    <p>In-Memory Memory</p>
+    <p>Storage Level 0</p>
+    <p>Level 1</p>
+    <p>Level n</p>
+    <p>Write (Key, Value)</p>
+  </div>
+  <div class="page">
+    <p>Writes in Merkelized LSM</p>
+    <p>In-Memory Memory</p>
+    <p>Storage Level 0</p>
+    <p>Level 1</p>
+    <p>Level n</p>
+    <p>Compaction</p>
+    <p>In-Memory Memory</p>
+    <p>Storage</p>
+    <p>Level 1</p>
+    <p>Level n</p>
+    <p>Compaction</p>
+    <p>Write (Key, Value)</p>
+  </div>
+  <div class="page">
+    <p>Writes in Merkelized LSM</p>
+    <p>Compaction is performed from lower levels to higher levels</p>
+    <p>In-Memory Memory</p>
+    <p>Storage Level 0</p>
+    <p>Level 1</p>
+    <p>Level n</p>
+    <p>Compaction</p>
+  </div>
+  <div class="page">
+    <p>Authentication in mLSM</p>
+    <p>In-Memory Memory</p>
+    <p>Storage Level 0</p>
+    <p>Level 1</p>
+    <p>Level n</p>
+  </div>
+  <div class="page">
+    <p>Authentication in mLSM</p>
+    <p>In-Memory Memory</p>
+    <p>Storage Level 0</p>
+    <p>Level 1</p>
+    <p>Level n</p>
+    <p>Every binary merkle tree on level has a local root</p>
+  </div>
+  <div class="page">
+    <p>Authentication in mLSM</p>
+    <p>In-Memory Memory</p>
+    <p>Storage Level 0</p>
+    <p>Level 1</p>
+    <p>Level n</p>
+    <p>Global Master Root dynamically computes global Merkle Tree</p>
+  </div>
+  <div class="page">
+    <p>Authentication in mLSM</p>
+    <p>In-Memory Memory</p>
+    <p>Storage Level 0</p>
+    <p>Level 1</p>
+    <p>Level n</p>
+    <p>Merkle Proof includes the local and the global Merkle proofs</p>
+  </div>
+  <div class="page">
+    <p>Decoupling lookup from Authentication</p>
+  </div>
+  <div class="page">
+    <p>LevelDB Cache</p>
+    <p>Key, Level</p>
+    <p>Value, Proof</p>
+    <p>LevelDB cache In-Memory</p>
+    <p>Memory</p>
+    <p>Storage Level 0</p>
+    <p>Level 1</p>
+    <p>Level n</p>
+  </div>
+  <div class="page">
+    <p>Reads in mLSM</p>
+    <p>Key, Level</p>
+    <p>Value, Proof</p>
+    <p>LevelDB cache In-Memory</p>
+    <p>Memory</p>
+    <p>Storage Level 0</p>
+    <p>Level 1</p>
+    <p>Level n</p>
+    <p>Get (key)</p>
+  </div>
+  <div class="page">
+    <p>Reads in mLSM</p>
+    <p>Key, Level</p>
+    <p>Value, Proof</p>
+    <p>LevelDB cache In-Memory</p>
+    <p>Memory</p>
+    <p>Storage Level 0</p>
+    <p>Level 1</p>
+    <p>Level n</p>
+    <p>Get (key)</p>
+  </div>
+  <div class="page">
+    <p>Reads in mLSM</p>
+    <p>Key, Level</p>
+    <p>Value, Proof</p>
+    <p>LevelDB cache In-Memory</p>
+    <p>Memory</p>
+    <p>Storage Level 0</p>
+    <p>Level 1</p>
+    <p>Level n</p>
+    <p>Get (key)</p>
+  </div>
+  <div class="page">
+    <p>Reads in mLSM</p>
+    <p>Key, Level</p>
+    <p>Value, Proof</p>
+    <p>LevelDB cache In-Memory</p>
+    <p>Memory</p>
+    <p>Storage Level 0</p>
+    <p>Level 1</p>
+    <p>Level n</p>
+    <p>Get (key)</p>
+  </div>
+  <div class="page">
+    <p>Reads in mLSM</p>
+    <p>Key, Level</p>
+    <p>Value, Proof</p>
+    <p>key, Level</p>
+    <p>value, Local proof</p>
+    <p>LevelDB cache In-Memory</p>
+    <p>Memory</p>
+    <p>Storage Level 0</p>
+    <p>Level 1</p>
+    <p>Level n</p>
+    <p>Get (key)</p>
+  </div>
+  <div class="page">
+    <p>Reads in mLSM</p>
+    <p>Key, Level</p>
+    <p>Value, Proof</p>
+    <p>key, Level</p>
+    <p>value, Local Proof</p>
+    <p>LevelDB cache In-Memory</p>
+    <p>Memory</p>
+    <p>Storage Level 0</p>
+    <p>Level 1</p>
+    <p>Level n</p>
+    <p>Get (key)</p>
+    <p>NOTE: Global Proof is not cached</p>
+  </div>
+  <div class="page">
+    <p>Reads in mLSM</p>
+    <p>Key, Level</p>
+    <p>Value, Proof</p>
+    <p>key, Level</p>
+    <p>value, Local Proof</p>
+    <p>LevelDB cache In-Memory</p>
+    <p>Memory</p>
+    <p>Storage Level 0</p>
+    <p>Level 1</p>
+    <p>Level n</p>
+    <p>Subsequent reads are served from the cache</p>
+    <p>Get (key)</p>
+  </div>
+  <div class="page">
+    <p>Reads in mLSM</p>
+    <p>In-Memory Memory</p>
+    <p>Storage</p>
+    <p>Compaction</p>
+    <p>Level 0</p>
+    <p>Level 1</p>
+    <p>Level n</p>
+    <p>Key, Level</p>
+    <p>Value, Proof</p>
+    <p>key, Level</p>
+    <p>value, Local Proof</p>
+    <p>LevelDB cache</p>
+  </div>
+  <div class="page">
+    <p>Revisiting writes</p>
+    <p>In-Memory Memory</p>
+    <p>Storage Level 0</p>
+    <p>Level 1</p>
+    <p>Level n</p>
+    <p>Writes affect values in a single local tree and the global root</p>
+    <p>Put (Key, value)</p>
+  </div>
+  <div class="page">
+    <p>Would writes invalidate the whole cache?</p>
+    <p>Global proofs are not cached  Writes dont invalidate any existing entries  Keys at the same level are over-written when the binary tree is created  Cache will not be invalidated on every write</p>
+  </div>
+  <div class="page">
+    <p>Merkelized LSM : Reviewing the design</p>
+    <p>Writes  Buffered in memory  Then written to storage  No in place updates  A write affects one tree and the master root</p>
+    <p>Reads  Served from the cache  Or by traversing levels from lowest and till the first occurrence of key is found  Returns value and proof : &lt;local proof, global proof&gt;</p>
+  </div>
+  <div class="page">
+    <p>Merkelized LSM advantages</p>
+    <p>Writes are handled in memory : O(1) complexity  Reads :  Served from cache : O(levels in LevelDB cache)  Traversing the mLSM : O(height of mLSM * height of a binary Merkle tree)</p>
+    <p>Reads Complexity Served by Cache Hit O(Levels in Cache) LevelDB cache</p>
+    <p>Cache Miss O(Height of mLSM x Height of the binary tree)</p>
+    <p>Traversing mLSM</p>
+  </div>
+  <div class="page">
+    <p>Merkelized LSM challenges</p>
+    <p>Handling read amplification  Overhead of LSM structure is significant for applications with little data  LevelDB cache misses would result in read amplification</p>
+    <p>Deterministic Compaction  Replicas : Multiple nodes storing data</p>
+  </div>
+  <div class="page">
+    <p>Deterministic Compaction</p>
+    <p>In-Memory Memory</p>
+    <p>Storage Level 0</p>
+    <p>Level 1</p>
+    <p>Level n</p>
+    <p>Compaction changes the local roots</p>
+    <p>Compaction</p>
+  </div>
+  <div class="page">
+    <p>Deterministic Compaction</p>
+    <p>In-Memory Memory</p>
+    <p>Storage Level 0</p>
+    <p>Level 1</p>
+    <p>Level n</p>
+    <p>Compaction changes the local roots and the global root</p>
+    <p>Compaction</p>
+  </div>
+  <div class="page">
+    <p>mLSM : Authenticated Data Structure</p>
+    <p>Minimizes IO Amplification  Maintains multiple mutually independent binary Merkle trees  Decouples lookup from authentication</p>
+  </div>
+</Presentation>

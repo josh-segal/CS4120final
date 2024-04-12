@@ -1,0 +1,160 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>Fuzzy Joins using MapReduce Anish Das Sarma</p>
+    <p>With: Foto N. Afrati, David Menestrina, Aditya Parameswaran, Jeffrey D. Ullman</p>
+  </div>
+  <div class="page">
+    <p>Introduction</p>
+    <p>MapReduce (MR) is a popular paradigm for processing large amounts of data</p>
+    <p>Problem: Fuzzy (approximate) joins in MR  Arise in entity resolution, collaborative filtering,</p>
+    <p>clustering, etc.  Our goal: Solve fuzzy joins in:</p>
+    <p>Single MR step  Minimize cost</p>
+  </div>
+  <div class="page">
+    <p>Outline</p>
+    <p>Definitions:  Fuzzy joins  Cost model</p>
+    <p>Algorithms for hamming-distance joins  Other results in paper &amp; conclusions</p>
+  </div>
+  <div class="page">
+    <p>Fuzzy Joins</p>
+    <p>Goal: Find pairs of records within some distance of each other based on a distance measure</p>
+    <p>Input:  Set S of records, from a domain D  Distance function Dist: DDR  Threshold T</p>
+    <p>Output:  {(x,y) | x, y  S, Dist(x,y)  T}</p>
+  </div>
+  <div class="page">
+    <p>Example: Distance Measures</p>
+    <p>Strings:  Edit-distance, Jaro-Winkler,   SecondString: JAVA string similarity package  Transformations: Bob=Robert,</p>
+    <p>Blvd.=Boulevard  Sets: Jaccard distance,   Bit vectors: Hamming distance,   Numerical: difference, .</p>
+  </div>
+  <div class="page">
+    <p>Hamming Distance</p>
+    <p>Given b-bit vectors s, t, hamming distance HD(s,t) is the number of bits in which s and t differ</p>
+    <p>Example:  b=4, input S={0010, 0111, 1111}  Threshold d=2  find all pairs with HD2  Output: (0010,0111), (0111,1111)</p>
+    <p>This Talk: Focus on Hamming-Distance only; paper also considers Edit-distance, Jaccard-distance</p>
+  </div>
+  <div class="page">
+    <p>MR Cost Model</p>
+    <p>Cost: MR algorithm has following costs  Map Cost (M): Processing across all inputs  Communication Cost (C): Passing data from mappers to reducers  Total Reducer Cost (R): Total computation cost across all reducers</p>
+    <p>Parameters: Costs expressed using:  Size of input dataset:|S|  Threshold d on maximum distance  Size b of input vectors; denote n=2b  Number of reducers K</p>
+    <p>Goal: Find algorithms on the skyline of optimality in terms of costs (M, C, R)</p>
+  </div>
+  <div class="page">
+    <p>Assumptions</p>
+    <p>Input set S is random  hashing the inputs equally divides input among reducers</p>
+    <p>Simple operations such as copying/comparing/hashing input elements require unit time</p>
+    <p>Map phase operates independently on each input element</p>
+    <p>We compute average costs (per input for M, per reducer for R)</p>
+  </div>
+  <div class="page">
+    <p>Outline</p>
+    <p>Definitions:  Fuzzy joins  Cost model</p>
+    <p>Algorithms for hamming-distance joins  Other results in paper &amp; conclusions</p>
+  </div>
+  <div class="page">
+    <p>Warm-up: Nave Algorithm</p>
+    <p>Given K reducers, create a triangle</p>
+    <p>j</p>
+    <p>i reducer (i, j) 0ij&lt;J; JK</p>
+    <p>Map:  Hash each element into J buckets  When hash=h, element sent to all reducers (h,j)</p>
+    <p>and (i, h)</p>
+    <p>Reducer compares each pair it receives  Costs:</p>
+    <p>M=C=O(|S|K)  R=O(|S|2)</p>
+    <p>hash(e1)=h1=1</p>
+    <p>h1</p>
+    <p>h1</p>
+    <p>hash(e1)=h2=0</p>
+  </div>
+  <div class="page">
+    <p>Hamming Distance Algorithms</p>
+    <p>Key Challenges:  Minimizing cost (M, C, R)  Ensuring each result pair output on only one reducer</p>
+    <p>Algorithms: We present multiple algorithms, each non-dominated in the (M,C,R) space:  Ball-hashing-1  Ball-hashing-2  Splitting  Anchor Points</p>
+    <p>Next:  Summary of results  Key ideas of each algorithm</p>
+  </div>
+  <div class="page">
+    <p>Summary of Results</p>
+  </div>
+  <div class="page">
+    <p>Ball-Hashing-1</p>
+    <p>Reducer for each of n=2b possible strings t: reducer(t)  Each string s sent to reducers for all strings at distance d  If t  Reducer(t), then compare t with all other smaller</p>
+    <p>strings (note: dont compare all pairs at each reducer)</p>
+    <p>s d</p>
+    <p>Reducer(t)Reducer(t)</p>
+    <p>t s,t compared here</p>
+    <p>Map cost per input = size of ball B(d)bd  Communication = |S|B(d)  Each reducer receives|S|B(d)/n strings; therefore, reducer cost = |S|</p>
+  </div>
+  <div class="page">
+    <p>Ball-Hashing-2  Reducer for each of n=2b possible strings  Each string s sent to reducers for all strings at distance  d/2  Compare s1,s2 at reducer(t) iff t is the smallest intermediate string between s1</p>
+    <p>and s2  Smallest intermediate reducer to ensure same pair (s1,s2) not produced in multiple</p>
+    <p>reducers (computed in O(b); details omitted)</p>
+    <p>s1 d/2</p>
+    <p>s1, s2 compared at reducer(t)</p>
+    <p>s1, s2 compared at reducer(t)</p>
+    <p>Map cost = B(d/2)  C = |S|B(d/2)  R= b|S|2B(d/2)2/n</p>
+    <p>s2 d/2</p>
+    <p>t</p>
+  </div>
+  <div class="page">
+    <p>Splitting</p>
+    <p>Key Idea:  Divide each string into (d+1) pieces  If HD(s1,s2)d, then at least one piece is identical</p>
+    <p>Map each string to one of 2(b/(d+1)) reducers based on each of the (d+1) pieces</p>
+    <p>Each reducer outputs a pair if no previous piece is also identical 0 0 0 1 1 1 1 0 0 0 0 1 0 0 1 1 1 0</p>
+    <p>s1</p>
+    <p>s2</p>
+    <p>Reducer(001110)Reducer(001110)</p>
+    <p>Map cost = (d+1)  Communication = |S|(d+1)  Reducer for each piece receives|S|/2(b/(d+1)) strings; R=|S|2(d+1)/2(b/(d+1))</p>
+  </div>
+  <div class="page">
+    <p>Anchor-Points  Use set A of anchor points, such that all b-bit strings are at most d</p>
+    <p>bits away from some anchor point  Clearly |A|n/B(d); we show in the paper that a randomized</p>
+    <p>algorithm achieves |A|nlogn/B(d). We assume |A|=n/B(d) for now.  Reducers corresponding to anchors  Map each string s to all aA with HD(s,a)2d</p>
+    <p>s 2d</p>
+    <p>Reducer (Anchor t1)</p>
+    <p>Reducer (Anchor t1)t1t2</p>
+    <p>Reducer (Anchor t2)</p>
+    <p>Reducer (Anchor t2)</p>
+  </div>
+  <div class="page">
+    <p>Anchor-Points (contd.)</p>
+    <p>Map each string s to all aA with HD(s,a)2d:  Search in O(1) each anchor: B(2d)  Scan all anchors: n/B(d)  Therefore, min(B(2d),n/B(d)))</p>
+    <p>Compare string s to all strings at the home reducer of s, i.e., the closest anchor</p>
+    <p>Since prob. of each string being anchor=1/B(d), communication = |S|B(2d)/B(d)</p>
+    <p>Reducer cost = |S|B(d)/n</p>
+  </div>
+  <div class="page">
+    <p>Summary</p>
+  </div>
+  <div class="page">
+    <p>Summary (contd.)  Paper gives detailed analysis for each algorithm  No algorithm (except Nave) dominated by others  Examples costs using b=20, d=4, |S|=105, K=104</p>
+    <p>The best algorithm can be chosen based on application requirements, number of machines, etc.</p>
+  </div>
+  <div class="page">
+    <p>Outline</p>
+    <p>Definitions:  Fuzzy joins  Cost model</p>
+    <p>Algorithms for hamming-distance joins  Other results in paper &amp; conclusions</p>
+  </div>
+  <div class="page">
+    <p>Other Results</p>
+    <p>Explored edit-distance in detail  Used similar ideas, and obtained results for a number of</p>
+    <p>algorithms</p>
+    <p>Jaccard distance handled using edit-distance  Leverage previous work on sorted-string representations</p>
+    <p>of sets 2/5/19 Anish Das Sarma 21</p>
+  </div>
+  <div class="page">
+    <p>Related Work</p>
+    <p>R. Vernica, M. J. Carey, and C. Li, Efficient parallel setsimilarity joins using mapreduce, in SIGMOD 10.</p>
+    <p>A. Okcan and M. Riedewald, Processing theta-joins using mapreduce, in SIGMOD 11.</p>
+    <p>F. N. Afrati and J. D. Ullman, Optimizing joins in a mapreduce environment, in EDBT, 2010</p>
+  </div>
+  <div class="page">
+    <p>Open Questions [Ongoing &amp; Future Work]</p>
+    <p>Are there any lower bounds on fuzzy joins?  Can we explicitly tradeoff communication for</p>
+    <p>the other costs?  Key Idea [Cloud Futures 2012]:</p>
+    <p>If we know how many outputs each input (or set of inputs) can generate, can we bound the number of outputs at each reducer based on communication?</p>
+  </div>
+  <div class="page">
+    <p>Thanks!</p>
+    <p>Anish Das Sarma Google Research</p>
+    <p>anish.dassarma@gmail.com</p>
+  </div>
+</Presentation>

@@ -1,0 +1,221 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>Evaluating the Performance Limitations of MPMD</p>
+    <p>Communication</p>
+    <p>Chi-Chao Chang Dept. of Computer Science</p>
+    <p>Cornell University</p>
+    <p>Grzegorz Czajkowski (Cornell)</p>
+    <p>Thorsten von Eicken (Cornell)</p>
+    <p>Carl Kesselman (ISI/USC)</p>
+  </div>
+  <div class="page">
+    <p>Framework</p>
+    <p>Parallel computing on clusters of workstations  Hardware communication primitives are message-based  Programming models: SPMD and MPMD  SPMD is the predominant model</p>
+    <p>Why use MPMD ?  appropriate for distributed, heterogeneous setting: metacomputing  parallel software as components</p>
+    <p>Why use RPC ?  right level of abstraction  message passing requires receiver to know when to expect</p>
+    <p>incoming communication</p>
+    <p>Systems with similar philosophy: Nexus, Legion</p>
+    <p>How do RPC-based MPMD systems perform on homogeneous MPPs?</p>
+  </div>
+  <div class="page">
+    <p>Problem</p>
+    <p>MPMD systems are an order of magnitude slower than SPMD systems on homogeneous MPPs</p>
+    <p>at expense of performance in the homogeneous case</p>
+  </div>
+  <div class="page">
+    <p>Approach</p>
+    <p>MRPC: an MPMD RPC system specialized for MPPs  best base-line RPC performance at the expense of heterogeneity  start from simple SPMD RPC: Active Messages  minimal runtime system for MPMD  integrate with a MPMD parallel language: CC++  no modifications to front-end translator or back-end compiler</p>
+    <p>Goal is to introduce only the necessary RPC runtime overheads for MPMD</p>
+    <p>Evaluate it w.r.t. a highly-tuned SPMD system  Split-C over Active Messages</p>
+  </div>
+  <div class="page">
+    <p>MRPC</p>
+    <p>Implementation  Library: RPC, basic types marshalling, remote program</p>
+    <p>execution  about 4K lines of C++ and 2K lines of C  Implemented on top of Active Messages (SC 96)</p>
+    <p>dispatcher handler</p>
+    <p>Currently runs on the IBM SP2 (AIX 3.2.5)</p>
+    <p>Integrated into CC++:  relies on CC++ global pointers for RPC binding  borrows RPC stub generation from CC++  no modification to front-end compiler</p>
+  </div>
+  <div class="page">
+    <p>Outline</p>
+    <p>Design issues in MRPC  MRPC and CC++  Performance results</p>
+  </div>
+  <div class="page">
+    <p>Method Name Resolution</p>
+    <p>Compiler cannot determine the existence or location of a remote procedure statically</p>
+    <p>SPMD: same program image MPMD: needs mapping</p>
+    <p>foo: &amp;foo</p>
+    <p>foo: foo:</p>
+    <p>foo foo &amp;foo</p>
+    <p>. . .</p>
+    <p>. . .</p>
+    <p>&amp;foo</p>
+    <p>MRPC: sender-side stub address caching</p>
+  </div>
+  <div class="page">
+    <p>Stub address caching</p>
+    <p>&amp;e_foo 4</p>
+    <p>e_foo:</p>
+    <p>dispatcher e_foo &amp;e_foo</p>
+    <p>. . .</p>
+    <p>. . . p addr</p>
+    <p>e_foo</p>
+    <p>$ e_foo &amp;e_foo</p>
+    <p>e_foo</p>
+    <p>miss</p>
+    <p>Cold Invocation:</p>
+    <p>Hot Invocation:</p>
+    <p>GP</p>
+    <p>&amp;e_foo hit</p>
+    <p>e_foo:</p>
+    <p>dispatcher</p>
+    <p>p addr</p>
+    <p>e_foo</p>
+    <p>$</p>
+    <p>GP</p>
+  </div>
+  <div class="page">
+    <p>Argument Marshalling</p>
+    <p>Arguments of RPC can be arbitrary objects  must be marshalled and unmarshalled by RPC stubs  even more expensive in heterogeneous setting</p>
+    <p>versus  AM: up to 4 4-byte arguments, arbitrary buffers (programmer</p>
+    <p>takes care of marshalling)</p>
+    <p>MRPC: efficient data copying routines for stubs</p>
+  </div>
+  <div class="page">
+    <p>Data Transfer</p>
+    <p>Caller stub does not know about the receive buffer  no caller/callee synchronization</p>
+    <p>versus  AM: caller specifies remote buffer address</p>
+    <p>MRPC: Efficient buffer management and persistent receive buffers</p>
+  </div>
+  <div class="page">
+    <p>Persistent Receive Buffers</p>
+    <p>S-buf</p>
+    <p>Persistent R-buf</p>
+    <p>Static, per-node buffer</p>
+    <p>Persistent R-buf &amp;R-buf is stored</p>
+    <p>in the cache</p>
+    <p>e_foo</p>
+    <p>Dispatcher</p>
+    <p>&amp;R-buf</p>
+    <p>$</p>
+    <p>copy</p>
+    <p>S-buf</p>
+    <p>Data is sent to static buffer</p>
+    <p>Data is sent directly to R-buf</p>
+    <p>Cold Invocation:</p>
+    <p>Hot Invocation: e_foo</p>
+  </div>
+  <div class="page">
+    <p>Threads</p>
+    <p>Each RPC requires a new (logical) thread at the receiving end</p>
+    <p>No restrictions on operations performed in remote procedures</p>
+    <p>Runtime system must be thread safe</p>
+    <p>versus  Split-C: single thread of control per node</p>
+    <p>MRPC: custom, non-preemptive threads package</p>
+  </div>
+  <div class="page">
+    <p>Message Reception</p>
+    <p>Message reception is not receiver-initiated  Software interrupts: very expensive</p>
+    <p>versus  MPI: several different ways to receive a message (poll, post,</p>
+    <p>etc)  SPMD: user typically identifies comm phases into which</p>
+    <p>cheap polling can be introduced easily</p>
+    <p>MRPC: Polling thread</p>
+  </div>
+  <div class="page">
+    <p>CC++ over MRPC</p>
+    <p>gpA-&gt;foo(p,i);</p>
+    <p>(endpt.InitRPC(gpA, entry_foo),</p>
+    <p>endpt &lt;&lt; p, endpt &lt;&lt; i,</p>
+    <p>endpt.SendRPC(),</p>
+    <p>endpt &gt;&gt; retval,</p>
+    <p>endpt.Reset());</p>
+    <p>global class A {</p>
+    <p>. . . };</p>
+    <p>double A::foo(int p, int i) {</p>
+    <p>. . .}</p>
+    <p>A::entry_foo(. . .) {</p>
+    <p>. . .</p>
+    <p>endpt.RecvRPC(inbuf, . . . );</p>
+    <p>endpt &gt;&gt; arg1; endpt &gt;&gt; arg2;</p>
+    <p>double retval = foo(arg1, arg2);</p>
+    <p>endpt &lt;&lt; retval;</p>
+    <p>endpt.ReplyRPC();</p>
+    <p>. . . }</p>
+    <p>MRPC Interface InitRPC SendRPC RecvRPC ReplyRPC Reset</p>
+    <p>CC++: caller</p>
+    <p>compiler</p>
+    <p>C++ caller stub</p>
+    <p>CC++: callee C++ callee stub</p>
+    <p>compiler</p>
+  </div>
+  <div class="page">
+    <p>Null RPC: AM: 55 us</p>
+    <p>CC++/MRPC: 87 us</p>
+    <p>Nexus/MPL: 240 s (DCE: ~50 s)</p>
+    <p>Global pointer read/write (8 bytes) Split-C/AM: 57 s</p>
+    <p>CC++/MRPC: 92 s</p>
+    <p>Bulk read (160 bytes) Split-C/AM: 74 s</p>
+    <p>CC++/MRPC: 154 s</p>
+    <p>IBM MPI-F and MPL (AIX 3.2.5): 88 us</p>
+    <p>Basic comm costs in CC++/MRPC are within 2x with Split-C/AM and other messaging layers</p>
+    <p>Micro-benchmarks</p>
+  </div>
+  <div class="page">
+    <p>Applications</p>
+    <p>App Split-C/AM CC++/Nexus CC++/MRPC</p>
+    <p>em3dghost 800</p>
+    <p>water-pref 512 mol</p>
+    <p>FFT 1M 0.78 s 23.1 s (29.6x) 2.8 s (3.6x)</p>
+    <p>LU 512 0.81 s 15.5 s (19.1x) 2.9 s (3.6x)</p>
+    <p>3 versions of EM3D, 2 versions of Water, LU and FFT  CC++ versions based on original Split-C code  Runs taken for 4 and 8 processors on IBM SP-2</p>
+  </div>
+  <div class="page">
+    <p>Water</p>
+    <p>C -4</p>
+    <p>C C</p>
+    <p>-4</p>
+    <p>S C</p>
+    <p>-8</p>
+    <p>C C</p>
+    <p>-8</p>
+    <p>S C</p>
+    <p>-4</p>
+    <p>C C</p>
+    <p>-4</p>
+    <p>S C</p>
+    <p>-8</p>
+    <p>C C</p>
+    <p>-8</p>
+    <p>marsh+copy</p>
+    <p>thread sync</p>
+    <p>thread mgmt</p>
+    <p>net</p>
+    <p>cpu</p>
+    <p>Atomic 512 Prefetch 512</p>
+  </div>
+  <div class="page">
+    <p>Discussion</p>
+    <p>CC++ applications perform within a factor of 2 to 6 of Split-C  order of magnitude improvement over previous impl</p>
+    <p>Method name resolution  constant cost, almost negligible in apps</p>
+    <p>Threads  accounts for ~25-50% of the gap, including:</p>
+    <p>synchronization (~15-35% of the gap) due to thread safety  thread management (~10-15% of the gap), 75% context switches</p>
+    <p>Argument Marshalling and Data Copy  large fraction of the remaining gap (~50-75%)  opportunity for compiler-level optimizations</p>
+  </div>
+  <div class="page">
+    <p>Related Work</p>
+    <p>Lightweight RPC  LRPC: RPC specialization for local case</p>
+    <p>High-Performance RPC in MPPs  Concert, pC++, ABCL</p>
+    <p>Integrating threads with communication  Optimistic Active Messages  Nexus</p>
+    <p>Compiling techniques  Specialized frame mgmt and calling conventions, lazy</p>
+    <p>threads, etc. (Tauras PLDI 97)</p>
+  </div>
+  <div class="page">
+    <p>Conclusion</p>
+    <p>Possible to implement an RPC-based MPMD system that is competitive with SPMD systems on homogeneous MPPs</p>
+    <p>same order of magnitude performance  trade-off between generality and performance</p>
+    <p>Questions remaining:  scalability for larger number of nodes  integration with heterogeneous runtime infrastructure</p>
+    <p>Slides: http://www.cs.cornell.edu/home/chichao</p>
+    <p>MRPC, CC++ apps source code: chichao@cs.cornell.edu</p>
+  </div>
+</Presentation>

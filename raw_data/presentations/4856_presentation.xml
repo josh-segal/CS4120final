@@ -1,0 +1,212 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>Implementing and Evaluating a Model Checker for TM Systems</p>
+    <p>Woongki Baek, Nathan Bronson,</p>
+    <p>Christos Kozyrakis, Kunle Olukotun</p>
+    <p>wkbaek@stanford.edu</p>
+    <p>Stanford University</p>
+  </div>
+  <div class="page">
+    <p>Introduction</p>
+    <p>Transactional Memory (TM) simplifies parallel programming</p>
+    <p>User-specified transactions run in an atomic and isolated way  TM provides correctness and liveness guarantees</p>
+    <p>Performance critical: subtle but fast TM implementations are favored</p>
+    <p>Vulnerable to correctness bugs  The resulting systems become difficult to prove correctness</p>
+    <p>Many TMs are used without any formal correctness guarantees</p>
+    <p>A few recent works attempted to model check TMs</p>
+    <p>[PLDI08] An important reduction theorem: 2 threads, 2 variables,</p>
+    <p>Model checked the abstract models of several STMs including TL2</p>
+    <p>[ICDCS09] Model checked Intels McRT STM</p>
+  </div>
+  <div class="page">
+    <p>Limitations of Previous Works</p>
+    <p>Too abstracted models</p>
+    <p>E.g., timestamp-based version control of TL2 is not modeled [PLDI08] Committing transactions invalidate other conflicting transactions</p>
+    <p>Need a proof that abstract model == actual implementation Otherwise, correctness of the evaluated TM still remains unchecked</p>
+    <p>Lack of use-cases of model checking for a wider range of TM systems</p>
+    <p>E.g., No previous study on hybrid TMs or nested TMs</p>
+    <p>Lack of modeling both txn and non-txn memory operations</p>
+    <p>To investigate subtle correctness issues with weak isolation</p>
+    <p>Lack of an in-depth quantitative analysis to understand practical issues</p>
+    <p>E.g., Sensitivity of the state space to various system parameters</p>
+  </div>
+  <div class="page">
+    <p>Contributions of This Work</p>
+    <p>Proposing ChkTM:</p>
+    <p>Flexible model checker for TMs TL2: a timestamp-based, high-performance STM</p>
+    <p>SigTM: a hybrid TM that accelerates an STM using hardware sigs</p>
+    <p>NesTM: an STM that supports nested parallel transactions</p>
+    <p>Model STMs close to the implementation level E.g., timestamp-based version control is accurately modeled</p>
+    <p>Using ChkTM:</p>
+    <p>Case study: found a subtle correctness bug in the current TL2 code</p>
+    <p>Verify the correctness of TL2 and SigTM</p>
+    <p>Provide an in-depth quantitative analysis on ChkTM</p>
+  </div>
+  <div class="page">
+    <p>Outline</p>
+    <p>Introduction</p>
+    <p>Background</p>
+    <p>Design and Implementation of ChkTM</p>
+    <p>Case Study: Debugging Eager TL2</p>
+    <p>Evaluation</p>
+    <p>Conclusions</p>
+  </div>
+  <div class="page">
+    <p>Background</p>
+    <p>Correctness criterion: conflict serializability</p>
+    <p>Conflict equivalence: same order of every pair of conflicting ops</p>
+    <p>Conflict-serializable: conflict-equivalent to a serial schedule</p>
+    <p>TL2 (STM)</p>
+    <p>A global version clock is used to establish serializability</p>
+    <p>Each memory loc. is associated with a version-owner lock (voLock)</p>
+    <p>On commit, each transaction validates its read set Checking all the voLocks in the read set</p>
+    <p>Success updates are visible to others, Fail updates are discarded</p>
+    <p>Two data-versioning schemes Lazy: buffers updates in write buffers until the commit time</p>
+    <p>Eager: performs in-place updates (undo-logs hold previous values)</p>
+  </div>
+  <div class="page">
+    <p>ChkTM: Overall Architecture</p>
+    <p>The three components of ChkTM</p>
+    <p>Architectural state space explorer (ASE)  TM model specifications  Test program generator (see the paper)</p>
+    <p>Implemented in Scala Concise implementation</p>
+  </div>
+  <div class="page">
+    <p>ASE: Architectural Simulator</p>
+    <p>Models a simple shared-memory multiprocessor system</p>
+    <p>Processors  Model simple RISC processors with ALU, PC, registers, etc.</p>
+    <p>Store buffers (SBs)  Every update to shared memory is made via a bounded SB  SB may retire stores in any order similar to SPARCs TSO  If SBS=0, the simulator emulates sequential consistency</p>
+    <p>Shared memory  Consists of a fixed (configurable) number of shared memory words</p>
+  </div>
+  <div class="page">
+    <p>ASE: State Space Explorer</p>
+    <p>Architectural state</p>
+    <p>Describe the current state of the system using state variables Processor-private: PC, SB, registers,</p>
+    <p>Global: shared memory,</p>
+    <p>State transition</p>
+    <p>Dynamic executions of instructions generate new states Instructions: load, store, branch, halt, ...</p>
+    <p>BFS is performed to explore every possible interleaving of a program</p>
+    <p>Initial state: all the state variables (including PCs) are initialized  Terminal state: all the procs are halted after executing a halt inst.</p>
+  </div>
+  <div class="page">
+    <p>ASE: Verifying Serializability (1)</p>
+    <p>First step: coarse-grain state space exploration (CSE)</p>
+    <p>Generate all serial schedules at transaction granularity Only a single processor is active at any time</p>
+    <p>The active processor cannot be changed while a transaction is active</p>
+    <p>Goal: to produce all the valid terminal states VOR: values observed by transactional reads</p>
+    <p>VOW: values overwritten by transactional writes</p>
+    <p>Final shared-memory state</p>
+    <p>Every transactional store in a test program writes a unique value To establish one-to-one mapping between conflicting ops</p>
+  </div>
+  <div class="page">
+    <p>ASE: Verifying Serializability (2)</p>
+    <p>Second step: fine-grain state space exploration (FSE)</p>
+    <p>Explore every possible interleaving at instruction granularity  Check every terminal state is identical to one of the valid terminals</p>
+    <p>If this check fails, ChkTM reports a serializability violation</p>
+    <p>Checking with VORs guarantee view-serializable schedules VOWs are used to check conflict-serializable schedules (see the paper)</p>
+    <p>T1 T2</p>
+    <p>T2 T1</p>
+    <p>T2 T1</p>
+    <p>Violation!</p>
+  </div>
+  <div class="page">
+    <p>TM Model Specifications: TL2</p>
+    <p>Additional state variables to model TL2</p>
+    <p>E.g., R/W sets of transactions, global version clock, voLocks</p>
+    <p>TM barriers are modeled close to the implementation level</p>
+    <p>Left: C-styled pseudocode of the lazy TL2 read barrier  Right: the ChkTM model of the lazy TL2 read barrier (in Scala)</p>
+  </div>
+  <div class="page">
+    <p>TM Model Specifications: Timestamp Canonicalization</p>
+    <p>The problem: state space explosion</p>
+    <p>An infinite # of states corresponding different timestamp values</p>
+    <p>Our solution: timestamp canonicalization</p>
+    <p>Key idea: the relative ordering among timestamp values is important But not the exact values</p>
+    <p>Canonicalize all the timestamp values in each step 1: compute the set of all the timestamp values</p>
+  </div>
+  <div class="page">
+    <p>Outline</p>
+    <p>Introduction</p>
+    <p>Background</p>
+    <p>Design and Implementation of ChkTM</p>
+    <p>Case Study: Debugging Eager TL2</p>
+    <p>Evaluation</p>
+    <p>Conclusions</p>
+  </div>
+  <div class="page">
+    <p>Case Study: Debugging Eager TL2 (1)</p>
+    <p>We modeled the eager TL2 close to its current implementation</p>
+    <p>With the test program above, ChkTM reported a serializability violation</p>
+    <p>VOR(T1)=={(y,2)}: T2 T1 (T2 precedes T1)  VOR(T2)=={(x,1)}: T1 T2  A cycle in the precedence graph Not a serializable schedule</p>
+    <p>Current TL2 code is buggy How can we locate the bug using ChkTM?</p>
+  </div>
+  <div class="page">
+    <p>Case Study: Debugging Eager TL2 (2)</p>
+    <p>ChkTM generates a counterexample shown above</p>
+    <p>Steps are not necessarily consecutive (some are skipped for brevity)</p>
+    <p>T1 executing TxLoad, T2 executing TxStore and TxAbort</p>
+    <p>Step 0: T1 samples the value of the voLock of y (addr == &amp;y)</p>
+    <p>Step 1: T2 sets the lock bit of the voLock of y</p>
+    <p>Step 2: T2 speculatively updates y to 2</p>
+  </div>
+  <div class="page">
+    <p>Case Study: Debugging Eager TL2 (3)</p>
+    <p>Step 3: T1 reads a dirty value (i.e., 2) of y</p>
+    <p>Step 4: T2 restores the value of y to 0 (executing TxAbort)</p>
+    <p>Step 5: T2 restores the voLock of y to the previous value</p>
+    <p>Step 6: T1 observes that cv matches the current value of voLock</p>
+    <p>Step 7+: T1 continues (and commits) even after it read a dirty value</p>
+    <p>This is incorrect!</p>
+    <p>Abort! Incorrect!</p>
+  </div>
+  <div class="page">
+    <p>Case Study: Debugging Eager TL2 (4)</p>
+    <p>Invalid-read bug: Line 6 in TxAbort</p>
+    <p>On abort, voLocks in the write set are merely restored Wrong Timestamp values should have been incremented</p>
+    <p>Reported this bug to the TL2 developers</p>
+    <p>Note: difficult to find this kind of subtle bugs using random tests</p>
+    <p>May increase the possibility by inserting random delays in the code</p>
+    <p>Require non-trivial intuition (where potential bugs would be)</p>
+  </div>
+  <div class="page">
+    <p>Evaluation</p>
+    <p>Three issues to investigate</p>
+    <p>Correctness guarantees of TL2 and SigTM Serializability / Strong isolation (refer to the paper)</p>
+    <p>Sensitivity of the state space to system parameters E.g., number of threads</p>
+    <p>Tradeoff between state space and fidelity of approximate models Refer to the paper</p>
+    <p>Methodology</p>
+    <p>Processors: two quad-core 2.33GHz Intel Xeon CPUs  Memory: 32GB  OS: Linux x86_64 kernel 2.6.18  JVM: the 64-bit Server VM in Suns JAVA JRE (build: 1.6.0-14-b08)  Scala: compiler version 2.7.5</p>
+  </div>
+  <div class="page">
+    <p>Correctness Results: Serializability</p>
+    <p>Generated all the possible test programs where:</p>
+    <p>Two threads in each program  One transaction per thread  At most three txn. memory ops (read or write) per transaction</p>
+    <p>Shared memory: two shared-memory words</p>
+    <p>This configuration was inspired by the approach in [ICDCS09]</p>
+    <p>Ran all the generated test programs on TL2 and SigTM models</p>
+    <p>ChkTM did not report any serializability violation  It took up to 4 hours to verify each TM system</p>
+    <p>Thus, we make the following statement:</p>
+    <p>TL2 and SigTM (both lazy and eager) guarantee the serializability of every possible execution of every possible program that runs two threads, each of which executes one transaction that performs no more than three transactional memory operations</p>
+  </div>
+  <div class="page">
+    <p>Sensitivity Results: Number of Threads</p>
+    <p>Thread configurations</p>
+    <p>C1={1,2}, C2=C1+{1.1}, C3=C2+{1.2}, C4=C3+{1.1.1},</p>
+    <p>Results</p>
+    <p>Ran a test program where each txn only performs 2 reads on NesTM</p>
+    <p>State space explosively grows when a new sibling is added E.g., C2 C3, C4 C5</p>
+    <p>No predefined ordering between siblings more possible interleavings</p>
+    <p>State space with C5 is 20,000x larger than C1 Clearly motivate the need for a reduction theorem for nested TM</p>
+  </div>
+  <div class="page">
+    <p>Conclusions</p>
+    <p>Propose ChkTM, a flexible model checker for TM systems</p>
+    <p>TL2 (STM), SigTM (Hybrid), and NesTM (nested STM) are modeled  STMs are modeled close to the implementation</p>
+    <p>Including the timestamp mechanism using our canonicalization tech.</p>
+    <p>Present a case study in which a bug in eager TL2 is revealed</p>
+    <p>Model check the correctness of TL2 and SigTM</p>
+    <p>Serializability: guaranteed by both (at least for small TM programs)  Strong isolation: no weak isolation anomaly was detected for SigTM</p>
+    <p>Motivate the need for reduction theorem/techniques</p>
+    <p>Especially for nested TMs</p>
+  </div>
+</Presentation>

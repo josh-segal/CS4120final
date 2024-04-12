@@ -1,0 +1,210 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>MPI: Multiple Perspective Attack Investigation with</p>
+    <p>Semantic Aware Execution Partitioning</p>
+    <p>Shiqing Ma, Juan Zhai, Fei Wang, Kyu Hyung Lee, Xiangyu Zhang, Dongyan Xu</p>
+  </div>
+  <div class="page">
+    <p>Attack Investigation</p>
+    <p>Provenance tracking system  Logging activities</p>
+    <p>Dependence analysis  Analyzing activities</p>
+    <p>Taskman</p>
+    <p>socket0</p>
+  </div>
+  <div class="page">
+    <p>Dependence explosion problem</p>
+  </div>
+  <div class="page">
+    <p>Dependence Explosion Problems  Assumption: One write event depends on all read events that happen before it (the same process).  Solution: Execution partitioning  Partition a process into execution units  Events are causality related within one unit, independent across units  Inter-unit dependence</p>
+    <p>File</p>
+    <p>Firefox</p>
+    <p>File</p>
+  </div>
+  <div class="page">
+    <p>Existing Execution Partitioning Technique</p>
+    <p>BEEP: Event handling loop based  One iteration is one execution unit</p>
+    <p>while(True) { e = fetch_pending_event(); switch(e) { case KeyPress:</p>
+    <p>... break;</p>
+    <p>case MouseLeftPress: ... break;</p>
+    <p>... }</p>
+    <p>}</p>
+    <p>UnitEnter</p>
+    <p>UnitExit</p>
+    <p>One Unit</p>
+  </div>
+  <div class="page">
+    <p>BEEP Limitations</p>
+    <p>Low level events  Mouse click</p>
+    <p>Training for inter-unit dependences  Very heavy process</p>
+    <p>Excessive Units  Mouse movement events</p>
+    <p>Meaningful execution units  Tab</p>
+    <p>Multiple Perspectives  E.g. tabs v.s. pages  No training</p>
+    <p>Less units  Drop units if possible</p>
+    <p>Desired</p>
+  </div>
+  <div class="page">
+    <p>MPI Overview</p>
+    <p>Inspired by process isolation mechanisms in operating systems</p>
+    <p>IDEA: Execution partitioning based on user-defined Tasks  Task: represented by data structures</p>
+    <p>Different tasks indicate different perspectives  Firefox: Tabs, Pages</p>
+  </div>
+  <div class="page">
+    <p>MPI Workflow</p>
+    <p>Source code</p>
+    <p>Programmer</p>
+    <p>LLVM PASS Compiler Chain</p>
+    <p>Executable</p>
+    <p>Miner</p>
+    <p>Annotated Code</p>
+  </div>
+  <div class="page">
+    <p>Annotation needed</p>
+    <p>Proc 1 Proc 2 Proc 3 Proc 2 Proc 3 Proc 1</p>
+    <p>current = proc2 proc1-&gt;pid = 1</p>
+    <p>IPCs</p>
+    <p>Task 1 Task 2 Task 3 Task 2 Task 3 Task 1</p>
+    <p>@indicator @identifier</p>
+    <p>@channel</p>
+    <p>TIME</p>
+    <p>OS</p>
+    <p>App</p>
+  </div>
+  <div class="page">
+    <p>Annotating Vim</p>
+    <p>@indicator buf_T* curbuf;</p>
+    <p>struct buf_T { @identifier int buf_id; char* name; . . .</p>
+    <p>};</p>
+    <p>@channel struct yankreg *y_current;</p>
+  </div>
+  <div class="page">
+    <p>do_ecmd(. . .){ . . . //a new buffer curbuf = buf; curbuf-&gt;name = . . .</p>
+    <p>}</p>
+    <p>Annotation Example</p>
+    <p>if (curbuf != oldbuf) { oldbuf = curbuf; expose(curbuf-&gt;buf_id);</p>
+    <p>}</p>
+    <p>expose(id){ kill(-100, id);//for linux audit system</p>
+    <p>}</p>
+  </div>
+  <div class="page">
+    <p>Annotation miner</p>
+    <p>Tasks can be represented by data structures  buf_T in Vim</p>
+    <p>Annotation miner is used to help developers find such data structures</p>
+  </div>
+  <div class="page">
+    <p>Annotation Miner</p>
+    <p>Test A Test B</p>
+    <p>Open 1.txt Edit Save</p>
+    <p>New buf2.txt Edit Save</p>
+    <p>buf_T: 1 pos_T: 1 logbuf: 1</p>
+    <p>...</p>
+    <p>buf_T: 2 pos_T: 2 logbuf: 1</p>
+    <p>...</p>
+    <p>Data Structure: No.(A) = 1/2 No.(B) buf_T: 1, 2 pos_T: 1, 2</p>
+    <p>Type: # of instances</p>
+    <p>struct buf_T {</p>
+    <p>/* position */ pos_T pos;</p>
+    <p>}</p>
+    <p>Save Edit</p>
+    <p>Open 1.txt</p>
+  </div>
+  <div class="page">
+    <p>Thread Model</p>
+    <p>Main Thread</p>
+    <p>DNS ThreadTab2: DNS</p>
+    <p>Tab1: DNS</p>
+    <p>Socket ThreadTab1: Socket</p>
+    <p>Tab2: Socket</p>
+    <p>Worker Threads  Working on the same type of tasks  Tasks in this thread are sub-tasks  One thread is serving for multiple toplevel tasks</p>
+    <p>@delegator  Add one field for top-levetask id  Inherit task identifiers from the top-level task</p>
+  </div>
+  <div class="page">
+    <p>Annotating Firefox</p>
+    <p>Main Thread</p>
+    <p>Socket Thread</p>
+    <p>nsConnEvent</p>
+    <p>Tab: 7 Tab: 7</p>
+    <p>Tab: 5</p>
+    <p>Tab: 5</p>
+    <p>Tab: 5</p>
+    <p>nsConnEvent</p>
+    <p>nsConnEvent</p>
+    <p>@delegator calss nsConnEvent {};</p>
+    <p>PostEvent(...) { event = new nsConnEvent(...); rv = target-&gt;Dispatch(event);</p>
+    <p>}</p>
+    <p>event-&gt;global_id = current_id;</p>
+  </div>
+  <div class="page">
+    <p>Evaluation: Annotations</p>
+  </div>
+  <div class="page">
+    <p>Evaluation: Space Overhead</p>
+    <p>Applicatoin Perspective BEEP-Audit BEEP-HiFi MPI-Audit MPI-HiFi Apache Connection 15.38% 12.87% 5.37% 3.75 Bash Command 0.45% 0.34% 0.41% 0.34% Firefox Tab 42.16% 38.23% 18.20% 13.24% Pine Command 8.11% 6.09% 7.28% 4.09% Vim File 2.23% 2.32% 0.13% 0.13%</p>
+  </div>
+  <div class="page">
+    <p>Evaluation: Runtime Overhead Caused By MPI</p>
+  </div>
+  <div class="page">
+    <p>Case Study</p>
+    <p>Firefox visits a few websites  During browsing, download</p>
+    <p>a few torrent files and normal files</p>
+    <p>Use Transmission to download the torrents</p>
+  </div>
+  <div class="page">
+    <p>Traditional Solution</p>
+  </div>
+  <div class="page">
+    <p>BEEP (Only Show the Firefox Part)</p>
+  </div>
+  <div class="page">
+    <p>MPI (Firefox partitioned by tab and Transmission partitioned by input file)</p>
+    <p>File a</p>
+    <p>bing</p>
+    <p>CNET</p>
+    <p>DigitalTre</p>
+    <p>Github</p>
+    <p>SoftHome</p>
+    <p>SoftHome</p>
+    <p>SoftHome M0.torrent</p>
+    <p>Ubuntu.iso.torrent</p>
+    <p>Fedora.iso.torrent</p>
+    <p>Transmission</p>
+    <p>Transmission</p>
+    <p>Transmission</p>
+  </div>
+  <div class="page">
+    <p>File a</p>
+    <p>bing</p>
+    <p>CNET</p>
+    <p>DigitalTre</p>
+    <p>Github</p>
+    <p>SoftHome M0.torrent</p>
+    <p>Ubuntu.iso.trrent</p>
+    <p>Fedora.iso.trrent</p>
+    <p>Transmission</p>
+    <p>Transmission</p>
+    <p>Transmission</p>
+    <p>MPI (Firefox partitioned by website and Transmission partitioned by input file)</p>
+  </div>
+  <div class="page">
+    <p>Related Work</p>
+    <p>Provenance System  Butler [Security 15, ACSAC 12], Lee [NDSS 16, ACSAC 15, NDSS 13], Xu [ICDCS 06], Lara [SOSP 05], King [NDSS 05, SOSP 03]</p>
+    <p>Log storage  Lee [ACSAC 15, CCS 13], Butler [ACSAC 12], Zhou [SOSP 11]</p>
+    <p>Log integrity:  Moyer [Security 15], Sion [ICDCS 08]</p>
+  </div>
+  <div class="page">
+    <p>Limitations</p>
+    <p>Source code  LLVM-based solution</p>
+    <p>Annotation  Miner is helpful but not fully automated  Miner finds the data structure, not the @indicator/@identifier variables</p>
+  </div>
+  <div class="page">
+    <p>Conclusion</p>
+    <p>A new idea of execution partitioning based on data structures  User defined tasks  Multi-perspective, semantic-aware attack investigation</p>
+    <p>Program analysis and runtime techniques to enable such partitioning  Small number of annotations</p>
+    <p>Annotation miner  Help identify annotations</p>
+    <p>Evaluation  Low overhead  Better investigation support</p>
+  </div>
+  <div class="page">
+    <p>Thank you!</p>
+  </div>
+</Presentation>

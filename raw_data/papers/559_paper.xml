@@ -1,0 +1,1165 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<TEI xmlns="http://www.tei-c.org/ns/1.0" 
+xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+xsi:schemaLocation="http://www.tei-c.org/ns/1.0 /Users/atharsefid/Desktop/grobid-0.5.3/grobid-home/schemas/xsd/Grobid.xsd"
+ xmlns:xlink="http://www.w3.org/1999/xlink">
+	<teiHeader xml:lang="en">
+		<encodingDesc>
+			<appInfo>
+				<application version="0.5.3" ident="GROBID" when="2019-03-26T16:35+0000">
+					<ref target="https://github.com/kermitt2/grobid">GROBID - A machine learning software for extracting information from scholarly documents</ref>
+				</application>
+			</appInfo>
+		</encodingDesc>
+		<fileDesc>
+			<titleStmt>
+				<title level="a" type="main">Learning Markov Network Structure with Decision Trees</title>
+			</titleStmt>
+			<publicationStmt>
+				<publisher/>
+				<availability status="unknown"><licence/></availability>
+			</publicationStmt>
+			<sourceDesc>
+				<biblStruct>
+					<analytic>
+						<author>
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Daniel</forename><surname>Lowd</surname></persName>
+							<email>lowd@cs.uoregon.edu</email>
+						</author>
+						<author>
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Jesse</forename><surname>Davis</surname></persName>
+							<email>jesse.davis@cs.kuleuven.be</email>
+							<affiliation key="aff1">
+								<orgName type="department">Department of Computer Science</orgName>
+								<orgName type="institution">Katholieke Universiteit Leuven</orgName>
+								<address>
+									<addrLine>Celestijnenlaan 200A</addrLine>
+									<postBox>POBox 2402</postBox>
+									<postCode>3001</postCode>
+									<settlement>Heverlee</settlement>
+									<country key="BE">Belgium</country>
+								</address>
+							</affiliation>
+						</author>
+						<author>
+							<affiliation key="aff0">
+								<orgName type="department">Department of Computer and Information Science</orgName>
+								<orgName type="institution">University of Oregon</orgName>
+								<address>
+									<postCode>97403</postCode>
+									<settlement>Eugene</settlement>
+									<region>OR</region>
+								</address>
+							</affiliation>
+						</author>
+						<title level="a" type="main">Learning Markov Network Structure with Decision Trees</title>
+					</analytic>
+					<monogr>
+						<imprint>
+							<date/>
+						</imprint>
+					</monogr>
+				</biblStruct>
+			</sourceDesc>
+		</fileDesc>
+		<profileDesc>
+			<textClass>
+				<keywords>
+					<term>Markov networks</term>
+					<term>structure learning</term>
+					<term>decision trees</term>
+					<term>probabilistic methods</term>
+				</keywords>
+			</textClass>
+			<abstract>
+				<p>Traditional Markov network structure learning algorithms perform a search for globally useful features. However, these algorithms are often slow and prone to finding local optima due to the large space of possible structures. Ravikumar et al. [1] recently proposed the alternative idea of applying L1 logistic regression to learn a set of pairwise features for each variable, which are then combined into a global model. This paper presents the DTSL algorithm, which uses probabilistic decision trees as the local model. Our approach has two significant advantages: it is more efficient, and it is able to discover features that capture more complex interactions among the variables. Our approach can also be seen as a method for converting a dependency network into a consistent probabilistic model. In an extensive empirical evaluation on 13 datasets, our algorithm obtains comparable accuracy to three standard structure learning algorithms while running 1-4 orders of magnitude faster.</p>
+			</abstract>
+		</profileDesc>
+	</teiHeader>
+	<text xml:lang="en">
+		<body>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>I. INTRODUCTION</head><p>Markov networks are an undirected, probabilistic graphical model for compactly representing a joint probability distribution over set of variables. Traditional Markov network structure learning algorithms perform a global search to learn a set of features that accurately captures high-probability regions of the instance space. These approaches are often slow for two reasons. First, the space of possible structures is exponential in the number of variables. Second, evaluating candidate structures requires assigning a weight to each feature in the model. Weight learning requires performing inference over the model, which is often intractable.</p><p>Recently, Ravikumar et al. <ref type="bibr" target="#b0">[1]</ref> proposed the alternative idea of learning a local model for each variable and then combining these models into a global model. Their method builds an L1 logistic regression model to predict the value of each variable in terms of all other variables. Next, it constructs a pairwise feature between the target variable and each other variable with non-zero weight in the L1 logistic regression model. Finally, it adds all constructed features to the model and learns their associated weights using any standard weight learning algorithm. While this approach greatly improves the tractability of structure learning, it is limited to modeling pairwise interactions, ignoring all higher-order effects. Furthermore, it still exhibits long run times for domains that have large numbers of variables.</p><p>In this paper, we propose DTSL (Decision Tree Structure Learner), which builds on the approach of Ravikumar et al. by substituting a probabilistic decision tree learner for L1 logistic regression. Probabilistic decision trees can represent much richer structures that model interactions among large sets of variables. DTSL learns probabilistic decision trees to predict the value of each variable and then converts the trees into sets of conjunctive features. We propose and evaluate several different methods for performing the conversion. Finally, DTSL merges all learned features into a global model. Weights for these features can be learned using any standard Markov network weight learning method.</p><p>We conducted an extensive empirical evaluation on 13 real-world datasets. We found that DTSL is 1-4 orders of magnitude faster than alternative structure learning algorithms while still achieving equivalent accuracy.</p><p>The remainder of our paper is organized as follows. Section 2 provides background on Markov networks. Section 3 describes our method for learning Markov networks using decision trees. Section 4 presents the experimental results and analysis and Section 5 contains conclusions and future work.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>II. MARKOV NETWORKS</head></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>A. Representation</head><p>A Markov network is a model for the joint distribution of a set of variables X = (X 1 , X 2 , . . . , X n ) <ref type="bibr" target="#b1">[2]</ref>. It is composed of an undirected graph G and a set of potential functions φ k . The graph has a node for each variable, and the model has a potential function for each clique in the graph. The joint distribution represented by a Markov network is:</p><formula xml:id="formula_0">P (X = x) = 1 Z ï¿¿ k φ k (x {k} )<label>(1)</label></formula><p>where x {k} is the state of the kth clique (i.e., the state of the variables that appear in that clique), and Z is a normalization constant called the partition function. Markov networks are often conveniently represented as log-linear models, with each clique potential replaced by an exponentiated weighted sum of features of the state:</p><formula xml:id="formula_1">P (X = x) = 1 Z exp   ï¿¿ j w j f j (x)  <label>(2)</label></formula><p>A feature f j (x) may be any real-valued function of the state. For discrete data, a feature typically is a conjunction of tests of the form X i = x i , where X i is a variable and x i is a value of that variable. We say that a feature matches an example if it is true of that example.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>B. Inference</head><p>The main inference task in graphical models is to compute the conditional probability of some variables (the query) given the values of some others (the evidence), by summing out the remaining variables. This problem is #P-complete. Thus, approximate inference techniques are required. One widely used method is Markov chain Monte Carlo (MCMC) <ref type="bibr" target="#b2">[3]</ref>, and in particular Gibbs sampling, which proceeds by sampling each variable in turn given its Markov blanket, the variables it appears with in some potential. These samples can be used to answer probabilistic queries by counting the number of samples that satisfy each query and dividing by the total number of samples. Under modest assumptions, the distribution represented by these samples will eventually converge to the true distribution. However, convergence may require a very large number of samples, and detecting convergence is difficult.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>C. Weight Learning</head><p>The goal of weight learning is to select feature weights that maximize a given objective function. One of the most popular objective functions is the log likelihood of the training data. In a Markov network, log likelihood is a convex function of the weights, and thus weight learning can be posed as a convex optimization problem. However, this optimization typically requires evaluating the log likelihood and its gradient in each iteration. This is typically intractable to compute exactly due to the partition function. Furthermore, an approximation may work poorly: Kulesza and Pereira <ref type="bibr" target="#b3">[4]</ref> have shown that approximate inference can mislead weight learning algorithms.</p><p>A more efficient alternative, widely used in areas such as spatial statistics, social network modeling and language processing, is to optimize the pseudo-likelihood <ref type="bibr" target="#b4">[5]</ref> instead. Pseudo-likelihood is the product of the conditional probabilities of each variable given its Markov blanket:</p><formula xml:id="formula_2">log P • w (X = x) = ï¿¿ V j=1 ï¿¿ N i=1 log P w (X i,j = x i,j |MB x (X i,j ))<label>(3)</label></formula><p>where V is the number of variables, N is the number of examples, x i,j is the value of the jth variable of the ith example, MB x (X i,j ) is the state of X i,j 's Markov blanket in the data. Pseudo-likelihood and its gradient can be computed efficiently and optimized using any standard convex optimization algorithm, since the pseudo-likelihood of a Markov network is also convex.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>D. Structure Learning</head><p>Della Pietra et al.'s algorithm <ref type="bibr" target="#b1">[2]</ref> is the standard approach to learning the structure of a Markov network. The algorithm starts with a set of atomic features (i.e., just the variables in the domain). It creates candidate features by conjoining each feature to each other feature, including the original atomic features. It calculates the weight for each candidate feature by assuming that all other feature weights remain unchanged, which is done for efficiency reasons. It uses Gibbs sampling for inference when setting the weight. Then, it evaluates each candidate feature f by estimating how much adding f would increase the log-likelihood. It adds the feature that results in the largest gain to the feature set. This procedure terminates when no candidate feature improves the model's score.</p><p>Recently, Davis and Domingos <ref type="bibr" target="#b5">[6]</ref> proposed an alternative bottom-up approach, called BLM, for learning the structure of a Markov network. BLM starts by treating each complete example as a long feature in the Markov network. The algorithm repeatedly iterates through the feature set. It considers generalizing each feature to match its k nearest previously unmatched examples by dropping variables. If incorporating the newly generalized feature improves the model's score, it is retained in the model. The process terminates when no generalization improves the score.</p><p>A recent L1 regularization based approach to structure learning is the method of Ravikumar et al. <ref type="bibr" target="#b0">[1]</ref>. It learns the structure by trying to discover the Markov blanket of each variable (i.e., its neighbors in the network). It considers each variable X i in turn and builds an L1 logistic regression model to predict the value of X i given the remaining variables. L1 regularization encourages sparsity, so that most of the variables end up with a weight of zero. The Markov blanket of X i is all variables that have non-zero weight in the logistic regression model. In the limit of infinite data, consistency is guaranteed (i.e., X i is in X j 's Markov blanket if and only if X j is in X i 's Markov blanket). In practice, this is often not the case and there are two methods to decide which edges to include in the network. One includes an edge if either X i is in X j 's Markov blanket or X j is in X i 's Markov blanket. The other includes an edge if both X i is in X j 's Markov blanket and X j is in X i 's Markov blanket. Finally, all features are added to the model and their weights are learned globally using any standard weight learning algorithm.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>III. ALGORITHM</head><p>We now describe our method for learning Markov network structure from data, DTSL (Decision Tree Structure  Learning). <ref type="table" target="#tab_0">Table I</ref> outlines out basic approach. For each variable X i , we learn a probabilistic decision tree to represent the conditional probability of X i given all other variables, P (X i |X − X i ). Each tree is converted to a set of conjunctive features capable of representing the same probability distribution as the tree. Finally, all features are taken together in a single model and weights are learned globally using any standard weight learning algorithm. This is similar in spirit to learning a dependency network <ref type="bibr" target="#b6">[7]</ref>: Both dependency networks (with tree distributions) and DTSL learn a probabilistic decision tree for each variable and combine the trees to form a probabilistic model. However, a dependency network may not represent a consistent probability distribution, and inference can only be done by Gibbs sampling. In contrast, the Markov networks learned by DTSL always represent consistent probability distributions and allow inference to be done by any standard technique, such as loopy belief propagation <ref type="bibr" target="#b7">[8]</ref>, mean field, or MCMC.</p><formula xml:id="formula_3">function DTSL(D, X) F ← ∅ for X i ∈ X do T i ← LEARNTREE(X i , D) F i ← GENERATEFEATURES(T i ) F ← F ∪ F i end for M ←LEARNWEIGHTS(F, D) return M !"#$%"#&amp;'( !"#)%"#*'( !"#*%"#)'( + $( + ,( -.+ ) /+ $ %+ , 0(((1(</formula><p>We now describe each step of DTSL in more detail.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>A. Learning Trees</head><p>A probabilistic decision tree represents a probability distribution over a target variable, X i , given a set of inputs. Each interior node tests the value of an input variable and each of its outgoing edges is labeled with one of the outcomes of that test (e.g., true or false). Each leaf node contains the conditional distribution (e.g., multinomial) of the target variable given the test outcomes specified by its ancestor nodes and edges in the tree. We focus on discrete variables and consider tests of the form X j = x j , where </p><formula xml:id="formula_4">function LEARNTREE(X i , D) best split ← ∅ best score ← 0 for X j ∈ X − X i do for x j ∈ Val(X j ) do S ← (X j = x j ) if SCORE(S, X i , D) &gt; best split then best split ← S best score ←SCORE(S, X i , D) end if end for end for if best score &gt; log κ then (Dt, D f ) ←SPLITDATA(D, best split) T L ←LEARNTREE(X i , Dt) T R ←LEARNTREE(X i , D f ) return new TreeVertex(best split, T L , T R ) else Use D to estimate P (X i ) return new TreeLeaf(P (X i )) end if</formula><p>X j is a variable and x j is value of that variable. Each conditional distribution is represented by a multinomial. <ref type="figure" target="#fig_0">Figure 1</ref> contains an example of a probabilistic decision tree.</p><p>We can learn a probabilistic decision tree from data in a depth-first manner, one split at a time. We select a split at the root, partition the training data into the sets matching each outgoing branch, and recurse. We select each split to maximize the conditional log-likelihood of the target variable. This is very similar to using information gain as the split criterion. We used multinomials as the leaf distributions with a Dirichlet prior (α = 1) for smoothing. In order to help avoid overfitting, we used a structure prior P (S) ∝ κ p , where p is the number of parameters, as in Chickering et al. <ref type="bibr" target="#b8">[9]</ref>.</p><p>Pseudocode for the tree learning subroutine is in <ref type="table" target="#tab_0">Table II</ref>.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>B. Generating Features</head><p>While decision trees are not commonly thought of as a log-linear model, any decision tree can be converted to a set of conjunctive features. In addition to a direct translation (DEFAULT), we explored four modifications (PRUNE, PRUNE-10, PRUNE-5, and NONZERO) which could yield structures with easier weight learning or better generalization.</p><p>The DEFAULT feature generation method is a direct translation of a probabilistic decision tree to an equivalent set of features. For each leaf in the decision tree, we generate a rule for each state of the target variable, containing a condition for each ancestor in the decision tree. For example, to convert the decision tree in <ref type="figure" target="#fig_0">Figure 1</ref> to a set of rules, we generate two features for each leaf, one where X 4 is true and one where X 4 is false. The complete list of features is as follows:</p><formula xml:id="formula_5">1) X 1 = T ∧ X 4 = T 2) X 1 = T ∧ X 4 = F 3) X 1 = F ∧ X 2 = T ∧ X 4 = T 4) X 1 = F ∧ X 2 = T ∧ X 4 = F 5) X 1 = F ∧ X 2 = F ∧ X 4 = T 6) X 1 = F ∧ X 2 = F ∧ X 4 = F</formula><p>By using the log probability at the leaf as the rule's weight, we obtain a log linear model representing the same distribution. By applying this transformation to all decision trees, we obtain a set of conjunctive features that comprise the structure of our Markov network. However, their weights may be poorly calibrated (e.g., due to the same feature appearing in several decision trees), so weight learning is still necessary.</p><p>The PRUNE method expands the set of features generated by DEFAULT in order to make learning and inference easier. One disadvantage of the DEFAULT procedure is that it generates very long features with many conditions when the source trees are deep. Intuitively, we would like to capture the coarse interactions with short features and the finer interactions with longer features, rather than representing everything with long features. In the PRUNE method, we generate additional features for each path from the root to an interior node, not just paths from the root to a leaf. This is equivalent to applying the default feature generation method to all possible "pruned" versions of a decision tree, that is, where one or more interior nodes are replaced with leaves. This yields two additional rules, in addition to those enumerated above:</p><formula xml:id="formula_6">1) X 1 = F ∧ X 4 = T 2) X 1 = F ∧ X 4 = F</formula><p>The PRUNE-10 and PRUNE-5 methods extend PRUNE by limiting the tree to a maximum depth of 10 and 5, respectively. This can help avoid overfitting.</p><p>Our final feature generation method, NONZERO, is similar to DEFAULT, but removes all false variable constraints in a post-processing step. For example, the decision tree in <ref type="figure" target="#fig_0">Figure 1</ref> would be converted to the following set of rules:</p><formula xml:id="formula_7">1) X 1 = T ∧ X 4 = T 2) X 1 = T 3) X 2 = T ∧ X 4 = T 4) X 2 = T 5) X 4 = T<label>This</label></formula><p>simplification is designed for sparse binary domains such as text, where a value of false or zero contains much less information than a value of true or one.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>C. Asymptotic Complexity</head><p>Let n be the number of variables, m be the number of training examples, and l be the number of values per variable. The complexity of selecting the first split is O(lmn), since we must compute statistics for each of the l values of each of the n variables using all of the m examples. At the next level, we now have two splits to select: one for the left child and one for the right child of the original split. However, since the split partitions the training data into two sets, each of the m examples is only considered once, either for the left split or the right split, leading to a total time of O(lmn) at each level. If each split assigns a fraction of at least 1/k examples to each child, then the depth is at most O(log k (m)), yielding a total complexity of O(lmn log k (m)) for one tree, and O(lmn 2 log k (m)) for the entire structure. Depending on the patterns present in the data, the depth of the learned trees could be much less than log k (m), leading to faster run times in practice. For large datasets or streaming data, we can apply the Hoeffding tree algorithm instead <ref type="bibr" target="#b9">[10]</ref>, which uses the Hoeffding bound to select decision tree splits after enough data has been seen to make a confident choice, rather than using all available data.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>IV. EMPIRICAL EVALUATION</head><p>We evaluate our approach on 13 real-world datasets. The goals of our experiments are two-fold. First, we want to compare the run time and accuracy of DTSL to several other state-of-the-art Markov network structure learners: the algorithm of Della Pietra et al. <ref type="bibr" target="#b1">[2]</ref>, which we refer to as DP; BLM <ref type="bibr" target="#b5">[6]</ref>; and L1 regularized logistic regression <ref type="bibr" target="#b0">[1]</ref>. Second, we want to evaluate whether DTSL's pruning heuristics result in more accurate models.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>A. Methods</head><p>We used DTSL and each of the baselines to learn structures for all 13 datasets.</p><p>DTSL was implemented in OCaml. For both BLM and DP, we used the publicly available code of Davis and Domingos <ref type="bibr" target="#b5">[6]</ref>. For Ravikumar et al.'s approach, we used the OWL-QN software package <ref type="bibr" target="#b10">[11]</ref> for performing the L1 logistic regression.</p><p>The output of each structure learning algorithm is a set of conjunctive features. To learn weights, we optimized the pseudo-likelihood of the data via the limited-memory BFGS algorithm <ref type="bibr" target="#b11">[12]</ref> since optimizing the likelihood of the data is prohibitively expensive for the domains we consider.</p><p>Like Lee et al. <ref type="bibr" target="#b12">[13]</ref>, we evaluated our algorithm using test set conditional marginal log-likelihood (CMLL). Calculating the CMLL required dividing the variables into a query set Q and an evidence set E. Then, for each test example we computed CM LL(X = x) = ï¿¿ i∈Q log P (X i = x i |E). For each domain, we divided the variables into four disjoint groups. One set served as the query variables while the remaining three sets served as evidence. We repeated this procedure such that each set served as the query variables. We computed the conditional marginal probabilities using the MC-SAT inference algorithm <ref type="bibr" target="#b13">[14]</ref>. For all three domains, we set the burn-in to 1,000 samples and then computed the probability using the next 10,000 samples. We tuned all algorithms using separate validation sets, the same validation sets used by Davis and Domingos. For DTSL, we selected the structure prior κ for each domain that minimized the total log loss of all probabilistic decision trees on the validation set. The values of κ we used were powers of 10, ranging from 0.0001 to 1.0. For each feature generation method, we then tuned the Gaussian weight prior to maximize CMLL on the validation set, with values of 100, 10, 1, and 0.1. For comparisons to other algorithms, we selected the DTSL model with the best overall CMLL score on the validation set.</p><p>For L1, on each dataset we tried the following values of the prior λ: 1, 2, 5, 10, 25, 50, 100, 200, 500, and 1000. We also tried both methods of making the Markov blankets consistent, and tuned the weight prior as we did with DTSL. (Tuning the Gaussian weight prior allowed us to get better results than reported by Davis and Domingos <ref type="bibr" target="#b5">[6]</ref>.)</p><p>For BLM and DP, we kept the tuning settings used by Davis and Domingos. Additional tuning of the weight prior might lead to slightly better results.</p><p>All of our code is available at http://ix.cs.uoregon.edu/ ∼ lowd/dtsl under a modified BSD license.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>B. Data Sets</head><p>For our experiments, we selected a subset of the domains used by Davis and Domingos <ref type="bibr" target="#b5">[6]</ref>. <ref type="bibr" target="#b0">1</ref> We excluded the domains that had multivalued variables encoded as multiple binary variables, since this leads to artificial deterministic dependencies. Hulten and Domingos <ref type="bibr" target="#b16">[17]</ref>, each example initially consisted of 65 Boolean variables, corresponding to whether or not a particular session visited a web page matching a certain category. We dropped one variable that was always set to zero in the training data. The MSNBC anonymous web data contains information about whether a user visited a top-level MSNBC page during a particular session. We created one variable for each page, which is true if the user visited that particular page during a session. The MSWeb anonymous web data contains visit data for 294 areas (Vroots) of the Microsoft web site, collected during one week in February 1998. Again, we created one variable for each page, which is true if the user visited that particular page during a session. The Plants dataset consists of different plant types and locations where they are found. We constructed one binary feature for each location, which is true if the plant is found there.</p><p>The National Long Term Care Survey (NLTCS) data consist of binary variables that measure an individual's ability to perform different daily living activities. <ref type="bibr" target="#b1">2</ref> We used three text domains: 20 Newsgroups, Reuters-52 and WebKB. 3 For 20 Newsgroups, we only considered words that appeared in at least 200 documents. For Reuters and WebKB, we only considered words that appeared in at least 50 documents. For all three datasets, we created one binary feature for each word. The text domains contained roughly a 50-50 train-test split, whereas all other domains used around 75% of the data for the training, 10% for tuning, and 15% for testing. Thus we split the test set of these domains to make the proportion of data devoted to each task more closely match the other domains used in the empirical evaluation.</p><p>Finally, we considered several collaborative filtering problems: Audio, Book, EachMovie, Jester and Netflix. The Audio dataset consists of information about how often a user listened-to a particular artist. <ref type="bibr" target="#b3">4</ref> The data was provided by the company Audioscrobbler before it was acquired by Last.fm. We focused on the 100 most listened-to artists. We used a random subset of the data and reduced the problem to "listened-to" or "did not listen-to." The Book Crossing (Book) dataset <ref type="bibr" target="#b17">[18]</ref> consists of a users rating of how much they liked a book. We considered the 500 most frequently rated book. We reduced the problem to "rated" or "not rated" and considered all people who rated more than of these books. EachMovie 5 is a collaborative filtering dataset in which users rate movies they have seen. We focused on the 500 most-rated movies, and reduced each variable to "rated" or "not rated". The Jester dataset <ref type="bibr" target="#b18">[19]</ref> consists of users' real-valued ratings for 100 jokes. For Jester we selected all users who had rated all 100 jokes, and reduced their preferences to "like" and "dislike" by thresholding the real-valued preference ratings at zero. Finally, we considered a random subset of the Netflix challenge data and focused on the 100 most frequently rated movies and reduced the problem to "rated" or "not-rated."</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>C. Results</head><p>First, we compared the accuracy of the different DTSL feature generation methods: DEFAULT, PRUNE, PRUNE-5, PRUNE-10, and NONZERO. Results are in <ref type="table" target="#tab_0">Table IV</ref>. On 11 out of 13 datasets, PRUNE is more accurate than DEFAULT, sometimes substantially so. PRUNE-10 and PRUNE-5 sometimes improve on the accuracy of PRUNE when PRUNE seems to be overfitting, such as on MSWeb and the text datasets (WebKB, 20 Newsgroups, Reuters-52). NONZERO worked surprisingly well, yielding the most accurate models on eight out of 13 datasets. Its use of fewer and shorter features may be key to avoiding overfitting. Overall, PRUNE or NONZERO is almost always the best choice, yielding the best CMLL on 11 datasets and a close second on the remaining two.</p><p>Additional characteristics of the features generated by each method are in <ref type="table" target="#tab_5">Table V</ref>. "Average Feature Length" is the average number of conditions per feature. The PRUNE method leads to roughly twice as many features as DE-FAULT, which is what one would expect, since half of the nodes in a balanced binary tree are leaves and the other half are interior nodes. NONZERO typically yields the shortest and the fewest rules, as expected.</p><p>We then compared DTSL to three standard Markov network structure learners: L1 regularized logistic regression <ref type="bibr" target="#b0">[1]</ref>, BLM <ref type="bibr" target="#b5">[6]</ref>, and DP <ref type="bibr" target="#b1">[2]</ref>. We also include Atomic, a model that assumes all variables are independent, as a simple baseline. Accuracy and timing results are in <ref type="table" target="#tab_0">Table VI.</ref> For the comparison, we selected the DTSL method that performed best on the validation set. In some cases, such as KDDCup 2000, this was not the method that performed best on the test data. <ref type="figure" target="#fig_1">Figure 2</ref> contains scatterplots comparing DTSL to each baseline method.</p><p>DTSL achieves the best overall performance on five of the 13 datasets. We compare the performance of DTSL to the other algorithms using the Wilcoxon signed-ranks tests, where the test set CMLL of each dataset appears as one sample in the significance test. DTSL outperforms L1 on six of the 13 domains which results in no significant difference according to a Wilcoxon signed-ranks test. Even for the datasets where DTSL performs worse than L1, it offers comparable accuracy, as shown by the scatterplots. DTSL's accuracy is substantially better than L1's on the Plants and MSNBC domains. The average feature length for DTSL is 7.61 and 10.42 for Plants and MSNBC, respectively, which supports the hypothesis that inducing longer features can improve the performance of a model. DTSL achieves a better CMLL score than BLM on 10 of the 13 domains. DTSL significantly outperforms BLM at the 0.006 significance level according to a Wilcoxon signedranks test. DTSL beats Della Pietra et al.'s algorithm on 12 of the 13 domains. DTSL significantly outperforms Della Pietra et al. at the 0.0008 significance level according to a Wilcoxon signed-ranks test.</p><p>On average, DTSL is 16 times faster than L1 and 870 times faster than BLM. DTSL has a faster run time than L1, BLM and Della Pietra et al.'s algorithm on all 13 domains. DTSL is significantly faster than each of the other algorithms at less than 0.001 significance level according to a Wilcoxon signed-ranks test.</p><p>For all algorithms, timing results are for structure selection only, excluding tuning and weight learning, which were not heavily optimized. For BLM and Della Pietra et al., structure learning is the bottleneck, always taking significantly longer than weight learning. Due to L1's greater speed, weight learning was slower than L1 structure learning on three datasets. Since DTSL is even faster, weight learning was slower than DTSL structure learning on every dataset. Furthermore, because DTSL often selected structures with longer or more features than L1, weight learning was often slower on DTSL's models than L1's, in spite of the fact that the same weight learning methods were employed for all models. Since DTSL effectively solves the problem of slow structure learning, efficient weight learning becomes increasingly important. A stochastic optimization algorithm, such as SGD-QN <ref type="bibr" target="#b19">[20]</ref>, might yield significantly better performance.</p><p>Since DTSL is always faster than the baseline algorithms and often more accurate, it is a good choice to consider when performing Markov network structure learning. Whether or not DTSL is most accurate depends on the dataset. Some domains are best captured by a large number of pairwise interactions; in such cases, L1 performs best. Others depend on higher order interactions that are easily discovered by DTSL.</p><p>DTSL has two weaknesses. The first is a higher risk of overfitting, since it often generates many very specialized features. For the most part, this can be remedied with careful tuning on a validation set. The second is a limited ability to capture many independent interactions. For instance, to capture pairwise interactions between a variable and k other variables would require a decision tree with 2 k leaves, even though such interactions could be represented exactly by O(k) features. For future work, we would like to learn sets of decision trees or other structures that can capture more independent interactions without making the overly restrictive pairwise assumption of L1.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>V. CONCLUSIONS AND FUTURE WORK</head><p>In this paper, we presented DTSL, a new approach to learning Markov networks using decision trees. DTSL is    similar to the approach of Ravikumar et al. <ref type="bibr" target="#b0">[1]</ref>, except that we use decision trees in place of L1 logistic regression. This allows us to learn longer features capturing interactions among more variables, which yields substantially better performance in several domains. DTSL is also similar to methods for learning dependency networks with tree conditional probability distributions <ref type="bibr" target="#b6">[7]</ref>. However, dependency networks may not represent consistent probability distributions and require that inference be done with Gibbs sampling, while the Markov networks learned by DTSL have neither of those limitations.</p><p>In terms of speed, we found DTSL to be an order of magnitude faster than L1 logistic regression, and 3-4 orders of magnitude faster than the global structure learning approaches of BLM <ref type="bibr" target="#b5">[6]</ref> and Della Pietra et al. <ref type="bibr" target="#b1">[2]</ref>. In terms of accuracy, DTSL is comparable in accuracy to other approaches, placing first on 5 out of 13 datasets.</p><p>Future work includes exploring other methods of learning local structure, such as rule sets, boosted decision trees, and neural networks; determining sufficient conditions for the asymptotic consistency of local learning; further improving speed, perhaps by using frequent itemsets; and incorporating faster methods for weight learning, since structure learning is no longer the bottleneck.</p></div><figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_0"><head>Figure 1 .</head><label>1</label><figDesc>Figure 1. Example of a probabilistic decision tree.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_1"><head>Figure 2 .</head><label>2</label><figDesc>Figure 2. Normalized CMLL of DTSL vs. the normalized CMLL of each baseline method. CMLLs were normalized by dividing by the number of variables. Points above the line are where DTSL outperforms the baseline.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_0" validated="false"><head>Table I THE DTSL ALGORITHM</head><label>I</label><figDesc></figDesc><table></table></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_1" validated="false"><head>Table II DTSL TREE LEARNING SUBROUTINE</head><label>II</label><figDesc></figDesc><table></table></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_2" validated="false"><head>Table III DATA SET CHARACTERISTICS</head><label>III</label><figDesc></figDesc><table>Data Set 
+Train 
+Tune 
+Test 
+Num. 
+Density 
+Set 
+Set 
+Set 
+Vars. 
+Size 
+Size 
+Size 
+NLTCS 
+16,181 
+2,157 
+3,236 
+16 
+0.332 
+MSNBC 
+291,326 
+38,843 
+58,265 
+17 
+0.166 
+KDDCup 2000 
+180,092 
+19,907 
+34,955 
+64 
+0.008 
+Plants 
+17,412 
+2,321 
+3,482 
+69 
+0.180 
+Audio 
+15,000 
+2,000 
+3,000 
+100 
+0.198 
+Jester 
+9,000 
+1,000 
+4,116 
+100 
+0.610 
+Netflix 
+15,000 
+2,000 
+3,000 
+100 
+0.541 
+MSWeb 
+29,441 
+3,270 
+5,000 
+294 
+0.010 
+Book 
+8,700 
+1,159 
+1,739 
+500 
+0.016 
+EachMovie 
+4,524 
+1,002 
+591 
+500 
+0.058 
+WebKB 
+2,803 
+558 
+838 
+843 
+0.063 
+20 Newsgroups 
+11,293 
+3,764 
+3,764 
+930 
+0.049 
+Reuters-52 
+6,532 
+1,028 
+1,540 
+941 
+0.037 
+
+</table></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_3" validated="false"><head>Table III describes</head><label>III</label><figDesc>the characteristics of each dataset. Datasets are listed in increasing order by number of variables. From the UCI machine learning repository [15] we used: KDDCup 2000 data, MSNBC anonymous web data, MSWeb anonymous web data and Plants domains. The KDD Cup 2000 clickstream prediction data set [16] consists of web session data taken from an online retailer. Using the subset of 1 Publicly available at http://alchemy.cs.washington.edu/papers/davis10a</figDesc><table></table></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_4" validated="false"><head>Table IV TEST SET CMLL FOR DIFFERENT FEATURE GENERATION METHODS.</head><label>IV</label><figDesc></figDesc><table>Data Set 
+Default 
+Prune 
+Prune-10 Prune-5 
+Nonzero 
+NLTCS 
+-5.313 
+-5.210 
+-5.213 
+-5.205 
+-5.224 
+MSNBC 
+-5.724 
+-5.745 
+-5.888 
+-6.111 
+-5.870 
+KDDCup 2000 
+-2.696 
+-2.155 
+-2.104 
+-2.107 
+-2.085 
+Plants 
+-10.814 
+-9.988 
+-10.074 
+-10.636 
+-11.054 
+Audio 
+-38.093 
+-37.893 
+-37.900 
+-38.405 
+-37.484 
+Jester 
+-51.021 
+-50.818 
+-50.818 
+-51.155 
+-50.212 
+Netflix 
+-54.389 
+-54.177 
+-54.179 
+-54.561 
+-53.234 
+MSWeb 
+-29.757 
+-28.648 
+-21.891 
+-16.589 
+-9.278 
+Book 
+-35.484 
+-34.451 
+-34.451 
+-34.718 
+-35.238 
+EachMovie 
+-54.400 
+-51.043 
+-51.088 
+-52.464 
+-52.197 
+WebKB 
+-158.790 -151.195 
+-151.104 
+-151.577 
+-150.529 
+20 Newsgroups 
+-195.607 -199.516 
+-201.060 
+-169.877 
+-154.825 
+Reuters-52 
+-128.009 -107.613 
+-106.547 
+-100.283 
+-82.929 
+
+</table></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_5" validated="false"><head>Table V FEATURE CHARACTERISTICS FOR DIFFERENT FEATURE GENERATION METHODS.</head><label>V</label><figDesc></figDesc><table>Average Feature Length 
+Number of Features in the Learned Model 
+Data Set 
+DEFAULT 
+PRUNE 
+PRUNE-10 
+PRUNE-5 
+NONZERO 
+DEFAULT 
+PRUNE 
+PRUNE-10 
+PRUNE-5 
+NONZERO 
+NLTCS 
+7.20 
+6.32 
+6.24 
+4.17 
+3.96 
+1,529 
+2,958 
+2,910 
+899 
+980 
+MSNBC 
+11.39 
+10.42 
+8.17 
+4.17 
+4.50 
+12,356 
+24,530 
+12,530 
+1,015 
+4,159 
+KDDCup 2000 
+8.44 
+7.61 
+6.11 
+3.94 
+2.87 
+4,403 
+8,585 
+6,941 
+2,831 
+2,274 
+Plants 
+7.58 
+6.69 
+6.17 
+4.15 
+3.61 
+6,264 
+12,289 
+11,439 
+3,865 
+4,303 
+Audio 
+6.80 
+5.93 
+5.78 
+4.17 
+3.09 
+7,097 
+13,866 
+13,510 
+5,851 
+4,946 
+Jester 
+6.20 
+5.35 
+5.34 
+4.18 
+3.70 
+5,834 
+11,308 
+11,292 
+5,832 
+4,796 
+Netflix 
+6.67 
+5.79 
+5.79 
+4.18 
+3.75 
+7,897 
+15,437 
+15,433 
+5,897 
+6,659 
+MSWeb 
+20.12 
+20.03 
+5.04 
+3.41 
+2.49 
+7,744 
+14,788 
+9,392 
+5,665 
+3,879 
+Book 
+4.22 
+3.59 
+3.59 
+3.22 
+2.06 
+6,466 
+11,720 
+11,720 
+10,408 
+3,454 
+EachMovie 
+5.15 
+4.42 
+4.40 
+3.60 
+2.48 
+10,343 
+19,568 
+19,504 
+14,704 
+6,999 
+WebKB 
+4.09 
+3.48 
+3.47 
+3.14 
+2.15 
+10,004 
+17,971 
+17,939 
+16,247 
+5,858 
+20 Newsgroups 
+5.78 
+4.99 
+4.89 
+3.79 
+2.69 
+28,622 
+55,005 
+54,241 
+35,533 
+21,008 
+Reuters-52 
+5.09 
+4.40 
+4.29 
+3.44 
+2.44 
+16,390 
+30,684 
+30,232 
+23,042 
+10,485 
+
+</table></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_6" validated="false"><head>Table VI TEST SET CMLL AND RUNNING TIME FOR DTSL AND BASELINES. DTSL FEATURE GENERATION METHOD SELECTED USING THE VALIDATION SET.</head><label>VI</label><figDesc></figDesc><table>CMLL 
+Run Time (Minutes) 
+Data Set 
+DTSL 
+L1 
+BLM 
+DP 
+Atomic 
+DTSL L1 
+BLM 
+DP 
+NLTCS 
+-5.213 
+-5.231 
+-5.253 
+-5.220 
+-9.241 
+&lt; 0.1 
+0.1 
+24.5 
+15.8 
+MSNBC 
+-5.745 
+-6.286 
+-5.892 
+-5.957 
+-6.780 
+0.4 
+1.1 
+203.5 
+1440.0 
+KDDCup 2000 
+-2.107 
+-2.124 
+-2.099 
+-2.112 
+-2.456 
+2.0 
+9.8 
+62.9 
+1440.0 
+Plants 
+-9.988 
+-10.962 
+-10.960 
+-11.143 
+-31.321 
+0.2 
+3.2 
+514.6 
+1440.0 
+Audio 
+-37.484 
+-36.972 
+-37.385 
+-39.224 
+-49.362 
+0.3 
+2.7 
+434.3 
+1398.5 
+Jester 
+-50.212 
+-49.508 
+-53.025 
+-53.999 
+-63.891 
+0.2 
+4.4 
+350.2 
+1440.0 
+Netflix 
+-53.234 
+-52.329 
+-56.598 
+-57.429 
+-64.578 
+0.3 
+6.1 
+1367.8 
+1440.0 
+MSWeb 
+-9.278 
+-9.075 
+-8.936 
+-9.187 
+-11.720 
+2.2 
+43.9 
+64.8 
+1440.0 
+Book 
+-34.451 
+-36.814 
+-34.768 
+-39.254 
+-41.308 
+1.9 
+24.2 
+47.3 
+1440.0 
+EachMovie 
+-51.043 
+-51.861 
+-58.852 
+-67.175 
+-84.102 
+1.1 
+39.5 
+41.3 
+1440.0 
+WebKB 
+-150.529 
+-150.249 
+-165.736 
+-176.208 -180.640 
+1.6 
+45.0 
+49.9 
+1440.0 
+20 Newsgroups 
+-154.825 
+-154.540 
+-161.269 
+-171.380 -172.908 
+11.0 
+347.7 
+468.9 
+1440.0 
+Reuters-52 
+-82.929 
+-81.285 
+-91.196 
+-105.664 -108.262 
+4.5 
+105.5 
+170.9 
+1440.0 
+
+</table></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_7" validated="false"><head>Table VII FEATURE CHARACTERISTICS FOR DTSL AND BASELINES. DTSL FEATURE GENERATION METHOD SELECTED USING THE VALIDATION SET.</head><label>VII</label><figDesc></figDesc><table>Average Feature 
+Number of Features 
+Data Set 
+Length 
+in the Learned Model 
+DTSL 
+L1 
+BLM 
+DP 
+DTSL 
+L1 
+BLM 
+DP 
+NLTCS 
+6.24 
+2.00 
+4.63 
+3.12 
+2,910 
+155 
+458 
+137 
+MSNBC 
+10.42 
+2.00 
+4.47 
+4.20 
+24,530 
+167 3,168 
+845 
+KDDCup 2000 
+3.94 
+2.00 
+2.46 
+4.12 
+2,831 
+2,144 
+2,421 
+584 
+Plants 
+7.61 
+2.00 
+3.18 
+2.76 
+12,289 
+2,255 
+1,148 
+325 
+Audio 
+3.09 
+2.00 
+2.71 
+2.03 
+4,946 
+5,101 
+2,755 
+272 
+Jester 
+3.70 
+2.00 
+6.27 
+3.13 
+4,796 
+5,121 
+479 
+191 
+Netflix 
+3.75 
+2.00 
+6.29 
+2.55 
+6,659 
+5,148 
+1,040 
+186 
+MSWeb 
+2.49 
+2.00 
+2.81 
+2.26 
+3,879 
+13,663 
+4,504 
+397 
+Book 
+3.59 
+2.00 
+2.07 
+2.14 
+11,720 
+12,036 
+5,577 
+120 
+EachMovie 
+4.42 
+2.00 
+3.61 
+2.05 
+19,568 
+11,155 
+1,615 
+158 
+WebKB 
+2.15 
+2.00 
+11.86 
+2.11 
+5,858 
+7,671 
+2,152 
+37 
+20 Newsgroups 
+2.69 
+2.00 
+10.95 
+2.10 
+21,008 
+29,349 
+3,376 
+20 
+Reuters-52 
+2.44 
+2.00 
+10.52 
+2.11 
+10,485 
+37,413 
+3,481 
+27 
+
+</table></figure>
+
+			<note place="foot" n="2"> http://lib.stat.cmu.edu/datasets/ 3 http://web.ist.utl.pt/ ∼ acardoso/datasets/ 4 http://www-etud.iro.umontreal.ca/ ∼ bergstrj/audioscrobbler data.html 5 Provided by Compaq at http://research.compaq.com/SRC/eachmovie/; no longer available for download, as of October 2004.</note>
+		</body>
+		<back>
+
+			<div type="acknowledgement">
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>ACKNOWLEDGMENTS</head><p>This research was partly funded by ARO grant W911NF-08-1-0242. The views and conclusions contained in this document are those of the authors and should not be interpreted as necessarily representing the official policies, either expressed or implied, of ARO or the United States Government.</p></div>
+			</div>
+
+			<div type="references">
+
+				<listBibl>
+
+<biblStruct xml:id="b0">
+	<analytic>
+		<title level="a" type="main">Highdimensional ising model selection using L1-regularized logistic regression</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>Ravikumar</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><forename type="middle">J</forename><surname>Wainwright</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Lafferty</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Annals of Statistics</title>
+		<imprint>
+			<date type="published" when="2009" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b1">
+	<analytic>
+		<title level="a" type="main">Inducing features of random fields</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Della Pietra</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">V</forename><forename type="middle">Della</forename><surname>Pietra</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Lafferty</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">IEEE Transactions on Pattern Analysis and Machine Intelligence</title>
+		<imprint>
+			<biblScope unit="volume">19</biblScope>
+			<biblScope unit="page" from="380" to="392" />
+			<date type="published" when="1997" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b2">
+	<monogr>
+		<title level="m" type="main">Markov Chain Monte Carlo in Practice</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">W</forename><forename type="middle">R</forename><surname>Gilks</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Richardson</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><forename type="middle">J</forename><surname>Spiegelhalter</surname></persName>
+		</author>
+		<imprint>
+			<date type="published" when="1996" />
+			<publisher>Chapman and Hall</publisher>
+			<pubPlace>London, UK</pubPlace>
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b3">
+	<analytic>
+		<title level="a" type="main">Structured learning with approximate inference</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Kulesza</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">F</forename><surname>Pereira</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">NIPS 20</title>
+		<imprint>
+			<date type="published" when="2007" />
+			<biblScope unit="page" from="785" to="792" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b4">
+	<analytic>
+		<title level="a" type="main">Statistical analysis of non-lattice data</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Besag</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">The Statistician</title>
+		<imprint>
+			<biblScope unit="volume">24</biblScope>
+			<biblScope unit="page" from="179" to="195" />
+			<date type="published" when="1975" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b5">
+	<analytic>
+		<title level="a" type="main">Bottom-up learning of Markov network structure</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Davis</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>Domingos</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the Twenty-Seventh International Conference on Machine Learning</title>
+		<meeting>the Twenty-Seventh International Conference on Machine Learning<address><addrLine>Haifa, Israel</addrLine></address></meeting>
+		<imprint>
+			<publisher>ACM Press</publisher>
+			<date type="published" when="2010" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b6">
+	<analytic>
+		<title level="a" type="main">Dependency networks for inference, collaborative filtering, and data visualization</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Heckerman</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><forename type="middle">M</forename><surname>Chickering</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Meek</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Rounthwaite</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Kadie</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Journal of Machine Learning Research</title>
+		<imprint>
+			<biblScope unit="volume">1</biblScope>
+			<biblScope unit="page" from="49" to="75" />
+			<date type="published" when="2000" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b7">
+	<analytic>
+		<title level="a" type="main">Loopy belief propagation for approximate inference: An empirical study</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">K</forename><forename type="middle">P</forename><surname>Murphy</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Y</forename><surname>Weiss</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><forename type="middle">I</forename><surname>Jordan</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. UAI&apos;99</title>
+		<meeting>UAI&apos;99</meeting>
+		<imprint>
+			<date type="published" when="1999" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b8">
+	<analytic>
+		<title level="a" type="main">A Bayesian approach to learning Bayesian networks with local structure</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Chickering</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Heckerman</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Meek</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the Thirteenth Conference on Uncertainty in Artificial Intelligence</title>
+		<meeting>the Thirteenth Conference on Uncertainty in Artificial Intelligence<address><addrLine>Providence, RI</addrLine></address></meeting>
+		<imprint>
+			<publisher>Morgan Kaufmann</publisher>
+			<date type="published" when="1997" />
+			<biblScope unit="page" from="80" to="89" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b9">
+	<analytic>
+		<title level="a" type="main">Mining high-speed data streams</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>Domingos</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">G</forename><surname>Hulten</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the Sixth ACM SIGKDD International Conference on Knowledge Discovery and Data Mining</title>
+		<meeting>the Sixth ACM SIGKDD International Conference on Knowledge Discovery and Data Mining<address><addrLine>Boston, MA</addrLine></address></meeting>
+		<imprint>
+			<publisher>ACM Press</publisher>
+			<date type="published" when="2000" />
+			<biblScope unit="page" from="71" to="80" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b10">
+	<analytic>
+		<title level="a" type="main">Scalable training of l1-regularized log-linear models</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">G</forename><surname>Andrew</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Gao</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. ICML&apos;07</title>
+		<meeting>ICML&apos;07</meeting>
+		<imprint>
+			<date type="published" when="2007" />
+			<biblScope unit="page" from="33" to="40" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b11">
+	<analytic>
+		<title level="a" type="main">On the limited memory BFGS method for large scale optimization</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><forename type="middle">C</forename><surname>Liu</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Nocedal</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Mathematical Programming</title>
+		<imprint>
+			<biblScope unit="volume">45</biblScope>
+			<biblScope unit="issue">3</biblScope>
+			<biblScope unit="page" from="503" to="528" />
+			<date type="published" when="1989" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b12">
+	<analytic>
+		<title level="a" type="main">Efficient structure learning of Markov networks using L1-regularization</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S.-I</forename><surname>Lee</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">V</forename><surname>Ganapathi</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Koller</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">NIPS 19</title>
+		<imprint>
+			<date type="published" when="2007" />
+			<biblScope unit="page" from="817" to="824" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b13">
+	<analytic>
+		<title level="a" type="main">Sound and efficient inference with probabilistic and deterministic dependencies</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">H</forename><surname>Poon</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>Domingos</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. AAAI&apos;06</title>
+		<meeting>AAAI&apos;06</meeting>
+		<imprint>
+			<date type="published" when="2006" />
+			<biblScope unit="page" from="458" to="463" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b14">
+	<monogr>
+		<title level="m" type="main">UCI repository of machine learning databases</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Blake</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><forename type="middle">J</forename><surname>Merz</surname></persName>
+		</author>
+		<ptr target="http://www.ics.uci.edu/∼mlearn/MLRepository.html" />
+		<imprint>
+			<date type="published" when="2000" />
+			<pubPlace>Irvine, CA</pubPlace>
+		</imprint>
+	</monogr>
+<note type="report_type">Tech. Rep</note>
+</biblStruct>
+
+<biblStruct xml:id="b15">
+	<analytic>
+		<title level="a" type="main">KDD-Cup 2000 organizers&apos; report: Peeling the onion</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Kohavi</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Brodley</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">B</forename><surname>Frasca</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">L</forename><surname>Mason</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Z</forename><surname>Zheng</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">SIGKDD Explorations</title>
+		<imprint>
+			<biblScope unit="volume">2</biblScope>
+			<biblScope unit="issue">2</biblScope>
+			<biblScope unit="page" from="86" to="98" />
+			<date type="published" when="2000" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b16">
+	<analytic>
+		<title level="a" type="main">Mining complex models from arbitrarily large databases in constant time</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">G</forename><surname>Hulten</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>Domingos</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the Eighth ACM SIGKDD International Conference on Knowledge Discovery and Data Mining</title>
+		<meeting>the Eighth ACM SIGKDD International Conference on Knowledge Discovery and Data Mining<address><addrLine>Edmonton, Canada</addrLine></address></meeting>
+		<imprint>
+			<publisher>ACM Press</publisher>
+			<date type="published" when="2002" />
+			<biblScope unit="page" from="525" to="531" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b17">
+	<analytic>
+		<title level="a" type="main">Improving recommendation lists through topic diversification</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Ziegler</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Mcnee</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Konstan</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">G</forename><surname>Lausen</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. WWW&apos;05</title>
+		<meeting>WWW&apos;05</meeting>
+		<imprint>
+			<date type="published" when="2005" />
+			<biblScope unit="page" from="22" to="32" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b18">
+	<analytic>
+		<title level="a" type="main">Eigentaste: A constant time collaborative filtering algorithm</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">K</forename><surname>Goldberg</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">T</forename><surname>Roeder</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Gupta</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Perkins</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Information Retrieval</title>
+		<imprint>
+			<biblScope unit="volume">4</biblScope>
+			<biblScope unit="issue">2</biblScope>
+			<biblScope unit="page" from="133" to="151" />
+			<date type="published" when="2001" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b19">
+	<analytic>
+		<title level="a" type="main">SGD-QN: Careful quasi-Newton stochastic gradient descent</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Bordes</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">L</forename><surname>Bottou</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>Gallinari</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Journal of Machine Learning Research</title>
+		<imprint>
+			<biblScope unit="volume">10</biblScope>
+			<biblScope unit="page" from="1737" to="1754" />
+			<date type="published" when="2009" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+				</listBibl>
+			</div>
+		</back>
+	</text>
+</TEI>

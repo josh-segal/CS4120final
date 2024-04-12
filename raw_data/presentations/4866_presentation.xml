@@ -1,0 +1,477 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>Lance Hammond, Brian D. Carlstrom, Vicky Wong, Ben Hertzberg, Mike Chen, Christos Kozyrakis, and Kunle Olukotun</p>
+    <p>Stanford University http://tcc.stanford.edu</p>
+    <p>October 11, 2004</p>
+    <p>Programming with Transactional Coherence</p>
+    <p>and Consistency (TCC) all transactions, all the time</p>
+  </div>
+  <div class="page">
+    <p>Programming with TCC 2</p>
+    <p>The Need for Parallelism</p>
+    <p>Uniprocessor system scaling is hitting limits  Power consumption increasing dramatically  Wire delays becoming a limiting factor  Design and verification complexity is now overwhelming  Exploits limited instruction-level parallelism (ILP)</p>
+    <p>So chip multiprocessors are the future  Inherently avoid many of the design problems</p>
+    <p>Replicate small, easy-to-design cores Localize high-speed signals</p>
+    <p>Exploit thread-level parallelism (TLP) But can still use ILP within cores</p>
+    <p>But now we must force programmers to use threads And conventional shared memory threaded programming is primitive at best . . .</p>
+    <p>Motivation</p>
+  </div>
+  <div class="page">
+    <p>Programming with TCC 3</p>
+    <p>The Trouble with Multithreading</p>
+    <p>Multithreaded programming requires:  Synchronization through barriers, condition variables, etc.  Shared variable access control through locks . . .</p>
+    <p>Locks are inherently difficult to use  Locking design must balance performance and correctness</p>
+    <p>Coarse-grain locking: Lock contention Fine-grain locking: Extra overhead, more error-prone</p>
+    <p>Must be careful to avoid deadlocks or races in locking  Must not leave anything shared unprotected, or program may fail</p>
+    <p>Parallel performance tuning is unintuitive  Performance bottlenecks appear through low level events</p>
+    <p>Such as: false sharing, coherence misses,</p>
+    <p>Is there a simpler model with good performance?</p>
+    <p>Motivation</p>
+  </div>
+  <div class="page">
+    <p>Programming with TCC 4</p>
+    <p>TCC: Using Transactions</p>
+    <p>Yes! Execute transactions all of the time  Programmer-defined groups of instructions within a program</p>
+    <p>End/Begin Transaction Start Buffering Results Instruction #1 Instruction #2 . . .</p>
+    <p>End/Begin Transaction Commit Results Now (+ Start New Transaction)</p>
+    <p>Can only commit machine state at the end of each transaction To Hardware: Processors update state atomically only at a coarse granularity To Programmer: Transactions encapsulate and replace locked critical regions</p>
+    <p>Transactions run in a continuous cycle . . .</p>
+    <p>Overview</p>
+  </div>
+  <div class="page">
+    <p>Programming with TCC 5</p>
+    <p>The TCC Cycle</p>
+    <p>Speculatively execute code and buffer</p>
+    <p>Wait for commit permission  Phase provides commit ordering, if necessary</p>
+    <p>Imposes programmer-requested order on commits  Arbitrate with other CPUs</p>
+    <p>Commit stores together, as a block  Provides a well-defined write ordering</p>
+    <p>To other processors, all instructions within a transaction appear to execute atomically at transaction commit time</p>
+    <p>Provides sequential illusion to programmers Often eases parallelization of code</p>
+    <p>Latency-tolerant, but requires high bandwidth</p>
+    <p>And repeat!</p>
+    <p>Overview</p>
+    <p>Execute Code</p>
+    <p>P0 Transaction</p>
+    <p>Starts</p>
+    <p>Wait for Phase</p>
+    <p>Arbitrate</p>
+    <p>Commit</p>
+    <p>Transaction Completes</p>
+    <p>Requests Commit</p>
+    <p>Starts Commit</p>
+    <p>Finishes Commit</p>
+    <p>Execute Code</p>
+    <p>P0 Transaction</p>
+    <p>Starts</p>
+    <p>Wait for Phase</p>
+    <p>Arbitrate</p>
+    <p>Commit</p>
+    <p>Transaction Completes</p>
+    <p>Requests Commit</p>
+    <p>Starts Commit</p>
+    <p>Finishes Commit</p>
+    <p>P1 P2</p>
+  </div>
+  <div class="page">
+    <p>Programming with TCC 6</p>
+    <p>Transactional Memory</p>
+    <p>What if transactions modify the same data?  First commit causes other transaction(s) to violate &amp; restart  Can provide programmer with useful (load, store, data) feedback!</p>
+    <p>Overview</p>
+    <p>Time</p>
+    <p>Transaction B</p>
+    <p>Transaction A</p>
+    <p>LOAD X</p>
+    <p>STORE X LOAD X</p>
+    <p>STORE X Commit X</p>
+    <p>Time</p>
+    <p>Transaction B</p>
+    <p>Transaction A</p>
+    <p>LOAD X</p>
+    <p>STORE X LOAD X</p>
+    <p>STORE X Commit X</p>
+    <p>Violation!Time</p>
+    <p>Transaction B</p>
+    <p>Transaction A</p>
+    <p>LOAD X</p>
+    <p>STORE X LOAD X</p>
+    <p>STORE X Commit X</p>
+    <p>LOAD X</p>
+    <p>STORE X</p>
+    <p>Violation!</p>
+    <p>Re-execute with new</p>
+    <p>data</p>
+    <p>Original Code:</p>
+    <p>... = X + Y;</p>
+    <p>X = ...</p>
+  </div>
+  <div class="page">
+    <p>Programming with TCC 7</p>
+    <p>Sample TCC Hardware</p>
+    <p>Write buffer (~16KB) + some new L1 cache bits in each processor Can also double buffer to overlap commit + execution</p>
+    <p>Broadcast bus or network to distribute commit packets atomically Snooping on broadcasts triggers violations, if necessary</p>
+    <p>Commit arbitration/sequencing logic  Replaces conventional cache coherence &amp; consistency: ISCA 2004</p>
+    <p>Overview</p>
+    <p>Local Cache Hierarchy</p>
+    <p>Processor Core Stores Only</p>
+    <p>Loads and Stores</p>
+    <p>Commits to other nodes</p>
+    <p>Write Buffer</p>
+    <p>Snooping from other nodes</p>
+    <p>Commit Control</p>
+    <p>Phase Node 0: Node 1: Node 2:</p>
+    <p>Broadcast Bus or Network</p>
+    <p>Node #0</p>
+    <p>Transaction Control Bits L1 Cache</p>
+    <p>Read, Modified, etc.</p>
+  </div>
+  <div class="page">
+    <p>Programming with TCC 8</p>
+    <p>Programming with TCC</p>
+    <p>We do not have to verify parallelism in advance Therefore, much easier to get a parallel program running correctly!</p>
+    <p>Must verify that unordered commits wont break correctness  Partially Ordered: Can emulate barriers and other synchronization</p>
+    <p>Programming</p>
+  </div>
+  <div class="page">
+    <p>Programming with TCC 9</p>
+    <p>A Parallelization Example</p>
+    <p>Lets start with a simple histogram example  Counts frequency of 0100% scores in a data array  Unmodified, runs as a single large transaction</p>
+    <p>int* data = load_data(); int i, buckets[101]; for (i = 0; i &lt; 1000; i++) { buckets[data[i]]++; } print_buckets(buckets);</p>
+    <p>Programming</p>
+  </div>
+  <div class="page">
+    <p>Programming with TCC 10</p>
+    <p>Transactional Loops</p>
+    <p>t_for transactional loop  Runs as 1002 transactions</p>
+    <p>int* data = load_data(); int i, buckets[101]; t_for (i = 0; i &lt; 1000; i++) { buckets[data[i]]++; } print_buckets(buckets);</p>
+    <p>. . . 0</p>
+    <p>Input</p>
+    <p>Output</p>
+    <p>Programming</p>
+    <p>Time</p>
+  </div>
+  <div class="page">
+    <p>Programming with TCC 11</p>
+    <p>Unordered Loops</p>
+    <p>t_for_unordered transactional loop  Programmer/compiler must verify that ordering is not required</p>
+    <p>If no loop-carried dependencies If loop-carried variables are tolerant of out-of-order update (like histogram buckets)</p>
+    <p>Removes sequential dependencies on loop commit  Allows transactions to finish out-of-order</p>
+    <p>Useful for load imbalance, when transactions vary dramatically in length</p>
+    <p>int* data = load_data(); int i, buckets[101]; t_for_unordered (i = 0; i &lt; 1000; i++) { buckets[data[i]]++; } print_buckets(buckets);</p>
+    <p>Programming</p>
+  </div>
+  <div class="page">
+    <p>Programming with TCC 12</p>
+    <p>Conventional Parallelization</p>
+    <p>Conventional parallelization requires explicit locking  Programmer must manually define the required locks  Programmer must manually mark critical regions</p>
+    <p>Even more complex if multiple locks must be acquired at once  Completely eliminated with TCC!</p>
+    <p>int* data = load_data(); int i, buckets[101]; LOCK_TYPE bucketLock[101]; for (i = 0; i &lt; 101; i++) LOCK_INIT(bucketLock[i]); for (i = 0; i &lt; 1000; i++) { LOCK(bucketLock[data[i]]); buckets[data[i]]++; UNLOCK(bucketLock[data[i]]); } print_buckets(buckets);</p>
+    <p>Define Locks</p>
+    <p>Mark Regions</p>
+    <p>Programming</p>
+  </div>
+  <div class="page">
+    <p>Programming with TCC 13</p>
+    <p>Forked Transaction Model</p>
+    <p>An alternative transactional API forks off transactions  Allows creation of essentially arbitrary transactions</p>
+    <p>An example: Main loop of a processor simulator  Fetch instructions in one transaction  Fork off parallel transactions to execute individual instructions</p>
+    <p>int PC = INITIAL_PC; int opcode = i_fetch(PC); while (opcode != END_CODE) { t_fork(execute, &amp;opcode, EX_SEQ, 1, 1); increment_PC(opcode, &amp;PC); opcode = i_fetch(PC); }</p>
+    <p>Programming</p>
+    <p>Time IF</p>
+    <p>IF</p>
+    <p>IF</p>
+    <p>IF</p>
+    <p>EX</p>
+    <p>EX EX</p>
+    <p>IF</p>
+  </div>
+  <div class="page">
+    <p>Programming with TCC 14</p>
+    <p>Evaluation Methodology</p>
+    <p>We parallelized several sequential applications:  From SPEC, Java benchmarks, SpecJBB (1 warehouse)  Divided into transactions using looping or forking APIs</p>
+    <p>Trace-based analysis  Generated execution traces from sequential execution  Then analyzed the traces while varying:</p>
+    <p>Number of processors Interconnect bandwidth Communication overheads</p>
+    <p>Simplifications Results shown assume infinite caches and write-buffers</p>
+    <p>But we track the amount of state stored in them Fixed one instruction/cycle</p>
+    <p>Would require a reasonable superscalar processor for this rate</p>
+    <p>Results</p>
+  </div>
+  <div class="page">
+    <p>Programming with TCC 15</p>
+    <p>The Optimization Process</p>
+    <p>Initial parallelizations had mixed results  Some applications speed up well with obvious transactions  Others dont . . .</p>
+    <p>Results B</p>
+    <p>a s e</p>
+    <p>B a</p>
+    <p>s e</p>
+    <p>B a</p>
+    <p>s e</p>
+    <p>B a</p>
+    <p>s e</p>
+    <p>In n</p>
+    <p>e r</p>
+    <p>L o o</p>
+    <p>p s .</p>
+    <p>P ro</p>
+    <p>c e s s o</p>
+    <p>r A</p>
+    <p>c ti v it y</p>
+    <p>Useful</p>
+    <p>Waiting</p>
+    <p>Violated</p>
+    <p>Idle</p>
+    <p>art equake tomcatvSPECjbbMolDyn</p>
+    <p>For 8P:</p>
+    <p>S p e e d</p>
+    <p>u p</p>
+    <p>Base</p>
+    <p>Unordered</p>
+    <p>Reduction</p>
+    <p>Privatization</p>
+    <p>t_commit</p>
+    <p>Loop Adjust</p>
+    <p>art equake tomcatvSPECjbbMolDyn</p>
+  </div>
+  <div class="page">
+    <p>Programming with TCC 16</p>
+    <p>Unordered Loops</p>
+    <p>Unordered loops can provide some benefit  Eliminates excess waiting for commit time from load imbalance</p>
+    <p>Results B</p>
+    <p>a s e</p>
+    <p>+ u</p>
+    <p>n o rd</p>
+    <p>e re</p>
+    <p>d</p>
+    <p>B a</p>
+    <p>s e</p>
+    <p>B a</p>
+    <p>s e</p>
+    <p>B a</p>
+    <p>s e</p>
+    <p>In n</p>
+    <p>e r</p>
+    <p>L o o</p>
+    <p>p s .</p>
+    <p>P ro</p>
+    <p>c e s s o</p>
+    <p>r A</p>
+    <p>c ti v it y</p>
+    <p>Useful</p>
+    <p>Waiting</p>
+    <p>Violated</p>
+    <p>Idle</p>
+    <p>art equake tomcatvSPECjbbMolDyn</p>
+    <p>For 8P:</p>
+    <p>S p e e</p>
+    <p>d u p</p>
+    <p>Base</p>
+    <p>Unordered</p>
+    <p>Reduction</p>
+    <p>Privatization</p>
+    <p>t_commit</p>
+    <p>Loop Adjust</p>
+    <p>art equake tomcatvSPECjbbMolDyn</p>
+  </div>
+  <div class="page">
+    <p>Programming with TCC 17</p>
+    <p>Privatizing Variables</p>
+    <p>Eliminate spurious violations using violation feedback  Privatize associative reduction variables or temporary buffers  Remaining violations from true inter-transaction communication</p>
+    <p>Results B</p>
+    <p>a s e</p>
+    <p>+ u</p>
+    <p>n o rd</p>
+    <p>e re</p>
+    <p>d</p>
+    <p>+ r</p>
+    <p>e d</p>
+    <p>u c ti o n</p>
+    <p>B a</p>
+    <p>s e</p>
+    <p>+ p</p>
+    <p>ri v a</p>
+    <p>ti z a</p>
+    <p>ti o n</p>
+    <p>B a</p>
+    <p>s e</p>
+    <p>+ r</p>
+    <p>e d</p>
+    <p>u c ti o n</p>
+    <p>B a</p>
+    <p>s e</p>
+    <p>In n</p>
+    <p>e r</p>
+    <p>L o o</p>
+    <p>p s .</p>
+    <p>P ro</p>
+    <p>c e s s o</p>
+    <p>r A</p>
+    <p>c ti v it y</p>
+    <p>Useful</p>
+    <p>Waiting</p>
+    <p>Violated</p>
+    <p>Idle</p>
+    <p>art equake tomcatvSPECjbbMolDyn</p>
+    <p>For 8P:</p>
+    <p>S p e e</p>
+    <p>d u p</p>
+    <p>Base</p>
+    <p>Unordered</p>
+    <p>Reduction</p>
+    <p>Privatization</p>
+    <p>t_commit</p>
+    <p>Loop Adjust</p>
+    <p>art equake tomcatvSPECjbbMolDyn</p>
+  </div>
+  <div class="page">
+    <p>Programming with TCC 18</p>
+    <p>Splitting Transactions</p>
+    <p>Large transactions can be split between critical regions  For early commit &amp; communication of shared data (equake)  For reduction of work lost on violations (SPECjbb)</p>
+    <p>Results B</p>
+    <p>a s e</p>
+    <p>+ u</p>
+    <p>n o rd</p>
+    <p>e re</p>
+    <p>d</p>
+    <p>+ r</p>
+    <p>e d</p>
+    <p>u c ti o n</p>
+    <p>B a</p>
+    <p>s e</p>
+    <p>+ p</p>
+    <p>ri v a</p>
+    <p>ti z a</p>
+    <p>ti o n</p>
+    <p>+ t</p>
+    <p>_ c o m</p>
+    <p>m it</p>
+    <p>B a</p>
+    <p>s e</p>
+    <p>+ r</p>
+    <p>e d</p>
+    <p>u c ti o n</p>
+    <p>B a</p>
+    <p>s e</p>
+    <p>+ t</p>
+    <p>_ c o m</p>
+    <p>m it</p>
+    <p>In n</p>
+    <p>e r</p>
+    <p>L o o</p>
+    <p>p s .</p>
+    <p>P ro</p>
+    <p>c e s s o</p>
+    <p>r A</p>
+    <p>c ti v it y</p>
+    <p>Useful</p>
+    <p>Waiting</p>
+    <p>Violated</p>
+    <p>Idle</p>
+    <p>art equake tomcatvSPECjbbMolDyn</p>
+    <p>For 8P:</p>
+    <p>S p e e</p>
+    <p>d u p</p>
+    <p>Base</p>
+    <p>Unordered</p>
+    <p>Reduction</p>
+    <p>Privatization</p>
+    <p>t_commit</p>
+    <p>Loop Adjust</p>
+    <p>art equake tomcatvSPECjbbMolDyn</p>
+  </div>
+  <div class="page">
+    <p>Programming with TCC 19</p>
+    <p>Merging Transactions</p>
+    <p>Merging small transactions can also be helpful  Reduces the number of commits per unit time  Often reduces the commit bandwidth (avoids repetition)</p>
+    <p>Results B</p>
+    <p>a s e</p>
+    <p>+ u</p>
+    <p>n o rd</p>
+    <p>e re</p>
+    <p>d</p>
+    <p>+ r</p>
+    <p>e d</p>
+    <p>u c ti o n</p>
+    <p>B a</p>
+    <p>s e</p>
+    <p>+ p</p>
+    <p>ri v a</p>
+    <p>ti z a ti o n</p>
+    <p>+ t</p>
+    <p>_ c o m</p>
+    <p>m it</p>
+    <p>B a</p>
+    <p>s e</p>
+    <p>+ r</p>
+    <p>e d</p>
+    <p>u c ti o n</p>
+    <p>+ l o</p>
+    <p>o p</p>
+    <p>s f u s io</p>
+    <p>n</p>
+    <p>B a</p>
+    <p>s e</p>
+    <p>+ t</p>
+    <p>_ c o m</p>
+    <p>m it</p>
+    <p>+ l o</p>
+    <p>o p</p>
+    <p>s f u s io</p>
+    <p>n</p>
+    <p>In n</p>
+    <p>e r</p>
+    <p>L o o</p>
+    <p>p s</p>
+    <p>O u</p>
+    <p>te r</p>
+    <p>L o o p</p>
+    <p>s</p>
+    <p>P ro</p>
+    <p>c e s s o</p>
+    <p>r A</p>
+    <p>c ti v it y</p>
+    <p>Useful</p>
+    <p>Waiting</p>
+    <p>Violated</p>
+    <p>Idle</p>
+    <p>art equake tomcatvSPECjbbMolDyn</p>
+    <p>For 8P:</p>
+    <p>S p e e</p>
+    <p>d u p</p>
+    <p>Base</p>
+    <p>Unordered</p>
+    <p>Reduction</p>
+    <p>Privatization</p>
+    <p>t_commit</p>
+    <p>Loop Adjust</p>
+    <p>art equake tomcatvSPECjbbMolDyn</p>
+  </div>
+  <div class="page">
+    <p>Programming with TCC 20</p>
+    <p>Overall Results</p>
+    <p>Speedups very good to excellent across the board  And achieved in hours or days, not weeks or months</p>
+    <p>Scalability varies among applications  Low commit BW apps work in board-level and chip-level MPs  High commit BW apps require a CMP</p>
+    <p>Little difference between CMP and ideal in most cases CMP BW limits some apps only on 32-way, 1-IPC processor systems</p>
+    <p>Results</p>
+    <p>S p e</p>
+    <p>e d u p</p>
+    <p>Board-Level BW</p>
+    <p>Chip-Level BW</p>
+    <p>! BandWidth</p>
+    <p>art equake tomcatv mpeg-decodeSPECjbbRayTraceLUFactorMolDynAssignment</p>
+  </div>
+  <div class="page">
+    <p>Programming with TCC 21</p>
+    <p>TCC eases parallel programming  Transactions provide easy-to-use atomicity</p>
+    <p>Eliminates many sources of common parallel programming errors  Parallelization mostly just dividing code into transactions!</p>
+    <p>Plus programmer doesnt have to verify parallelism</p>
+    <p>TCC eases parallel performance optimization  Provides direct feedback about variables causing communication</p>
+    <p>Simplifies elimination of communication  Unordered transactions can allow more speedup  Splitting and merging transactions simpler than adjusting locks  Programmers can parallelize aggressively</p>
+    <p>Some infrequently violating dependencies can be ignored</p>
+    <p>TCC provides good parallel performance</p>
+    <p>Conclusions Conclusions</p>
+  </div>
+  <div class="page">
+    <p>TCC all transactions, all the time</p>
+    <p>More info at: http://tcc.stanford.edu</p>
+  </div>
+</Presentation>

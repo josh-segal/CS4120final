@@ -1,0 +1,167 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>G E T T I N G T O T H E R O O T O F C O N C U R R E N T B I N A R Y S E A R C H T R E E P E R F O R M A N C E</p>
+    <p>Maya Arbel-Raviv, Technion Trevor Brown, IST Austria Adam Morrison, Tel Aviv U</p>
+  </div>
+  <div class="page">
+    <p>MOTIVATION</p>
+    <p>Optimistic concurrent search trees are crucial in many applications  (e.g., in-memory databases, internet routers and operating systems)</p>
+    <p>We want to understand their performance</p>
+    <p>We study BSTs because there are many variants, making comparisons easier</p>
+  </div>
+  <div class="page">
+    <p>BST PROTECTED BY A GLOBAL LOCK</p>
+    <p>Synthetic experiment:</p>
+    <p>Insert 100,000 keys, then</p>
+    <p>n threads perform searches</p>
+  </div>
+  <div class="page">
+    <p>HAND-OVER-HAND LOCKING (HOH)</p>
+    <p>Same experiment</p>
+  </div>
+  <div class="page">
+    <p>LOCKING AND CACHE COHERENCE</p>
+    <p>Algorithm L2 misses / search L3 misses / search</p>
+    <p>Global lock 15.9 3.9</p>
+    <p>HOH 25.1 7.7</p>
+    <p>m</p>
+    <p>a</p>
+    <p>Evict this cache line for all threads!</p>
+    <p>Evict this cache line for all threads!</p>
+  </div>
+  <div class="page">
+    <p>ACHIEVING HIGH PERFORMANCE</p>
+    <p>NO locking while searching!</p>
+    <p>Example: Unbalanced DGT BST  Standard BST search  No synchronization!</p>
+  </div>
+  <div class="page">
+    <p>STATE OF THE ART BSTS</p>
+    <p>Not covered: lock-free balanced BSTs</p>
+    <p>BST Balanced? Tree type Search overhead</p>
+    <p>BCCO Y Internal* Read per-node</p>
+    <p>DVY Internal*</p>
+    <p>AA Internal Write per-search</p>
+    <p>DGT External</p>
+    <p>HJ Internal Read per-node</p>
+    <p>RM Internal Read per-search</p>
+    <p>NM External</p>
+    <p>EFRB External</p>
+    <p>Bl oc</p>
+    <p>ki ng</p>
+    <p>Lo ck</p>
+    <p>-f re</p>
+    <p>e</p>
+  </div>
+  <div class="page">
+    <p>HOW DO THEY PERFORM? EXPERIMENT: 100% SEARCHES WITH 64 THREADS</p>
+    <p>BCCO1 BCCO2 HJ DVY RM AA NM1 NM2 DGT EFRB Read per-node</p>
+    <p>Read per-node</p>
+    <p>Read per-node</p>
+    <p>Read per-search</p>
+    <p>Write per-searchSearch overhead</p>
+    <p>Balanced Internal External</p>
+  </div>
+  <div class="page">
+    <p>BASIC IMPLEMENTATION ISSUES</p>
+    <p>Bloated nodes  Why does node size matter?  Larger nodes  fewer fit in cache  more cache misses</p>
+    <p>Scattered fields  Why does node layout matter?  Searches may only access a few fields  Scattered fields  more cache lines  more cache misses</p>
+    <p>Incorrect usage of C volatile  Missing volatiles  correctness issue  Unnecessary volatiles  performance issue</p>
+  </div>
+  <div class="page">
+    <p>IMPACT OF FIXING THESE ISSUES</p>
+    <p>BCCO1 BCCO2 HJ DVY RM AA NM1 NM2 DGT EFRB Read per-node</p>
+    <p>Read per-node</p>
+    <p>Read per-node</p>
+    <p>Read per-search</p>
+    <p>Write per-search</p>
+    <p>X X X X X X X</p>
+    <p>X X</p>
+    <p>X X X X X X X</p>
+    <p>Search overhead</p>
+    <p>Bloated nodes</p>
+    <p>Scattered fields Incorrect C volatile</p>
+    <p>Balanced Internal External</p>
+  </div>
+  <div class="page">
+    <p>HOW A FAST ALLOCATOR WORKS Jemalloc: threads allocate from private arenas</p>
+    <p>Each thread has an arena for each size class:  8, 16, 32, 48, 64, 80, 96, 112, 128, 192, 256, 320, 384, 448, 512,</p>
+    <p>Jemalloc per-thread allocation &lt;---- 4096 byte page ----&gt;</p>
+    <p>A re</p>
+    <p>na s</p>
+    <p>malloc(48) malloc(36) malloc(40) malloc(44) malloc(32) malloc(17) malloc(40)  malloc(33)</p>
+  </div>
+  <div class="page">
+    <p>CACHE LINE CROSSINGS</p>
+    <p>Cache line Cache line Cache line Cache line</p>
+    <p>These nodes cross cache lines!</p>
+    <p>If the tree does not fit in cache, double cache misses for half of your nodes!</p>
+    <p>Not a big deal if the tree fits in the cache</p>
+    <p>Fixing bloated nodes can worsen performance!</p>
+  </div>
+  <div class="page">
+    <p>CACHE SETS</p>
+    <p>Cache is sort of like a hash table</p>
+    <p>Maps addresses to buckets (4096 for us)</p>
+    <p>Buckets can only contain up to c elements (64 for us)</p>
+    <p>If you load an address, and it maps to a full bucket  A cache line is evicted from that bucket</p>
+    <p>Mod 4096 is not a good hash function  Patterns in allocation can lead to patterns in bucket occupancy</p>
+    <p>Hashing a cache line to a bucket: physical address mod 4096</p>
+  </div>
+  <div class="page">
+    <p>Insert creates a node and a descriptor (to facilitate lock-free helping)</p>
+    <p>Node size class: 64 Descriptor size class: 64</p>
+    <p>Which cache sets will these nodes map to?  Cache indexes used: 0, 2, 4,  (only even numbered indexes)  Taken modulo 4096, these can only map to even numbered cache sets!  Only half of the cache can be used to store nodes!</p>
+    <p>CACHE SET USAGE IN HJ BST</p>
+    <p>Cache line Cache line Cache line Cache line Cache line Cache line</p>
+  </div>
+  <div class="page">
+    <p>SIMPLE FIX: RANDOM ALLOCATIONS</p>
+    <p>Hypothesis: problem is the rigid even/odd allocation behaviour</p>
+    <p>Idea: break the pattern with an occasional dummy 64 byte allocation</p>
+    <p>Fixes the problem!  Reduces unused cache sets to 1.6%  Improved search performance by 41%   on our first experimental system, which was an AMD machine.  However, on an Intel system, this did not improve search performance!</p>
+    <p>dummy</p>
+  </div>
+  <div class="page">
+    <p>THE DIFFERENCE BETWEEN SYSTEMS</p>
+    <p>Intel processors prefetch more aggressively  Adjacent line prefetcher: load one extra adjacent cache line  Not always the next cache line (can be the previous one)</p>
+    <p>Smallest unit of memory loaded is 128 bytes (two cache lines)  This is also the unit of memory contention</p>
+  </div>
+  <div class="page">
+    <p>EFFECT OF PREFETCHING ON HJ BST</p>
+    <p>The occasional dummy allocations break up the even/odd pattern</p>
+    <p>But</p>
+    <p>Whenever search loads a node, it also loads the adjacent cache line  This is a descriptor or a dummy allocation!  This is useless for the search  Only half of the cache is used for nodes</p>
+    <p>Fix: add padding to nodes or descriptors</p>
+    <p>so they are in different size classes</p>
+  </div>
+  <div class="page">
+    <p>SEGREGATING MEMORY FOR DIFFERENT OBJECT TYPES</p>
+  </div>
+  <div class="page">
+    <p>PERFORMANCE AFTER ALL FIXES</p>
+    <p>BCCO1 BCCO2 HJ DVY RM AA NM1 NM2 DGT EFRB Read per-node</p>
+    <p>Read per-node</p>
+    <p>Read per-node</p>
+    <p>Read per-search</p>
+    <p>Write per-search</p>
+    <p>Search overhead</p>
+    <p>Balanced Internal External</p>
+    <p>node size class 48 bytes</p>
+    <p>node size class 32 bytes</p>
+  </div>
+  <div class="page">
+    <p>APPLICATION BENCHMARKS</p>
+    <p>In-memory database DBx1000 [Yu et al., VLDB 2014]  Yahoo! Cloud Serving Benchmarks  TPC-C Database Benchmarks</p>
+    <p>Used each BST as a database index  Merges the memory spaces of DBx1000 and the BST!  Creates similar memory layout issues (e.g., underutilized cache sets)  And new ones (e.g., scattering of nodes across many pages)  Even accidentally fixes memory layout issues in DBx1000</p>
+    <p>See paper for details</p>
+  </div>
+  <div class="page">
+    <p>RECOMMENDATIONS</p>
+    <p>When designing and testing a data structure  Understand your memory layout!  How are nodes laid out in cache lines? Pages?  What types of objects are near one another?</p>
+    <p>When adding a data structure to a program  You are merging two memory spaces  Understand your new memory layout!</p>
+    <p>New tools needed?</p>
+    <p>http://tbrown.pro Tutorials, code, benchmarks</p>
+    <p>Companion talk: Good data structure experiments are R.A.R.E</p>
+  </div>
+</Presentation>

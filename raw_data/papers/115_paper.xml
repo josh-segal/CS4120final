@@ -1,0 +1,1490 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<TEI xmlns="http://www.tei-c.org/ns/1.0" 
+xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+xsi:schemaLocation="http://www.tei-c.org/ns/1.0 /Users/atharsefid/Desktop/grobid-0.5.3/grobid-home/schemas/xsd/Grobid.xsd"
+ xmlns:xlink="http://www.w3.org/1999/xlink">
+	<teiHeader xml:lang="en">
+		<encodingDesc>
+			<appInfo>
+				<application version="0.5.3" ident="GROBID" when="2019-03-26T16:30+0000">
+					<ref target="https://github.com/kermitt2/grobid">GROBID - A machine learning software for extracting information from scholarly documents</ref>
+				</application>
+			</appInfo>
+		</encodingDesc>
+		<fileDesc>
+			<titleStmt>
+				<title level="a" type="main">Managing Wire Delay in Large Chip-Multiprocessor Caches</title>
+			</titleStmt>
+			<publicationStmt>
+				<publisher/>
+				<availability status="unknown"><licence/></availability>
+			</publicationStmt>
+			<sourceDesc>
+				<biblStruct>
+					<analytic>
+						<author role="corresp">
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Bradford</forename><forename type="middle">M</forename><surname>Beckmann</surname></persName>
+							<email>beckmann@cs.wisc.edu</email>
+							<affiliation key="aff0">
+								<orgName type="department">Computer Sciences Department</orgName>
+								<orgName type="institution">University of Wisconsin-Madison</orgName>
+							</affiliation>
+						</author>
+						<author>
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">David</forename><forename type="middle">A</forename><surname>Wood</surname></persName>
+							<affiliation key="aff0">
+								<orgName type="department">Computer Sciences Department</orgName>
+								<orgName type="institution">University of Wisconsin-Madison</orgName>
+							</affiliation>
+						</author>
+						<title level="a" type="main">Managing Wire Delay in Large Chip-Multiprocessor Caches</title>
+					</analytic>
+					<monogr>
+						<imprint>
+							<date/>
+						</imprint>
+					</monogr>
+				</biblStruct>
+			</sourceDesc>
+		</fileDesc>
+		<profileDesc>
+			<abstract>
+				<p>In response to increasing (relative) wire delay, architects have proposed various technologies to manage the impact of slow wires on large uniprocessor L2 caches. Block migration (e.g., D-NUCA [27] and NuRapid [12]) reduces average hit latency by migrating frequently used blocks towards the lower-latency banks. Transmission Line Caches (TLC) [6] use on-chip transmission lines to provide low latency to all banks. Traditional stride-based hardware prefetching strives to tolerate, rather than reduce, latency. Chip multiprocessors (CMPs) present additional challenges. First, CMPs often share the on-chip L2 cache, requiring multiple ports to provide sufficient bandwidth. Second, multiple threads mean multiple working sets, which compete for limited on-chip storage. Third, sharing code and data interferes with block migration, since one proces-sor&apos;s low-latency bank is another processor&apos;s high-latency bank. In this paper, we develop L2 cache designs for CMPs that incorporate these three latency management techniques. We use detailed full-system simulation to analyze the performance trade-offs for both commercial and scientific workloads. First, we demonstrate that block migration is less effective for CMPs because 40-60% of L2 cache hits in commercial workloads are satisfied in the central banks, which are equally far from all processors. Second, we observe that although transmission lines provide low latency, contention for their restricted bandwidth limits their performance. Third, we show stride-based prefetching between L1 and L2 caches alone improves performance by at least as much as the other two techniques. Finally, we present a hybrid design-combining all three techniques-that improves performance by an additional 2% to 19% over prefetching alone.</p>
+			</abstract>
+		</profileDesc>
+	</teiHeader>
+	<text xml:lang="en">
+		<body>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="1">Introduction</head><p>Many factors-both technological and marketing-are driving the semiconductor industry to implement multiple processors per chip. Small-scale chip multiprocessors (CMPs), with two processors per chip, are already commercially available <ref type="bibr" target="#b25">[24,</ref><ref type="bibr" target="#b31">30,</ref><ref type="bibr" target="#b45">44]</ref>. Larger-scale CMPs seem likely to follow as transistor densities increase <ref type="bibr" target="#b5">[5,</ref><ref type="bibr" target="#b19">18,</ref><ref type="bibr" target="#b46">45,</ref><ref type="bibr" target="#b29">28]</ref>. Due to the benefits of sharing, current and future CMPs are likely to have a shared, unified L2 cache <ref type="bibr" target="#b26">[25,</ref><ref type="bibr" target="#b38">37]</ref>.</p><p>Wire delay plays an increasingly significant role in cache design. Design partitioning, along with the integration of more metal layers, allows wire dimensions to decrease slower than transistor dimensions, thus keeping wire delay controllable for short distances <ref type="bibr" target="#b21">[20,</ref><ref type="bibr" target="#b43">42]</ref>. For instance as technology improves, designers split caches into multiple banks, controlling the wire delay within a bank. However, wire delay between banks is a growing performance bottleneck. For example, transmitting data 1 cm requires only 2-3 cycles in current (2004) technology, but will necessitate over 12 cycles in 2010 technology assuming a cycle time of 12 fanout-of-three delays <ref type="bibr" target="#b17">[16]</ref>. Thus, L2 caches are likely to have hit latencies in the tens of cycles.</p><p>Increasing wire delay makes it difficult to provide uniform access latencies to all L2 cache banks. One alternative is Non-Uniform Cache Architecture (NUCA) designs <ref type="bibr" target="#b28">[27]</ref>, which allow nearer cache banks to have lower access latencies than further banks. However, supporting multiple processors (e.g., 8) places additional demands on NUCA cache designs. First, simple geometry dictates that eight regularshaped processors must be physically distributed across the 2-dimensional die. A cache bank that is physically close to one processor cannot be physically close to all the others. Second, an 8-way CMP requires eight times the sustained cache bandwidth. These two factors strongly suggest a physically distributed, multi-port NUCA cache design.</p><p>This paper examines three techniques-previously evaluated only for uniprocessors-for managing L2 cache latency in an eight-processor CMP. First, we consider using hardware-directed stride-based prefetching <ref type="bibr" target="#b9">[9,</ref><ref type="bibr" target="#b14">13,</ref><ref type="bibr" target="#b24">23]</ref> to tolerate the variable latency in a NUCA cache design. While current systems perform hardware-directed strided prefetching <ref type="bibr" target="#b20">[19,</ref><ref type="bibr" target="#b22">21,</ref><ref type="bibr" target="#b44">43]</ref>, its effectiveness is workload dependent <ref type="bibr" target="#b10">[10,</ref><ref type="bibr" target="#b23">22,</ref><ref type="bibr" target="#b47">46,</ref><ref type="bibr" target="#b50">49]</ref>. Second, we consider cache block migration <ref type="bibr" target="#b13">[12,</ref><ref type="bibr" target="#b28">27]</ref>, a recently proposed technique for NUCA caches that moves frequently accessed blocks to cache banks closer to the requesting processor. While block migration works well for uniprocessors, adapting it to This work was supported by the National Science Foundation (CDA-9623632, EIA-9971256, EIA-0205286, and CCR-0324878), a Wisconsin Romnes Fellowship (Wood), and donations from Intel Corp. and Sun Microsystems, Inc. Dr. Wood has a significant financial interest in Sun Microsystems, Inc.</p><p>CMPs poses two problems. One, blocks shared by multiple processors are pulled in multiple directions and tend to congregate in banks that are equally far from all processors. Two, due to the extra freedom of movement, the effectiveness of block migration in a shared CMP cache is more dependent on "smart searches" <ref type="bibr" target="#b28">[27]</ref> than its uniprocessor counterpart, yet smart searches are harder to implement in a CMP environment. Finally, we consider using on-chip transmission lines <ref type="bibr" target="#b8">[8]</ref> to provide fast access to all cache banks <ref type="bibr" target="#b6">[6]</ref>. On-chip transmission lines use thick global wires to reduce communication latency by an order of magnitude versus long conventional wires. Transmission Line Caches (TLCs) provide fast, nearly uniform, access latencies. However, the limited bandwidth of transmission lines-due to their large dimensions-may lead to a performance bottleneck in CMPs.</p><p>This paper evaluates these three techniques-against a baseline NUCA design with L2 miss prefetching-using detailed full-system simulation and both commercial and scientific workloads. We make the following contributions:</p><p>• Block migration is less effective for CMPs than previous results have shown for uniprocessors. Even with an perfect search mechanism, block migration alone only improves performance by an average of 3%. This is in part because shared blocks migrate to the middle equally-distant cache banks, accounting for 40-60% of L2 hits for the commercial workloads.</p><p>• Transmission line caches in CMPs exhibit performance improvements comparable to previously published uniprocessor results <ref type="bibr" target="#b6">[6]</ref>-8% on average. However, contention for their limited bandwidth accounts for 26% of L2 hit latency.</p><p>• Hardware-directed strided prefetching hides L2 hit latency about as well as block migration and transmission lines reduce it. However, prefetching is largely orthogonal, permitting hybrid techniques.</p><p>• A hybrid implementation-combining block migration, transmission lines, and on-chip prefetching-provides the best performance. The hybrid design improves performance by an additional 2% to 19% over the baseline.</p><p>• Finally, prefetching and block migration improve network efficiency for some scientific workloads, while transmission lines potentially improve efficiency across all workloads.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="2">Managing CMP Cache Latency</head><p>This section describes the baseline CMP design for this study and how we adapt the three latency management techniques to this framework.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="2.1">Baseline CMP Design</head><p>We target eight-processor CMP chip designs assuming the 45 nm technology generation projected in 2010 <ref type="bibr" target="#b17">[16]</ref>. <ref type="table" target="#tab_0">Table 1</ref> specifies the system parameters for all designs. Each CMP design assumes approximately 300 mm 2 of available die area <ref type="bibr" target="#b17">[16]</ref>. We estimate eight 4-wide superscalar processors would occupy 120 mm 2 <ref type="bibr" target="#b30">[29]</ref> and 16 MB of L2 cache storage would occupy 64 mm 2 <ref type="bibr" target="#b17">[16]</ref>. The on-chip interconnection network and other miscellaneous structures occupy the remaining area.</p><p>As illustrated in <ref type="figure" target="#fig_0">Figure 1</ref>, the baseline design-denoted CMP-SNUCA-assumes a Non-Uniform Cache Architecture (NUCA) L2 cache, derived from Kim, et al.'s S-NUCA-2 design <ref type="bibr" target="#b28">[27]</ref>. Similar to the original proposal, CMP-SNUCA statically partitions the address space across cache banks, which are connected via a 2D mesh interconnection network. CMP-SNUCA differs from the uniprocessor design in several important ways. First, it places eight processors around the perimeter of the L2 cache, effectively creating eight distributed access locations rather than a single centralized location. Second, the 16 MB L2 storage array is partitioned into 256 banks to control bank access latency <ref type="bibr" target="#b0">[1]</ref> and to provide sufficient bandwidth to support up to 128 simultaneous on-chip processor requests. Third, CMP-SNUCA connects four banks to each switch and expands the link width to 32 bytes. The wider CMP-SNUCA network provides the additional bandwidth needed by an 8-processor CMP, but requires longer latencies as compared to the originally proposed uniprocessor network. Fourth, shared CMP caches are subject to contention from different processors' working sets <ref type="bibr" target="#b33">[32]</ref>, motivating 16-way set-associative banks with a pseudo-LRU replacement policy <ref type="bibr" target="#b41">[40]</ref>. Finally, we assume an idealized off-chip communication controller to provide consistent off-chip latency for all processors.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="2.2">Strided Prefetching</head><p>Strided or stride-based prefetchers utilize repeatable memory access patterns to tolerate cache miss latency <ref type="bibr" target="#b12">[11,</ref><ref type="bibr" target="#b24">23,</ref><ref type="bibr" target="#b39">38]</ref>. Though the L1 cache filters many memory requests, L1 and L2 misses often show repetitive access patterns. Most current prefetchers utilize miss patterns to predict cache misses before they happen <ref type="bibr" target="#b20">[19,</ref><ref type="bibr" target="#b22">21,</ref><ref type="bibr" target="#b44">43]</ref>. Specifically, current hardware prefetchers observe the stride between two recent cache misses, then verify the stride using subsequent misses. Once the prefetcher reaches a threshold of fixed strided misses, it launches a series of fill requests to reduce or eliminate additional miss latency.</p><p>We base our prefetching strategy on the IBM Power 4 implementation <ref type="bibr" target="#b44">[43]</ref> with some slight modifications. We evaluate both L2 prefetching (i.e., between the L2 cache and memory) and L1 prefetching (i.e., between the L1 and L2 caches). Both the L1 and L2 prefetchers contain three separate 32-entry filter tables: positive unit stride, negative unit stride, and non-unit stride. Similar to Power 4, once a filter table entry recognizes 4 fixed-stride misses, the prefetcher allocates the miss stream into its 8-entry stream table. Upon allocation, the L1I and L1D prefetchers launch 6 consecutive prefetches along the stream to compensate for the L1 to L2 latency, while the L2 prefetcher launches 25 prefetches. Each prefetcher issues prefetches for both loads and stores because, unlike the Power 4, our simulated machine uses an L1 write-allocate protocol supporting sequential consistency. Also we model separate L2 prefetchers per processor, rather than a single shared prefetcher. We found that with a shared prefetcher, interference between the different processors' miss streams significantly disrupts the prefetching accuracy and coverage 1 .</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="2.3">Block Migration</head><p>Block migration reduces global wire delay from L2 hit latency by moving frequently accessed cache blocks closer to the requesting processor. Migrating data to reduce latency has been extensively studied in multiple-chip multiprocessors <ref type="bibr" target="#b7">[7,</ref><ref type="bibr" target="#b16">15,</ref><ref type="bibr" target="#b18">17,</ref><ref type="bibr" target="#b37">36,</ref><ref type="bibr" target="#b42">41]</ref>. Kim, et al. recently applied data migration to reduce latency inside future aggressivelybanked uniprocessor caches <ref type="bibr" target="#b28">[27]</ref>. Their Dynamic NUCA (D-NUCA) design used a 2-dimensional mesh to interconnect 2-way set-associative banks, and dynamically migrated frequently accessed blocks to the closest banks. NuRapid used centralized tags and a level of indirection to decouple data placement from set indexing, thus reducing conflicts in the nearest banks <ref type="bibr" target="#b13">[12]</ref>. Both D-NUCA and NuRapid assumed a single processor chip accessing the L2 cache network from a single location.</p><p>For CMPs, we examine a block migration scheme as an extension to our baseline CMP-SNUCA design. Similar to the uniprocessor D-NUCA design <ref type="bibr" target="#b28">[27]</ref>, CMP-DNUCA permits block migration by logically separating the L2 cache banks into 16 unique banksets, where an address maps to a bankset and can reside within any one bank of the bankset. CMP-DNUCA physically separates the cache banks into 16 different bankclusters, shown as the shaded "Tetris" pieces in <ref type="figure" target="#fig_0">Figure 1</ref>. Each bankcluster contains one bank from every bankset, similar to the uniprocessor "fair mapping" policy <ref type="bibr" target="#b28">[27]</ref>. The bankclusters are grouped into three distinct regions. The 8 banksets closest to each processor form the local regions, shown by the 8 lightly shaded bankclusters in <ref type="figure" target="#fig_0">Figure 1</ref>. The 4 bankclusters that reside in the center of the shared cache form the center region, shown by the 4 darkest shaded bankclusters in <ref type="figure" target="#fig_0">Figure 1</ref>. The remaining 4 bankclusters form the inter, or intermediate, region. Ideally block migration would maximize L2 hits within each processor's local bankcluster where the uncontended L2 hit latency (i.e., load-to-use latency) varies between 13 to 17 cycles and limit the hits to another processor's local bankcluster, where the uncontended latency can be as high as 65 cycles.</p><p>To reduce the latency of detecting a cache miss, the uniprocessor D-NUCA design utilized a "smart search" <ref type="bibr" target="#b28">[27]</ref> mechanism using a partial tag array. The centrally-located partial tag structure <ref type="bibr" target="#b27">[26]</ref> replicated the low-order bits of each bank's cache tags. If a request missed in the partial tag structure, the block was guaranteed not to be in the cache. This smart search mechanism allowed nearly all cache misses to be detected without searching the entire bankset.</p><p>In CMP-DNUCA, adopting a partial tag structure appears impractical. A centralized partial tag structure cannot be quickly accessed by all processors due to wire delays. Fully replicated 6-bit partial tag structures (as used in uni-1. Similar to separating branch predictor histories per thread <ref type="bibr" target="#b40">[39]</ref>, separating the L2 miss streams by processor significantly improves prefetcher performance (up to 14 times for the workload ocean).  processor D-NUCA <ref type="bibr" target="#b28">[27]</ref>) require 1.5 MBs of state, an extremely high overhead. More importantly, separate partial tag structures require a complex coherence scheme that updates address location state in the partial tags with block migrations. However, because architects may invent a solution to this problem, we evaluate CMP-DNUCA both with and without a perfect search mechanism.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="2.4">On-chip Transmission Lines</head><p>On-chip transmission line technology reduces L2 cache access latency by replacing slow conventional wires with ultra-fast transmission lines <ref type="bibr" target="#b6">[6]</ref>. The delay in conventional wires is dominated by a wire's resistance-capacitance product, or RC delay. RC delay increases with improving technology as wires become thinner to match the smaller feature sizes below. Specifically, wire resistance increases due to the smaller cross-sectional area and sidewall capacitance increases due to the greater surface area exposed to adjacent wires. On the other hand, transmission lines attain significant performance benefit by increasing wire dimensions to the point where the inductance-capacitance product (LC delay) determines delay <ref type="bibr" target="#b8">[8]</ref>. In the LC range, data can be communicated by propagating an incident wave across the transmission line instead of charging the capacitance across a series of wire segments. While techniques such as low-k intermetal dielectrics, additional metal layers, and more repeaters across a link, will mitigate RC wire latency for short and intermediate links, transmitting data 1 cm will require more than 12 cycles in 2010 technology <ref type="bibr" target="#b17">[16]</ref>. In contrast, on-chip transmission lines implemented in 2010 technology will transmit data 1 cm in less than a single cycle <ref type="bibr" target="#b6">[6]</ref>.</p><p>While on-chip transmission lines achieve significant latency reduction, they sacrifice substantial bandwidth or require considerable manufacturing cost. To achieve transmission line signalling, on-chip wire dimensions and spacing must be an order of magnitude larger than minimum pitch global wires. To attain these large dimensions, transmission lines must be implemented in the chip's uppermost metal layers. The sparseness of these upper layers severely limits the number of transmission lines available. Alternatively, extra metal layers may be integrated to the manufacturing process, but each new metal layer adds about a day of manufacturing time, increasing wafer cost by hundreds of dollars <ref type="bibr" target="#b48">[47]</ref>.</p><p>Applying on-chip transmission lines to reduce the access latency of a shared L2 cache requires efficient utilization of their limited bandwidth. Similar to our uniprocessor TLC designs <ref type="bibr" target="#b6">[6]</ref>, we first propose using transmission lines to connect processors with a shared L2 cache through a single L2 interface, as shown in <ref type="figure">Figure 2</ref>. Because transmission lines do not require repeaters, CMP-TLC creates a direct connection between the centrally located L2 interface and the peripherally located storage arrays by routing directly over the processors. Similar to CMP-SNUCA, CMP-TLC statically partitions the address space across all L2 cache banks. Sixteen banks (2 adjacent groups of 8 banks) share a common pair of thin 8-byte wide unidirectional transmission line links to the L2 cache interface. To mitigate the contention for the thin transmission line links, our CMP-TLC design provides 16 separate links to different segments of the L2 cache. Also to further reduce contention, the CMP-TLC L2 interface provides a higher bandwidth connection (80-byte wide) between the transmission lines and processors than the original uniprocessor TLC design. Due to the higher bandwidth, requests encounter greater communication latency (2-10 cycles) within the L2 cache interface.</p><p>We also propose using transmission lines to quickly access the central banks in the CMP-DNUCA design. We refer to this design as CMP-Hybrid. CMP-Hybrid, illustrated in <ref type="figure" target="#fig_1">Figure 3</ref>, assumes the same design as CMP-DNUCA except the closest switch to each processor has a 32-byte wide transmission line link to a center switch in the DNUCA cache. Because the processors are distributed around the perimeter of the chip and the distance between the processor switches and the center switches is relatively short (approximately 8 mm), the transmission line links in CMP-Hybrid are wider (32 bytes) than their CMP-TLC counterparts  <ref type="figure" target="#fig_2">Figure 4</ref> compares the uncontended L2 cache hit latency between the CMP-SNUCA, CMP-TLC, and CMP-Hybrid designs. The plotted hit latency includes L1 miss latency, i.e. it plots the load-to-use latency for L2 hits. While CMP-TLC achieves a much lower average hit latency than CMP-SNUCA, CMP-SNUCA exhibits lower latency to the closest 1 MB to each processor. For instance, <ref type="figure" target="#fig_2">Figure 4</ref> shows all processors in the CMP-SNUCA design can access their local bankcluster (6.25% of the entire cache) in 18 cycles or less. CMP-DNUCA attempts to maximize the hits to this closest 6.25% of the NUCA cache through migration, while CMP-TLC utilizes a much simpler logical design and provides fast access for all banks. CMP-Hybrid uses transmission lines to attain similar average hit latency as CMP-TLC, as well as achieving fast access to more banks than CMP-SNUCA.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3">Methodology</head><p>We evaluated all cache designs using full system simulation of a SPARC V9 CMP running Solaris 9. Specifically, we used Simics <ref type="bibr" target="#b34">[33]</ref> extended with the out-of-order processor model, TFSim <ref type="bibr" target="#b35">[34]</ref>, and a memory system timing model. Our memory system implements a two-level directory cachecoherence protocol with sequential memory consistency. The intra-chip MSI coherence protocol maintains inclusion between the shared L2 cache and all on-chip L1 caches. All L1 requests and responses are sent via the L2 cache allowing the L2 cache to maintain up-to-date L1 sharer knowledge. The inter-chip MOSI coherence protocol maintains directory state at the off-chip memory controllers and only tracks which CMP nodes contain valid block copies. Our memory system timing model includes a detailed model of the intraand inter-chip network. Our network models all messages communicated in the system including all requests, responses, replacements, and acknowledgements. Network routing is performed using a virtual cut-through scheme with infinite buffering at the switches.</p><p>We studied the CMP cache designs for various commercial and scientific workloads. Alameldeen, et al. described in detail the four commercial workloads used in this study <ref type="bibr" target="#b1">[2]</ref>. We also studied four scientific workloads: two Splash2 benchmarks <ref type="bibr" target="#b49">[48]</ref>: barnes (16k-particles) and ocean ( ), and two SPECOMP benchmarks <ref type="bibr" target="#b4">[4]</ref>: apsi and fma3d. We used a work-related throughput metric to address multithreaded workload variability <ref type="bibr" target="#b1">[2]</ref>. Thus for the commercial workloads, we measured transactions completed and for the scientific workloads, runs were completed after the cache warm-up period indicated in <ref type="table" target="#tab_1">Table 2</ref>. However, for the specOMP workloads using the reference input sets, runs were too long to be completed in a reasonable amount of time. Instead, these loop-based benchmarks were split by main loop completion. This allowed us to evaluate all workloads using throughput metrics, rather than IPC.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="4">Strided Prefetching</head><p>Both on and off-chip strided prefetching significantly improve the performance of our CMP-SNUCA baseline. <ref type="figure" target="#fig_3">Figure 5</ref> presents runtime results for no prefetching, L2 prefetching only, and L1 and L2 prefetching combined, normalized to no prefetching. Error bars signify the 95% confidence intervals <ref type="bibr" target="#b3">[3]</ref> and the absolute runtime (in 10K instructions per transaction/scientific benchmark) of the no prefetch case is presented below. <ref type="figure" target="#fig_3">Figure 5</ref> illustrates the substantial benefit from L2 prefetching, particularly for regular scientific workloads. L2 prefetching reduces the run times of ocean and apsi by 43% and 59%, respectively. Strided L2 prefetching also improves performance of the commercial workloads by 4% to 17%.</p><p>The L1&amp;L2 prefetching bars of <ref type="figure" target="#fig_3">Figure 5</ref> indicate onchip prefetching between each processor's L1 I and D caches and the shared L2 cache improves performance by an addi-  514 514 × tional 6% on average. On-chip prefetching benefits all benchmarks except for jbb and barnes, which have high local L1 cache hit rates of 91% and 99% respectively. <ref type="table" target="#tab_2">Table 3</ref> breaks down the performance of stride prefetching into:</p><p>A Prefetch hit is defined as the first reference to a prefetched block including a "partial hit" to a block still in-flight. Except for L2 prefetches in jbb and barnes, less than 12% of prefetch hits were partial hits. Overall, as communication latency increases, the significant performance improvement attainable by prefetching ensures its continued integration into future high performance memory systems.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="5">Block Migration</head><p>CMP caches utilizing block migration must effectively manage multiple processor working sets in order to reduce cache access latency. Although Kim, et al. <ref type="bibr" target="#b28">[27]</ref> showed block migration significantly reduced cache access latency in a non-prefetching uniprocessor NUCA cache, most future large on-chip caches will implement hardware-directed prefetching and service multiple on-chip processors. Our CMP-DNUCA design extends block migration to an 8-processor CMP cache and supports strided prefetching at the L1 and L2 cache levels. We characterize the working sets existing in a shared CMP cache in Section 5.1. Then we describe our CMP cache implementing block migration in Section 5.2, and present evaluation results in Section 5.3.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="5.1">Characterizing CMP Working Sets</head><p>We analyze the working sets of the workloads running on an eight-processor CMP. Specifically, we focus on understanding the potential benefits of block migration in a CMP cache by observing the behavior of L2 cache blocks. We model a single-banked 16 MB inclusive shared L2 cache with 16-way associativity and a uniform access time to isolate the sharing activity from access latency and conflict misses. No prefetching is performed in these runs. To mitigate cold start effects, the runs are long enough that L2 cache misses outnumber physical L2 cache blocks by an order of magnitude. <ref type="figure">Figure 6</ref> shows the cumulative distribution of the number of processors that access each block. For the scientific workloads, the vast majority of all blocks-between 70.3% and 99.9%-are accessed by a single processor. Somewhat surprisingly, even the commercial workloads share relatively few blocks. Only 5% to 28% of blocks in the evaluated commercial workloads are accessed by more than two processors. Because relatively few blocks are shared across the entire workload spectrum, block migration can potentially improve all workloads by moving blocks towards the single processor that requests them.</p><p>Although relatively few blocks are shared in all workloads, a disproportionate fraction of L2 hits are satisfied by highly shared blocks for the commercial workloads. <ref type="figure">Figure 7</ref> shows the cumulative distribution of L2 hits for blocks accessed by 1 to 8 processors. The three array-based scientific workloads (fma3d <ref type="bibr" target="#b4">[4]</ref>, apsi <ref type="bibr" target="#b4">[4]</ref>, and ocean <ref type="bibr" target="#b49">[48]</ref>) exhibit extremely low inter-processor request sharing. Less than 9%  ⁄ ------------------------------------------------cover age % prefetchHits prefetchHits misses + ---------------------------------------------------------100 × = (coverage), and accuracy % prefetchHits prefetches ----------------------------------100 × = (accuracy). of all L2 hits are to blocks shared by multiple processors. However, for barnes, utilizing a tree data structure <ref type="bibr" target="#b49">[48]</ref>, 71% of L2 hits are to blocks shared among multiple processors. For the commercial workloads, more than 39% of L2 hits are to blocks shared by all processors, with as many as 71% of hits for oltp. <ref type="figure">Figure 8</ref> breaks down the request type over the number of processors to access a block. In the four commercial workloads, instruction requests (GET_INSTR) make up over 56% of the L2 hits to blocks shared by all processors. Kundu et al. <ref type="bibr" target="#b32">[31]</ref> recently confirmed the high degree of instruction sharing in a shared CMP cache running oltp. The large fraction of L2 hits to highly shared blocks complicates block migration in CMP-DNUCA. Since shared blocks will be pulled in all directions, these blocks tend to congregate in the center of the cache rather than toward just one processor.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="5.2">Implementing CMP Block Migration</head><p>Our CMP-DNUCA implementation employs block migration within a shared L2 cache. This design strives to reduce additional state while providing correct and efficient allocation, migration and search policies.</p><p>Allocation. The allocation policy seeks an efficient initial placement for a cache block, without creating excessive cache conflicts. While 16-way set-associative banks help reduce conflicts, the interaction between migration and allocation can still cause unnecessary replacements. CMP-DNUCA implements a simple, static allocation policy that uses the low-order bits of the cache tag to select a bank within the block's bankset (i.e., the bankcluster). This simple scheme works well across most workload types. While not studied in this paper, we conjecture that static allocation also works well for heterogeneous workloads, because all active processors will utilize the entire L2 cache storage. Migration. We investigated several different migration policies for CMP-DNUCA. A migration policy should maximize the proportion of L2 hits satisfied by the banks closest to a processor. Directly migrating blocks to a requesting processor's local bankcluster increases the number of local bankcluster hits. However, direct migration also increases the proportion of costly remote hits satisfied by a distant processors' local bankcluster. Instead CMP-DNUCA implements a gradual migration policy that moves blocks along the six bankcluster chain:  </p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>Figure 8. Request Type Distribution vs. # of Processors to Access a Block During its L2 Cache Lifetime</head><p>The gradual migration policy allows blocks frequently accessed by one processor to congregate near that particular processor, while blocks accessed by many processors tend to move within the center banks. Furthermore the policy separates the different block types without requiring extra state or complicated decision making. Only the current bank location and the requesting processor id is needed to determine which bank, if any, a block should be moved to. Search. Similar to the best performing uniprocessor D-NUCA search policy, we advocate using a two-phase multicast search for CMP-DNUCA. The goal of the two-phase search policy is to maximize the number of first phase hits, while limiting the number of futile request messages. Based on the previously discussed gradual migration policy, hits most likely occur in one of six bankclusters: the requesting processor's local or inter bankclusters, or the four center bankclusters. Therefore the first phase of our search policy broadcasts a request to the appropriate banks within these six bankclusters. If all six initial bank requests miss, we broadcast the request to the remaining 10 banks of the bankset. Only after a request misses in all 16 banks of the bankset will a request be sent off chip. Waiting for 16 replies over two phases adds significant latency to cache misses. Unfortunately, as discussed in Section 2.3, implementing a smart search mechanism to minimize search delay in CMP-DNUCA is difficult. Instead, we provide results in the following section for an idealized smart search mechanism.</p><p>A unique problem of CMP-DNUCA is the potential for false misses, where L2 requests fail to find a cache block because it is in transit from one bank to another. It is essential that false misses are not naively serviced by the directory, otherwise two valid block copies could exist within the L2 cache creating a coherence nightmare. One possible solution is requests could consult a second set of centralized onchip tags not effected by block migration before going off chip. However, this second tag array would cost over 1 MB of extra storage and require approximately 1 KB of data to be read and compared on every lookup-because each set logically appears 256-way associative.</p><p>Instead, CMP-DNUCA compensates for false misses by relying on the directory sharing state to indicate when a possible false miss occurred. If the directory believes a valid block copy already exists on chip, the L2 cache stops migrations and searches for an existing valid copy before using the received data. Only after sequentially examining all banks of a bankset with migration disabled will a cache be certain the block isn't already allocated. While the meticulous examination ensures correctness, it is very slow. Therefore, it is important to ensure false misses don't happen frequently.</p><p>We significantly reduced the frequency of false misses by implementing a lazy migration mechanism. We observed that almost all false misses occur for a few hot blocks that are rapidly accessed by multiple processors. By delaying migrations by a thousand cycles, and canceling migrations when a different processor accesses the same block, CMP-DNUCA still performs at least 94% of all scheduled migrations, while reducing false misses by at least 99%. In apsi, for instance, lazy migration reduced the fraction of false misses from 18% of all misses to less than 0.00001%.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="5.3">Evaluating CMP Block Migration</head><p>Our CMP-DNUCA evaluation shows block migration creates a performance degradation unless a smart search mechanism is utilized. A smart search mechanism reduces contention by decreasing the number of unsuccessful request messages and reduces L2 miss latency by sending L2 misses directly off chip before consulting all 16 banks of a bankset.</p><p>The high demand for the equally distant central banks restricts the benefit of block migration for the commercial workloads. <ref type="figure">Figure 9</ref> shows in all four commercial workloads over 47% of L2 hits are satisfied in the center bankclusters. The high number of central hits directly correlates to the increased sharing in the commercial workloads previously shown in <ref type="figure">Figure 7</ref>. <ref type="figure" target="#fig_0">Figure 10</ref> graphically illustrates the distribution of L2 hits for oltp, where the dark squares in the middle represent the heavily utilized central banks.</p><p>Conversely, CMP-DNUCA exhibits a mixture of behavior running the four scientific workloads. Due to a lack of frequently repeatable requests, barnes, apsi, and fma3d encounter 30% to 62% of L2 hits in the distant 10 bankclusters. These hits cost significant performance because the distant banks are only searched during the second phase. On the other hand, the scientific workload ocean contains repeatable requests and exhibits very little sharing.  <ref type="figure" target="#fig_0">Figure 11</ref> graphically display how well CMP-DNUCA is able to split ocean's data set into the local bankclusters. The limited success of block migration along with the slow two-phase search policy causes CMP-DNUCA to actually increase L2 hit and L2 miss latency. <ref type="figure" target="#fig_0">Figure 12</ref> indicates CMP-DNUCA only reduces L2 hit latency versus CMP-SNUCA for one workload, ocean. The latency increase for the other seven workloads results from second phase hits encountering 31 to 51 more delay cycles than CMP-SNUCA L2 hits. The added latency of second phase hits in CMP-DNUCA is due to the delay waiting for responses from the first phase requests. Furthermore due to the slow two-phase search policy, L2 misses also encounter 23 to 65 more delay cycles compared to CMP-SNUCA.</p><p>A smart search mechanism solves CMP-DNUCA's slow search problems. <ref type="figure" target="#fig_0">Figure 12</ref> shows the L2 hit latency attained by CMP-DNUCA with perfect search (perfect CMP-DNUCA), where a processor sends a request directly to the cache bank storing the block. Perfect CMP-DNUCA reduces L2 hit latency across all workloads by 7 to 15 cycles versus CMP-SNUCA. Furthermore, when the block isn't on chip, perfect CMP-DNUCA immediately generates an off-chip request, allowing its L2 miss latency to match that of CMP-SNUCA. Although the perfect search mechanism is infeasible, architects may develop practical smart search schemes in the future. We assume perfect searches for the rest of the paper to examine the potential benefits of block migration.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="6">Targeting On-chip Latency In Isolation</head><p>On-chip prefetching performs competitively with the more extravagant techniques of block migration and transmission lines. A comparison between the bars labeled CMP-SNUCA L1&amp;L2 pf to those labeled perfect CMP-DNUCA  <ref type="figure" target="#fig_0">Figure 13</ref> reveals on-chip prefetching achieves the greatest single workload improvement over the baseline (CMP-SNUCA L2 pf)-22% for ocean. In addition, on-chip prefetching improves performance by at least 4% for the workloads zeus, apsi, and fma3d. Block migration improves performance by 2%-4% for 6 of the 8 workloads. However, for apache, an increase in cache conflicts causes a 4% performance loss. As illustrated by <ref type="figure">Figure 9</ref>, the four center bankclusters (25% of the total L2 storage) incur 60% of the L2 hits. The unbalanced load increases cache conflicts, resulting in a 13% increase in L2 misses versus the baseline design.</p><p>By directly reducing wire latency, transmission lines consistently improve performance, but bandwidth contention prevents them from achieving their full potential. <ref type="figure" target="#fig_0">Figure 13</ref> shows transmission lines consistently improve performance between 3% to 10% across all workloads-8% on average. However, CMP-TLC would do even better, except for bandwidth contention that accounts for 26% of the L2 hit latency.</p><p>Overall, CMP-TLC is likely to improve a larger number of workloads because transmission lines reduce latency without relying on predictable workload behavior. On the other hand, prefetching and block migration potentially provide a greater performance improvement for a smaller number of workloads.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="7">Merging Latency Management Techniques</head><p>None of the three evaluated techniques subsume another, but rather the techniques can work in concert to manage wire latency. Section 7.1 demonstrates prefetching is mostly orthogonal to transmission lines and block migration, while Section 7.2 evaluates combining all three techniques: prefetching, block migration, and transmission lines.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="7.1">Combining with On-chip Prefetching</head><p>Prefetching, which reduces latency by predicting the next cache block to be accessed, is orthogonal to block migration. However, for some scientific workloads, prefetching's benefit slightly overlaps the consistent latency reduction of CMP-TLC. The bars labeled CMP-DNUCA L1&amp;L2 pf and CMP-TLC L1&amp;L2 pf in <ref type="figure" target="#fig_0">Figure 13</ref> show the performance of CMP-DNUCA and CMP-TLC combined with onchip prefetching. A comparison between the L2 pf bars and the L1&amp;L2 pf bars reveals L1 prefetching provides roughly equal improvement across all three designs. The only slight deviation is on-chip prefetching improves CMP-TLC by 5% to 21% for the scientific workloads ocean, apsi, and fma3d, while improving CMP-DNUCA by 6% to 27%. While combining each technique with prefetching is straightforward, combining all three techniques together requires a different cache design.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="7.2">Combining All Techniques</head><p>CMP-Hybrid combines prefetching and transmission lines and block migration to achieve the best overall performance. <ref type="figure" target="#fig_0">Figure 14</ref> shows that CMP-Hybrid combined with on and off-chip prefetching (perfect CMP-Hybrid L1&amp;L2 pf) reduces runtime by 2% to 19% compared to the baseline design. As previously shown in <ref type="figure">Figure 9</ref>, 25% to 62% of L2 hits in CMP-DNUCA are to the center banks for all workloads except ocean. By providing low-latency access to the center banks, <ref type="figure" target="#fig_0">Figure 15</ref> indicates CMP-Hybrid (bars labelled H) reduces the average L2 hit latency for these seven work- While CMP-Hybrid achieves impressive performance, one should note it also relies on a good search mechanism for its performance. Furthermore, CMP-Hybrid requires both extra manufacturing cost to produce on-chip transmission lines and additional verification effort to implement block migration.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="8">Energy Efficiency</head><p>Although the majority of L2 cache power consumption is expected to be leakage power <ref type="bibr" target="#b15">[14]</ref>, we analyze each network's dynamic energy-delay product to determine the efficiency of each design. Similar to our previous study <ref type="bibr" target="#b6">[6]</ref>, we estimate the network energy by measuring the energy used by the wires as well as the switches. For conventional RC interconnect using repeaters, we measure the energy required to charge and discharge the capacitance of each wire segment. For transmission lines, we measure the energy required to create the incident wave. We do not include the dynamic energy consumed within the L2 cache banks, but we do note block migration requires accessing the storage banks about twice as often as the static designs.</p><p>Prefetching and block migration improve network efficiency for some scientific workloads, while transmission lines potentially improve efficiency across all workloads. <ref type="figure" target="#fig_0">Figure 16</ref> plots the product of the networks' dynamic energy consumption and the design's runtime normalized to the value of the CMP-SNUCA design running ocean. The two block migrating designs, CMP-DNUCA and CMP-Hybrid, assume the perfect search mechanism. <ref type="figure" target="#fig_0">Figure 16</ref> shows the high accuracy and coverage of L1 and L2 prefetching results in a reduction of network energy-delay by 18% to 54% for all designs with ocean. Also, by successfully migrating frequently requested blocks to the more efficiently accessed local banks, CMP-DNUCA achieves similar network efficiency as CMP-SNUCA for ocean despite sending extra migration messages. However, both block migration and L1 prefetching increase network energy-delay between 17% and 53% for the commercial workload oltp. On the other hand, those designs using transmission lines, CMP-TLC and CMPHybrid, reduce network energy-delay by 26% for oltp and 33% for ocean on average versus their counterpart designs that exclusively rely on conventional wires, CMP-SNUCA and CMP-DNUCA. In general, workload characteristics affect prefetching and block migration efficiency more than transmission line efficiency.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="9">Conclusions</head><p>Managing on-chip wire delay in CMP caches is essential in order to improve future system performance. Strided prefetching is a common technique utilized by current designs to tolerate wire delay. As wire delays continue to increase, architects will turn to additional techniques such as block migration or transmission lines to manage on-chip delay. While block migration effectively reduces wire delay in uniprocessor caches, we discover block migration's capability to improve CMP performance relies on a difficult to implement smart search mechanism. Furthermore, the potential benefit of block migration in a CMP cache is fundamentally limited by the large amount of inter-processor sharing that exists in some workloads. On the other hand, on-chip transmission lines consistently improve performance, but their limited bandwidth becomes a bottleneck when combined with on-chip prefetching. Finally, we investigate a hybrid design, which merges transmission lines, block migration, and prefetching. Adding transmission lines from each processor to the center of the NUCA cache could alleviate the deficiencies of implementing block migration or transmission lines alone. </p></div><figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_0"><head>Figure 1 . CMP-SNUCA Layout with CMP</head><label>1</label><figDesc>Figure 1. CMP-SNUCA Layout with CMP-DNUCA Bankcluster Regions</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_1"><head>Figure 3 .</head><label>3</label><figDesc>Figure 2. CMP-TLC Layout</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_2"><head>Figure 4 . CMP-SNUCA vs. CMP-TLC vs. CMP- Hybrid Uncontended L2 Hit Latency</head><label>4</label><figDesc>Figure 4. CMP-SNUCA vs. CMP-TLC vs. CMPHybrid Uncontended L2 Hit Latency</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_3"><head>Figure 5 .</head><label>5</label><figDesc>Figure 5. Normalized Execution: Strided Prefetching</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_4"><head>Figure 6 . Cumulative Percentage of Unique L2 Blocks vs. # of Processors to Access the Block During its L2Figure 7 . Cumulative Percentage of Total L2 Cache Hits vs. # of Processors to Access a Block During its L2 Cache</head><label>67</label><figDesc>Figure 6. Cumulative Percentage of Unique L2 Blocks vs. # of Processors to Access the Block During its L2 Cache Lifetime</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_5"><head>Figure 9 indicatesFigure 9 .</head><label>99</label><figDesc>Figure 9. L2 Hit Distribution of CMP-DNUCA</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_6"><head>Figure 10 . oltp L2 Hit Distribution Figure 11 .</head><label>1011</label><figDesc>Figure 10. oltp L2 Hit Distribution Figure 11. ocean L2 Hit Distribution The figures above illustrate the distribution of cache hits across the L2 cache banks. The Tetris shapes indicate the bankclusters and the shaded squares represent the individual banks. The shading indicates the fraction of all L2 hits to be satisfied by a given bank, with darker being greater. The top figure illustrates all hits, while the 8 smaller figures illustrate each CPU's hits.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_7"><head>Figure 13 . Normalized Execution: Latency Reduction Techniques withFigure 14 .</head><label>1314</label><figDesc>Figure 13. Normalized Execution: Latency Reduction Techniques with Prefetching</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_8"><head>Figure 15 . Avg. L2 Hit LatencyFigure 16 .</head><label>1516</label><figDesc>Figure 15. Avg. L2 Hit Latency: Combining Latency Reduction Techniques</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_0" validated="true"><head>Table 1 . 2010 System Parameters</head><label>1</label><figDesc></figDesc><table>Memory System 
+Dynamically Scheduled Processor 
+
+split L1 I &amp; D caches 
+64 KB, 2-way, 3 cycles 
+clock frequency 
+10 GHz 
+
+unified L2 cache 
+16 MB, 256x64 KB, 16-
+way, 6 cycle bank access 
+
+reorder buffer / scheduler 
+128 / 64 entries 
+
+L1/L2 cache block size 
+64 Bytes 
+pipeline width 
+4-wide fetch &amp; issue 
+
+memory latency 
+260 cycles 
+pipeline stages 
+30 
+
+memory bandwidth 
+320 GB/s 
+direct branch predictor 
+3.5 KB YAGS 
+
+memory size 
+4 GB of DRAM 
+return address stack 
+64 entries 
+
+outstanding memory requests/CPU 16 
+indirect branch predictor 
+256 entries (cascaded) 
+
+</table></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_1" validated="true"><head>Table 2 . Evaluation Methodology</head><label>2</label><figDesc></figDesc><table>Bench Fast Forward Warm-up Executed 
+
+Commercial Workloads (unit = transactions) 
+
+apache 
+500000 
+2000 
+500 
+
+zeus 
+500000 
+2000 
+500 
+
+jbb 
+1000000 
+15000 
+2000 
+
+oltp 
+100000 
+300 
+100 
+
+Scientific Workloads (unit = billion instructions) 
+
+barnes 
+None 
+1.9 
+run completion 
+
+ocean 
+None 
+2.4 
+run completion 
+
+apsi 
+88.8 
+4.64 
+loop completion 
+
+fma3d 
+190.4 
+2.08 
+loop completion 
+
+</table></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_2" validated="true"><head>Table 3 . Prefetching Characteristics</head><label>3</label><figDesc></figDesc><table>L1 I Cache 
+L1 D Cache 
+L2 Cache 
+
+benchmark 
+prefetches 
+coverage accuracy 
+prefetches 
+coverage accuracy 
+prefetches 
+coverage accuracy 
+
+apache 
+7.6 
+18.3% 
+48.7% 
+5.3 
+9.3% 
+61.7% 
+7.0 
+39.0% 
+49.8% 
+
+jbb 
+2.5 
+30.1 
+57.0 
+2.0 
+7.7 
+35.9 
+3.0 
+38.3 
+36.8 
+
+oltp 
+15.1 
+26.7 
+53.5 
+1.4 
+5.9 
+59.6 
+1.9 
+35.0 
+50.3 
+
+zeus 
+11.3 
+19.0 
+47.9 
+4.9 
+15.7 
+78.6 
+8.0 
+47.2 
+56.7 
+
+barnes 
+0.0 
+9.1 
+38.7 
+0.2 
+3.0 
+20.8 
+0.0 
+12.3 
+22.8 
+
+ocean 
+0.0 
+22.1 
+50.9 
+17.6 
+85.9 
+88.3 
+4.0 
+91.3 
+87.5 
+
+apsi 
+0.0 
+10.8 
+38.5 
+5.6 
+46.7 
+99.4 
+5.7 
+98.7 
+98.8 
+
+fma3d 
+0.0 
+12.4 
+33.1 
+6.7 
+32.8 
+82.5 
+11.2 
+36.8 
+67.9 
+
+</table></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_3" validated="false"><head>100 % of Total L2 Hits</head><label>100</label><figDesc></figDesc><table>Benchmarks 
+
+GETX 
+UPGRADE 
+GETS 
+GET_INSTR 
+
+12345678 
+apache 
+12345678 
+jbb 
+12345678 
+oltp 
+12345678 
+zeus 
+12345678 
+barnes 
+12345678 
+ocean 
+12345678 
+apsi 
+12345678 
+fma3d 
+
+</table></figure>
+		</body>
+		<back>
+
+			<div type="acknowledgement">
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>Acknowledgements</head><p>We thank Alaa Alameldeen, Mark Hill, Mike Marty, Kevin Moore, Phillip Wells, Allison Holloway, Luke Yen, the Wisconsin Computer Architecture Affiliates, Virtutech AB, the Wisconsin Condor group, the Wisconsin Computer Systems Lab, and the anonymous reviewers for their comments on this work.</p></div>
+			</div>
+
+			<div type="references">
+
+				<listBibl>
+
+<biblStruct xml:id="b0">
+	<monogr>
+		<title level="m" type="main">The Effect of Technology Scaling on Microarchitectural Structures</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">V</forename><surname>Agarwal</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><forename type="middle">W</forename><surname>Keckler</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Burger</surname></persName>
+		</author>
+		<idno>TR-00-02</idno>
+		<imprint>
+			<date type="published" when="2001-05" />
+		</imprint>
+		<respStmt>
+			<orgName>Department of Computer Sciences ; UT at Austin</orgName>
+		</respStmt>
+	</monogr>
+<note type="report_type">Technical Report</note>
+</biblStruct>
+
+<biblStruct xml:id="b1">
+	<monogr>
+		<title level="m" type="main">Simulating a $2M</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><forename type="middle">R</forename><surname>Alameldeen</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><forename type="middle">M K</forename><surname>Martin</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><forename type="middle">J</forename><surname>Mauer</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">K</forename><forename type="middle">E</forename><surname>Moore</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Xu</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><forename type="middle">J</forename><surname>Sorin</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><forename type="middle">D</forename><surname>Hill</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><forename type="middle">A</forename><surname>Wood</surname></persName>
+		</author>
+		<imprint/>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b2">
+	<analytic>
+		<title/>
+	</analytic>
+	<monogr>
+		<title level="j">Commercial Server on a $2K PC. IEEE Computer</title>
+		<imprint>
+			<biblScope unit="volume">36</biblScope>
+			<biblScope unit="issue">2</biblScope>
+			<biblScope unit="page" from="50" to="57" />
+			<date type="published" when="2003-02" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b3">
+	<analytic>
+		<title level="a" type="main">Variability in Architectural Simulations of Multi-threaded Workloads</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><forename type="middle">R</forename><surname>Alameldeen</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><forename type="middle">A</forename><surname>Wood</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the Ninth IEEE Symposium on High-Performance Computer Architecture</title>
+		<meeting>the Ninth IEEE Symposium on High-Performance Computer Architecture</meeting>
+		<imprint>
+			<date type="published" when="2003-02" />
+			<biblScope unit="page" from="7" to="18" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b4">
+	<analytic>
+		<title level="a" type="main">SPEComp: A New Benchmark Suite for Measuring Parallel Computer Performance</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">V</forename><surname>Aslot</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Domeika</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Eigenmann</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">G</forename><surname>Gaertner</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">W</forename><surname>Jones</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">B</forename><surname>Parady</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Workshop on OpenMP Applications and Tools</title>
+		<imprint>
+			<date type="published" when="2001-07" />
+			<biblScope unit="page" from="1" to="10" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b5">
+	<analytic>
+		<title level="a" type="main">Piranha: A Scalable Architecture Based on Single-Chip Multiprocessing</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">L</forename><forename type="middle">A</forename><surname>Barroso</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">K</forename><surname>Gharachorloo</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Mcnamara</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Nowatzyk</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Qadeer</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">B</forename><surname>Sano</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Smith</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Stets</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">B</forename><surname>Verghese</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the 27th Annual International Symposium on Computer Architecture</title>
+		<meeting>the 27th Annual International Symposium on Computer Architecture</meeting>
+		<imprint>
+			<date type="published" when="2000-06" />
+			<biblScope unit="page" from="282" to="293" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b6">
+	<analytic>
+		<title level="a" type="main">TLC: Transmission Line Caches</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">B</forename><forename type="middle">M</forename><surname>Beckmann</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><forename type="middle">A</forename><surname>Wood</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the 36th Annual IEEE/ACM International Symposium on Microarchitecture</title>
+		<meeting>the 36th Annual IEEE/ACM International Symposium on Microarchitecture</meeting>
+		<imprint>
+			<date type="published" when="2003-12" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b7">
+	<analytic>
+		<title level="a" type="main">Scheduling and Page Migration for Multiprocessor Compute Servers</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Chandra</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Devine</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">B</forename><surname>Verghese</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Gupta</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Rosenblum</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the 6th International Conference on Architectural Support for Programming Languages and Operating Systems (ASPLOS)</title>
+		<meeting>the 6th International Conference on Architectural Support for Programming Languages and Operating Systems (ASPLOS)</meeting>
+		<imprint>
+			<date type="published" when="1994-10" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b8">
+	<analytic>
+		<title level="a" type="main">Near Speed-ofLight Signaling Over On-Chip Electrical Interconnects</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><forename type="middle">T</forename><surname>Chang</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">N</forename><surname>Talwalkar</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><forename type="middle">P</forename><surname>Yue</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><forename type="middle">S</forename><surname>Wong</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">IEEE Journal of Solid-State Circuits</title>
+		<imprint>
+			<biblScope unit="volume">38</biblScope>
+			<biblScope unit="issue">5</biblScope>
+			<biblScope unit="page" from="834" to="838" />
+			<date type="published" when="2003-05" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b9">
+	<analytic>
+		<title level="a" type="main">Reducing Memory Latency via NonBlocking and Prefetching Caches</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">T.-F</forename><surname>Chen</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J.-L</forename><surname>Baer</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the Fifth International Conference on Architectural Support for Programming Languages and Operating Systems</title>
+		<meeting>the Fifth International Conference on Architectural Support for Programming Languages and Operating Systems</meeting>
+		<imprint>
+			<date type="published" when="1992-10" />
+			<biblScope unit="page" from="51" to="61" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b10">
+	<analytic>
+		<title level="a" type="main">A Performance Study of Software and Hardware Data Prefetching Schemes</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">T.-F</forename><surname>Chen</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J.-L</forename><surname>Baer</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the 21st</title>
+		<meeting>the 21st</meeting>
+		<imprint/>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b11">
+	<monogr>
+				<title level="m">Annual International Symposium on Computer Architecture</title>
+		<imprint>
+			<date type="published" when="1994-04" />
+			<biblScope unit="page" from="223" to="232" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b12">
+	<analytic>
+		<title level="a" type="main">Effective Hardware-Based Data Prefetching for High Performance Processors</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">T.-F</forename><surname>Chen</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J.-L</forename><surname>Baer</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">IEEE Transactions on Computers</title>
+		<imprint>
+			<biblScope unit="volume">44</biblScope>
+			<biblScope unit="issue">5</biblScope>
+			<biblScope unit="page" from="609" to="623" />
+			<date type="published" when="1995-05" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b13">
+	<analytic>
+		<title level="a" type="main">Distance Associativity for High-Performance Energy-Efficient Non-Uniform Cache Architectures</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Z</forename><surname>Chishti</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><forename type="middle">D</forename><surname>Powell</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">T</forename><forename type="middle">N</forename><surname>Vijaykumar</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the 36th Annual IEEE/ACM International Symposium on Microarchitecture</title>
+		<meeting>the 36th Annual IEEE/ACM International Symposium on Microarchitecture</meeting>
+		<imprint>
+			<date type="published" when="2003-12" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b14">
+	<analytic>
+		<title level="a" type="main">Effectiveness of Hardware-Based Stride and Sequential Prefetching in Shared-Memory Multiprocessors</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">F</forename><surname>Dahlgren</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>Stenström</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the First IEEE Symposium on High-Performance Computer Architecture</title>
+		<meeting>the First IEEE Symposium on High-Performance Computer Architecture</meeting>
+		<imprint>
+			<date type="published" when="1995-02" />
+			<biblScope unit="page" from="68" to="77" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b15">
+	<analytic>
+		<title level="a" type="main">Transistor Elements for 30nm Physical Gate Lengths and Beyond</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">B</forename><surname>Doyle</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Arghavani</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Barlage</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Datta</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Doczy</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Kavalieros</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Murthy</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Chau</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Intel Technology Journal</title>
+		<imprint>
+			<date type="published" when="2002-05" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b16">
+	<analytic>
+		<title level="a" type="main">Reactive NUMA: A Design for Unifying S-COMA and CC-NUMA</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">B</forename><surname>Falsafi</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><forename type="middle">A</forename><surname>Wood</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the 24th Annual International Symposium on Computer Architecture</title>
+		<meeting>the 24th Annual International Symposium on Computer Architecture</meeting>
+		<imprint>
+			<date type="published" when="1997-06" />
+			<biblScope unit="page" from="229" to="240" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b17">
+	<analytic>
+		<title/>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">I</forename><forename type="middle">T R</forename><surname>For Semiconductors</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><surname>Itrs</surname></persName>
+		</author>
+		<ptr target="http://public.itrs.net/Files/2003ITRS/Home2003.htm" />
+	</analytic>
+	<monogr>
+		<title level="j">Edition. Semiconductor Industry Association</title>
+		<imprint>
+			<date type="published" when="2003" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b18">
+	<analytic>
+		<title level="a" type="main">DDM-A Cache-Only Memory Architecture</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">E</forename><surname>Hagersten</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Landin</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Haridi</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">IEEE Computer</title>
+		<imprint>
+			<biblScope unit="volume">25</biblScope>
+			<biblScope unit="issue">9</biblScope>
+			<biblScope unit="page" from="44" to="54" />
+			<date type="published" when="1992-09" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b19">
+	<analytic>
+		<title level="a" type="main">The Stanford Hydra CMP</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">L</forename><surname>Hammond</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">B</forename><surname>Hubbert</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Siu</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Prabhu</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Chen</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">K</forename><surname>Olukotun</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">IEEE Micro</title>
+		<imprint>
+			<biblScope unit="volume">20</biblScope>
+			<biblScope unit="issue">2</biblScope>
+			<biblScope unit="page" from="71" to="84" />
+			<date type="published" when="2000-04" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b20">
+	<analytic>
+		<title level="a" type="main">The microarchitecture of the Pentium 4 processor</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">G</forename><surname>Hinton</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Sager</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Upton</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Boggs</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Carmean</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Kyker</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>Roussel</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Intel Technology Journal</title>
+		<imprint>
+			<date type="published" when="2001-02" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b21">
+	<analytic>
+		<title level="a" type="main">The Future of Wires</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Ho</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">K</forename><forename type="middle">W</forename><surname>Mai</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><forename type="middle">A</forename><surname>Horowitz</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Proceedings of the IEEE</title>
+		<imprint>
+			<biblScope unit="volume">89</biblScope>
+			<biblScope unit="issue">4</biblScope>
+			<biblScope unit="page" from="490" to="504" />
+			<date type="published" when="2001-04" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b22">
+	<analytic>
+		<title level="a" type="main">UltraSPARC-III: Designing Third Generation 64-Bit Performance</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">T</forename><surname>Horel</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">G</forename><surname>Lauterbach</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">IEEE Micro</title>
+		<imprint>
+			<biblScope unit="volume">19</biblScope>
+			<biblScope unit="issue">3</biblScope>
+			<biblScope unit="page" from="73" to="85" />
+			<date type="published" when="1999-06" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b23">
+	<analytic>
+		<title level="a" type="main">Prefetching Using Markov Predictors</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Joseph</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Grunwald</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the 24th Annual International Symposium on Computer Architecture</title>
+		<meeting>the 24th Annual International Symposium on Computer Architecture</meeting>
+		<imprint>
+			<date type="published" when="1997-06" />
+			<biblScope unit="page" from="252" to="263" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b24">
+	<analytic>
+		<title level="a" type="main">Improving Direct-Mapped Cache Performance by the Addition of a Small Fully-Associative Cache and Prefetch Buffers</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">N</forename><forename type="middle">P</forename><surname>Jouppi</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the 17th Annual International Symposium on Computer Architecture</title>
+		<meeting>the 17th Annual International Symposium on Computer Architecture</meeting>
+		<imprint>
+			<date type="published" when="1990-05" />
+			<biblScope unit="page" from="364" to="373" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b25">
+	<analytic>
+		<title level="a" type="main">IBM Power5 Chip: A Dual Core Multithreaded Processor</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Kalla</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">B</forename><surname>Sinharoy</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><forename type="middle">M</forename><surname>Tendler</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">IEEE Micro</title>
+		<imprint>
+			<biblScope unit="volume">24</biblScope>
+			<biblScope unit="issue">2</biblScope>
+			<biblScope unit="page" from="40" to="47" />
+			<date type="published" when="2004-04" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b26">
+	<analytic>
+		<title level="a" type="main">Memory System Behavior of Java-Based Middleware</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Karlsson</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">K</forename><forename type="middle">E</forename><surname>Moore</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">E</forename><surname>Hagersten</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><forename type="middle">A</forename><surname>Wood</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the Ninth IEEE Symposium on High-Performance Computer Architecture</title>
+		<meeting>the Ninth IEEE Symposium on High-Performance Computer Architecture</meeting>
+		<imprint>
+			<date type="published" when="2003-02" />
+			<biblScope unit="page" from="217" to="228" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b27">
+	<analytic>
+		<title level="a" type="main">Inexpensive Implementations of Set-Associativity</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><forename type="middle">E</forename><surname>Kessler</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Jooss</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Lebeck</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><forename type="middle">D</forename><surname>Hill</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">16th Annual International Symposium on Computer Architecture</title>
+		<imprint>
+			<date type="published" when="1989-05" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b28">
+	<analytic>
+		<title level="a" type="main">An Adaptive, Non-Uniform Cache Structure for Wire-Dominated On-Chip Caches</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Kim</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Burger</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><forename type="middle">W</forename><surname>Keckler</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">10th International Conference on Architectural Support for Programming Languages and Operating Systems (ASPLOS)</title>
+		<imprint>
+			<date type="published" when="2002-10" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b29">
+	<analytic>
+		<title level="a" type="main">A 32-way Multithreaded SPARCAE Processor</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>Kongetira</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the 16th HotChips Symposium</title>
+		<meeting>the 16th HotChips Symposium</meeting>
+		<imprint>
+			<date type="published" when="2004-08" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b30">
+	<analytic>
+		<title level="a" type="main">Implementation of a Third-Generation 1.1-GHz 64-bit Microprocessor</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">G</forename><forename type="middle">K</forename><surname>Konstadinidis</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">IEEE Journal of Solid-State Circuits</title>
+		<imprint>
+			<biblScope unit="volume">37</biblScope>
+			<biblScope unit="issue">11</biblScope>
+			<biblScope unit="page" from="1461" to="1469" />
+			<date type="published" when="2002-11" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b31">
+	<analytic>
+		<title/>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">K</forename></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">UltraSPARC IV Mirrors Predecessor. Microprocessor Report</title>
+		<imprint>
+			<biblScope unit="page" from="1" to="3" />
+			<date type="published" when="2003-11" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b32">
+	<analytic>
+		<title level="a" type="main">A Case for Shared Instruction Cache on Chip Multiprocessors running OLTP</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>Kundu</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Annavaram</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">T</forename><surname>Diep</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Shen</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Computer Architecture News</title>
+		<imprint>
+			<biblScope unit="volume">32</biblScope>
+			<biblScope unit="issue">3</biblScope>
+			<biblScope unit="page" from="11" to="18" />
+			<date type="published" when="2004" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b33">
+	<analytic>
+		<title level="a" type="main">Organizing the Last Line of Defense before Hitting the Memory Wall for CMPs</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Liu</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Sivasubramaniam</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Kandemir</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the Tenth IEEE Symposium on High-Performance Computer Architecture</title>
+		<meeting>the Tenth IEEE Symposium on High-Performance Computer Architecture</meeting>
+		<imprint>
+			<date type="published" when="2004-02" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b34">
+	<analytic>
+		<title level="a" type="main">Simics: A Full System Simulation Platform</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><forename type="middle">S</forename><surname>Magnusson</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">IEEE Computer</title>
+		<imprint>
+			<biblScope unit="volume">35</biblScope>
+			<biblScope unit="issue">2</biblScope>
+			<biblScope unit="page" from="50" to="58" />
+			<date type="published" when="2002-02" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b35">
+	<analytic>
+		<title level="a" type="main">Full System Timing-First Simulation</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><forename type="middle">J</forename><surname>Mauer</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><forename type="middle">D</forename><surname>Hill</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><forename type="middle">A</forename><surname>Wood</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">ACM Sigmetrics Conference on Measurement and Modeling of Computer Systems</title>
+		<imprint>
+			<date type="published" when="2002-06" />
+			<biblScope unit="page" from="108" to="116" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b36">
+	<analytic>
+		<title level="a" type="main">Itanium 2 Processor Microarchitecture</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Mcnairy</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Soltis</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">IEEE Micro</title>
+		<imprint>
+			<biblScope unit="volume">23</biblScope>
+			<biblScope unit="issue">2</biblScope>
+			<biblScope unit="page" from="44" to="55" />
+			<date type="published" when="2003-04" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b37">
+	<analytic>
+		<title level="a" type="main">Introducing Memory into the Switch Elements of Multiprocessor Interconnection Networks</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">H</forename><forename type="middle">E</forename><surname>Mizrahi</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J.-L</forename><surname>Baer</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">E</forename><forename type="middle">D</forename><surname>Lazowska</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Zahorjan</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the 16th Annual International Symposium on Computer Architecture</title>
+		<meeting>the 16th Annual International Symposium on Computer Architecture</meeting>
+		<imprint>
+			<date type="published" when="1989-05" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b38">
+	<analytic>
+		<title level="a" type="main">Exploring the Design Space for a Shared-Cache Multiprocessor</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">B</forename><forename type="middle">A</forename><surname>Nayfeh</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">K</forename><surname>Olukotun</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the 21st Annual International Symposium on Computer Architecture</title>
+		<meeting>the 21st Annual International Symposium on Computer Architecture</meeting>
+		<imprint>
+			<date type="published" when="1994-04" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b39">
+	<analytic>
+		<title level="a" type="main">Speculative Dynamic Vectorization</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Pajuelo</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Gonz·lez</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Valero</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the 29th Annual International Symposium on Computer Architecture</title>
+		<meeting>the 29th Annual International Symposium on Computer Architecture</meeting>
+		<imprint>
+			<date type="published" when="2002-05" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b40">
+	<analytic>
+		<title level="a" type="main">Design Tradeoffs for the Alpha EV8 Conditional Branch Predictor*</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Seznec</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Felix</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">V</forename><surname>Krishnan</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Y</forename><surname>Sazeides</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">29th Annual International Symposium on Computer Architecture</title>
+		<imprint>
+			<date type="published" when="2002-05" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b41">
+	<analytic>
+		<title level="a" type="main">Cache Operations by MRU Change</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">K</forename><surname>So</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><forename type="middle">N</forename><surname>Rechtschaffen</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">IEEE Transactions on Computers</title>
+		<imprint>
+			<biblScope unit="volume">37</biblScope>
+			<biblScope unit="issue">6</biblScope>
+			<biblScope unit="page" from="700" to="709" />
+			<date type="published" when="1988-06" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b42">
+	<analytic>
+		<title level="a" type="main">Flexible Use of Memory for Replication/Migration in Cache-Coherent DSM Multiprocessors</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">V</forename><surname>Soundararajan</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Heinrich</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">B</forename><surname>Verghese</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">K</forename><surname>Gharachorloo</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Gupta</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Hennessy</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the 25th Annual International Symposium on Computer Architecture</title>
+		<meeting>the 25th Annual International Symposium on Computer Architecture</meeting>
+		<imprint>
+			<date type="published" when="1998-06" />
+			<biblScope unit="page" from="342" to="355" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b43">
+	<analytic>
+		<title level="a" type="main">Getting to the Bottom of Deep Submicron II: a Global Wiring Paradigm</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Sylvester</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">K</forename><surname>Keutzer</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the 1999 International Symposium on Physical Design</title>
+		<meeting>the 1999 International Symposium on Physical Design</meeting>
+		<imprint>
+			<date type="published" when="1999" />
+			<biblScope unit="page" from="193" to="200" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b44">
+	<analytic>
+		<title/>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><forename type="middle">M</forename><surname>Tendler</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Dodson</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Fields</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">H</forename><surname>Le</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">B</forename><surname>Sinharoy</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">POWER4 System Microarchitecture. IBM Server Group Whitepaper</title>
+		<imprint>
+			<date type="published" when="2001-10" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b45">
+	<analytic>
+		<title level="a" type="main">POWER4 System Microarchitecture</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><forename type="middle">M</forename><surname>Tendler</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Dodson</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Fields</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">H</forename><surname>Le</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">B</forename><surname>Sinharoy</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">IBM Journal of Research and Development</title>
+		<imprint>
+			<biblScope unit="volume">46</biblScope>
+			<biblScope unit="issue">1</biblScope>
+			<date type="published" when="2002" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b46">
+	<analytic>
+		<title level="a" type="main">The MAJC Architecture: A Synthesis of Parallelism and Scalability</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Tremblay</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Chan</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Chaudhry</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><forename type="middle">W</forename><surname>Conigliaro</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><forename type="middle">S</forename><surname>Tse</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">IEEE Micro</title>
+		<imprint>
+			<biblScope unit="volume">20</biblScope>
+			<biblScope unit="issue">6</biblScope>
+			<biblScope unit="page" from="12" to="25" />
+			<date type="published" when="2000-12" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b47">
+	<analytic>
+		<title level="a" type="main">Limitations of Cache Prefetching on a Bus-Based Multiprocessor</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><forename type="middle">M</forename><surname>Tullsen</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><forename type="middle">J</forename><surname>Eggers</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">20th Annual International Symposium on Computer Architecture</title>
+		<imprint>
+			<date type="published" when="1993-05" />
+			<biblScope unit="page" from="278" to="288" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b48">
+	<monogr>
+		<title level="m" type="main">The Essential Guide to Semiconductors</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Turley</surname></persName>
+		</author>
+		<imprint>
+			<date type="published" when="2003" />
+			<publisher>Prentice Hall</publisher>
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b49">
+	<analytic>
+		<title level="a" type="main">The SPLASH-2 Programs: Characterization and Methodological Considerations</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><forename type="middle">C</forename><surname>Woo</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Ohara</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">E</forename><surname>Torrie</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><forename type="middle">P</forename><surname>Singh</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Gupta</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the 22nd Annual International Symposium on Computer Architecture</title>
+		<meeting>the 22nd Annual International Symposium on Computer Architecture</meeting>
+		<imprint>
+			<date type="published" when="1995-06" />
+			<biblScope unit="page" from="24" to="37" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b50">
+	<analytic>
+		<title level="a" type="main">Speeding up Irregular Applications in Shared-Memory Multiprocessors: Memory Binding and Group Prefetching</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Z</forename><surname>Zhang</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Torrellas</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the 22nd Annual International Symposium on Computer Architecture</title>
+		<meeting>the 22nd Annual International Symposium on Computer Architecture</meeting>
+		<imprint>
+			<date type="published" when="1995-06" />
+			<biblScope unit="page" from="188" to="199" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+				</listBibl>
+			</div>
+		</back>
+	</text>
+</TEI>

@@ -1,0 +1,312 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>Transactional Execution of Java Programs Brian D. Carlstrom</p>
+    <p>Transactional Execution of Java Programs</p>
+    <p>Brian D. Carlstrom, JaeWoong Chung, Hassan Chafi, Austen McDonald Chi Cao Minh, Lance Hammond, Christos Kozyrakis, Kunle Olukotun</p>
+    <p>Computer Systems Laboratory Stanford University</p>
+    <p>http://tcc.stanford.edu</p>
+  </div>
+  <div class="page">
+    <p>Transactional Execution of Java Programs 2</p>
+    <p>Transactional Execution of Java Programs</p>
+    <p>Goals Run existing Java programs using transactional memory Require no new language constructs Require minimal changes to program source Compare performance of locks and transactions</p>
+    <p>Non-Goals Create a new programming language Add new transactional extensions Run all Java programs correctly without modification</p>
+  </div>
+  <div class="page">
+    <p>Transactional Execution of Java Programs 3</p>
+    <p>TCC Transactional Memory</p>
+    <p>Continuous Transactional Architecture all transactions, all the time Transactional Coherency and Consistency (TCC)  Replaces MESI Snoopy Cache Coherence (SCC) protocol</p>
+    <p>At hardware level, two classes of transactions 1. indivisible transactions for programmer defined atomicity 2. divisible transactions for outside critical regions</p>
+    <p>Divisible transactions can be split if convenient  For example, when hardware buffers overflow</p>
+  </div>
+  <div class="page">
+    <p>Transactional Execution of Java Programs 4</p>
+    <p>Translating Java to Transactions</p>
+    <p>Three rules create transactions in Java programs 1. synchronized defines an indivisible transaction 2. volatile references define indivisible transactions 3. Object.wait performs a transaction commit</p>
+    <p>Allows us to run: Histogram based on our ASPLOS 2004 paper Benchmarks described in Harris and Fraser OOPSLA 2003 SPECjbb2000 benchmark All of Java Grande (5 kernels and 3 applications)</p>
+    <p>Performance comparable or better in almost all cases</p>
+  </div>
+  <div class="page">
+    <p>Transactional Execution of Java Programs 5</p>
+    <p>Defining indivisible transactions</p>
+    <p>synchronized blocks define indivisible transactions public static void main (String args[]){</p>
+    <p>a(); a(); // divisible transactions</p>
+    <p>synchronized (x){ COMMIT();</p>
+    <p>b(); b(); // indivisible transaction</p>
+    <p>} COMMIT();</p>
+    <p>c(); c(); // divisible transactions</p>
+    <p>} COMMIT();</p>
+    <p>We use closed nesting for nested synchronized blocks public static void main (String args[]){</p>
+    <p>a(); a(); // divisible transactions</p>
+    <p>synchronized (x){ COMMIT();</p>
+    <p>b1(); b1(); //</p>
+    <p>synchronized (y) { //</p>
+    <p>b2(); b2(); // indivisible transaction</p>
+    <p>} //</p>
+    <p>b3(); b3(); //</p>
+    <p>} COMMIT();</p>
+    <p>c(); c(); // divisible transactions</p>
+    <p>} COMMIT();</p>
+  </div>
+  <div class="page">
+    <p>Transactional Execution of Java Programs 6</p>
+    <p>Coping with condition variables</p>
+    <p>In our execution, Object.wait commits the transaction  Why not rollback transaction on Object.wait?</p>
+    <p>This is the approach of Conditional Critical Regions (CCRs) as well as Harriss retry keyword This does handle most common usage of condition variables while (!condition) wait();</p>
+  </div>
+  <div class="page">
+    <p>Transactional Execution of Java Programs 7</p>
+    <p>Coping with condition variables</p>
+    <p>However, need Object.wait commit to run current code  Motivating example: A simple barrier implementation</p>
+    <p>synchronized (lock) {</p>
+    <p>count++;</p>
+    <p>if (count != thread_count) {</p>
+    <p>lock.wait();</p>
+    <p>} else {</p>
+    <p>count = 0;</p>
+    <p>lock.notifyAll();</p>
+    <p>}</p>
+    <p>}</p>
+    <p>Code like this is found in Sun Java Tutorial, SPECjbb2000, and Java Grande</p>
+    <p>With rollback, all threads think they are first to barrier  With commit, barrier works as intended</p>
+  </div>
+  <div class="page">
+    <p>Transactional Execution of Java Programs 8</p>
+    <p>Coping with condition variables</p>
+    <p>Nested transaction problem We dont want to commit value of a when we wait: synchronized (x) {</p>
+    <p>a = true;</p>
+    <p>synchronized (y) {</p>
+    <p>while (!b)</p>
+    <p>y.wait();</p>
+    <p>c = true;}}</p>
+    <p>With locks, wait releases specific lock With transactions, wait commits all outstanding transactions In practice, nesting examples are very rare</p>
+    <p>It is bad to wait while holding a lock  wait and notify are usually used for unnested top level coordination</p>
+  </div>
+  <div class="page">
+    <p>Transactional Execution of Java Programs 9</p>
+    <p>Coping with condition variables</p>
+    <p>Not happy with unclean semantics Most existing Java programs work correctly Unfortunately no guarantee</p>
+    <p>Fortunately, if you prefer rollback Barrier code example can be rewritten to use rollback Presumably this is generally true</p>
+  </div>
+  <div class="page">
+    <p>Transactional Execution of Java Programs 10</p>
+    <p>Hardware and Software Environment</p>
+    <p>The simulated chip multiprocessor TCC Hardware (See PACT 2005)</p>
+    <p>JikesRVM Derived from release version 2.3.4 Scheduler pinned threads to avoid context switching Garbage Collector disabled and 1GB heap used All necessary code precompiled before measurement Virtual machine startup excluded from measurement</p>
+  </div>
+  <div class="page">
+    <p>Transactional Execution of Java Programs 11</p>
+    <p>Transactions remove lock overhead</p>
+    <p>SPECjbb2000 benchmark  Problem</p>
+    <p>Locking is used because of 1% of operations than span two warehouses Pay for lock overhead 100% of the time for 1% case.</p>
+    <p>Solution Transactions make the common case fast, time lost to violations not even visible in this example.</p>
+    <p>Lo ck</p>
+    <p>s2</p>
+    <p>T ra</p>
+    <p>ns .</p>
+    <p>Lo ck</p>
+    <p>s4</p>
+    <p>T ra</p>
+    <p>ns .</p>
+    <p>Lo ck</p>
+    <p>s8</p>
+    <p>T ra</p>
+    <p>ns .</p>
+    <p>Lo ck</p>
+    <p>s16</p>
+    <p>T ra</p>
+    <p>ns .</p>
+    <p>N or</p>
+    <p>m al</p>
+    <p>iz ed</p>
+    <p>E xe</p>
+    <p>cu tio</p>
+    <p>n Ti</p>
+    <p>m e</p>
+    <p>(% )</p>
+    <p>Busy Lock Violations</p>
+  </div>
+  <div class="page">
+    <p>Transactional Execution of Java Programs 12</p>
+    <p>Transactions keep data structures simple</p>
+    <p>TestHashtable mix of read/writes to Map</p>
+    <p>Problem Java has 3 basic Map classes Which to choose?</p>
+    <p>HashMap  No synchronization</p>
+    <p>Hashtable  Singe coarse lock</p>
+    <p>ConcurrentHashMap  Fine grained locking</p>
+    <p>Solution ConcurrentHashMap scales but has single CPU overhead With transactions, just use HashMap and scale like CHM</p>
+    <p>CPUs</p>
+    <p>S pe</p>
+    <p>ed up</p>
+    <p>HashMap Hashtable ConcurrentHashMap Transactional HashMap</p>
+  </div>
+  <div class="page">
+    <p>Transactional Execution of Java Programs 13</p>
+    <p>Transactions can scale better with contention</p>
+    <p>Low Contention Transactions have slight edge without lock overhead</p>
+    <p>High Contention CHM scales to 4 but then slows Transactions scale to 16 cpus</p>
+    <p>C H</p>
+    <p>M F</p>
+    <p>in e</p>
+    <p>Tr an</p>
+    <p>s. H</p>
+    <p>M -2</p>
+    <p>C H</p>
+    <p>M F</p>
+    <p>in e</p>
+    <p>Tr an</p>
+    <p>s. H</p>
+    <p>M -4</p>
+    <p>C H</p>
+    <p>M F</p>
+    <p>in e</p>
+    <p>Tr an</p>
+    <p>s. H</p>
+    <p>M -8</p>
+    <p>C H</p>
+    <p>M F</p>
+    <p>in e</p>
+    <p>Tr an</p>
+    <p>s. H</p>
+    <p>M -1</p>
+    <p>C H</p>
+    <p>M F</p>
+    <p>in e</p>
+    <p>Tr an</p>
+    <p>s. H</p>
+    <p>M -2</p>
+    <p>C H</p>
+    <p>M F</p>
+    <p>in e</p>
+    <p>Tr an</p>
+    <p>s. H</p>
+    <p>M -4</p>
+    <p>C H</p>
+    <p>M F</p>
+    <p>in e</p>
+    <p>Tr an</p>
+    <p>s. H</p>
+    <p>M -8</p>
+    <p>C H</p>
+    <p>M F</p>
+    <p>in e</p>
+    <p>Tr an</p>
+    <p>s. H</p>
+    <p>M -1</p>
+    <p>low contention high contention</p>
+    <p>N or</p>
+    <p>m al</p>
+    <p>iz ed</p>
+    <p>E xe</p>
+    <p>cu tio</p>
+    <p>n Ti</p>
+    <p>m e</p>
+    <p>(% )</p>
+    <p>Violations Lock Busy</p>
+    <p>TestCompound Atomic swap of Map elements (low and high contention experiments) Extra lock overhead compared to TestHashtable to lock keys</p>
+  </div>
+  <div class="page">
+    <p>Transactional Execution of Java Programs 14</p>
+    <p>Java Grande Applications: MolDyn</p>
+    <p>MolDyn Time spent on locks close to time lost to violations Both scale to 8 CPUs and slow at 16 CPUs</p>
+    <p>Lo ck</p>
+    <p>s2</p>
+    <p>T ra</p>
+    <p>ns .</p>
+    <p>Lo ck</p>
+    <p>s4</p>
+    <p>T ra</p>
+    <p>ns .</p>
+    <p>Lo ck</p>
+    <p>s8</p>
+    <p>T ra</p>
+    <p>ns .</p>
+    <p>Lo ck</p>
+    <p>s16</p>
+    <p>T ra</p>
+    <p>ns .</p>
+    <p>N or</p>
+    <p>m al</p>
+    <p>iz ed</p>
+    <p>E xe</p>
+    <p>cu tio</p>
+    <p>n Ti</p>
+    <p>m e</p>
+    <p>(% )</p>
+    <p>Busy Lock Violations</p>
+  </div>
+  <div class="page">
+    <p>Transactional Execution of Java Programs 15</p>
+    <p>Java Grande Applications: MonteCarlo</p>
+    <p>MonteCarlo Similar to SPECjbb2000 (and Histogram in paper) Performance difference attributable to lock overhead Both scale to 16 CPUs</p>
+    <p>Lo ck</p>
+    <p>s2</p>
+    <p>T ra</p>
+    <p>ns .</p>
+    <p>Lo ck</p>
+    <p>s4</p>
+    <p>T ra</p>
+    <p>ns .</p>
+    <p>Lo ck</p>
+    <p>s8</p>
+    <p>T ra</p>
+    <p>ns .</p>
+    <p>Lo ck</p>
+    <p>s16</p>
+    <p>T ra</p>
+    <p>ns .</p>
+    <p>N or</p>
+    <p>m al</p>
+    <p>iz ed</p>
+    <p>E xe</p>
+    <p>cu tio</p>
+    <p>n Ti</p>
+    <p>m e</p>
+    <p>(% )</p>
+    <p>Busy Lock Violations</p>
+  </div>
+  <div class="page">
+    <p>Transactional Execution of Java Programs 16</p>
+    <p>Java Grande Applications: RayTracer</p>
+    <p>RayTracer Another contention example</p>
+    <p>2 CPUs Lock and Violation time approximately equal Difference in Busy time attributable to commit overhead (see paper graph)</p>
+    <p>4 CPUs Overall time about equal Lock time as percentage of overall time has increased</p>
+    <p>8 CPUs Transactions pull ahead as Lock percentage increases</p>
+    <p>16 CPUs Transactions still ahead as Lock and Violation percentage grows 0</p>
+    <p>Lo ck</p>
+    <p>s2</p>
+    <p>T ra</p>
+    <p>ns .</p>
+    <p>Lo ck</p>
+    <p>s4</p>
+    <p>T ra</p>
+    <p>ns .</p>
+    <p>Lo ck</p>
+    <p>s8</p>
+    <p>T ra</p>
+    <p>ns .</p>
+    <p>Lo ck</p>
+    <p>s16</p>
+    <p>T ra</p>
+    <p>ns .</p>
+    <p>N or</p>
+    <p>m al</p>
+    <p>iz ed</p>
+    <p>E xe</p>
+    <p>cu tio</p>
+    <p>n Ti</p>
+    <p>m e</p>
+    <p>(% )</p>
+    <p>Busy Lock Violations</p>
+  </div>
+  <div class="page">
+    <p>Transactional Execution of Java Programs 17</p>
+    <p>Transactional Execution of Java Programs</p>
+    <p>Goals (revisited) Run existing Java programs using transactional memory</p>
+    <p>Can run a wide variety of existing benchmarks</p>
+    <p>Require no new language constructs  Used existing synchronized, volatile, and Object.wait</p>
+    <p>Require minimal changes to program source  No changes required for these programs</p>
+    <p>Compare performance of locks and transactions  Generally better performance from transactions</p>
+  </div>
+</Presentation>

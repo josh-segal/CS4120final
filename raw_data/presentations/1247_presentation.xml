@@ -1,0 +1,266 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>Optimizing Memory-mapped I/O for Fast Storage Devices</p>
+    <p>Anastasios Papagiannis1,2, Giorgos Xanthakis1,2, Giorgos Saloustros1, Manolis Marazakis1, and Angelos Bilas1,2</p>
+    <p>Foundation for Research and Technology  Hellas (FORTH)1 &amp; University of Crete2</p>
+  </div>
+  <div class="page">
+    <p>Fast storage devices</p>
+    <p>Fast storage devices  Flash, NVMe  Millions of IOPS  &lt; 10 s access latency</p>
+    <p>Small I/Os are not such a big issue as in rotational disks  Require many outstanding I/Os for peak throughput</p>
+  </div>
+  <div class="page">
+    <p>Read/write system calls</p>
+    <p>Read/write system calls + DRAM cache  Reduce accesses to the device</p>
+    <p>Kernel-space cache  Requires system calls also for hits  Used for raw (serialized) blocks</p>
+    <p>User-space cache  Lookups for hits + system calls only for misses  Application specific (deserialized) data  User-space cache removes system calls for hits</p>
+    <p>Hit lookups in user space introduce significant overhead [SIGMOD08]</p>
+    <p>Device</p>
+    <p>U se</p>
+    <p>r S pa</p>
+    <p>ce Ke</p>
+    <p>rn el</p>
+    <p>S pa</p>
+    <p>ce</p>
+    <p>Cache</p>
+    <p>Cache</p>
+  </div>
+  <div class="page">
+    <p>Memory-mapped I/O</p>
+    <p>In memory-mapped I/O (mmio) hits handled in hardware  MMU + TLB  Less overhead compared to cache lookup</p>
+    <p>In mmio a file mapped to virtual address space  Load/store processor instructions to access data  Kernel fetch/evict page on-demand</p>
+    <p>Additionally mmio removes  Serialization/deserialization  Memory copies between user and kernel</p>
+  </div>
+  <div class="page">
+    <p>Disadvantages of mmio</p>
+    <p>Misses require a page fault instead of a system call  4KB page size  Small &amp; random I/Os  With fast storage devices this is not a big issue</p>
+    <p>Linux mmio path fails to scale with #threads</p>
+  </div>
+  <div class="page">
+    <p>Mmio path scalability</p>
+    <p>Linux-Read Linux-Write</p>
+    <p>M ill</p>
+    <p>io n</p>
+    <p>pa ge</p>
+    <p>-f au</p>
+    <p>lt s/</p>
+    <p>se c</p>
+    <p>(I O</p>
+    <p>PS )</p>
+    <p>Device: null_blk Dataset: 4TB DRAM cache: 192GB</p>
+  </div>
+  <div class="page">
+    <p>Mmio path scalability</p>
+    <p>Linux-Read (4.14) Linux-Write (4.14) Linux-Read (5.4) Linux-Write (5.4)</p>
+    <p>M ill</p>
+    <p>io n</p>
+    <p>p ag</p>
+    <p>efa</p>
+    <p>u lt</p>
+    <p>s/ se</p>
+    <p>c (I</p>
+    <p>O P</p>
+    <p>S)</p>
+    <p>Queue depth  27</p>
+    <p>Device: null_blk Dataset: 4TB DRAM cache: 192GB</p>
+  </div>
+  <div class="page">
+    <p>FastMap</p>
+    <p>A novel mmio path that achieves high scalability and I/O concurrency  In the Linux kernel</p>
+    <p>Avoids all centralized contention points  Reduces CPU processing in the common path  Uses dedicated data structures to minimize interference</p>
+  </div>
+  <div class="page">
+    <p>Mmio path scalability</p>
+    <p>Linux-Read (4.14) Linux-Write (4.14) Linux-Read (5.4) Linux-Write (5.4) FastMap-Read FastMap-Write</p>
+    <p>M ill</p>
+    <p>io n</p>
+    <p>pa ge</p>
+    <p>-fa ul</p>
+    <p>ts /s</p>
+    <p>ec (I</p>
+    <p>O PS</p>
+    <p>)</p>
+    <p>Device: null_blk Dataset: 4TB DRAM cache: 192GB</p>
+  </div>
+  <div class="page">
+    <p>Outline</p>
+    <p>Introduction  Motivation  FastMap design  Experimental analysis  Conclusions</p>
+  </div>
+  <div class="page">
+    <p>Outline</p>
+    <p>Introduction  Motivation  FastMap design  Experimental analysis  Conclusions</p>
+  </div>
+  <div class="page">
+    <p>FastMap design: 3 main techniques</p>
+    <p>Separates data structures that keep clean and dirty pages  Avoids all centralized contention points</p>
+    <p>Optimizes reverse mappings  Reduces CPU processing in the common path</p>
+    <p>Uses a scalable DRAM cache  Minimizes interference and reduce latency variability</p>
+  </div>
+  <div class="page">
+    <p>FastMap design: 3 main techniques</p>
+    <p>Separates data structures that keep clean and dirty pages  Avoids all centralized contention points</p>
+    <p>Optimizes reverse mappings  Reduces CPU processing in the common path</p>
+    <p>Uses a scalable DRAM cache  Minimizes interference and reduce latency variability</p>
+  </div>
+  <div class="page">
+    <p>Linux mmio design</p>
+    <p>VMA address_space</p>
+    <p>page_tree</p>
+    <p>tree_lock page</p>
+    <p>page</p>
+    <p>page</p>
+    <p>wait time  tree_lock acquired for 2 main reasons  Insert/remove elements from page_tree &amp; lock-free (RCU) lookups  Modify tags for a specific entry  Used to mark a page dirty</p>
+  </div>
+  <div class="page">
+    <p>FastMap design</p>
+    <p>Keep dirty pages on a separate data structure  Marking a page dirty/clean does not serialize insert/remove ops  Choose data-structure based on page_offset % num_cpus  Radix trees to keep ALL cached pages  lock-free (RCU) lookups  Red-black trees to keep ONLY dirty pages  sorted by device offset</p>
+    <p>VMA PFD</p>
+    <p>page_tree</p>
+    <p>page_tree</p>
+    <p>page_tree</p>
+    <p>N-1</p>
+    <p>. . .</p>
+    <p>. . .dirty_tree 0</p>
+    <p>dirty_tree</p>
+    <p>dirty_tree</p>
+    <p>N-1</p>
+  </div>
+  <div class="page">
+    <p>FastMap design: 3 main techniques</p>
+    <p>Separates data structures that keep clean and dirty pages  Avoids all centralized contention points</p>
+    <p>Optimizes reverse mappings  Reduces CPU processing in the common path</p>
+    <p>Uses a scalable DRAM cache  Minimizes interference and reduce latency variability</p>
+  </div>
+  <div class="page">
+    <p>Reverse mappings</p>
+    <p>Find out which page table entries map a specific page  Page eviction  Due to memory pressure or explicit writeback  Destroy mappings  munmap</p>
+    <p>Linux uses object-based reverse mappings  Executables and libraries (e.g. libc) introduce large amount of sharing  Reduces DRAM consumption and housekeeping costs</p>
+    <p>Storage applications that use memory-mapped I/O  Require minimal sharing  Can be applied selectively to certain devices or files</p>
+  </div>
+  <div class="page">
+    <p>Linux object-based reverse mappings</p>
+    <p>page</p>
+    <p>address_space i_mmap</p>
+    <p>vma PGD</p>
+    <p>vma PGD</p>
+    <p>vma PGD page</p>
+    <p>_mapcount</p>
+    <p>_mapcount</p>
+    <p>read/write semaphore</p>
+    <p>_mapcount can still results in useless page table traversals  rw-semaphore acquired as read on all operations  Cross NUMA-node traffic  Spend many CPU cycles</p>
+  </div>
+  <div class="page">
+    <p>FastMap full reverse mappings</p>
+    <p>page VMA, vaddr VMA, vaddr</p>
+    <p>VMA</p>
+    <p>per-core</p>
+    <p>page VMA, vaddr</p>
+    <p>Full reverse mappings  Reduce CPU overhead</p>
+    <p>Efficient munmap  No ordering required</p>
+    <p>scalable updates</p>
+    <p>More DRAM required  Limited by small degree of</p>
+    <p>sharing in pages</p>
+  </div>
+  <div class="page">
+    <p>FastMap design: 3 main techniques</p>
+    <p>Separates data structures that keep clean and dirty pages  Avoids all centralized contention points</p>
+    <p>Optimizes reverse mappings  Reduces CPU processing in the common path</p>
+    <p>Uses a scalable DRAM cache  Minimizes interference and reduce latency variability</p>
+  </div>
+  <div class="page">
+    <p>Batched TLB invalidations</p>
+    <p>Under memory pressure FastMap evicts a batch of clean pages  Cache related operations  Page table cleanup  TLB invalidation</p>
+    <p>TLB invalidation require an IPI (Inter-Processor Interrupt)  Limits scalability [EuroSys13, USENIX ATC17, EurorSys20]</p>
+    <p>Single TLB invalidation for the whole batch  Convert batch to range including unnecessary invalidations</p>
+  </div>
+  <div class="page">
+    <p>Other optimizations in the paper</p>
+    <p>DRAM cache  Eviction/writeback operations  Implementation details</p>
+  </div>
+  <div class="page">
+    <p>Outline</p>
+    <p>Introduction  Motivation  FastMap design  Experimental analysis  Conclusions</p>
+  </div>
+  <div class="page">
+    <p>Testbed</p>
+    <p>2x Intel Xeon CPU E5-2630 v3 CPUs (2.4GHz)  32 hyper-threads</p>
+    <p>Different devices  Intel Optane SSD DC P4800X (375GB) in workloads  null_blk in microbenchmarks</p>
+    <p>256 GB of DDR4 DRAM  CentOS v7.3 with Linux 4.14.72</p>
+  </div>
+  <div class="page">
+    <p>Workloads</p>
+    <p>Microbenchmarks  Storage applications  Kreon [ACM SoCC18]  persistent key-value store (YCSB)  MonetDB  column oriented DBMS (TPC-H)</p>
+    <p>Extend available DRAM over fast storage devices  Silo [SOSP13]  key-value store with scalable transactions (TPC-C)  Ligra [PPoPP13]  graph algorithms (BFS)</p>
+  </div>
+  <div class="page">
+    <p>FastMap Scalability</p>
+    <p>m ill</p>
+    <p>io n p</p>
+    <p>a g e</p>
+    <p>-f a u lt s /s</p>
+    <p>e c (</p>
+    <p>IO P</p>
+    <p>S )</p>
+    <p>#threads</p>
+    <p>FastMap-Rd-SPF FastMap-Wr-SPF</p>
+    <p>FastMap-Rd FastMap-Wr</p>
+    <p>mmap-Rd mmap-Wr</p>
+  </div>
+  <div class="page">
+    <p>FastMap execution time breakdown</p>
+    <p>mmap-Read mmap-Write FastMap-Read FastMap-Write</p>
+    <p>mark_dirty</p>
+    <p>address-space</p>
+    <p>page-fault</p>
+    <p>other</p>
+    <p>#s am</p>
+    <p>pl es</p>
+    <p>(x 10</p>
+  </div>
+  <div class="page">
+    <p>Kreon key-value store</p>
+    <p>Persistent key-value store based on LSM-tree  Designed to use memory-mapped I/O in the common path  YCSB with 80M records  80GB dataset  16GB DRAM</p>
+  </div>
+  <div class="page">
+    <p>Kreon  100% inserts</p>
+    <p>ti m</p>
+    <p>e (</p>
+    <p>s e c )</p>
+    <p>#cores</p>
+    <p>FastMap mmap</p>
+    <p>idle iowait</p>
+    <p>kworker pgfault</p>
+    <p>pthread others</p>
+    <p>ycsb kreon</p>
+  </div>
+  <div class="page">
+    <p>Kreon  100% lookups</p>
+    <p>ti m</p>
+    <p>e (</p>
+    <p>s e c )</p>
+    <p>#cores</p>
+    <p>FastMap mmap</p>
+    <p>idle iowait</p>
+    <p>kworker pgfault others</p>
+    <p>ycsb kreon</p>
+  </div>
+  <div class="page">
+    <p>Batched TLB invalidations</p>
+    <p>TLB batching results in 25.5% more TLB misses  Improvement due to fewer IPIs  24% higher throughput  23.8% lower average latency</p>
+    <p>Less time in flush_tlb_mm_range()  20.3%  0.1%</p>
+    <p>Silo key-value store &amp;</p>
+    <p>TPC-C</p>
+  </div>
+  <div class="page">
+    <p>Conclusions</p>
+    <p>FastMap, an optimized mmio path in Linux  Scalable with number of threads &amp; low CPU overhead</p>
+    <p>FastMap has significant benefits for data-intensive applications  Fast storage devices  Multi-core servers</p>
+    <p>Up to 11.8x more IOPS with 80 cores and null_blk  Up to 5.2x more IOPS with 32 cores and Intel Optane SSD</p>
+  </div>
+  <div class="page">
+    <p>Optimizing Memory-mapped I/O for Fast Storage Devices</p>
+    <p>Anastasios Papagiannis Foundation for Research and Technology Hellas (FORTH) &amp; University of Crete</p>
+    <p>email: apapag@ics.forth.gr</p>
+  </div>
+</Presentation>

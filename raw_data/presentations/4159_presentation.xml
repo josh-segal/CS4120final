@@ -1,0 +1,104 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>AMP: Program-Context Specific Buffer Caching</p>
+    <p>Feng Zhou, Rob von Behren, Eric Brewer University of California, Berkeley Usenix tech conf 2005, April 14, 2005</p>
+  </div>
+  <div class="page">
+    <p>Buffer caching beyond LRU Buffer cache speeds up file reads by caching file content LRU performs badly for large looping accesses</p>
+    <p>DB, IR, scientific apps often suffer from this Recent work</p>
+    <p>Utilizing frequency: ARC (Megiddo &amp; Modha 03), CAR (Bansal &amp; Modha 04) Detection: UBM (Kim et al. 00), DEAR (Choi et al. 99), PCC (Gniady et al. 04)</p>
+    <p>Access stream: , Cache Size: 31</p>
+  </div>
+  <div class="page">
+    <p>Program Context (PC) Program context: current program counter + all return addresses on the call stack</p>
+    <p>btree_index_scan()</p>
+    <p>get_page(table, index)</p>
+    <p>read(fd, buf, pos, count)</p>
+    <p>btree_tuple_get(key,)</p>
+    <p>send_file()</p>
+    <p>process_http_req()</p>
+    <p>foo_db bar_httpd</p>
+    <p>#1 #2 #3</p>
+    <p>Ideal policies #1: MRU for loops #2, #3: LRU/ARC for all others</p>
+  </div>
+  <div class="page">
+    <p>Contributions of AMP PC-specific organization that treats requests from different program contexts differently* Robust looping pattern detection algorithm</p>
+    <p>reliable with irregularities Randomized partitioned cache management scheme</p>
+    <p>much cheaper than previous methods</p>
+    <p>* Same idea is developed concurrently by Gniady et al (PCC at OSDI04)</p>
+  </div>
+  <div class="page">
+    <p>Adaptive Multi-Policy Caching (AMP)</p>
+    <p>time to detect?</p>
+    <p>calc PC</p>
+    <p>detect pattern using info about past requests</p>
+    <p>from same PC</p>
+    <p>go to cache partition using</p>
+    <p>appropriate policy</p>
+    <p>Default partition (LRU/ARC)</p>
+    <p>MRU1</p>
+    <p>MRU2</p>
+    <p>(block,pc)</p>
+    <p>(block,pc,pattern)</p>
+    <p>(pattern)</p>
+    <p>buffer cache</p>
+    <p>fs syscall()/page fault</p>
+  </div>
+  <div class="page">
+    <p>Looping pattern detection Intuition:</p>
+    <p>Looping streams always access blocks that has not been accessed for the longest period of time, i.e. the least recently used blocks. 1 2 3 1 2 3 Streams with locality (temporally clustered streams) access blocks that has been accessed recently, i.e. recently used blocks. 1 2 3 3 4 3 4</p>
+    <p>What AMP does: measure a metric we call average access recency of all block accesses</p>
+  </div>
+  <div class="page">
+    <p>Loop detection scheme For the i-th access</p>
+    <p>Li: list of all previously accessed blocks, ordered from the oldest to the most recent by their last access time. pi: position in Li of the block accessed (0 to |Li|-1) Access recency: Ri=pi/(|Li|-1)</p>
+    <p>oldest</p>
+    <p>Ri=</p>
+    <p>most recent Li :</p>
+  </div>
+  <div class="page">
+    <p>Loop detection scheme cont. Average access recency R = avg(Ri) Detection result:</p>
+    <p>loop, if R &lt; Tloop (e.g. 0.4) temporally clustered, if R &gt; Ttc (e.g. 0.6) others, o.w. (near 0.5)</p>
+    <p>Sampling to reduce space and computational overhead</p>
+  </div>
+  <div class="page">
+    <p>Example: loop Access stream: [1 2 3 1 2 3]</p>
+    <p>empty11 RipiLiblocki</p>
+    <p>R =0, detected pattern is loop</p>
+  </div>
+  <div class="page">
+    <p>Example: non-loop Access stream: [1 2 3 4 4 3 4 5 6 5 6], R =0.79</p>
+    <p>empty11 RipiLiblocki</p>
+  </div>
+  <div class="page">
+    <p>Randomized Cache Partition Management</p>
+    <p>Need to decide cache sizes devoted to each PC Marginal gain (MG)</p>
+    <p>the expected number of extra hits over unit time if one extra block is allocated Local optimum when every partition has the same MG</p>
+    <p>Randomized scheme Expand the default partition by one if ghost buffer hit Expand an MRU partition by one every loop_size/ghost_buffer_size accesses to the partition Expansion is done by taking a block from a random other part.</p>
+    <p>Compared to UBM and PCC O(1) and does not need to find smallest MG</p>
+  </div>
+  <div class="page">
+    <p>Robustness of loop detection</p>
+    <p>loopotherlooplooplooplooploopPCC otherotherloopotherotherloopotherDEAR</p>
+    <p>other 0.513</p>
+    <p>loop 0.010</p>
+    <p>loop 0.008</p>
+    <p>tc 0.617</p>
+    <p>loop 0.347</p>
+    <p>loop 0.001</p>
+    <p>tc 0.755</p>
+    <p>AMP R</p>
+    <p>tc=temporally clustered Colored detection results are wrong</p>
+    <p>Classifying tc as other is deemed correct.</p>
+  </div>
+  <div class="page">
+    <p>Simulation: dbt3 (tpc-h)</p>
+    <p>Reduces miss rate by &gt; 50% compared to LRU/ARC</p>
+    <p>Much better than DEAR and slightly better than PCC*</p>
+  </div>
+  <div class="page">
+    <p>Implementation Kernel patch for Linux 2.6.8.1 Shortens time to index Linux source code using glimpseindex by up to 13% (read traffic down 43%) Shortens time to complete DBT3 (tpc-h) DB workload by 9.6% (read traffic down 24%)</p>
+    <p>http://www.cs.berkeley.edu/~zf/amp Tech report Linux implementation General buffer cache simulator</p>
+  </div>
+</Presentation>

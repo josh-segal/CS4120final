@@ -1,0 +1,897 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>Redesigning LSMs for Nonvolatile Memory with NoveLSM</p>
+    <p>Sudarsun Kannan, Nitish Bhat*, Ada Gavrilovska*,</p>
+    <p>Andrea Arpaci-Dusseau, Remzi Arpaci-Dusseau</p>
+    <p>University of Wisconsin-Madison, Georgia Institute of Technology*</p>
+  </div>
+  <div class="page">
+    <p>Key-Value Stores Key-Value Stores</p>
+    <p>Keys Arbitrary Value</p>
+    <p>{red car, honda, john}</p>
+    <p>Widely used</p>
+  </div>
+  <div class="page">
+    <p>LSM-based Key-Value Stores Log-structured Merge Tree (LSM)</p>
+    <p>- Write optimized data structure used in key-value stores</p>
+    <p>Originally designed for slow hard drives</p>
+    <p>- In memory buffering, batched, and sequential writes to disk</p>
+    <p>- High write amplification</p>
+    <p>Several LSM implementations</p>
+    <p>- LevelDB (Google), RocksDB (Facebook), Cassandra</p>
+    <p>- SSD optimized LSMs WiscKey (FAST 16), VT-tree (FAST 13)</p>
+  </div>
+  <div class="page">
+    <p>Moving Towards NVM Era</p>
+    <p>Fast byte-addressable and persistent NVM technologies expected soon</p>
+    <p>Hard Drives</p>
+    <p>H/W Lat: 7.1 ms 68 us 500ns - 2us 100ns</p>
+    <p>BW: 2.6 MB/s 250 MB/s 5-10 GB/s 64 GB/s</p>
+    <p>Persistence: Blocks Blocks Cache-line Cache-line</p>
+    <p>SSD NVM</p>
+    <p>DRAM</p>
+  </div>
+  <div class="page">
+    <p>Adding NVM makes LSMs faster?</p>
+    <p>Why use LSMs in NVM?</p>
+    <p>Expected to co-exist with block storage</p>
+    <p>Rewriting production-level LSMs not easy!</p>
+    <p>Current LSMs are not designed to exploit storage byte-addressability</p>
+    <p>Our study shows significant software overheads</p>
+  </div>
+  <div class="page">
+    <p>Our Solution: NoveLSM</p>
+    <p>Use existing LSM and</p>
+    <p>Evaluation Summary:</p>
+    <p>Evaluation with emulated NVM using benchmarks and application traces</p>
+    <p>NoveLSM reduces write latency by up to 3.8x and read latency by 2x</p>
+    <p>Orders of magnitude faster recovery</p>
+  </div>
+  <div class="page">
+    <p>Introduction</p>
+    <p>Background on LevelDB</p>
+    <p>Motivation - High serialization, compaction, and logging cost - Lack of parallelism</p>
+    <p>NoveLSM Design - Persistent memtable, NVM mutability, In-place commits - Read parallelism</p>
+    <p>Evaluation</p>
+    <p>Conclusion</p>
+    <p>Outline</p>
+  </div>
+  <div class="page">
+    <p>LSM-based LevelDB</p>
+    <p>Application</p>
+    <p>DRAM Memtable</p>
+    <p>DRAM Immutable</p>
+    <p>Put(37, val)</p>
+    <p>Level 0 Merge</p>
+    <p>Level 1 Merge</p>
+    <p>Storage Log Head Tail</p>
+    <p>Level 2 Merge</p>
+    <p>On-disk log for recovering from failure In-memory skip list to buffer updates in memory</p>
+    <p>When buffer full, writes compacted to storage and written sequentially</p>
+    <p>Each level is 10x larger than previous level</p>
+    <p>String Sorted Tables (SST)</p>
+    <p>`</p>
+    <p>When a level is full, data moved to next level by merging</p>
+    <p>We study (and extend) LevelDB due to its wider use and simplicity</p>
+  </div>
+  <div class="page">
+    <p>Put(23, val)</p>
+    <p>+</p>
+    <p>+</p>
+    <p>+</p>
+    <p>Head Tail</p>
+    <p>Write Operation</p>
+    <p>Application</p>
+    <p>DRAM Memtable</p>
+    <p>DRAM Immutable</p>
+    <p>Level 0</p>
+    <p>Level 1</p>
+    <p>Storage Log Head Tail</p>
+  </div>
+  <div class="page">
+    <p>+</p>
+    <p>+</p>
+    <p>+</p>
+    <p>Head Tail</p>
+    <p>+23</p>
+    <p>Write Operation</p>
+    <p>Application</p>
+    <p>DRAM Memtable</p>
+    <p>DRAM Immutable</p>
+    <p>Level 0</p>
+    <p>Level 1</p>
+    <p>Storage Log 23,value CHead Tail</p>
+    <p>Put(45, val)</p>
+  </div>
+  <div class="page">
+    <p>+</p>
+    <p>+</p>
+    <p>+</p>
+    <p>Head Tail</p>
+    <p>+23</p>
+    <p>+45</p>
+    <p>Write Operation</p>
+    <p>Application</p>
+    <p>DRAM Memtable</p>
+    <p>DRAM Immutable</p>
+    <p>Put(37, val)</p>
+    <p>DRAM Memtable (FULL)</p>
+    <p>Level 0</p>
+    <p>Level 1</p>
+    <p>Storage Log 23,value CHead 45,value C Tail</p>
+  </div>
+  <div class="page">
+    <p>Write Operation</p>
+    <p>Application</p>
+    <p>DRAM Memtable</p>
+    <p>DRAM Immutable</p>
+    <p>DRAM Memtable (FULL)</p>
+    <p>DRAM Immutable (FULL)</p>
+    <p>Initiate background compaction</p>
+    <p>Level 0 Merge</p>
+    <p>Level 1 Merge</p>
+    <p>Storage Log 23,value CHead 45,value C Tail</p>
+    <p>+</p>
+    <p>+</p>
+    <p>+</p>
+    <p>Head Tail</p>
+    <p>+23</p>
+    <p>+45</p>
+    <p>+</p>
+    <p>+</p>
+    <p>+</p>
+    <p>Head Tail</p>
+    <p>+</p>
+    <p>+</p>
+    <p>Put(37, val)</p>
+  </div>
+  <div class="page">
+    <p>Write Operation</p>
+    <p>Application</p>
+    <p>DRAM Memtable</p>
+    <p>DRAM Immutable</p>
+    <p>DRAM Memtable (FULL)</p>
+    <p>DRAM Immutable (FULL)</p>
+    <p>Initiate background compaction</p>
+    <p>Level 0 Merge</p>
+    <p>Level 1 Merge</p>
+    <p>Storage Log 23,value CHead 45,value C Tail37,value C</p>
+    <p>+</p>
+    <p>+</p>
+    <p>+</p>
+    <p>Head Tail</p>
+    <p>+23</p>
+    <p>+45</p>
+    <p>+</p>
+    <p>+</p>
+    <p>+</p>
+    <p>Head Tail</p>
+    <p>+37</p>
+    <p>+</p>
+  </div>
+  <div class="page">
+    <p>Read Operation</p>
+    <p>Application</p>
+    <p>DRAM Memtable</p>
+    <p>DRAM Immutable</p>
+    <p>Level 0</p>
+    <p>Level 1</p>
+    <p>Level 1 a 0  10</p>
+    <p>b 11  15</p>
+    <p>17</p>
+    <p>k 100</p>
+    <p>a 0  3 r 4  8</p>
+    <p>.</p>
+    <p>Range Blocks d 12</p>
+    <p>a 5-60 1 2 3 .</p>
+    <p>Get (107&quot;)</p>
+    <p>Search memtable</p>
+    <p>Search Immutable memtable</p>
+  </div>
+  <div class="page">
+    <p>Read Operation</p>
+    <p>Application</p>
+    <p>DRAM Memtable</p>
+    <p>DRAM Immutable</p>
+    <p>Level 0</p>
+    <p>Level 1</p>
+    <p>Level 1 a 0  10</p>
+    <p>b 11  15</p>
+    <p>17</p>
+    <p>k 100</p>
+    <p>a 0  3 r 4  8</p>
+    <p>.</p>
+    <p>Range Blocks d 12</p>
+    <p>a 5-60 1 2 3 .</p>
+    <p>Get (107&quot;)</p>
+    <p>Search memtable</p>
+    <p>Search Immutable memtable</p>
+    <p>Index lookup</p>
+    <p>Index lookup</p>
+    <p>Index lookup</p>
+  </div>
+  <div class="page">
+    <p>Read Operation</p>
+    <p>Application</p>
+    <p>DRAM Memtable</p>
+    <p>DRAM Immutable</p>
+    <p>Level 0</p>
+    <p>Level 1</p>
+    <p>Level 1 a 0  10</p>
+    <p>b 11  15</p>
+    <p>17</p>
+    <p>k 100</p>
+    <p>a 0  3 r 4  8</p>
+    <p>.</p>
+    <p>Range Blocks d 12</p>
+    <p>a 5-60 1 2 3 .</p>
+    <p>Get (107&quot;)</p>
+    <p>Search memtable</p>
+    <p>Search Immutable memtable</p>
+    <p>Index lookup</p>
+    <p>Index lookup</p>
+    <p>Index lookup</p>
+    <p>k,value</p>
+  </div>
+  <div class="page">
+    <p>Introduction</p>
+    <p>Background on LevelDB</p>
+    <p>Motivation - High serialization, compaction, and logging cost - Lack of parallelism</p>
+    <p>NoveLSM Design - Persistent memtable, NVM mutability, In-place commits - Read parallelism</p>
+    <p>Evaluation</p>
+    <p>Conclusion</p>
+    <p>Outline</p>
+  </div>
+  <div class="page">
+    <p>How do LSMs perform on NVM?</p>
+    <p>LevelDB: Use NVM instead of SSD for storing on-disk SSTable</p>
+    <p>Application</p>
+    <p>DRAM Memtable</p>
+    <p>DRAM Immutable</p>
+    <p>Level 0</p>
+    <p>Level 1 Level 2</p>
+    <p>.</p>
+    <p>.</p>
+    <p>.</p>
+    <p>Level K</p>
+    <p>SSDLevel 0 Level 1</p>
+    <p>Level 2 . . .</p>
+    <p>Level K</p>
+  </div>
+  <div class="page">
+    <p>How do LSMs perform on NVM?</p>
+    <p>LevelDB: Use NVM instead of SSD for storing on-disk SSTable</p>
+    <p>Problem: No byte addressable commercial NVM - Use DRAM and increase latency by 5x (delay writes)</p>
+    <p>- Use thermal throttling to reduce NVM bandwidth</p>
+    <p>Application</p>
+    <p>DRAM Memtable</p>
+    <p>DRAM Immutable</p>
+    <p>Level 0</p>
+    <p>Level 1 Level 2</p>
+    <p>.</p>
+    <p>.</p>
+    <p>.</p>
+    <p>Level K</p>
+    <p>NVMLevel 0 Level 1</p>
+    <p>Level 2 . . .</p>
+    <p>Level K</p>
+  </div>
+  <div class="page">
+    <p>NVM Gains when Replacing SSD</p>
+    <p>Analyze with 4 KB value size and 16 GB total data size</p>
+    <p>Random write gains only 4x even with 80x faster NVM</p>
+    <p>Read latency gains less than 1.5x</p>
+    <p>Random Write Random Read</p>
+    <p>Sp ee</p>
+    <p>du p</p>
+    <p>fa ct</p>
+    <p>o r</p>
+    <p>o ve</p>
+    <p>r SS</p>
+    <p>D</p>
+    <p>NVM hardware LevelDB</p>
+  </div>
+  <div class="page">
+    <p>Application</p>
+    <p>DRAM Memtable</p>
+    <p>DRAM Immutable</p>
+    <p>Put(37, val)</p>
+    <p>DRAM Memtable (FULL)</p>
+    <p>Level 0</p>
+    <p>Level 1</p>
+    <p>Initiate background compaction</p>
+    <p>+</p>
+    <p>+</p>
+    <p>+</p>
+    <p>Head Tail</p>
+    <p>+23</p>
+    <p>+45</p>
+  </div>
+  <div class="page">
+    <p>Application</p>
+    <p>DRAM Memtable</p>
+    <p>DRAM Immutable</p>
+    <p>Put(37, val)</p>
+    <p>DRAM Memtable (FULL)</p>
+    <p>DRAM Immutable (FULL)</p>
+    <p>Level 0</p>
+    <p>Level 1</p>
+    <p>Initiate background compaction</p>
+    <p>+</p>
+    <p>+</p>
+    <p>+</p>
+    <p>Head Tail</p>
+    <p>+23</p>
+    <p>+45</p>
+  </div>
+  <div class="page">
+    <p>Application</p>
+    <p>DRAM Memtable</p>
+    <p>DRAM ImmutableDRAM Immutable (FULL)</p>
+    <p>Level 1</p>
+    <p>Initiate background compaction</p>
+    <p>+</p>
+    <p>+</p>
+    <p>+</p>
+    <p>Head Tail</p>
+    <p>+</p>
+    <p>+</p>
+    <p>Block 0 Block 1</p>
+    <p>Serialization of in-memory data to SSTable storage blocks</p>
+    <p>DRAM Memtable (FULL)</p>
+    <p>Put(37, val)</p>
+  </div>
+  <div class="page">
+    <p>Application</p>
+    <p>DRAM Memtable</p>
+    <p>DRAM ImmutableDRAM Immutable (FULL)</p>
+    <p>Level 1</p>
+    <p>Initiate background compaction</p>
+    <p>Block 0 Block 1</p>
+    <p>Serialization of in-memory data to SSTable storage blocks</p>
+    <p>Deserialization of block data to in-memory data during read</p>
+    <p>Read(45)</p>
+    <p>Block 1 +</p>
+    <p>+</p>
+    <p>+</p>
+    <p>Head Tail</p>
+    <p>+</p>
+    <p>+</p>
+    <p>DRAM Memtable (FULL)</p>
+  </div>
+  <div class="page">
+    <p>Deserialization and its related data copy cost increases with value size</p>
+    <p>La te</p>
+    <p>nc y</p>
+    <p>(m ic</p>
+    <p>ro s/</p>
+    <p>o p)</p>
+    <p>Deserialize</p>
+  </div>
+  <div class="page">
+    <p>+</p>
+    <p>+</p>
+    <p>+</p>
+    <p>Head Tail</p>
+    <p>+37</p>
+    <p>+64</p>
+    <p>Put(100, val)</p>
+    <p>Application</p>
+    <p>Level 0 Merge</p>
+    <p>Level 1 Merge</p>
+    <p>DRAM MemtableDRAM Memtable (FULL)</p>
+    <p>DRAM Immutable (FULL)</p>
+    <p>Compaction not complete</p>
+    <p>Stall</p>
+    <p>Compaction time consuming and high overhead - In-memory structures must be serialized to block format - Can trigger chain compactions across lower levels</p>
+    <p>+</p>
+    <p>+</p>
+    <p>+</p>
+    <p>Head Tail</p>
+    <p>+37</p>
+  </div>
+  <div class="page">
+    <p>La te</p>
+    <p>nc y</p>
+    <p>(m ic</p>
+    <p>ro s/</p>
+    <p>o p) Compaction</p>
+    <p>Compaction cost increases with value size</p>
+  </div>
+  <div class="page">
+    <p>+</p>
+    <p>+</p>
+    <p>+</p>
+    <p>Head Tail</p>
+    <p>Off: 75 +23</p>
+    <p>Application</p>
+    <p>DRAM Memtable</p>
+    <p>DRAM Immutable</p>
+    <p>Put(23, val)</p>
+    <p>Storage Log</p>
+    <p>Level 0</p>
+    <p>Level 1</p>
+  </div>
+  <div class="page">
+    <p>Put(45, val)</p>
+    <p>+</p>
+    <p>+</p>
+    <p>+</p>
+    <p>Head Tail</p>
+    <p>+23</p>
+    <p>+45</p>
+    <p>Application</p>
+    <p>DRAM Memtable</p>
+    <p>DRAM Immutable</p>
+    <p>Storage Log</p>
+    <p>Level 0</p>
+    <p>Level 1</p>
+    <p>Amplification: LSM updates are written to log, memtable, and SSTable - LevelDB does not sync log updates for performance - Log updates are appended with a checksum</p>
+  </div>
+  <div class="page">
+    <p>La te</p>
+    <p>nc y</p>
+    <p>(m ic</p>
+    <p>ro s/</p>
+    <p>o p) Log Write</p>
+  </div>
+  <div class="page">
+    <p>Application</p>
+    <p>DRAM Memtable</p>
+    <p>DRAM Immutable</p>
+    <p>Level 0</p>
+    <p>Level 1</p>
+    <p>Level 1</p>
+    <p>Get (107&quot;)</p>
+    <p>Search memtable</p>
+    <p>Search Immutable memtable</p>
+  </div>
+  <div class="page">
+    <p>Application</p>
+    <p>DRAM Memtable</p>
+    <p>DRAM Immutable</p>
+    <p>Level 0</p>
+    <p>Level 1</p>
+    <p>Level 1 a 0  10</p>
+    <p>b 11  15</p>
+    <p>17</p>
+    <p>k 100</p>
+    <p>a 0  3 r 4  8</p>
+    <p>.</p>
+    <p>Range Blocks d 12</p>
+    <p>a 5-60 1 2 3 .</p>
+    <p>Get (107&quot;)</p>
+    <p>Search memtable</p>
+    <p>Search Immutable memtable</p>
+  </div>
+  <div class="page">
+    <p>Application</p>
+    <p>DRAM Memtable</p>
+    <p>DRAM Immutable</p>
+    <p>Level 0</p>
+    <p>Level 1</p>
+    <p>Level 1 a 0  10</p>
+    <p>b 11  15</p>
+    <p>17</p>
+    <p>k 100</p>
+    <p>a 0  3 r 4  8</p>
+    <p>.</p>
+    <p>Range Blocks d 12</p>
+    <p>a 5-60 1 2 3 .</p>
+    <p>Get (107&quot;)</p>
+    <p>Search memtable</p>
+    <p>Search Immutable memtable</p>
+    <p>Index lookup</p>
+    <p>Index lookup</p>
+    <p>Index lookup</p>
+    <p>Huge S/W cost</p>
+  </div>
+  <div class="page">
+    <p>Introduction</p>
+    <p>Background on LevelDB</p>
+    <p>Motivation - High serialization, compaction, and logging cost - Lack of parallelism</p>
+    <p>NoveLSM Design - Persistent memtable, NVM mutability, In-place commits - Read parallelism</p>
+    <p>Evaluation</p>
+    <p>Conclusion</p>
+    <p>Outline</p>
+  </div>
+  <div class="page">
+    <p>NonVolatile Memory LSM (NoveLSM)</p>
+    <p>Reduce serialization  NVM memtable designed with persistent skip list</p>
+    <p>Reduce compaction  Enable direct mutability on NVM</p>
+    <p>Reduce logging cost  In-place transactional commits to NVM memtable</p>
+    <p>Improve read parallelism  Read LSM levels in parallel</p>
+  </div>
+  <div class="page">
+    <p>NVM Immutable Memtable</p>
+    <p>Application</p>
+    <p>DRAM Memtable</p>
+    <p>DRAM Immutable</p>
+    <p>Level 0</p>
+    <p>Level 1</p>
+    <p>High DRAM memtable to storage SSTable serialization cost</p>
+    <p>Idea: Introduce byte-addressable persistent NVM skip list</p>
+  </div>
+  <div class="page">
+    <p>Immutable Memtable: Persistent Skip List</p>
+    <p>Skip lists - non-persistent structures with fast probabilistic writes and read</p>
+    <p>Our goal: make skip lists persistent for exploiting NVM byte-addressability</p>
+    <p>Insert (64, val)</p>
+    <p>next</p>
+    <p>Addr: 0x1000</p>
+    <p>+ +</p>
+    <p>Head Tail</p>
+    <p>+</p>
+    <p>+</p>
+    <p>+ +</p>
+    <p>+</p>
+    <p>+</p>
+    <p>next</p>
+    <p>.</p>
+    <p>In-memory Skip List</p>
+  </div>
+  <div class="page">
+    <p>Insert (64, val)</p>
+    <p>next</p>
+    <p>.</p>
+    <p>Addr: 0x1000, Offset: 0</p>
+    <p>+ +</p>
+    <p>Head Tail</p>
+    <p>+</p>
+    <p>+</p>
+    <p>+ +</p>
+    <p>+</p>
+    <p>+ 1000</p>
+    <p>Persistent skip list created by mapping memory from NVM</p>
+    <p>Uses offset in the mapped memory instead of virtual address</p>
+    <p>To read/recover, simply get the root offset and traverse using offsets</p>
+    <p>Memory-mapped region in a file</p>
+    <p>Designing Persistent Skip List</p>
+  </div>
+  <div class="page">
+    <p>+</p>
+    <p>+</p>
+    <p>+</p>
+    <p>Head Tail</p>
+    <p>+23</p>
+    <p>+45</p>
+    <p>Immutable NVM Design</p>
+    <p>Application</p>
+    <p>DRAM Memtable</p>
+    <p>NVM Immutable Memtable</p>
+    <p>DRAM Immutable</p>
+    <p>DRAM Memtable (FULL)</p>
+    <p>Level 0</p>
+    <p>Level 1</p>
+    <p>Reduce serialization with a immutable persistent skip list</p>
+    <p>Put(37, val)</p>
+  </div>
+  <div class="page">
+    <p>Immutable NVM Design</p>
+    <p>Application</p>
+    <p>DRAM Memtable</p>
+    <p>NVM Immutable Memtable</p>
+    <p>DRAM Immutable</p>
+    <p>DRAM Memtable (FULL)</p>
+    <p>DRAM Immutable (FULL)</p>
+    <p>Level 0</p>
+    <p>Level 1</p>
+    <p>Reduce serialization with a immutable persistent skip list</p>
+    <p>Put(37, val)</p>
+    <p>+</p>
+    <p>+</p>
+    <p>+</p>
+    <p>Head Tail</p>
+    <p>+23</p>
+    <p>+45</p>
+  </div>
+  <div class="page">
+    <p>Immutable NVM Design</p>
+    <p>Application</p>
+    <p>DRAM Memtable</p>
+    <p>NVM Immutable Memtable</p>
+    <p>DRAM Immutable</p>
+    <p>DRAM Memtable (FULL)</p>
+    <p>DRAM Immutable (FULL)</p>
+    <p>Level 0</p>
+    <p>Level 1</p>
+    <p>Reduce serialization with a immutable persistent skip list</p>
+    <p>Put(37, val)</p>
+    <p>+</p>
+    <p>+</p>
+    <p>+</p>
+    <p>Head Tail</p>
+    <p>+23</p>
+    <p>+45</p>
+    <p>Copy data to large NVM memtable w/o serialization</p>
+    <p>Reads avoid deserialization</p>
+  </div>
+  <div class="page">
+    <p>Immutable NVM Design</p>
+    <p>Application</p>
+    <p>DRAM Memtable</p>
+    <p>NVM Immutable Memtable</p>
+    <p>DRAM Immutable</p>
+    <p>DRAM Memtable (FULL)</p>
+    <p>DRAM Immutable (FULL)</p>
+    <p>Level 0</p>
+    <p>Level 1</p>
+    <p>Reduce serialization with a immutable persistent skip list</p>
+    <p>Put(37, val)</p>
+    <p>+</p>
+    <p>+</p>
+    <p>+</p>
+    <p>Head Tail</p>
+    <p>+23</p>
+    <p>+45</p>
+    <p>Copy data to large NVM memtable w/o serialization</p>
+    <p>Reads avoid deserialization</p>
+    <p>Compaction frequency dependent on DRAM memtable size</p>
+    <p>Increasing DRAM buffer increases memory use by 2x</p>
+    <p>Recovery cost increases</p>
+    <p>Log not committed - data loss!</p>
+  </div>
+  <div class="page">
+    <p>Application</p>
+    <p>Level 0</p>
+    <p>Level 1</p>
+    <p>DRAM Memtable</p>
+    <p>DRAM Immutable</p>
+    <p>DRAM Memtable (FULL)</p>
+    <p>DRAM Immutable (FULL)</p>
+    <p>High compaction cost even with immutable memtable design</p>
+  </div>
+  <div class="page">
+    <p>Application</p>
+    <p>Level 0</p>
+    <p>Level 1</p>
+    <p>DRAM Memtable NVM Memtable</p>
+    <p>DRAM Immutable NVM Immutable</p>
+    <p>DRAM Memtable (FULL)</p>
+    <p>DRAM Immutable (FULL)</p>
+    <p>High compaction cost even with immutable memtable design</p>
+  </div>
+  <div class="page">
+    <p>Application</p>
+    <p>Level 0</p>
+    <p>Level 1</p>
+    <p>DRAM Memtable NVM Memtable</p>
+    <p>DRAM Immutable NVM Immutable</p>
+    <p>DRAM Memtable (FULL)</p>
+    <p>DRAM Immutable (FULL)</p>
+    <p>High compaction cost even with immutable memtable design</p>
+    <p>Idea: Exploit byte addressability and directly update NVM memtable</p>
+  </div>
+  <div class="page">
+    <p>Application</p>
+    <p>Level 0</p>
+    <p>Level 1</p>
+    <p>DRAM Memtable NVM Memtable</p>
+    <p>DRAM Immutable NVM Immutable</p>
+    <p>DRAM Memtable (FULL)</p>
+    <p>DRAM Immutable (FULL)</p>
+    <p>Put(100, val)</p>
+    <p>High compaction cost even with immutable memtable design</p>
+    <p>Idea: Exploit byte addressability and directly update NVM memtable</p>
+  </div>
+  <div class="page">
+    <p>Application</p>
+    <p>Level 0</p>
+    <p>Level 1</p>
+    <p>DRAM Memtable NVM Memtable</p>
+    <p>DRAM Immutable NVM Immutable</p>
+    <p>DRAM Memtable (FULL)</p>
+    <p>DRAM Immutable (FULL)</p>
+    <p>Put(100, val)</p>
+    <p>NVM Memtable (FULL)</p>
+    <p>Direct NVM mutability provides sufficient time for DRAM compaction - Reduces foreground stall</p>
+    <p>NVM memtable persistent  data not lost after failure</p>
+    <p>High compaction cost even with immutable memtable design</p>
+    <p>Idea: Exploit byte addressability and directly update NVM memtable</p>
+  </div>
+  <div class="page">
+    <p>Put(37, val)</p>
+    <p>Problem: Writing to log before memtable has high overhead</p>
+    <p>NVM MemtableDRAM Memtable (FULL)</p>
+    <p>DRAM Memtable</p>
+    <p>Application</p>
+    <p>Head Tail</p>
+    <p>Storage Log</p>
+    <p>DRAM ImmutableDRAM Immutable (FULL)</p>
+  </div>
+  <div class="page">
+    <p>Problem: Writing to log before memtable has high overhead</p>
+    <p>NVM MemtableDRAM Memtable (FULL)</p>
+    <p>DRAM Memtable</p>
+    <p>Application</p>
+    <p>Head Tail</p>
+    <p>Storage Log</p>
+    <p>DRAM ImmutableDRAM Immutable (FULL)</p>
+    <p>DRAM Memtable (FULL)</p>
+  </div>
+  <div class="page">
+    <p>+</p>
+    <p>+</p>
+    <p>+</p>
+    <p>Head Tail</p>
+    <p>+100</p>
+    <p>+</p>
+    <p>Problem: Writing to log before memtable has high overhead</p>
+    <p>Idea: Avoid logging for NVM memtable with in-place commits</p>
+    <p>NVM MemtableDRAM Memtable (FULL)</p>
+    <p>Put(100, val)</p>
+    <p>begin_trans()</p>
+    <p>skiplist.insert(100, val)</p>
+    <p>end_trans()</p>
+    <p>DRAM Memtable</p>
+    <p>Application</p>
+    <p>Head Tail</p>
+    <p>Storage Log</p>
+    <p>DRAM ImmutableDRAM Immutable (FULL)</p>
+  </div>
+  <div class="page">
+    <p>+</p>
+    <p>+</p>
+    <p>+</p>
+    <p>Head Tail</p>
+    <p>+100</p>
+    <p>+</p>
+    <p>Problem: Writing to log before memtable has high overhead</p>
+    <p>Idea: Avoid logging for NVM memtable with in-place commits</p>
+    <p>NVM MemtableDRAM Memtable (FULL)</p>
+    <p>Put(100, val)</p>
+    <p>begin_trans()</p>
+    <p>skiplist.insert(100, val)</p>
+    <p>end_trans()</p>
+    <p>DRAM Memtable</p>
+    <p>Application</p>
+    <p>Head Tail</p>
+    <p>Storage Log</p>
+    <p>DRAM ImmutableDRAM Immutable (FULL)</p>
+    <p>Crash</p>
+    <p>NVM memtable recovery  remap map file and find root pointer</p>
+  </div>
+  <div class="page">
+    <p>Level 0</p>
+    <p>Level 1</p>
+    <p>DRAM Memtable NVM Memtable</p>
+    <p>DRAM Immutable</p>
+    <p>Read (100)</p>
+    <p>NVM Immutable</p>
+    <p>DRAM memtable read thread</p>
+    <p>Level k .</p>
+    <p>SSTable read thread</p>
+    <p>NVM memtable read thread</p>
+    <p>Thread management overhead can be expensive - Bloom filters to launch threading only if DRAM memtable is a miss</p>
+    <p>Solution: Parallelize search using dedicated threads</p>
+    <p>Application</p>
+  </div>
+  <div class="page">
+    <p>Introduction</p>
+    <p>Background on LevelDB</p>
+    <p>Motivation - High serialization, compaction, and logging cost - Lack of parallelism</p>
+    <p>NoveLSM Design - Persistent memtable, NVM mutability, In-place commits - Read parallelism</p>
+    <p>Evaluation</p>
+    <p>Conclusion</p>
+    <p>Outline</p>
+  </div>
+  <div class="page">
+    <p>Evaluation</p>
+    <p>- Dbbench  Widely used LSM benchmark - YCSB cloud benchmark (see paper)</p>
+    <p>Benchmarks and application traces</p>
+    <p>Evaluation Goals - Immutable memtable reduce (de)serialization cost? - Mutable membtable reduce compaction cost? - When read parallelism is effective? - Reducing logging improves restart performance?</p>
+    <p>Evaluation Methodology - 16 GB database size and vary values sizes - SSTables always placed in NVM for all approaches</p>
+  </div>
+  <div class="page">
+    <p>LevelDB-NVM  Vanilla LevelDB using NVM for SSTables</p>
+    <p>NoveLSM [immut-small]  2GB NVM memtable</p>
+    <p>NoveLSM [immut-large]  4GB NVM memtable</p>
+    <p>Immutable Memtable: Serialization Impact</p>
+    <p>NVM Immutable Memtable</p>
+    <p>Application</p>
+    <p>DRAM Memtable</p>
+    <p>DRAM Immutable</p>
+    <p>Level 0</p>
+    <p>Level 1</p>
+  </div>
+  <div class="page">
+    <p>Immutable memtable provides marginal gains for writes - Compaction cost limits benefits Reduces read deserialization reducing latency by 2x</p>
+    <p>La te</p>
+    <p>nc y</p>
+    <p>( m</p>
+    <p>ic ro</p>
+    <p>s/ o p)</p>
+    <p>Write</p>
+    <p>LevelDB-NVM NoveLSM [immut-small] NoveLSM [immut-large]</p>
+    <p>Serialization Impact: Immutable Memtable</p>
+  </div>
+  <div class="page">
+    <p>RocksDB  Facebooks implementation, optimized for SSD</p>
+    <p>- Provides parallel compaction - SSTable uses plain table (cuckoo hashmap) for random access</p>
+    <p>NoveLSM [mutable]  Direct mutable 4 GB NVM memtable</p>
+    <p>NoveLSM [mutable +para]  Mutable NVM + read parallelism</p>
+    <p>NoveLSM [mutable+para +NoSST]  All mutable memtable without SST</p>
+    <p>Reducing Compaction: Mutable Memtable</p>
+  </div>
+  <div class="page">
+    <p>La te</p>
+    <p>nc y</p>
+    <p>( m</p>
+    <p>ic ro</p>
+    <p>s/ o p)</p>
+    <p>LevelDB-NVM</p>
+    <p>RocksDB-NVM</p>
+    <p>NoveLSM [mutable]</p>
+    <p>NoveLSM [mutable +para +NoSST]</p>
+    <p>Mutable NVM memtable provides up to 3.8x gains over LevelDB</p>
+    <p>RocksDB parallel compaction and plain table storage effective</p>
+    <p>NoveLSM [mutable+para +NoSST]  upto 50% gain even over RocksDB</p>
+    <p>Reducing Compaction: Mutable Memtable</p>
+  </div>
+  <div class="page">
+    <p>La te</p>
+    <p>nc y</p>
+    <p>(m ic</p>
+    <p>ro s/</p>
+    <p>o p)</p>
+    <p>Value size</p>
+    <p>LevelDB-NVM RocksDB-NVM NoveLSM [mutable] NoveLSM [mutable + para]</p>
+    <p>Read Parallelism Impact</p>
+    <p>Mutable NVM memtable improves read performance even over RocksDB</p>
+    <p>Read parallelism (mutable+para) provides gains for larger value sizes - NoveLSM provides 73% gains even over RocksDB</p>
+  </div>
+  <div class="page">
+    <p>For LevelDB and RocksDB, we increase DRAM memtable size</p>
+    <p>For NoveLSM, we increase persistent NVM memtable size</p>
+    <p>R es</p>
+    <p>ta rt</p>
+    <p>t im</p>
+    <p>e (s</p>
+    <p>ec o nd</p>
+    <p>s)</p>
+    <p>Memtable size (MB)</p>
+    <p>LevelDB-NVM</p>
+    <p>RocksDB-NVM</p>
+    <p>NoveLSM [mutable +para]</p>
+    <p>NoveLSM reduces log recovery cost by more than 99%</p>
+    <p>Rec ove</p>
+    <p>ry c ost</p>
+    <p>incr ease</p>
+    <p>s w ith l</p>
+    <p>og s ize</p>
+    <p>Restart Performance</p>
+  </div>
+  <div class="page">
+    <p>Introduction</p>
+    <p>Background on LevelDB</p>
+    <p>Motivation - High serialization, compaction, and logging cost - Lack of parallelism</p>
+    <p>NoveLSM Design - Persistent memtable, NVM mutability, In-place commits - Read parallelism</p>
+    <p>Evaluation</p>
+    <p>Conclusion</p>
+    <p>Outline</p>
+  </div>
+  <div class="page">
+    <p>Summary Motivation - Simply adding NVMs to existing LSMs for storage not sufficient - Eliminating S/W overhead (e.g., serialization, compaction) is critical</p>
+    <p>Solution</p>
+    <p>- NoveLSM - byte-addressable and persistent data structures - Reduce serialization, compaction, and logging cost - Improve read parallelism</p>
+    <p>Evaluation</p>
+    <p>- NoveLSM reduces write latency by up to 3.8x and read latency by 2x - Makes restarts significantly fast</p>
+  </div>
+  <div class="page">
+    <p>Conclusion We are moving towards a storage era with microsecond latency</p>
+    <p>Eliminating software overhead is critical - We take first step towards redesigning existing LSMs for NVM</p>
+    <p>Future work - Rethink LSMs from scratch for NVM hardware-level performance</p>
+    <p>Random Write Random Read</p>
+    <p>Sp ee</p>
+    <p>du p</p>
+    <p>ov er</p>
+    <p>S SD</p>
+    <p>NVM hardware LevelDB NoveLSM NoveLSM - NoSST</p>
+    <p>More opportunities!</p>
+  </div>
+  <div class="page">
+    <p>Questions?</p>
+    <p>Thanks!</p>
+  </div>
+</Presentation>

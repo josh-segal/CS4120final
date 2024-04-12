@@ -1,0 +1,844 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<TEI xmlns="http://www.tei-c.org/ns/1.0" 
+xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+xsi:schemaLocation="http://www.tei-c.org/ns/1.0 /Users/atharsefid/Desktop/grobid-0.5.3/grobid-home/schemas/xsd/Grobid.xsd"
+ xmlns:xlink="http://www.w3.org/1999/xlink">
+	<teiHeader xml:lang="en">
+		<encodingDesc>
+			<appInfo>
+				<application version="0.5.3" ident="GROBID" when="2019-03-26T17:00+0000">
+					<ref target="https://github.com/kermitt2/grobid">GROBID - A machine learning software for extracting information from scholarly documents</ref>
+				</application>
+			</appInfo>
+		</encodingDesc>
+		<fileDesc>
+			<titleStmt>
+				<title level="a" type="main">Understanding Disconnection and Stabilization of Chord</title>
+			</titleStmt>
+			<publicationStmt>
+				<publisher/>
+				<availability status="unknown"><licence/></availability>
+			</publicationStmt>
+			<sourceDesc>
+				<biblStruct>
+					<analytic>
+						<author>
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Zhongmei</forename><surname>Yao</surname></persName>
+							<affiliation key="aff0">
+								<orgName type="department">Department of Computer Science</orgName>
+								<orgName type="institution">Texas A&amp;M University</orgName>
+								<address>
+									<postCode>77843</postCode>
+									<settlement>College Station</settlement>
+									<region>TX</region>
+									<country key="US">USA</country>
+								</address>
+							</affiliation>
+						</author>
+						<author role="corresp">
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Dmitri</forename><surname>Loguinov</surname></persName>
+							<email>dmitri@cs.tamu.edu</email>
+							<affiliation key="aff0">
+								<orgName type="department">Department of Computer Science</orgName>
+								<orgName type="institution">Texas A&amp;M University</orgName>
+								<address>
+									<postCode>77843</postCode>
+									<settlement>College Station</settlement>
+									<region>TX</region>
+									<country key="US">USA</country>
+								</address>
+							</affiliation>
+						</author>
+						<title level="a" type="main">Understanding Disconnection and Stabilization of Chord</title>
+					</analytic>
+					<monogr>
+						<imprint>
+							<date/>
+						</imprint>
+					</monogr>
+				</biblStruct>
+			</sourceDesc>
+		</fileDesc>
+		<profileDesc>
+			<abstract>
+				<p>Previous analytical work [15], [16] on the resilience of P2P networks has been restricted to disconnection arising from simultaneous failure of all neighbors in routing tables of participating users. In this paper, we focus on a different technique for maintaining consistent graphs-Chord&apos;s successor sets and periodic stabilizations-under both static and dynamic node failure. We derive closed-form models for the probability that Chord remains connected under both types of node failure and show the effect of using different stabilization interval lengths (i.e., exponential, uniform, and constant) on the probability of partitioning in Chord.</p>
+			</abstract>
+		</profileDesc>
+	</teiHeader>
+	<text xml:lang="en">
+		<body>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>I. INTRODUCTION</head><p>Peer-to-peer (P2P) networks have received tremendous interest in recent years among both Internet users and computer networking professionals. One of fundamental problems in the study of these systems is the ability of the network to stay connected under node failure <ref type="bibr" target="#b0">[1]</ref>, <ref type="bibr" target="#b2">[3]</ref>, <ref type="bibr" target="#b6">[7]</ref>, <ref type="bibr" target="#b9">[9]</ref>, <ref type="bibr" target="#b10">[10]</ref>, <ref type="bibr" target="#b14">[14]</ref>, <ref type="bibr" target="#b15">[15]</ref>, <ref type="bibr" target="#b19">[19]</ref>, <ref type="bibr" target="#b21">[21]</ref>, <ref type="bibr" target="#b23">[23]</ref>, <ref type="bibr" target="#b26">[25]</ref>. While previous analytical work <ref type="bibr" target="#b15">[15]</ref>, <ref type="bibr" target="#b16">[16]</ref> on disconnection of P2P networks has focused on neighbor tables and partitioning arising from failure of entire routing tables, structured P2P networks usually maintain auxiliary sets called successor lists <ref type="bibr" target="#b24">[24]</ref>, <ref type="bibr" target="#b26">[25]</ref>, whose sole purpose is to recover the system from inconsistent states and provide resilience <ref type="bibr" target="#b26">[25]</ref>. In this paper, we focus on partitioning of one particular Distributed Hash Table (DHT) called Chord <ref type="bibr" target="#b26">[25]</ref> and note that similar results can be obtained for other types of successor/leaf sets.</p><p>Recall that each node v in Chord maintains a list consisting of its r = Θ(log n) successors and a routing table containing k = Θ(log n) neighbor pointers, where n is the system size. Note that routing tables are used to reduce lookup latency, while successors ensure resilience during churn. Even if all routing tables are in the failed state, Chord is still able to function by forwarding queries, repairing failures, and finding new neighbors via successor lists. When all r successors of any node fail simultaneously, the system becomes partitioned and is potentially unable to recover without a bootstrap. <ref type="bibr" target="#b0">1</ref> We generally call the event of a user losing all of its successors node isolation and note that it determines the likelihood of * Supported by NSF grants CCR-0306246, ANI-0312461, CNS-0434940, CNS-0519442, and CNS-0720571. <ref type="bibr" target="#b0">1</ref> Although neighbors in some routing tables may still be alive, there is no guarantee that the system can return to a consistent state after partitioning.</p><p>graph partitioning:</p><formula xml:id="formula_0">P (graph disconnects) = P (X &gt; 0),<label>(1)</label></formula><p>where X is the number of users that are isolated in the system. Due to the strong dependency among successor lists of consecutive users along the circle and entirely different stabilization strategies studied in this paper, previous neighbor churn models <ref type="bibr" target="#b15">[15]</ref> cannot be applied to obtain the probability in (1). We perform this task below for both static and dynamic node failure.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>A. Static Failure</head><p>Many prior studies have been interested in the resilience of structured P2P networks against static node failure <ref type="bibr" target="#b9">[9]</ref>, <ref type="bibr" target="#b10">[10]</ref>, <ref type="bibr" target="#b26">[25]</ref>, i.e., when each node independently fails with a certain probability p. We apply the Er¨dosEr¨ Er¨dos-Rényi theorem to show that under p-fraction node failure, the probability that Chord with size n → ∞ remains connected is asymptotically: </p><p>where r = Θ(log n) is the number of immediate successors a user monitors. It is rather surprising to find from (2) that although the dependency among successor lists of consecutive users is very strong, Chord enjoys the same level of static resilience as networks where connectivity is determined using routing tables consisting of largely independent neighbors <ref type="bibr" target="#b16">[16]</ref>. Setting r = c log 2 n, where c &gt; 0 is a constant, <ref type="bibr" target="#b1">(2)</ref> shows that as n → ∞ the probability that Chord remains connected approaches 1 if p &lt; 2 −1/c and 0 if p &gt; 2 −1/c .</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>B. Dynamic Failure</head><p>As observed in deployed structured P2P file-sharing systems <ref type="bibr" target="#b22">[22]</ref>, <ref type="bibr" target="#b27">[26]</ref>, users join and fail at a high rate of churn. The second part of this paper focuses on the connectivity of Chord under dynamic node failure. We assume that each joining user v obtains r clockwise closest peers as its successor list and then stays in the system for L time units, where L is drawn from some user lifetime distribution F (x). User v then stabilizes its successor list every S time units, where S can be random or constant, and brings the number of successors back to r after each stabilization. For a particular stabilization to be successful, at least one user among r successors must stay alive for the entire interval S.</p><p>Assuming exponential user lifetimes L and exponential intervals S, we show that probability φ that node v is isolated due to simultaneous failure of its r successors within v's lifetime is upper bounded by:</p><formula xml:id="formula_2">φ ≤ ρρ!r! (ρ + r)! ,<label>(3)</label></formula><p>where</p><formula xml:id="formula_3">ρ = E[L]/E[S]</formula><p>. Furthermore, we prove that as ρ → ∞, the above upper bound becomes exact. We then examine how individual node isolation affect partitioning of the system as nodes continuously join and leave. Using the Chen-Stein method <ref type="bibr" target="#b1">[2]</ref>, we establish that when r → ∞ the probability that Chord stays connected after experiencing N user joins is asymptotically:</p><formula xml:id="formula_4">lim N →∞ P (X = 0) (1 − φ) N = 1,<label>(4)</label></formula><p>where φ is the node isolation probability given in (3). This result shows that isolations of individual users in Chord can be treated as independent when system size and successor lists become large. While a similar phenomenon has been observed in <ref type="bibr" target="#b16">[16]</ref> without proof for independent neighbor behavior in routing tables, our result in (4) is again for dependent node isolations and is formally proven. As (4) indicates that the task of studying global connectivity can be reduced to that of local connectivity, we next focus on isolation probability φ under different stabilization strategies. We derive closed-form models of φ for uniform and constant S, both of which have been suggested for use in Chord <ref type="bibr" target="#b26">[25]</ref>. Our results show that both stabilization strategies are much better than the exponential S suggested in <ref type="bibr" target="#b13">[13]</ref>, often reducing φ by several orders of magnitude. We further show that constant stabilization delays S are optimal and keep Chord's isolation probability as E[S] → 0 approximately equal to:</p><formula xml:id="formula_5">φ ≈ ρρ! (ρ + r)! ,<label>(5)</label></formula><p>where</p><formula xml:id="formula_6">ρ = E[L]/E[S].</formula><p>The amount of improvement over the exponential version (3) of this metric is by a factor of r!, which is significant in most cases. We finish the paper by studying non-exponential lifetimes observed in real P2P graphs <ref type="bibr" target="#b29">[28]</ref>. Even though models of φ for heavy-tailed user lifetimes are currently intractable, we show that φ in such systems is upper bounded by the exponential metric (3). We confirm this effect and demonstrate the distance to the upper bound in simulations.</p><p>The rest of the paper is organized as follows. Section (II) provides the basics of Chord and related work on static and dynamic node failure. In Section III, we derive closed-form results on static resilience of Chord. In Section IV, we formalize the successor list model and derive node isolation probability and graph disconnection probability in Chord under dynamic node failure. Section V deals with node isolation probability under different stabilization strategies and finds the optimal method to keep Chord connected with highest probability. In Section VI we show simulation results on isolation probability for heavy-tailed user lifetimes. Section VII concludes this paper.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>II. BACKGROUND</head></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>A. Chord Basics</head><p>Chord <ref type="bibr" target="#b26">[25]</ref> maps each node and key using a uniform hashing function into the identifier (ID) space {0, 1, . . . , 2 m −1}, where m is some sufficiently large number that can accommodate all nodes without conflict. Each key is assigned to the successor node, i.e., the first peer whose identifier is larger than the key in the clockwise direction along the ring. As illustrated in <ref type="figure" target="#fig_1">Fig. 1</ref>, each user v in Chord builds a successor list and a finger table. Assuming n users in the system, the former set contains r = Θ(log n) peers immediately following user v along the ring and the latter set consists of k = Θ(log n) neighbor pointers where the i-th neighbor is the owner of the key id(v) + 2 i .</p><p>Finger tables are used during key lookup where the originating node performs jumps of exponentially decreasing length until it finds the node responsible for the key or encounters an inconsistent state (e.g., stale pointer, dead successor) at one of the intermediate nodes. Inconsistent states in finger tables and successor lists are periodically repaired using a stabilization technique, which allows Chord to fix links broken during user departure, detect new peer arrival, and ensure lookup success during churn. When any node v leaves the system, its predecessor u notices v's departure during its periodic stabilization. Peer u then replaces v with the next alive user along the circle and adjusts its successor list accordingly. This process tolerates multiple nodes failing simultaneously and only requires that no successor list sustain a failure of all r nodes within a given stabilization interval. Similarly, node v learns of new arrivals during its stabilization process and properly adjusts its successor list to include the new peers.</p><p>Successor lists are generally used in routing only during the last step of a lookup or when all finger pointers corresponding to desired jump lengths have failed. As long as each node has at least one alive peer in its successor list, the system is able to correct (after some delay) all stale finger pointers and re-populate each successor list with r correct entries, thus ensuring consistency and efficiency of subsequent lookups. However, when the entire successor list of any user v fails, that user is considered isolated and Chord becomes partitioned <ref type="bibr" target="#b26">[25]</ref>. Recovery from such disconnection is not guaranteed in the general case.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>B. Resilience under Node Failure</head><p>Performance of DHTs under p-fraction node failure <ref type="bibr" target="#b9">[9]</ref>, <ref type="bibr" target="#b10">[10]</ref>, <ref type="bibr" target="#b26">[25]</ref> and churn <ref type="bibr" target="#b5">[6]</ref>, <ref type="bibr" target="#b13">[13]</ref>, <ref type="bibr" target="#b17">[17]</ref>, <ref type="bibr" target="#b18">[18]</ref>, <ref type="bibr" target="#b19">[19]</ref>, <ref type="bibr" target="#b20">[20]</ref>, <ref type="bibr" target="#b23">[23]</ref> have received significant attention since the advent of structured P2P networks. While the problem of connectivity under failure for general graphs remains NP-complete <ref type="bibr" target="#b7">[8]</ref>, <ref type="bibr" target="#b11">[11]</ref>, <ref type="bibr" target="#b28">[27]</ref>, recent work <ref type="bibr" target="#b16">[16]</ref> shows that several types of deterministic and random networks remain connected if and only if they do not develop isolated nodes after the failure. Despite its importance, the methodology in <ref type="bibr" target="#b16">[16]</ref> only considers the resilience of neighbor tables rather than that of successors and does not model stabilization. The issues studied in this paper are analytically different due to the much stronger dependency between successor lists of neighboring nodes than between their finger tables and the fact that stabilization requires an entirely different model than the one in <ref type="bibr" target="#b16">[16]</ref>.</p><p>Another modeling work by Krishnamurthy et al.</p><p>[13] studies the probability of finding a neighbor or successor in one of its three states (alive, failed or incorrect) and uses this model to predict lookup consistency and latency for exponential user lifetimes and exponential stabilization intervals.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>III. STATIC NODE FAILURE</head><p>In this section, we tackle resilience of Chord under static node failure, which means that the system sustains a one-time simultaneous failure event where each user becomes dead with an independent probability p. This analysis introduces a new model of handling dependent random events in Chord and can be applied to systems of non-human entities (e.g., file systems) where failures can in fact be synchronized. The next section covers the more typical case of user churn observed in humanbased P2P systems.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>A. Basic Asymptotic Model</head><p>Suppose that Chord is in a consistent state such that each node correctly links to its r closest successors. Under static node failure, p fraction of nodes in the system fail simultaneously, where 0 ≤ p ≤ 1 is a given number <ref type="bibr" target="#b9">[9]</ref>, <ref type="bibr" target="#b10">[10]</ref>, <ref type="bibr" target="#b16">[16]</ref>, <ref type="bibr" target="#b26">[25]</ref>. Define a Bernoulli random variable X i indicating whether node i is isolated due to the fact that its r successors all fail while i survives:</p><formula xml:id="formula_7">X i =</formula><p>1 user i is alive and its r successors failed 0 otherwise .</p><p>Note that unlike <ref type="bibr" target="#b16">[16]</ref>, our definition does not involve finger tables since we are only interested in disconnection/isolation arising from disrupted successor lists. Then, the number of isolated nodes X in the system is the sum of a large number of dependent random variables X i :</p><formula xml:id="formula_9">X = n i=1 X i ,<label>(7)</label></formula><p>where n is the number of nodes in Chord. It is then clear from (1) that the probability that Chord remains connected (i.e., is not partitioned) is equal to P (X = 0). The next theorem provides an asymptotic closed-form expression of P (X = 0); however, we should note that this result is very different from similar analysis in <ref type="bibr" target="#b16">[16]</ref> for two reasons: 1) the model in <ref type="bibr" target="#b16">[16]</ref> only considers variables X i with diminishing dependency as r → ∞, which is not the case here; 2) the final result on the behavior of X is given in <ref type="bibr" target="#b16">[16]</ref> without a formal proof due to a much wider variety of neighbor sets covered by <ref type="bibr" target="#b16">[16]</ref>.</p><formula xml:id="formula_10">Theorem 1:</formula><p>The probability that each user in Chord remains connected to at least one successor under p-fraction node failure is asymptotically:</p><formula xml:id="formula_11">lim n→∞ P (X = 0) e −n(1−p)p r = 1,<label>(8)</label></formula><p>where r is the number of successors at each node.</p><p>Proof: Denote by a Bernoulli random variable Y i the event that node i has failed. Then, we have:</p><formula xml:id="formula_12">p = P (Y i = 1) = 1 − P (Y i = 0).<label>(9)</label></formula><p>Define L n to be the length of the longest consecutive run of 1s in sequence {Y 1 , . . . , Y n }:</p><formula xml:id="formula_13">L n = max 1≤i≤n−k+1 {k : Y i = Y i+1 = · · · = Y i+k−1 = 1}.<label>(10)</label></formula><p>Now notice that computing P (X = 0) can be reduced to finding the distribution of L n and ensuring that no run longer than r − 1 peers exists:</p><formula xml:id="formula_14">P (X = 0) = P (L n &lt; r).<label>(11)</label></formula><p>Given that r = Θ(log n) so that r → ∞ as n → ∞, the distribution of L n converges to the following based on the Erdös and Rényi law <ref type="bibr" target="#b3">[4]</ref>:</p><formula xml:id="formula_15">P (L n &lt; r) e −n(1−p)p r → 1,<label>(12)</label></formula><p>as n → ∞, which immediately leads to (8).</p><p>The asymptotic result in (8) allows us to utilize a very accurate approximation:</p><formula xml:id="formula_16">P (Chord is connected) = P (X = 0) ≈ e −n(1−p)p r , (13)</formula><p>which we verify next in finite-size graphs. Simulation results of P (X = 0) in Chord under static node failure are presented in <ref type="table" target="#tab_0">Table I</ref>. In simulations, each node selects its node ID according to a uniform hashing function and connects to its r successors. After p fraction of users are uniformly randomly chosen and removed, the graph is checked to see how many users X are isolated. Notice from the first three columns in <ref type="table" target="#tab_0">Table I</ref> that simulation results with r = 2 log 2 n and p = 2 −1/2 = 0.993 show that as n increases from 1, 000 to 10, 000, the discrepancy between model (13) and simulation results reduces fast. The rest of the table shows additional examples of model's accuracy for several choices of p and r.  <ref type="formula" target="#formula_0">(13)</ref> IN CHORD p = .933, r = 2 log 2 n n = 50, 000, r = 2 log 2 n n = 50, 000, r = 10 log 2 n n = 50, 000, r = √ n n Simulations <ref type="formula">(</ref> </p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>B. Discussion</head><p>We next relate our results in Theorem 1 to those in [16, <ref type="bibr">Proposition 3]</ref>. Recall that <ref type="bibr" target="#b16">[16]</ref> defines isolation as an event of a user losing all of its neighbors in <ref type="figure" target="#fig_1">Fig. 1(b)</ref>. Their results show that all users have at least one alive neighbor with probability:</p><formula xml:id="formula_17">P (X = 0) ≈ e −n(1−p)p k ,<label>(14)</label></formula><p>where n is the system size, p is the independent node failure probability, and k is the number of neighbors in each node's table. Note that we have obtained an almost identical result (13) for successor lists in Chord, which is rather surprising since the dependency among isolation of nodes in Chord is much more significant than assumed in <ref type="bibr" target="#b16">[16]</ref> (e.g., node i and node i + 1 in Chord share r − 1 common successors).</p><p>In fact, observe that the probability that node i is isolated due to the failures of its r successors is simply:</p><formula xml:id="formula_18">φ = P (X i = 1) = (1 − p)p r , 1 ≤ i ≤ n<label>(15)</label></formula><p>where X i is the Bernoulli variable defined in (6). Note that given that r → ∞ as n → ∞, it is readily seen from (15) that φ → 0 as n → ∞. Using (15), the approximation in (13) can be transformed into:</p><formula xml:id="formula_19">P (X = 0) ≈ e −nφ ≈ (1 − φ) n ,<label>(16)</label></formula><p>where Taylor expansion e −x = 1 − x holds for small enough x as n → ∞. Thus, (16) indicates that</p><formula xml:id="formula_20">P (X = 0) = P n i=1 [X i = 0] ≈ n i=1 P (X i = 0)<label>(17)</label></formula><p>as n → ∞, which shows that variables X i in Chord behave as if they are completely independent. Note that when r → ∞ as n → ∞, node isolations become rare events. Then (17) can be explained by the Chen-Stein theorem <ref type="bibr" target="#b1">[2]</ref>, which proves that the number of occurrences of dependent rare events X i is approximately a Poisson random variable under certain conditions (this method will be explicitly used in the next section when we discuss these conditions). Therefore, as n → ∞, Chord asymptotically exhibits the same static resilience using its successor lists composed of largely dependent users as other P2P networks using mostly independent peers in their neighbor sets <ref type="bibr" target="#b16">[16]</ref>. However, the rate of convergence of P (X = 0) in (13) and <ref type="formula" target="#formula_0">(14)</ref> is different.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>IV. DYNAMIC NODE FAILURE: GENERAL RESULTS</head><p>Recent measurements of P2P networks <ref type="bibr" target="#b4">[5]</ref>, <ref type="bibr" target="#b22">[22]</ref>, <ref type="bibr" target="#b27">[26]</ref> show that peers continuously join and depart the system, which is often called churn. Thus, unlike static node failures which happen simultaneously, node failures in human-based P2P networks often occur dynamically as the system evolves over time. In this section, we first introduce the successor list model under churn, examine probability φ that all successors of node v's fail within its lifetime, and then derive the probability that Chord remains connected when stabilization intervals are exponentially distributed. We leave derivations for nonexponential intervals for the next section.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>A. Successor List Model</head><p>When each user v joins the system, it acquires a successor list with r nearest nodes and then maintains it through periodic stabilizations (i.e., checks for consistency and dead users). We assume that v does not attempt to track failure of individual users as soon as they occur, but rather performs stabilization every S time units on the entire successor list (i.e., as done in Chord). At each stabilization interval, v corrects its successor list by skipping over failed nodes and appropriately adding to the list new arrivals (if any) <ref type="bibr" target="#b19">[19]</ref>, which always brings the number of successors at the end of stabilization back to r as long as the system has not been disconnected at some earlier time. For stabilization to be successful, at least one user among r successors must survive the entire stabilization interval. The interval S between two successive stabilizations reflects the duration needed to complete network-related activity to detect failure, exchange neighbor information, and any stabilization rate-limiting applied by the nodes. <ref type="figure">Fig. 2</ref> illustrates the evolution of user v's successor list in our simple model. As shown in this figure, the number of successors is r in the beginning of each stabilization interval of size S. This number then monotonically decreases over time until the next interval starts. If all r successors fail within any interval S before v departs, v is isolated and Chord is disconnected.</p><p>In general, as users continuously join and leave the system, the evolution of a node's successor list is rather complicated. It involves not only newly arriving users that replace existing successors, but remaining lifetimes of existing successors at time S S S r successors of user v <ref type="figure">Fig. 2</ref>. Evolution of a node's successor list over time.</p><p>the start of each stabilization interval. For exponential user lifetimes, however, user disconnection under this successorlist model becomes tractable as we show next. Before we proceed with derivations, we introduce the rules for running simulations that verify our theoretical results. In simulations, user arrivals occur according to a Poisson process derived in <ref type="bibr" target="#b30">[29]</ref> for the heterogenous churn model proposed therein. The rate of this arrival process is given by</p><formula xml:id="formula_21">E[N ]/E[L],</formula><p>where E[N ] is the mean system size in equilibrium and E <ref type="bibr">[L]</ref> is the mean user lifetime. When a new user joins the system, it is assigned a uniformly random ID in the set {0, 1, . . . , 2 32 −1} and given r immediate successors. Each user then monitors its r successors, stabilizes them every S-interval, and departs from the system after L time units, where L is drawn from some user lifetime distribution F (x).</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>B. Node Isolation</head><p>Denote by Z(t) the number of successors of node v at time t, where t = 0 is the time when v joins the system. Note that Z(0) = r and Z(t) ≤ r at any age t. In the following, we show that {Z(t)} is a Markov chain for exponential user lifetimes and exponential stabilization intervals, which is followed by the derivation of the exact model of node isolation probability φ. This exact model is necessary for verifying the accuracy of our later closed-form bounds on φ.</p><p>Observe from <ref type="figure">Fig. 2</ref> that state transitions of process {Z(t)} are triggered by either failure of existing successors or stabilizations that occur at rate of θ = 1/E <ref type="bibr">[S]</ref>. Due to the memoryless property of exponential lifetime distributions, the failure rate of each existing successor (no matter old or new) is</p><formula xml:id="formula_22">µ = 1/E[L]</formula><p>, which is the key reason that makes the successor list tractable for exponential L. This leads to the following lemma.</p><p>Lemma 1: For exponential lifetimes L ∼ exp(µ) and exponential stabilization intervals S ∼ exp(θ), the process {Z(t)} is a continuous-time Markov chain with the state space {0, 1, . . . , r} and transition rate matrix Q = (Q jj ): The state diagram and transition rates of process {Z(t)} are illustrated in <ref type="figure">Fig. 3</ref>, where each state models the number of alive successors and absorbing state 0 corresponds to user isolation. We usually write matrix Q in (18) in the canonical form:</p><formula xml:id="formula_23">Q jj =                θ j = r, j = r jµ 1 ≤ j ≤ r, j = j − 1 −θ − jµ j = j &lt; r −jµ j = j = r 0 otherwise ,<label>(18)</label></formula><formula xml:id="formula_24">0 1 2 r r-1 … rµ 2µ µ θ θ θ</formula><formula xml:id="formula_25">Q = 0 0 r Q 0 ,<label>(19)</label></formula><p>where r = (q j0 ) T for j = 0 is a column vector representing the transition rates to the absorbing state 0 and Q 0 is the rate matrix obtained by removing the rows and columns corresponding to state 0 from Q. Define the first-hitting time T onto state 0 as:</p><formula xml:id="formula_26">T = inf(t &gt; 0 : Z(t) = 0|Z(0) = r}.<label>(20)</label></formula><p>Then, the isolation probability φ = P (T &lt; L) can be reduced to <ref type="bibr">[29, Theorem 11]</ref>:</p><formula xml:id="formula_27">φ = π(0)V BV −1 r,<label>(21)</label></formula><p>where π(0) = (0, . . . , 1) 1×r is the initial state distribution, V is a matrix of eigenvectors of Q 0 , B = diag(b j ) is a diagonal matrix with:</p><formula xml:id="formula_28">b j = 1/(µ − ξ j ),<label>(22)</label></formula><formula xml:id="formula_29">µ = 1/E[L]</formula><p>, ξ j ≤ 0 is the j-th eigenvalue of Q 0 , and Q 0 and r are in <ref type="bibr" target="#b19">(19)</ref>.</p><p>Simulation results of isolation probability φ are shown in <ref type="figure">Fig. 4</ref>. Notice from this figure that model (21) is very accurate compared to simulations. Also observe that as ρ or r increase, node isolation probability sharply decreases. While (21) allows easy numerical computation, it provides little qualitative information about how φ behaves as a function of ρ and r. It is further difficult to compare the various stabilization strategies (studied later in the paper) if an explicit model of φ is not derived. We perform this task next.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>C. Closed-Form Bounds on φ</head><p>Note from <ref type="figure">Fig. 2</ref> that the sequence of stabilization intervals forms a renewal process with cycle length S. It then follows that isolation probability φ is equal to the probability that r successors simultaneously fail in any interval S before user v's lifetime expires. Note that the probability that all r successors fail in a particular interval S is given by:</p><formula xml:id="formula_30">f = P (max{L 1 , . . . , L r } &lt; S),<label>(23)</label></formula><p>where L i ∼ exp(µ) is the remaining lifetime of the i-th successor at the beginning of a particular interval. Then, from Jensen's inequality <ref type="bibr">[12, page 118]</ref>, it is not hard to obtain the following closed-form upper bound on φ and prove that it becomes exact as the ratio</p><formula xml:id="formula_31">E[L]/E[S] → ∞.</formula><p>Theorem 2: For L ∼ exp(µ) and S ∼ exp(θ), isolation probability φ is upper-bounded by:</p><formula xml:id="formula_32">φ &lt; ρf,<label>(24)</label></formula><p>where</p><formula xml:id="formula_33">f = ρ!r!/(ρ + r)! and ρ = E[L]/E[S] = θ/µ.</formula><p>Moreover, the bound becomes tight as stabilization intervals become negligible compared to user lifetimes:</p><formula xml:id="formula_34">lim ρ→∞ φ ρf = 1.<label>(25)</label></formula><p>The result in (25) indicates that for ρ → ∞, probability φ for any user v to become isolated within its lifetime L can be approximated as the summation of probabilities that v is isolated in each individual interval. Indeed, an average user has approximately ρ = E[L]/E[S] intervals in its lifetime and it gets isolated in any interval with probability f . Thus, since φ is asymptotically equal to ρf , isolation events in different intervals behave as if they were independent. and r exhibit similar results and are omitted for brevity. We finish this section by examining how individual node isolations affect the connectivity of Chord as users continuously join and depart the system.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>D. Graph Disconnection</head><p>Notice that Bernoulli variable X i in (6) can be used to indicate whether user i is isolated due to the failure of its successor list under churn as well. Then node isolation probability can be expressed as:</p><formula xml:id="formula_35">φ = P (X i = 1) = 1 − P (X i = 0),<label>(26)</label></formula><p>where φ is given by <ref type="formula" target="#formula_0">(21)</ref> or approximated by the upper bound in <ref type="bibr" target="#b24">(24)</ref>. If user i is isolated during its lifetime, we consider the system disconnected during that user's presence in the system; otherwise, the network is said to survive the join of peer i. Supposing that N users have joined the system, we have that:</p><formula xml:id="formula_36">X N = N i=1 X i ,<label>(27)</label></formula><p>is the number of isolations among N join events. In the following, we use the Chen-Stein method <ref type="bibr" target="#b1">[2]</ref> to study the probability that Chord survives N user joins without disconnection, i.e., P (X N = 0). Note that again this result is stronger than that in <ref type="bibr" target="#b16">[16]</ref> since it applies to successor lists that exhibit much higher dependency during failure than neighbor lists studied in prior work and relies on more rigorous derivations. Theorem 3: Given that N φr → 0 as N → ∞, the probability that Chord survives N user joins without disconnection approaches:</p><formula xml:id="formula_37">lim N →∞ P (X N = 0) (1 − φ) N = 1,<label>(28)</label></formula><p>where X N is defined in <ref type="bibr" target="#b28">(27)</ref> and φ is given in (21).</p><p>Proof: The basic idea of the Chen-Stein method is that the distance between the distribution of X N , i.e., a sum of N dependent Bernoulli variables, and that of a Poisson random variable of the same mean can be upper-bounded by <ref type="bibr" target="#b1">[2]</ref>:</p><formula xml:id="formula_38">|P (X N = 0) − P (V N = 0)| ≤ α(b 1 + b 2 + b 3 ),<label>(29)</label></formula><p>where V N is a Poisson random variable with mean</p><formula xml:id="formula_39">E[V N ] = E[X N ] = N φ, α = min(1, 1/E[X N ])</formula><p>, and constants b 1 , b 2 and b 3 are defined in <ref type="bibr" target="#b1">[2]</ref>. Convergence to the Poisson distribution happens when all of b 1 − b 3 tend to zero as N → ∞. Our main task is to compute these metrics and observe under what condition they become negligibly small. Define B i to be a set of users who share at least one successor of user i in Chord:</p><formula xml:id="formula_40">B i = {i − r + 1, . . . , i, . . . , i + r − 1}<label>(30)</label></formula><p>with i ∈ B i and size |B i | = 2r − 1. It follows that b 3 = 0 since Bernoulli variable X i is independent of X j for j ∈ B i . To calculate b 1 , note that:  <ref type="formula" target="#formula_2">(35)</ref>  Likewise, we obtain:</p><formula xml:id="formula_41">b 1 = N i=1 j∈Bi P (X i = 1)P (X j = 1) = N i=1 j∈Bi φ 2 = N (2r − 1)φ 2 .<label>(31)</label></formula><formula xml:id="formula_42">OF P (X = 0) TO SIMULATION RESULTS FOR r = 8, MEAN SYSTEM SIZE 2, 500, EXPONENTIAL L WITH E[L] = 0.5 HOURS, AND EXPONENTIAL S WITH E[S] = E[L]/ρ. ρ = 40 (E[S] = 45 s) N = 50, 000 N Simul. (35) ρ E[S] s Simul.<label>(35</label></formula><formula xml:id="formula_43">b 2 = N i=1 j =i,j∈B i P (X i = X j = 1) = N i=1 φ j =i,j∈Bi P (X j = 1|X i = 1) ≤ N φ(2r − 2).<label>(32)</label></formula><p>The last step is to observe that <ref type="formula" target="#formula_1">(29)</ref> that X approaches a Poisson random variable with mean E[X N ]. This directly leads to:</p><formula xml:id="formula_44">b 1 = N φ 2 (2r − 1) → 0 and b 2 ≤ N φ(2r − 2) → 0 as N → ∞. Finally, given b 1 + b 2 → 0, it is shown in</formula><formula xml:id="formula_45">lim N →∞ P (X N = 0) e −E[X N ] = lim N →∞ P (X N = 0) e −N φ = 1.<label>(33)</label></formula><p>Recalling that φ → 0 as N → ∞ given the assumption of this theorem and using Taylor expansion e −φ = 1 − φ for φ → 0, (33) yields:</p><formula xml:id="formula_46">lim N →∞ P (X N = 0) (1 − φ) N = 1,<label>(34)</label></formula><p>which establishes the desired result. Theorem 3 indicates that as long as φ is sufficiently small, probability P (X N = 0) that Chord accommodates N joining users without partitioning simply converges to the product of probabilities that individual nodes remain non-isolated. Note that (28) holds under a wider set of conditions on φ that do not necessarily require N φr → 0, but derivations in those cases are more tedious. Also note that a typical way of accomplishing N φr → 0 is to scale r with N so as to converge φ to zero faster than product N r converges to infinity.</p><p>Armed with (28), we propose the following approximation to P (X N = 0) for finite N :</p><formula xml:id="formula_47">P (X N = 0) ≈ (1 − φ) N ,<label>(35)</label></formula><p>where the exact model of φ is given by (21) and its asymptotic approximation is shown in <ref type="bibr" target="#b24">(24)</ref>.</p><p>Comparison of simulation results of P (X N = 0) to <ref type="formula" target="#formula_2">(35)</ref>   to 10 6 for ρ = 40. The rest of this table shows that as ρ increases (i.e., φ gets closer to zero), the model becomes more accurate as expected. Simulations for different r show similar results that are omitted for brevity. As an example of applying <ref type="formula" target="#formula_2">(35)</ref>, assume that Chord has a mean size 5, 000 users, r = log 2 5000 = 13 successors, E[L] = 0.5 hours and E[S] = 21 seconds. We then obtain from (35) that the probability that Chord survives N = 1 billion user joins without disconnection is 0.999987. If we assume that each user joins and departs the network once per hour, this duration corresponds to 228 years. Furthermore, the system survives for N = 100 billion joins (i.e., 22, 831 years) with probability 0.998558.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>V. DYNAMIC NODE FAILURE: EFFECT OF STABILIZATION INTERVALS</head><p>Results in the previous section only apply to exponential intervals S between two consecutive stabilizations. Though many modeling studies assume exponential stabilization intervals <ref type="bibr" target="#b13">[13]</ref>, <ref type="bibr" target="#b15">[15]</ref> to obtain Markovian models, Chord by default uses uniform intervals <ref type="bibr" target="#b26">[25]</ref>. In this section, we study isolation probability φ for uniform S, deal with φ for constant S, and then find the optimal method for stabilizing successors.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>A. Uniform Stabilization Delays</head><p>Denote by f u the probability that all r successors of node v fail within interval S where S is uniformly distributed in [0, 2E <ref type="bibr">[S]</ref>]. Based on the renewal process with cycle length S, it is not hard to show that for uniform S, node isolation probability φ u converges to:</p><formula xml:id="formula_48">φ u ρf u → 1,<label>(36)</label></formula><p>as E[S] → 0, which is similar to the result shown in <ref type="bibr" target="#b26">(25)</ref>. Then, the ratio of isolation probability φ u for uniform S to φ for exponential S is φ u /φ = f u /f , where f is given in (24). Deriving f u , we obtain the next theorem. Theorem 4: For fixed r and E <ref type="bibr">[L]</ref>, and uniform S ∈ [0, 2E <ref type="bibr">[S]</ref>], the ratio of isolation probability φ u for uniform S to φ for exponential S converges to the following constant:</p><formula xml:id="formula_49">lim E[S]→0 φ u φ = 2 r (r + 1)! .<label>(37)</label></formula><p>Simulation results of φ u for uniform S are shown in <ref type="table" target="#tab_0">Table  IV</ref>. Notice from this table that the ratio φ u /φ indeed approaches that given by our model (37) as E[S] becomes small. Since φ u ≤ φ for all r, the above result demonstrates that using uniform S is a better strategy than using exponential S and that the amount of improvement becomes more significant when r increases, e.g., φ u /φ = 7.055 × 10 −4 for r = 8 and φ u /φ = 6.578 × 10 −7 for r = 12.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>B. Constant Stabilization Delays</head><p>Next, following the derivations of φ u /φ in Theorem 4, we easily obtain isolation probability φ c for constant S.</p><p>Theorem 5: For fixed r and E <ref type="bibr">[L]</ref>, and constant S, the ratio of isolation probability φ c to φ approaches:</p><formula xml:id="formula_50">lim E[S]→0 φ c φ = 1 r! .<label>(38)</label></formula><p>Table V presents simulation results on φ c when stabilization intervals are constant. Notice that ratio φ c /φ obtained from simulations is very close to that predicted by model (38) even for ρ = 60 and that it converges to (38) as ρ increases further. <ref type="bibr">Model (38)</ref> indicates that simply stabilizing successors at constant intervals can reduce isolation probability φ c by a factor of r! compared to φ as E[S] → 0. To show the exact improvement over exponential S, we have φ c /φ = 2.480 × 10 −5 for r = 8 and 2.088 × 10 −9 for r = 12. In addition, it is easy to notice from (37) and (38) that φ c ≤ φ u and the ratio φ c /φ u approaches (r + 1)/2 r ≤ 1 as E[S] → 0. This ratio is 0.035 for r = 8 and 0.003 for r = 12.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>C. Optimal Strategy</head><p>The above analysis shows that for exponential lifetimes, the ratio of φ c under constant S to φ o under any other S can be transformed into:</p><formula xml:id="formula_51">lim E[S]→0 φ c φ o = P (max{L 1 , . . . , L r } &lt; E[S]) P (max{L 1 , . . . , L r } &lt; S) ,<label>(39)</label></formula><p>where L i ∼ exp(µ) is the residual lifetime of the i-th successor of node v at the beginning of a particular interval. While we already established that the above ratio is asymptotically less than 1 for both exponential and uniform S, the next theorem indicates that the same result holds for all other distributions as well. Theorem 6: For exponential user lifetimes with fixed E[L] &gt; 0 and the same mean stabilization interval E[S] → 0, node isolation probability φ c under constant S is no greater than that under any random S.</p><p>Proof: For exponential user lifetimes with mean E[L] = 1/µ, recall that the probability that all r successors of node v fail within a particular interval S is:</p><formula xml:id="formula_52">P (max{L 1 , . . . , L r } &lt; S) = ∞ 0 G(x)f S (x)ds,<label>(40)</label></formula><p>where</p><formula xml:id="formula_53">G(x) = P (max{L 1 , . . . , L r } &lt; x) = (1 − e −µx ) r . The second derivative of G(x)</formula><p>is thus:</p><formula xml:id="formula_54">G (x) = rµ 2 e −µx (1 − e −µx ) r−2 (re −µx − 1),<label>(41)</label></formula><p>for r ≥ 3. Then, it is easy to see that for r ≥ 3:</p><formula xml:id="formula_55">G (x) &gt; 0 x &lt; E[L] ln r G (x) ≤ 0 otherwise ,<label>(42)</label></formula><formula xml:id="formula_56">which indicates that G(x) is a convex function for x &lt; E[L] ln r and concave for x &gt; E[L] ln r. For E[S] → 0, notice that S ≤ E[L]</formula><p>ln r holds with probability approaching 1. This immediately transforms (40) into:</p><formula xml:id="formula_57">P (max{L 1 , . . . , L r } &lt; S) = E[L] ln r 0 G(x)f S (x)ds, (43)</formula><p>showing that the convex part of G(x) determines the above metric. Then, for E[S] → 0 we obtain from Jensen's inequality <ref type="bibr" target="#b12">[12]</ref> that:</p><formula xml:id="formula_58">P (max{L 1 , . . . , L r } &lt; S) ≥ P (max{L 1 , . . . , L r } &lt; E[S]), since G(x) is strictly convex for x &lt; E[L] ln r. This directly leads to: lim E[S]→0 φ c φ o = P (max{L 1 , . . . , L r } &lt; E[S]) P (max{L 1 , . . . , L r } &lt; S) ≤ 1,<label>(44)</label></formula><p>for any random S, which completes the proof. Theorem 6 shows that using constant S is not only a simple but optimal method to stabilize successors in Chord.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>VI. HEAVY-TAILED LIFETIMES</head><p>Without the memoryless property on lifetime L, derivation of probability f that all r successors fail within interval S is simply intractable. However, for systems with heavytailed lifetimes <ref type="bibr" target="#b4">[5]</ref>, <ref type="bibr" target="#b29">[28]</ref> where old users are more likely to remain alive for a longer time in the system, a mixture of old and new users within a given successor list leads to a smaller f compared to that for exponential lifetimes. Thus, the probability of node isolation due to failure of the entire successor list in Chord is smaller when the distribution of user lifetimes is heavy-tailed compared to the exponential case studied earlier in this paper, which we next confirm in simulations.</p><p>We (i.e., Pareto S) performs the worst, followed by exponential and uniform cases, while constant S is the best. Further observe that φ for Pareto lifetimes is smaller than that for exponential lifetimes under all four stabilization strategies and that the difference becomes smaller as E[S] decreases. In fact, the model is a very close match to the Pareto case in <ref type="figure" target="#fig_3">Fig. 5</ref>(c)-(d). These observations confirm that our exponential model of φ provides an upper bound for systems with heavy-tailed lifetimes over a wide range of stabilization delays S.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>VII. CONCLUSION</head><p>This paper tackled the problem of deriving formulas for the resilience of Chord's successor list under both static and dynamic node failure. We found that under static node failure, Chord exhibited the same resilience through the successor list as that many other DHTs and unstructured P2P networks <ref type="bibr" target="#b16">[16]</ref> through their randomized neighbor tables. We also demonstrated that when Chord experienced continuous node joins/departures, stabilization with constant intervals was optimal and kept Chord connected with the highest probability.</p></div><figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_1"><head>Fig. 1 .</head><label>1</label><figDesc>Fig. 1. User v's successors and neighbors in Chord.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_2"><head>Fig. 3 .Fig. 4 .</head><label>34</label><figDesc>Fig. 3. Markov chain {Z(t)} modeling a node's successor list.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_3"><head>Fig. 5 .</head><label>5</label><figDesc>Fig. 5. Comparison of simulation results on node isolation probability φ under different stabilization strategies for exponential and Pareto lifetimes with α = 3 and E[L] = 0.5 hours, mean system size 2, 500, and r = 8 in Chord.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_0" validated="false"><head>TABLE I COMPARISON OF SIMULATION RESULTS OF P (X = 0) UNDER STATIC NODE FAILURE TO MODEL</head><label>I</label><figDesc></figDesc><table></table></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_2" validated="false"><head>TABLE II COMPARISON OF THE ASYMPTOTIC MODEL (24) TO THE EXACT MODEL (21) OF NODE ISOLATION PROBABILITY φ WITH E[L] = 0.5 HOURS, ρ = E[L]/E[S], AND r = 846 × 10 −4 2.29 × 10 −4 57.05% 50 36 2.30 × 10 −8 2.61 × 10 −8 13.10 −17 3.89 × 10 −17 0.69%</head><label>II</label><figDesc></figDesc><table>ρ 
+E[S] s 
+(21) 
+(24) 
+Relative Error 
+10 
+180 
+1.41% 
+100 
+18 
+2.66 × 10 −10 
+2.84 × 10 −10 
+6.85% 
+200 
+9 
+2.55 × 10 −12 
+2.64 × 10 −12 
+3.46% 
+500 
+3.6 
+4.74 × 10 −15 
+4.80 × 10 −15 
+1.29% 
+1, 000 
+1.8 
+3.86 × </table></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_3" validated="false"><head>Table II illustrates the relative distance between the upper bound in (24) and the exact result (21) for E[L] = 0.5 hours and r = 8. It is clear from the table that as ρ increases, the two</head><label>II</label><figDesc>models converge and that the upper bound is never violated. Also note that other comparisons for different values of E[L]</figDesc><table></table></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_4" validated="false"><head>TABLE III COMPARISON OF MODEL</head><label>III</label><figDesc></figDesc><table></table></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_6" validated="false"><head>is presented in Table III where model φ is computed based on (21). Notice from the first three columns in this table that simulation results are very close to (35) from N = 10 3</head><label>is</label><figDesc></figDesc><table></table></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_7" validated="false"><head>TABLE IV CONVERGENCE OF SIMULATION RESULTS TO MODEL φ u /φ = .0127 FROM (37) FOR E[L] = 0.5 HOURS, r = 6, AND ρ = E[L]/E[S] ρ E[S] s Simulations of φu Simulations of φ φu/φ 20 90 2.15 × 10 −6 7.10 × 10 −5 .0303 40 45 7.59 × 10 −8 3.86 × 10 −6 .0197 60 30 9.98 × 10 −9 6.10 × 10</head><label>IV</label><figDesc></figDesc><table>−7 
+.0164 
+80 
+22.5 
+2.28 × 10 −9 
+1.62 × 10 −7 
+.0141 
+100 
+18 
+7.18 × 10 −10 
+5.59 × 10 −8 
+.0128 
+
+</table></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_8" validated="false"><head>TABLE V CONVERGENCE OF SIMULATION RESULTS TO MODEL φ c /φ = .0014 FROM (38) FOR E[L] = 0.5 HOURS, r = 6, AND ρ = E[L]/E[S] ρ E[S] s Simulations of φc Simulations of φ φc/φ 20 90 2.72 × 10 −7 7.10 × 10 −5 .0038 40 45 8.51 × 10 −9 3.86 × 10 −6 .0022 60 30 9.82 × 10 −10 6.10 × 10</head><label>V</label><figDesc></figDesc><table>−7 
+.0016 
+80 
+22.5 
+2.35 × 10 −10 
+1.62 × 10 −7 
+.0015 
+100 
+18 
+7.61 × 10 −11 
+5.59 × 10 −8 
+.0014 
+
+</table></figure>
+		</body>
+		<back>
+			<div type="references">
+
+				<listBibl>
+
+<biblStruct xml:id="b0">
+	<analytic>
+		<title level="a" type="main">Topology of Evolving Networks: Local Events and Universality</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Albert</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Barabási</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Phys. Rev. Lett</title>
+		<imprint>
+			<biblScope unit="volume">85</biblScope>
+			<biblScope unit="issue">24</biblScope>
+			<biblScope unit="page" from="5234" to="5237" />
+			<date type="published" when="2000-12" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b1">
+	<analytic>
+		<title level="a" type="main">Two Moments Suffice for Poisson Approximations: The Chen-Stein Method</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Arratia</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">L</forename><surname>Goldstein</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">L</forename><surname>Gordon</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">The Annals of Probability</title>
+		<imprint>
+			<biblScope unit="volume">17</biblScope>
+			<biblScope unit="issue">1</biblScope>
+			<biblScope unit="page" from="9" to="25" />
+			<date type="published" when="1989-01" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b2">
+	<analytic>
+		<title level="a" type="main">Fault-Tolerant Routing in Peerto-Peer Systems</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Aspnes</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Z</forename><surname>Diamadi</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">G</forename><surname>Shah</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. ACM PODC</title>
+		<meeting>ACM PODC</meeting>
+		<imprint>
+			<date type="published" when="2002-07" />
+			<biblScope unit="page" from="223" to="232" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b3">
+	<monogr>
+		<title level="m" type="main">Runs and Scans with Applications</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">N</forename><surname>Balakrishnan</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><forename type="middle">V</forename><surname>Koutras</surname></persName>
+		</author>
+		<imprint>
+			<date type="published" when="2002" />
+			<publisher>John Wiley &amp; Sons</publisher>
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b4">
+	<analytic>
+		<title level="a" type="main">Friendships that Last: Peer Lifespan and its Role in P2P Protocols</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">F</forename><forename type="middle">E</forename><surname>Bustamante</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Y</forename><surname>Qiao</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. Intl. Workshop on Web Content Caching and Distribution</title>
+		<meeting>Intl. Workshop on Web Content Caching and Distribution</meeting>
+		<imprint>
+			<date type="published" when="2003-09" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b5">
+	<analytic>
+		<title level="a" type="main">Performance and Dependability of Structured Peer-to-Peer Overlays</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Castro</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Costa</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Rowstron</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. DSN</title>
+		<meeting>DSN</meeting>
+		<imprint>
+			<date type="published" when="2004-06" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b6">
+	<analytic>
+		<title level="a" type="main">Impact of Neighbor Selection on Performance and Resilience of Structured P2P Networks</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">B.-G</forename><surname>Chun</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">B</forename><surname>Zhao</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Kubiatowicz</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. IPTPS</title>
+		<meeting>IPTPS</meeting>
+		<imprint>
+			<date type="published" when="2005-02" />
+			<biblScope unit="page" from="264" to="274" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b7">
+	<analytic>
+		<title level="a" type="main">Maximally Reliable Node Weighted Graphs</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">H</forename><surname>Frank</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. 3rd</title>
+		<meeting>3rd</meeting>
+		<imprint/>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b8">
+	<monogr>
+		<title level="m" type="main">Information Sciences and Systems</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><surname>Ann</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><surname>Conf</surname></persName>
+		</author>
+		<imprint>
+			<date type="published" when="1969-03" />
+			<biblScope unit="page" from="1" to="6" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b9">
+	<analytic>
+		<title level="a" type="main">The Impact of DHT Routing Geometry on Resilience and Proximity</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">K</forename><surname>Gummadi</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Gummadi</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Gribble</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Ratnasamy</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Shenker</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">I</forename><surname>Stoica</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. ACM SIGCOMM</title>
+		<meeting>ACM SIGCOMM</meeting>
+		<imprint>
+			<date type="published" when="2003-08" />
+			<biblScope unit="page" from="381" to="394" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b10">
+	<analytic>
+		<title level="a" type="main">Koorde: A Simple Degree-Optimal Distributed Hash Table</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><forename type="middle">F</forename><surname>Kaashoek</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Karger</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. IPTPS</title>
+		<meeting>IPTPS</meeting>
+		<imprint>
+			<date type="published" when="2003-02" />
+			<biblScope unit="page" from="98" to="107" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b11">
+	<analytic>
+		<title level="a" type="main">Connectivity of Probabilistic Networks</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><forename type="middle">K</forename><surname>Kelmans</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Auto. Remote Contr</title>
+		<imprint>
+			<biblScope unit="volume">29</biblScope>
+			<biblScope unit="page" from="444" to="460" />
+			<date type="published" when="1967" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b12">
+	<monogr>
+		<title level="m" type="main">Handbook of Complex Variables</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><forename type="middle">G</forename><surname>Krantz</surname></persName>
+		</author>
+		<imprint>
+			<date type="published" when="1999" />
+			<publisher>Birkhäuser</publisher>
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b13">
+	<analytic>
+		<title level="a" type="main">A Statistical Theory of Chord under Churn</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Krishnamurthy</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>El-Ansary</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">E</forename><surname>Aurell</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Haridi</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. IPTPS</title>
+		<meeting>IPTPS</meeting>
+		<imprint>
+			<date type="published" when="2005-02" />
+			<biblScope unit="page" from="93" to="103" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b14">
+	<analytic>
+		<title level="a" type="main">Failure Recovery for Structured P2P Networks: Protocol Design and Performance Evaluation</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><forename type="middle">S</forename><surname>Lam</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">H</forename><surname>Liu</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. ACM SIGMET-RICS</title>
+		<meeting>ACM SIGMET-RICS</meeting>
+		<imprint>
+			<date type="published" when="2004-06" />
+			<biblScope unit="page" from="199" to="210" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b15">
+	<analytic>
+		<title level="a" type="main">On Lifetime-Based Node Failure and Stochastic Resilience of Decentralized Peer-to-Peer Networks</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Leonard</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">V</forename><surname>Rai</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Loguinov</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. ACM SIGMETRICS</title>
+		<meeting>ACM SIGMETRICS</meeting>
+		<imprint>
+			<date type="published" when="2005-06" />
+			<biblScope unit="page" from="26" to="37" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b16">
+	<analytic>
+		<title level="a" type="main">On Static and Dynamic Partitioning Behavior of Large-Scale Networks</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Leonard</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Z</forename><surname>Yao</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">X</forename><surname>Wang</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Loguinov</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. IEEE ICNP</title>
+		<meeting>IEEE ICNP</meeting>
+		<imprint>
+			<date type="published" when="2005-11" />
+			<biblScope unit="page" from="345" to="357" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b17">
+	<analytic>
+		<title level="a" type="main">Comparing the Performance of Distributed Hash Tables under Churn</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Li</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Stribling</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">T</forename><forename type="middle">M</forename><surname>Gil</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Morris</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><forename type="middle">F</forename><surname>Kaashoek</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. IPTPS</title>
+		<meeting>IPTPS</meeting>
+		<imprint>
+			<date type="published" when="2004-02" />
+			<biblScope unit="page" from="87" to="99" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b18">
+	<analytic>
+		<title level="a" type="main">A Performance vs. Cost Framework for Evaluating DHT Design Tradeoffs under Churn</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Li</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Stribling</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Morris</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><forename type="middle">F</forename><surname>Kaashoek</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">T</forename><forename type="middle">M</forename><surname>Gil</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. IEEE INFOCOM</title>
+		<meeting>IEEE INFOCOM</meeting>
+		<imprint>
+			<date type="published" when="2005-03" />
+			<biblScope unit="page" from="225" to="236" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b19">
+	<analytic>
+		<title level="a" type="main">Analysis of the Evolution of the Peer-to-Peer Systems</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Liben-Nowell</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">H</forename><surname>Balakrishnan</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Karger</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. ACM PODC</title>
+		<meeting>ACM PODC</meeting>
+		<imprint>
+			<date type="published" when="2002-07" />
+			<biblScope unit="page" from="233" to="242" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b20">
+	<analytic>
+		<title level="a" type="main">Kademlia: A Peer-to-Peer Information System Based on the XOR Metric</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>Maymounkov</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Mazieres</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. IPTPS</title>
+		<meeting>IPTPS</meeting>
+		<imprint>
+			<date type="published" when="2002-03" />
+			<biblScope unit="page" from="53" to="65" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b21">
+	<analytic>
+		<title level="a" type="main">Building Low-Diameter Peer-to-Peer Networks</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">G</forename><surname>Pandurangan</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>Raghavan</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">E</forename><surname>Upfal</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">IEEE J. Sel. Areas Commun</title>
+		<imprint>
+			<biblScope unit="volume">21</biblScope>
+			<biblScope unit="issue">6</biblScope>
+			<biblScope unit="page" from="995" to="1002" />
+			<date type="published" when="2003-08" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b22">
+	<analytic>
+		<title level="a" type="main">Analysis of Peer-to-Peer Traffic on ADSL</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">L</forename><surname>Plissonneau</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J.-L</forename><surname>Costeux</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>Brown</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. PAM</title>
+		<meeting>PAM</meeting>
+		<imprint>
+			<date type="published" when="2005-03" />
+			<biblScope unit="page" from="69" to="82" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b23">
+	<analytic>
+		<title level="a" type="main">Handling Churn in a DHT</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Rhea</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Geels</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">T</forename><surname>Roscoe</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Kubiatowicz</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. USENIX Ann. Tech. Conf</title>
+		<meeting>USENIX Ann. Tech. Conf</meeting>
+		<imprint>
+			<date type="published" when="2004-06" />
+			<biblScope unit="page" from="127" to="140" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b24">
+	<analytic>
+		<title level="a" type="main">Pastry: Scalable, Decentralized Object Location and Routing for Large-Scale Peer-to-Peer Systems</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Rowstron</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>Druschel</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc</title>
+		<meeting>null</meeting>
+		<imprint/>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b25">
+	<monogr>
+				<title level="m">IFIP/ACM International Conference on Distributed Systems Platforms (Middleware)</title>
+		<imprint>
+			<date type="published" when="2001-11" />
+			<biblScope unit="page" from="329" to="350" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b26">
+	<analytic>
+		<title level="a" type="main">Chord: A Scalable Peer-to-Peer Lookup Protocol for Internet Applications</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">I</forename><surname>Stoica</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Morris</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Liben-Nowell</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><forename type="middle">R</forename><surname>Karger</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><forename type="middle">F</forename><surname>Kaashoek</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">F</forename><surname>Dabek</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">H</forename><surname>Balakrishnan</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">IEEE/ACM Trans. Netw</title>
+		<imprint>
+			<biblScope unit="volume">11</biblScope>
+			<biblScope unit="issue">1</biblScope>
+			<biblScope unit="page" from="17" to="32" />
+			<date type="published" when="2003-02" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b27">
+	<analytic>
+		<title level="a" type="main">Understanding Churn in Peer-to-Peer Networks</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Stutzbach</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Rejaie</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. ACM IMC</title>
+		<meeting>ACM IMC</meeting>
+		<imprint>
+			<date type="published" when="2006-10" />
+			<biblScope unit="page" from="189" to="202" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b28">
+	<analytic>
+		<title level="a" type="main">The Complexity of the Residual Node Connectedness Reliability Problem</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">K</forename><surname>Sutner</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Satyanarayana</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Suffel</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">SIAM J. Comput</title>
+		<imprint>
+			<biblScope unit="volume">20</biblScope>
+			<biblScope unit="page" from="149" to="155" />
+			<date type="published" when="1991" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b29">
+	<analytic>
+		<title level="a" type="main">Residual-Based Measurement of Peer and Link Lifetimes in Gnutella Networks</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">X</forename><surname>Wang</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Z</forename><surname>Yao</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Loguinov</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. IEEE INFOCOM</title>
+		<meeting>IEEE INFOCOM</meeting>
+		<imprint>
+			<date type="published" when="2007-05" />
+			<biblScope unit="page" from="391" to="399" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b30">
+	<analytic>
+		<title level="a" type="main">Modeling Heterogeneous User Churn and Local Resilience of Unstructured P2P Networks</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Z</forename><surname>Yao</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Leonard</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">X</forename><surname>Wang</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Loguinov</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. IEEE ICNP</title>
+		<meeting>IEEE ICNP</meeting>
+		<imprint>
+			<date type="published" when="2006-11" />
+			<biblScope unit="page" from="32" to="41" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+				</listBibl>
+			</div>
+		</back>
+	</text>
+</TEI>

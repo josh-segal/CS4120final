@@ -1,0 +1,131 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>Everyone Loves File: File Storage Service (FSS) in Oracle Cloud Infrastructure</p>
+    <p>Matteo Frigo, Bradley C. Kuszmaul, Justin Mazzola Paluska and Alexander (Sasha) Sandler</p>
+    <p>(and many others)</p>
+  </div>
+  <div class="page">
+    <p>What is File Storage Service</p>
+    <p>I Oracle operates a cloud. I We set up a file system for you. I The file system appears as IP address in your</p>
+    <p>virtual private network. Behind that IP address is a Network File Service (NFS) server.</p>
+    <p>I You rent NFS clients from us. I You pay for what you use (some price per gigabyte</p>
+    <p>month).</p>
+    <p>I You start with 0 bytes, and can grow to as many petabytes as you want.</p>
+  </div>
+  <div class="page">
+    <p>Architecture of File Storage Service</p>
+    <p>NFSproc 10.0.2.97</p>
+    <p>NFSproc</p>
+    <p>NFSproc 10.0.2.54</p>
+    <p>presentation host</p>
+    <p>NFS Client</p>
+    <p>NFS Client</p>
+    <p>NFS Client</p>
+    <p>NFS Client Dendron</p>
+    <p>DASD</p>
+    <p>host storage</p>
+    <p>Dendron</p>
+    <p>DASD</p>
+    <p>host storage</p>
+  </div>
+  <div class="page">
+    <p>Simpler Idea: Use Standard File Servers</p>
+  </div>
+  <div class="page">
+    <p>Problems with Standard File Servers</p>
+    <p>I Failover and Replication.</p>
+    <p>I Pack several file systems per server, and migrate them as they grow.</p>
+    <p>I How to handle big file systems? Somehow filesystems must scale to be larger than a single server.</p>
+  </div>
+  <div class="page">
+    <p>Scale Up: FSS Distributes Data Structures Across Servers</p>
+  </div>
+  <div class="page">
+    <p>What Data Structure Do We Want? Inodes (Ritchie and Thompson [1972]) I Each file or directory is</p>
+    <p>represented by a numbered inode.</p>
+    <p>I Directories include a mapping from names to inumbers. Need a data structure for the directory.</p>
+    <p>I Files include a mapping from offsets to block numbers. Need a data structure for the block map.</p>
+  </div>
+  <div class="page">
+    <p>Represent Inodes as Tabular Data</p>
+    <p>instead of implementing the inodes directly.</p>
+    <p>Inode Table inumber permissions owner 0 drwx------ bradley 42 -rw-r--r-- bradley 90 drwxrwxrwx bradley</p>
+    <p>Directory Table inumber,name inumber 0,u 90 90,foo.txt 42</p>
+    <p>Block Table inumber,offset inumber 42,0 9 42.4096 100</p>
+  </div>
+  <div class="page">
+    <p>Store the Tabular Data in a Distributed B-tree</p>
+  </div>
+  <div class="page">
+    <p>Only One B-Tree</p>
+    <p>I All the filesystems are stored in a single B-tree. I Smaller filesystems simply use fewer key-value pairs</p>
+    <p>in the B-tree.</p>
+    <p>I Even small file systems end up distributed across many servers.</p>
+  </div>
+  <div class="page">
+    <p>Updating the B-tree Requires Atomic Operations Across Servers</p>
+  </div>
+  <div class="page">
+    <p>Two-Phase Commit (2PC) The classic strategy [Gray78, Lampson80] for building a distributed data structure. If several servers participate in a transaction, one machine acts as the coordinator.</p>
+  </div>
+  <div class="page">
+    <p>The Problem with 2PC</p>
+    <p>Q: What if, just before it marks a transaction committed, the coordinator crashes and doesnt ever come back? Or maybe the crash was just after the transaction committed.</p>
+    <p>A: The clients cannot tell which case it is, and they get stuck forever.</p>
+  </div>
+  <div class="page">
+    <p>Paxos Doesnt Get Stuck</p>
+    <p>Im not going to explain Paxos in detail.</p>
+    <p>I Paxos [Lamport 98] can be used to come to a consensus on a single value.</p>
+    <p>I Multi-Paxos can be used to come to a consensus on a log.</p>
+    <p>I Once you have a log, you can implement an arbitrary state machine.</p>
+    <p>I Paxos handles messages getting lost or duplicated and servers crashing at inopportune times, without getting stuck.</p>
+  </div>
+  <div class="page">
+    <p>FSS Uses Paxos to Implement two-phase commit</p>
+    <p>I Each participant in two-phase-commit is implemented by a replicated state machine.</p>
+    <p>I The participants are nonstop, since they are replicated.</p>
+    <p>I A replicated participant is called an Extent.</p>
+  </div>
+  <div class="page">
+    <p>How Big is an Extent?</p>
+    <p>I The state of an extent must fit onto a single server. So not too big.</p>
+    <p>I The overhead of the state machine is large (to implement two-phase commit). So not too small.</p>
+    <p>I We size the extents so that hundreds of them fit onto a server. I Each extent manages several gigabtyes of disk. I The extents state machine is a few megabytes. I Extents are small enough to move around for load</p>
+    <p>balancing and to provide parallelism for failure recovery. I Extents are 5-way replicated.</p>
+  </div>
+  <div class="page">
+    <p>Multipage Store Conditional (MPSC) I On top of 2PC, We program FSS using an</p>
+    <p>optimistic concurrency style. I Multipage store conditional:</p>
+    <p>I Read up to 15 pages into memory, obtaining for each page a version tag that is guaranteed to change whenever the page is modified.</p>
+    <p>I Compute new values for the pages. I Present the new pages along with the previously</p>
+    <p>obtained version tags to the MPSC system. I The new pages are all written atomically (and only if</p>
+    <p>none of the read pages have changed). I If the MPSC operation fails, no changes are made.</p>
+    <p>I MPSC operations are linearizable. I An MPSC operation is a limited transaction: Not</p>
+    <p>too big, not too small. Lock-free style.</p>
+  </div>
+  <div class="page">
+    <p>A Simple Throughput Model</p>
+    <p>I Each storage server provides some disk and some network bandwidth.</p>
+    <p>I For writes, every byte is transmitted 5 times. I So divide all the network bandwidth by 5. That is</p>
+    <p>a peak not-to-be-exceeded speed.</p>
+    <p>I Queueing theory says you cannot run at 100%. We find we can run at about 1/3 of peak.</p>
+    <p>I The simple model: THe bandwidth is 1/15th of the network bandwidth.</p>
+    <p>I Surprisingly this simple model seems to work for all workloads weve seen.</p>
+  </div>
+  <div class="page">
+    <p>Looks Like a Speedup Curve</p>
+    <p>C  0 .7</p>
+    <p>B s  1</p>
+    <p>C  0 .5</p>
+    <p>s 1</p>
+    <p>S0.52, 2.98(C)</p>
+    <p>S0.70, 3.31(C)</p>
+    <p>B a n d w</p>
+    <p>id th</p>
+    <p>(G B</p>
+    <p>s 1 )</p>
+    <p>Number of clients, C</p>
+  </div>
+</Presentation>

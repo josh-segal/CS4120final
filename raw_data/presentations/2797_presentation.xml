@@ -1,0 +1,294 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>Shinjuku: Preemptive Scheduling for Microsecond-Scale</p>
+    <p>Tail Latency</p>
+    <p>Kostis Kaffes, Timothy Chong, Jack Tigar Humphries, Adam Belay, David Mazires, Christos Kozyrakis</p>
+  </div>
+  <div class="page">
+    <p>Tail latency matters for datacenter workloads</p>
+    <p>R</p>
+    <p>RRRRRR</p>
+    <p>User-perceived latency determined by slowest</p>
+    <p>back-end node</p>
+    <p>R R R R R</p>
+    <p>Focus on individual leaf node: minimize tail latency through</p>
+    <p>better scheduling</p>
+  </div>
+  <div class="page">
+    <p>Achieving low tail latency at microsecond scale is hard</p>
+    <p>Problem: High OS overheads Solution: OS Bypass, polling (no interrupts), run-to-completion (no scheduling)</p>
+    <p>Distributed Queues + First Come First Serve scheduling d-FCFS (DPDK, IX, Arrakis)</p>
+    <p>Receive Side Scaling</p>
+    <p>RR</p>
+    <p>RR</p>
+    <p>RR</p>
+    <p>R</p>
+    <p>Worker Cores</p>
+    <p>R</p>
+  </div>
+  <div class="page">
+    <p>Achieving low tail latency at microsecond scale is hard</p>
+    <p>RSS RR</p>
+    <p>RR</p>
+    <p>RR</p>
+    <p>R</p>
+    <p>Idle</p>
+    <p>Problem: Queue imbalance because d-FCFS is not work conserving</p>
+    <p>Worker Cores</p>
+  </div>
+  <div class="page">
+    <p>Achieving low tail latency at microsecond scale is hard</p>
+    <p>Problem: Queue imbalance because d-FCFS is not work conserving Solution: Centralized queue - c-FCFS</p>
+    <p>R</p>
+    <p>Approximation: d-FCFS + stealing</p>
+    <p>e.g., ZygOS</p>
+    <p>Worker Cores</p>
+  </div>
+  <div class="page">
+    <p>Ideal centralized queue is better in simulation</p>
+    <p>Better</p>
+    <p>Better</p>
+    <p>c-FCFS: near optimal performance</p>
+    <p>Exponential   = 1us e.g. KVS with homogeneous GET/PUT</p>
+    <p>d-FCFS: latency starts growing at load ~0.6</p>
+  </div>
+  <div class="page">
+    <p>Is FCFS good enough when task duration varies?</p>
+    <p>Better</p>
+    <p>Better</p>
+    <p>c-FCFS: latency increases even for low load</p>
+    <p>Bimodal  99.5% 0.5us  0.5% 500us e.g. KVS with some RANGE queries</p>
+  </div>
+  <div class="page">
+    <p>Problem: Short requests get stuck behind long ones</p>
+    <p>R</p>
+    <p>R</p>
+    <p>R</p>
+    <p>R</p>
+    <p>R</p>
+    <p>R</p>
+    <p>All cores are hogged by</p>
+    <p>long requests</p>
+  </div>
+  <div class="page">
+    <p>What if we could use the same preemptive scheduling as Linux?</p>
+    <p>Better</p>
+    <p>Better</p>
+    <p>PS1ms: latency increases even for low load (same as c-FCFS)</p>
+    <p>Bimodal  99.5% 0.5us  0.5% 500us e.g. KVS with some RANGE queries</p>
+  </div>
+  <div class="page">
+    <p>Solution: What if we could use preemptive scheduling but at usec scale?</p>
+    <p>Better</p>
+    <p>Better</p>
+    <p>Bimodal  99.5% 0.5us  0.5% 500us e.g. KVS with some RANGE queries</p>
+    <p>PS-5us: near optimal performance with fast preemption</p>
+  </div>
+  <div class="page">
+    <p>Insights</p>
+    <p>Effective scheduling for tail latency requires:  Centralized queue  Preemption  Scheduling policies tailored for each workload</p>
+    <p>Problem: Microsecond scale requires  Millions of queue accesses per second  Preemption as often as every 5us  Light-weight scheduling policies</p>
+  </div>
+  <div class="page">
+    <p>Solution: Shinjuku</p>
+    <p>Key Features:  Dedicated core for scheduling and queue management  Leverage hardware support for virtualization for fast preemption  Very fast context switching in user space  Match scheduling policy to task distribution and target latency</p>
+    <p>single address-space operating system that achieves microsecond-scale tail latency for all types of workloads regardless of variability in task duration</p>
+  </div>
+  <div class="page">
+    <p>Outline</p>
+    <p>Shinjuku Design</p>
+    <p>Preemption Mechanisms</p>
+    <p>Scheduling Policies</p>
+    <p>Evaluation</p>
+  </div>
+  <div class="page">
+    <p>Shinjuku Design</p>
+    <p>NIC</p>
+    <p>Networking Subsystem (Runtime)</p>
+    <p>Dispatcher Core (Runtime)</p>
+    <p>Worker Cores (Application)</p>
+    <p>P</p>
+    <p>RR</p>
+    <p>R</p>
+    <p>Interrupt</p>
+    <p>! R</p>
+    <p>Process packets and generate application-level requests Pass requests to centralized dispatcher using shared memory Add requests to centralized queue Schedule requests to worker cores using shared memory Send replies back to clients through the networking subsystem Interrupt long running requests and schedule other requests from the queue</p>
+    <p>!</p>
+  </div>
+  <div class="page">
+    <p>Outline</p>
+    <p>Shinjuku Design</p>
+    <p>Preemption Mechanisms</p>
+    <p>Scheduling Policies</p>
+    <p>Evaluation</p>
+  </div>
+  <div class="page">
+    <p>Minimizing Preemption Overhead Sender Overhead Receiver Overhead</p>
+    <p>Dispatcher Worker Core</p>
+    <p>Linux Signal</p>
+    <p>Ring 3 Applications</p>
+    <p>Non-root Ring 0 Guest OS</p>
+    <p>Root Ring 0 Kernel</p>
+    <p>Linux Signal</p>
+  </div>
+  <div class="page">
+    <p>Minimizing Preemption Overhead Sender Overhead Receiver Overhead</p>
+    <p>Dispatcher Worker Core</p>
+    <p>Linux Signal Hardware Interrupts</p>
+    <p>LOCAL APIC</p>
+    <p>LOCAL APIC</p>
+    <p>VMExit VMExit</p>
+    <p>Ring 3 Applications</p>
+    <p>Non-root Ring 0 Guest OS</p>
+    <p>Root Ring 0 Kernel</p>
+  </div>
+  <div class="page">
+    <p>Minimizing Preemption Overhead</p>
+    <p>Dispatcher Worker Core</p>
+    <p>LOCAL APIC</p>
+    <p>LOCAL APIC</p>
+    <p>VMExit VMExit</p>
+    <p>Ring 3 Applications</p>
+    <p>Non-root Ring 0 Guest OS</p>
+    <p>Root Ring 0 Kernel</p>
+    <p>Sender Overhead Receiver Overhead 2084 cycles 2523 cycles 2081 cycles 2662 cycles</p>
+    <p>Linux Signal Hardware Interrupts</p>
+    <p>no VMExits</p>
+    <p>Map APIC to dispatchers address space</p>
+    <p>Posted Interrupts</p>
+  </div>
+  <div class="page">
+    <p>Minimizing Preemption Overhead</p>
+    <p>Dispatcher Worker Core</p>
+    <p>LOCAL APIC</p>
+    <p>LOCAL APIC</p>
+    <p>Ring 3 Applications</p>
+    <p>Non-root Ring 0 Guest OS</p>
+    <p>Root Ring 0 Kernel</p>
+    <p>Sender Overhead Receiver Overhead 2084 cycles 2523 cycles 2081 cycles 2662 cycles</p>
+    <p>Linux Signal Hardware Interrupts</p>
+    <p>no VMExits</p>
+    <p>Map APIC to dispatchers address space</p>
+    <p>Posted Interrupts</p>
+  </div>
+  <div class="page">
+    <p>Outline</p>
+    <p>Shinjuku Design</p>
+    <p>Preemption Mechanisms</p>
+    <p>Scheduling Policies</p>
+    <p>Evaluation</p>
+  </div>
+  <div class="page">
+    <p>Scheduling policy</p>
+    <p>requests? Single Queue (SQ)</p>
+    <p>PUT</p>
+    <p>GET</p>
+    <p>GET</p>
+    <p>PUT</p>
+    <p>Case 1</p>
+    <p>SCAN</p>
+    <p>PUT</p>
+    <p>GET</p>
+    <p>GET</p>
+    <p>PUT</p>
+    <p>SCAN</p>
+    <p>SCAN</p>
+    <p>Multiple Queues (MQ)</p>
+    <p>Case 2</p>
+    <p>\\</p>
+  </div>
+  <div class="page">
+    <p>Queue Selection Policy</p>
+    <p>Policy: Select the queue with the highest ratio: !&quot;#$#%&amp; '#()'&quot;*&amp;)$ +&quot;$)%,</p>
+    <p>Short requests: Initially low Target Latency  High Ratio</p>
+    <p>Long requests: Eventually high Waiting Time  High Ratio</p>
+    <p>PUT</p>
+    <p>GET</p>
+    <p>GET</p>
+    <p>PUT</p>
+    <p>SCAN</p>
+    <p>SCAN</p>
+    <p>Multiple Queues (MQ)</p>
+  </div>
+  <div class="page">
+    <p>Outline</p>
+    <p>Shinjuku Design</p>
+    <p>Preemption Mechanisms</p>
+    <p>Scheduling Policies</p>
+    <p>Evaluation</p>
+  </div>
+  <div class="page">
+    <p>Evaluation</p>
+    <p>Systems Shinjuku  Centralized preemptive scheduling</p>
+    <p>IX  d-FCFS ZygOS  d-FCFS + work stealing</p>
+    <p>Workloads Synthetic benchmark with different service time distributions RocksDB - in-memory database</p>
+  </div>
+  <div class="page">
+    <p>Shinjuku under low variability</p>
+    <p>Better</p>
+    <p>Better</p>
+    <p>Shinjuku: Close to IX for homogeneous workloads</p>
+    <p>Synthetic Workload Exponential  =1us</p>
+  </div>
+  <div class="page">
+    <p>Shinjuku under high variability</p>
+    <p>Better</p>
+    <p>Better</p>
+    <p>IX and ZygOS: Tail latency determined by</p>
+    <p>SCAN requests</p>
+    <p>RocksDB 99.5% GET - 5us 0.5% SCAN - 250us</p>
+  </div>
+  <div class="page">
+    <p>How important is each optimization? Single Queue no Preemption</p>
+  </div>
+  <div class="page">
+    <p>How important is each optimization? Single Queue with Preemption</p>
+    <p>Preemption offers flatter latency for some loss of</p>
+    <p>throughput</p>
+  </div>
+  <div class="page">
+    <p>How important is each optimization? Multiple Queues with Preemption</p>
+    <p>Multi-queue policy recovers the lost throughput</p>
+  </div>
+  <div class="page">
+    <p>Does Shinjuku scale?</p>
+    <p>One dispatcher can scale up to 5MRPS and 11 cores</p>
+    <p>Synthetic Workload Fixed 1us</p>
+  </div>
+  <div class="page">
+    <p>Does Shinjuku scale?</p>
+    <p>Synthetic Workload Fixed 1us</p>
+    <p>Use multiple dispatchers and scale</p>
+    <p>up to 9.6MRPS</p>
+  </div>
+  <div class="page">
+    <p>More details in the paper</p>
+    <p>Fast context switching</p>
+    <p>How Shinjuku supports high line rates</p>
+    <p>Placement policy of interrupted requests</p>
+    <p>The problems of RSS-only scheduling of requests to cores</p>
+    <p>More performance analysis</p>
+  </div>
+  <div class="page">
+    <p>Conclusion Low tail latency for general workloads requires:  Preemptive Scheduling  Centralized Queueing  Flexible Scheduling Policies</p>
+    <p>Shinjuku meets these demands at microsecond scale:  Scalable centralized queue using dedicated core  Preemption every 5us  Latency-driven scheduling policies</p>
+    <p>github.com/stanford-mast/shinjuku 33</p>
+  </div>
+  <div class="page">
+    <p>Backup</p>
+  </div>
+  <div class="page">
+    <p>Shinjuku Network Scaling</p>
+    <p>Saturates modern NICs even for small packet sizes</p>
+  </div>
+  <div class="page">
+    <p>How important is each optimization?</p>
+  </div>
+  <div class="page">
+    <p>Time slice matters</p>
+    <p>Better</p>
+    <p>Synthetic Workload Bimodal</p>
+    <p>Slowdown= !&quot;#$% &amp;$#'()* +',-.)' !./'</p>
+  </div>
+</Presentation>

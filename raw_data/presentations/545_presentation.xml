@@ -1,0 +1,367 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>2010 VMware Inc. All rights reserved</p>
+    <p>The Design and Evolution of Live Storage Migration in VMware ESX Ali Mashtizadeh, VMware, Inc. Emr Celebi, VMware, Inc. Tal Garfinkel, VMware, Inc. Min Cai, VMware, Inc.</p>
+  </div>
+  <div class="page">
+    <p>Agenda</p>
+    <p>What is live migration?  Migration architectures  Lessons</p>
+  </div>
+  <div class="page">
+    <p>What is live migration (vMotion)?</p>
+    <p>Moves a VM between two physical hosts  No noticeable interruption to the VM (ideally)</p>
+    <p>Use cases:  Hardware/software upgrades  Distributed resource management  Distributed power management</p>
+  </div>
+  <div class="page">
+    <p>Virtual Machine</p>
+    <p>Live Migration</p>
+    <p>Virtual Machine</p>
+    <p>Disk is placed on a shared volume (100GBs-1TBs)  CPU and Device State is copied (MBs)</p>
+    <p>Memory is copied (GBs)  Large and it changes often  Iteratively copy</p>
+    <p>Source Destination</p>
+  </div>
+  <div class="page">
+    <p>Live Storage Migration</p>
+    <p>What is live storage migration?  Migration of a VMs virtual disks</p>
+    <p>Why does this matter?  VMs can be very large  Array maintenance means you may migrate all VMs in an array  Migration time in hours</p>
+  </div>
+  <div class="page">
+    <p>Live Migration and Storage Live Migration  a short history</p>
+    <p>ESX 2.0 (2003)  Live migration (vMotion)  Virtual disks must live on shared volumes</p>
+    <p>ESX 3.0 (2006)  Live storage migration lite (Upgrade vMotion)  Enabled upgrade of VMFS by migrating the disks</p>
+    <p>ESX 3.5 (2007)  Live storage migration (Storage vMotion)  Storage array upgrade and repair  Manual storage load balancing  Snapshot based</p>
+    <p>ESX 4.0 (2009)  Dirty block tracking (DBT)  ESX 5.0 (2011)  IO Mirroring</p>
+  </div>
+  <div class="page">
+    <p>Agenda</p>
+    <p>What is live migration?  Migration architectures  Lessons</p>
+  </div>
+  <div class="page">
+    <p>Goals</p>
+    <p>Migration Time  Minimize total end-to-end migration time  Predictability of migration time</p>
+    <p>Guest Penalty  Minimize performance loss  Minimize downtime</p>
+    <p>Atomicity  Avoid dependence on multiple volumes (for replication fault domains)</p>
+    <p>Guarantee Convergence  Ideally we want migrations to always complete successfully</p>
+  </div>
+  <div class="page">
+    <p>Convergence</p>
+    <p>Migration time vs. downtime</p>
+    <p>More migration time  more guest performance impact  More downtime  more service unavailability</p>
+    <p>Factors that effect convergence:  Block dirty rate  Available storage network bandwidth  Workload interactions</p>
+    <p>Challenges:  Many workloads interacting on storage array  Unpredictable behavior</p>
+    <p>Migration Time Downtime</p>
+    <p>D at</p>
+    <p>a R</p>
+    <p>em ai</p>
+    <p>ni ng</p>
+    <p>Time</p>
+  </div>
+  <div class="page">
+    <p>Migration Architectures</p>
+    <p>Snapshotting</p>
+    <p>Dirty Block Tracking (DBT)  Heat Optimization</p>
+    <p>IO Mirroring</p>
+  </div>
+  <div class="page">
+    <p>Dest Volume Src Volume</p>
+    <p>ESX Host</p>
+    <p>Snapshot Architecture  ESX 3.5 U1</p>
+    <p>VMDK VMDK VMDK VMDK</p>
+  </div>
+  <div class="page">
+    <p>Synthetic Workload</p>
+    <p>Synthetic Iometer workload (OLTP):  30% Write/70% Read  100% Random  8KB IOs  Outstanding IOs (OIOs) from 2 to 32</p>
+    <p>Migration Setup:  Migrated both the 6 GB System Disk and 32 GB Data Disk</p>
+    <p>Hardware:  Dell PowerEdge R710: Dual Xeon X5570 2.93 GHz  Two EMC CX4-120 arrays connected via 8Gb Fibre Channel</p>
+  </div>
+  <div class="page">
+    <p>Migration Time vs. Varying OIO</p>
+    <p>M ig</p>
+    <p>ra tio</p>
+    <p>n Ti</p>
+    <p>m e</p>
+    <p>(s )</p>
+    <p>Workload OIO</p>
+    <p>Snapshot</p>
+    <p>Snapshot</p>
+  </div>
+  <div class="page">
+    <p>Downtime vs. Varying OIO</p>
+    <p>D ow</p>
+    <p>nt im</p>
+    <p>e (s</p>
+    <p>)</p>
+    <p>Workload OIO</p>
+    <p>Snapshot</p>
+    <p>Snapshot</p>
+  </div>
+  <div class="page">
+    <p>Total Penalty vs. Varying OIO</p>
+    <p>E ff</p>
+    <p>ec tiv</p>
+    <p>e Lo</p>
+    <p>st W</p>
+    <p>or kl</p>
+    <p>oa d</p>
+    <p>Ti m</p>
+    <p>e (s</p>
+    <p>)</p>
+    <p>Workload OIO</p>
+    <p>Snapshot</p>
+    <p>Snapshot</p>
+  </div>
+  <div class="page">
+    <p>Snapshot Architecture</p>
+    <p>Benefits  Simple implementation  Built on existing and well tested infrastructure</p>
+    <p>Challenges  Suffers from snapshot performance issues  Disk space: Up to 3x the VM size  Not an atomic switch from source to destination</p>
+    <p>A problem when spanning replication fault domains  Downtime  Long migration times</p>
+  </div>
+  <div class="page">
+    <p>Snapshot versus Dirty Block Tracking Intuition</p>
+    <p>Virtual disk level snapshots have overhead to maintain metadata  Requires lots of disk space</p>
+    <p>We want to operate more like live migration  Iterative copy  Block level copy rather than disk level  enables optimizations</p>
+    <p>We need a mechanism to track writes</p>
+  </div>
+  <div class="page">
+    <p>Dest Volume Src Volume VMDK VMDK VMDK</p>
+    <p>Dirty Block Tracking (DBT) Architecture  ESX 4.0/4.1</p>
+    <p>ESX Host</p>
+  </div>
+  <div class="page">
+    <p>Data Mover (DM)</p>
+    <p>Kernel Service  Provides disk copy operations  Avoids memory copy (DMAs only)</p>
+    <p>Operation (default configuration)  16 Outstanding IOs  256 KB IOs</p>
+  </div>
+  <div class="page">
+    <p>Migration Time vs. Varying OIO</p>
+    <p>M ig</p>
+    <p>ra tio</p>
+    <p>n Ti</p>
+    <p>m e</p>
+    <p>(s )</p>
+    <p>Workload OIO</p>
+    <p>Snapshot DBT</p>
+  </div>
+  <div class="page">
+    <p>Downtime vs. Varying OIO</p>
+    <p>D ow</p>
+    <p>nt im</p>
+    <p>e (s</p>
+    <p>)</p>
+    <p>Workload OIO</p>
+    <p>Snapshot DBT</p>
+  </div>
+  <div class="page">
+    <p>Total Penalty vs. Varying OIO</p>
+    <p>E ff</p>
+    <p>ec tiv</p>
+    <p>e Lo</p>
+    <p>st W</p>
+    <p>or kl</p>
+    <p>oa d</p>
+    <p>Ti m</p>
+    <p>e (s</p>
+    <p>)</p>
+    <p>Workload OIO</p>
+    <p>Snapshot DBT</p>
+  </div>
+  <div class="page">
+    <p>Dirty Block Tracking Architecture</p>
+    <p>Benefits  Well understood architecture based similar to live VM migration  Eliminated performance issues associated with snapshots  Enables block level optimizations  Atomicity</p>
+    <p>Challenges  Migrations may not converge (and will not succeed with reasonable downtime)</p>
+    <p>Destination slower than source  Insufficient copy bandwidth</p>
+    <p>Convergence logic difficult to tune  Downtime</p>
+  </div>
+  <div class="page">
+    <p>Block Write Frequency  Exchange Workload</p>
+  </div>
+  <div class="page">
+    <p>Heat Optimization  Introduction</p>
+    <p>Defer copying data that is frequently written</p>
+    <p>Detects frequently written blocks  File system metadata  Circular logs  Application specific data</p>
+    <p>No significant benefit for:  Copy on write file systems (e.g. ZFS, HAMMER, WAFL)  Workloads with limited locality (e.g. OLTP)</p>
+  </div>
+  <div class="page">
+    <p>Heat Optimization  Design</p>
+    <p>Disk LBAs</p>
+  </div>
+  <div class="page">
+    <p>DBT versus IO Mirroring Intuition</p>
+    <p>Live migration intuition  intercepting all memory writes is expensive  Trapping interferes with data fast path  DBT traps only first write to a page  Writes a batched to aggregate subsequent writes without trap</p>
+    <p>Intercepting all storage writes is cheap  IO stack processes all IOs already</p>
+    <p>IO Mirroring  Synchronously mirror all writes  Single pass copy of the bulk of the disk</p>
+  </div>
+  <div class="page">
+    <p>Dest Volume Src Volume</p>
+    <p>VMDK VMDK</p>
+    <p>IO Mirroring  ESX 5.0</p>
+    <p>ESX Host</p>
+    <p>VMDK</p>
+  </div>
+  <div class="page">
+    <p>Migration Time vs. Varying OIO</p>
+    <p>M ig</p>
+    <p>ra tio</p>
+    <p>n Ti</p>
+    <p>m e</p>
+    <p>(s )</p>
+    <p>Workload OIO</p>
+    <p>Snapshot DBT Mirror</p>
+  </div>
+  <div class="page">
+    <p>Downtime vs. Varying OIO</p>
+    <p>D ow</p>
+    <p>nt im</p>
+    <p>e (s</p>
+    <p>)</p>
+    <p>Workload OIO</p>
+    <p>Snapshot DBT Mirror</p>
+  </div>
+  <div class="page">
+    <p>Total Penalty vs. Varying OIO</p>
+    <p>E ff</p>
+    <p>ec tiv</p>
+    <p>e Lo</p>
+    <p>st W</p>
+    <p>or kl</p>
+    <p>oa d</p>
+    <p>Ti m</p>
+    <p>e (s</p>
+    <p>)</p>
+    <p>Workload OIO</p>
+    <p>Snapshot DBT Mirror</p>
+  </div>
+  <div class="page">
+    <p>IO Mirroring</p>
+    <p>Benefits  Minimal migration time  Near-zero downtime  Atomicity</p>
+    <p>Challenges  Complex code to guarantee atomicity of the migration  Odd guest interactions require code for verification and debugging</p>
+  </div>
+  <div class="page">
+    <p>Throttling the source</p>
+  </div>
+  <div class="page">
+    <p>IO Mirroring to Slow Destination</p>
+    <p>IO P</p>
+    <p>S</p>
+    <p>Time (seconds)</p>
+    <p>Read IOPS Source</p>
+    <p>Write IOPS Source</p>
+    <p>Write IOPS Destination</p>
+    <p>Start</p>
+    <p>End</p>
+  </div>
+  <div class="page">
+    <p>Agenda</p>
+    <p>What is live migration?  Migration architectures  Lessons</p>
+  </div>
+  <div class="page">
+    <p>Recap</p>
+    <p>In the beginning live migration</p>
+    <p>Snapshot:  Usually has the worst downtime/penalty  Whole disk level abstraction  Snapshot overheads due to metadata  No atomicity</p>
+    <p>DBT:  Manageable downtime (except when OIO &gt; 16)  Enabled block level optimizations  Difficult to make convergence decisions  No natural throttling</p>
+  </div>
+  <div class="page">
+    <p>Recap  Cont.</p>
+    <p>Insight: storage is not memory  Interposing on all writes is practical and performant</p>
+    <p>IO Mirroring:  Near-zero downtime  Best migration time consistency  Minimal performance penalty  No convergence logic necessary  Natural throttling</p>
+  </div>
+  <div class="page">
+    <p>Future Work</p>
+    <p>Leverage workload analysis to reduce mirroring overhead  Defer mirroring regions with potential sequential write IO patterns  Defer hot blocks  Read ahead for lazy mirroring</p>
+    <p>Apply mirroring to WAN migrations  New optimizations and hybrid architecture</p>
+  </div>
+  <div class="page">
+    <p>Thank You!</p>
+  </div>
+  <div class="page">
+    <p>Backup Slides</p>
+  </div>
+  <div class="page">
+    <p>Exchange Migration with Heat</p>
+    <p>D at</p>
+    <p>a C</p>
+    <p>op ie</p>
+    <p>d (M</p>
+    <p>B )</p>
+    <p>Iteration</p>
+    <p>Hot Block</p>
+    <p>Cold Block</p>
+    <p>Baseline without Heat</p>
+  </div>
+  <div class="page">
+    <p>Exchange Workload</p>
+    <p>Exchange 2010:  Workload generated by Exchange Load Generator  2000 User mailboxes  Migrated only the 350 GB mailbox disk</p>
+    <p>Hardware:  Dell PowerEdge R910: 8-core Nehalem-EX  EMC CX3-40  Migrated between two 6 disk RAID-0 volumes</p>
+  </div>
+  <div class="page">
+    <p>Exchange Results</p>
+    <p>Type Migration Time Downtime DBT 2935.5 13.297 Incremental DBT 2638.9 7.557 IO Mirroring 1922.2 0.220 DBT (2x) Failed Incremental DBT (2x) Failed IO Mirroring (2x) 1824.3 0.186</p>
+  </div>
+  <div class="page">
+    <p>IO Mirroring Lock Behavior</p>
+    <p>Moving the lock region 1. Wait for non-mirrored inflight read IOs to complete. (queue all IOs) 2. Move the lock range 3. Release queued IOs</p>
+    <p>II</p>
+    <p>Locked region: IOs deferred until lock release III</p>
+    <p>Unlocked region: Write IOs to source only</p>
+    <p>I</p>
+    <p>Mirrored region: Write IOs mirrored</p>
+  </div>
+  <div class="page">
+    <p>Non-trivial Guest Interactions</p>
+    <p>Guest IO crossing disk locked regions</p>
+    <p>Guest buffer cache changing</p>
+    <p>Overlapped IOs</p>
+  </div>
+  <div class="page">
+    <p>Lock Latency and Data Mover Time</p>
+    <p>D M</p>
+    <p>C op</p>
+    <p>y (m</p>
+    <p>s)</p>
+    <p>Lo ck</p>
+    <p>L at</p>
+    <p>en cy</p>
+    <p>(m</p>
+    <p>s)</p>
+    <p>Time (s)</p>
+    <p>No Contention Lock Contention</p>
+    <p>Lock Contention IO Mirroring Lock 2nd Disk</p>
+  </div>
+  <div class="page">
+    <p>Source/Destination Valid Inconsistencies</p>
+    <p>Normal Guest Buffer Cache Behavior</p>
+    <p>This inconsistency is okay!  Source and destination are both valid crash consistent views of the disk</p>
+    <p>Time</p>
+    <p>Guest OS</p>
+    <p>Issues IO</p>
+    <p>Source IO</p>
+    <p>Issued</p>
+    <p>Destination</p>
+    <p>IO Issued</p>
+    <p>Guest OS</p>
+    <p>Modifies</p>
+    <p>Buffer Cache</p>
+  </div>
+  <div class="page">
+    <p>Source/Destination Valid Inconsistencies</p>
+    <p>Overlapping IOs (Synthetic workloads only)</p>
+    <p>Seen in Iometer and other synthetic benchmarks  File systems do not generate this</p>
+    <p>Virtual Disk</p>
+    <p>Source Disk Destination Disk</p>
+    <p>IO 1 IO 2</p>
+    <p>IO 1 IO 2 IO 1</p>
+    <p>IO 2 Issue Order Issue Order</p>
+    <p>Issue Order</p>
+    <p>LBA LBA</p>
+    <p>LBA</p>
+    <p>IO Reordering</p>
+  </div>
+  <div class="page">
+    <p>Incremental DBT Optimization  ESX 4.1</p>
+    <p>Write to blocks Dirty block</p>
+    <p>? ? ? ? ?</p>
+    <p>Disk Blocks</p>
+    <p>Copy Ignore Copy Ignore</p>
+  </div>
+</Presentation>

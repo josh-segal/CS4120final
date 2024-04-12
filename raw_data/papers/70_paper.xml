@@ -1,0 +1,1206 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<TEI xmlns="http://www.tei-c.org/ns/1.0" 
+xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+xsi:schemaLocation="http://www.tei-c.org/ns/1.0 /Users/atharsefid/Desktop/grobid-0.5.3/grobid-home/schemas/xsd/Grobid.xsd"
+ xmlns:xlink="http://www.w3.org/1999/xlink">
+	<teiHeader xml:lang="en">
+		<encodingDesc>
+			<appInfo>
+				<application version="0.5.3" ident="GROBID" when="2019-03-26T16:29+0000">
+					<ref target="https://github.com/kermitt2/grobid">GROBID - A machine learning software for extracting information from scholarly documents</ref>
+				</application>
+			</appInfo>
+		</encodingDesc>
+		<fileDesc>
+			<titleStmt>
+				<title level="a" type="main">LogTM: Log-based Transactional Memory</title>
+			</titleStmt>
+			<publicationStmt>
+				<publisher/>
+				<availability status="unknown"><licence/></availability>
+				<date>February 11-15, 2006</date>
+			</publicationStmt>
+			<sourceDesc>
+				<biblStruct>
+					<analytic>
+						<author>
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Kevin</forename><forename type="middle">E</forename><surname>Moore</surname></persName>
+							<email>kmoore@cs.wisc.edu</email>
+							<affiliation key="aff0">
+								<orgName type="department">Department of Computer Sciences</orgName>
+								<orgName type="institution">University of Wisconsin-Madison</orgName>
+							</affiliation>
+						</author>
+						<author>
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Jayaram</forename><surname>Bobba</surname></persName>
+							<email>bobba@cs.wisc.edu</email>
+							<affiliation key="aff0">
+								<orgName type="department">Department of Computer Sciences</orgName>
+								<orgName type="institution">University of Wisconsin-Madison</orgName>
+							</affiliation>
+						</author>
+						<author>
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Michelle</forename><forename type="middle">J</forename><surname>Moravan</surname></persName>
+							<email>moravan@cs.wisc.edu</email>
+							<affiliation key="aff0">
+								<orgName type="department">Department of Computer Sciences</orgName>
+								<orgName type="institution">University of Wisconsin-Madison</orgName>
+							</affiliation>
+						</author>
+						<author>
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Mark</forename><forename type="middle">D</forename><surname>Hill</surname></persName>
+							<email>markhill@cs.wisc.edu</email>
+							<affiliation key="aff0">
+								<orgName type="department">Department of Computer Sciences</orgName>
+								<orgName type="institution">University of Wisconsin-Madison</orgName>
+							</affiliation>
+						</author>
+						<author>
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">David</forename><forename type="middle">A</forename><surname>Wood</surname></persName>
+							<affiliation key="aff0">
+								<orgName type="department">Department of Computer Sciences</orgName>
+								<orgName type="institution">University of Wisconsin-Madison</orgName>
+							</affiliation>
+						</author>
+						<title level="a" type="main">LogTM: Log-based Transactional Memory</title>
+					</analytic>
+					<monogr>
+						<title level="m">Appears in the proceedings of the 12th Annual International Symposium on High Performance Computer Architecture (HPCA-12)</title>
+						<meeting> <address><addrLine>Austin, TX</addrLine></address>
+						</meeting>
+						<imprint>
+							<date type="published">February 11-15, 2006</date>
+						</imprint>
+					</monogr>
+					<note>1</note>
+				</biblStruct>
+			</sourceDesc>
+		</fileDesc>
+		<profileDesc>
+			<abstract>
+				<p>Transactional memory (TM) simplifies parallel programming by guaranteeing that transactions appear to execute atomically and in isolation. Implementing these properties includes providing data version management for the simultaneous storage of both new (visible if the transaction commits) and old (retained if the transaction aborts) values. Most (hardware) TM systems leave old values &quot;in place&quot; (the target memory address) and buffer new values elsewhere until commit. This makes aborts fast, but penalizes (the much more frequent) commits. In this paper, we present a new implementation of trans-actional memory, Log-based Transactional Memory (LogTM), that makes commits fast by storing old values to a per-thread log in cacheable virtual memory and storing new values in place. LogTM makes two additional contributions. First, LogTM extends a MOESI directory protocol to enable both fast conflict detection on evicted blocks and fast commit (using lazy cleanup). Second, LogTM handles aborts in (library) software with little performance penalty. Evaluations running micro-and SPLASH-2 benchmarks on a 32-way multiprocessor support our decision to optimize for commit by showing that only 1-2% of transactions abort.</p>
+			</abstract>
+		</profileDesc>
+	</teiHeader>
+	<text xml:lang="en">
+		<body>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="1.">Introduction</head><p>The promise of plentiful thread support from chip multiprocessors is re-energizing interest in transactional memory (TM) <ref type="bibr" target="#b13">[14]</ref> systems, implemented in software only <ref type="bibr" target="#b11">[12,</ref><ref type="bibr" target="#b12">13,</ref><ref type="bibr" target="#b17">18,</ref><ref type="bibr" target="#b27">27]</ref> or, our focus, in hardware (with some software support) <ref type="bibr" target="#b1">[2,</ref><ref type="bibr" target="#b10">11,</ref><ref type="bibr" target="#b13">14,</ref><ref type="bibr" target="#b25">25]</ref>. TM systems must provide transaction atomicity (all or nothing) and isolation (the partially-complete state of a transaction is hidden from other transactions) <ref type="bibr" target="#b8">[9]</ref>. Providing these properties requires data version management and conflict detection, whose implementations distinguish alternative TM proposals.</p><p>Version management handles the simultaneous storage of both new data (to be visible if the transaction commits) and old data (retained if the transaction aborts). At most one of these values can be stored "in place" (the target memory address), while the other value must be stored "on the side" (e.g., in speculative hardware). On a store, a TM system can use eager version management and put the new value in place, or use lazy version management to (temporarily) leave the old value in place.</p><p>Conflict detection signals an overlap between the write set (data written) of one transaction and the write set or read set (data read) of other concurrent transactions. Conflict detection is called eager if it detects offending loads or stores immediately and lazy if it defers detection until later (e.g., when transactions commit).</p><p>The taxonomy in <ref type="table" target="#tab_0">Table 1</ref> illustrates which TM proposals use lazy versus eager version management and conflict detection.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>TCC. Hammond et al.'s Transactional Memory Coherence</head><p>and Consistency (TCC) <ref type="bibr" target="#b10">[11]</ref> uses both lazy version management and lazy conflict detection, similar to the few database management systems (DBMSs) that use optimistic concurrency control (OCC) <ref type="bibr" target="#b15">[16]</ref>. TCC buffers stores at the processor's L1 cache and overwrites the L2 cache and memory only on commit. TCC detects conflicts with a pending transaction only when other transactions commit (not when data is first stored). <ref type="bibr" target="#b1">[2]</ref> uses lazy version management and eager conflict detection. LTM keeps the old value in main memory and stores the new value in cache, coercing the coherence protocol to store two different values at the same address. Repeated transactions which modify the same block, however, require a writeback of the block once per transaction. On cache overflows, LTM spills the new values to an in-memory hash table. In contrast to TCC, LTM uses eager conflict detection invoked when conflicting loads or stores seek to execute. LTM conflict detection is complicated by the cache overflow case. When the controller detects a potential conflict with an overflowed block, it must walk the uncacheable in-memory hash table before responding (and possibly aborting). <ref type="bibr" target="#b25">[25]</ref> also combines lazy version management with eager conflict detection. Memory always holds old values. On cache overflows, VTM writes the new (and a second copy of old) values to an in-memory table (XADT). VTM does not specify version management when data fits in cache, but rather recommends other proposals <ref type="bibr" target="#b1">[2,</ref><ref type="bibr" target="#b10">11,</ref><ref type="bibr" target="#b13">14,</ref><ref type="bibr" target="#b24">24,</ref><ref type="bibr" target="#b30">30]</ref>. <ref type="bibr" target="#b1">[2]</ref> proposes using both eager version management and eager conflict detection. This follows the example of the vast majority of DBMSs that use conservative concurrency control (CCC) <ref type="bibr" target="#b5">[6]</ref>. However, UTM's implementation adds significant complexity, including a pointer per memory block and a linked-list log of reads as well as writes.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>LTM. Ananian et al.'s Large Transactional Memory (LTM)</head></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>VTM. Rajwar et al.'s Virtual Transactional Memory (VTM)</head></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>UTM. Ananian et al.'s Unbounded Transactional Memory (UTM)</head><p>Ideally, transactional memory should use eager version management and eager conflict deflection, because:</p><p>• Eager version management puts new values "in place," making commits faster than aborts. This makes sense when commits are much more common than aborts, which we generally find.</p><p>• Eager conflict detection finds conflicts early, reducing wasted work by conflicting transactions. This makes sense, since standard coherence makes implementing eager conflict detection efficient (as LTM and VTM find).</p><p>To this end, we propose Log-based Transactional Memory (LogTM), which we argue makes eager conflict detection and eager version management practical in a TM system built on a multiprocessor with private caches kept coherent with a directory protocol. LogTM implements eager version management by creating a per-thread transaction log in cacheable virtual memory, which holds the virtual addresses and old values of all memory blocks modified during a transaction. LogTM detects in-cache conflicts using a directory protocol and read/write bits on cache blocks (like many other proposals). LogTM novelly extends the directory protocol (e.g., with a "sticky-M" state) to perform conflict detection even after replacing transactional data from the cache. In LogTM, a processor commits a transaction by discarding the log (resetting a log pointer) and flash clearing the read/write bits. No other work is needed, because new values are already in place and, in another innovation, LogTM lazily clears "sticky" states. On abort, LogTM must walk the log to restore values. We find aborts sufficiently rare that we use a trap handler to perform them in (library) software. For ease of implementation, the processor whose coherence request causes a conflict always resolves the conflict by waiting (to reduce aborts) or aborting (if deadlock is possible). Currently, LogTM does not permit thread movement or paging within transactions, as do UTM and VTM.</p><p>Contributions: In developing LogTM, we make the following contributions:</p><p>• We develop and evaluate a TM system that uses eager version management to store new values "in place," making commits faster than aborts. On commit, no data moves (even when transactions overflow the cache).</p><p>• We efficiently allow cache evictions of transactional data by extending a MOESI directory protocol to enable (a) fast conflict detection on evicted blocks and (b) fast commit by lazily resetting the directory state. LogTM does not require log or hash table walks to evict a cache block, detect a conflict, or commit a transaction, but works best if evictions of transactional data are uncommon.</p><p>• We handle aborts via a log walk by (library) software with little performance penalty, since simulation results with micro-and SPLASH-2 benchmarks on Solaris 9 confirm that aborts are much less common than commits.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="2.">LogTM: Log-based Transactional Memory</head><p>LogTM builds upon a conventional shared memory multiprocessor: each processor has two (or more) levels of private caches kept coherent by a MOESI directory protocol <ref type="bibr" target="#b4">[5]</ref>. This section describes LogTM's eager version management (Section 2.1), eager conflict detection (Section 2.2), and other specifics (Section 2.3 and Section 2.4).</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="2.1.">Version management</head><p>A defining feature of LogTM is its use of eager version management, wherein new values are stored "in place," while old values are saved "on the side." LogTM saves old values in a before-image log, like most DBMSs <ref type="bibr" target="#b5">[6]</ref>. Specifically, LogTM saves old values in a per-thread log in cacheable virtual memory. On creation, each thread allocates virtual memory for its log and informs the LogTM system of its start and end. On a store within a transaction, LogTM hardware appends to the log the virtual address of the stored block and the block's old value. To suppress redundant log writes, LogTM augments the state of each cached block with a write (W) bit <ref type="bibr" target="#b1">[2,</ref><ref type="bibr" target="#b10">11,</ref><ref type="bibr" target="#b13">14]</ref> that tracks whether a block has been stored to (and logged). Redundant log entries may still arise in the (uncommon) case that a block with the W bit set gets both written back to mem- </p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>Figure 1. Execution of a Transaction with Two Alternative Endings</head><p>Part (a) displays a logical view of a thread that has just begun a transaction by incrementing its TMcount. We assume that the thread's log begins at virtual address (VA) 1000 (all numbers in hexadecimal), but is empty (LogPtr=LogBase). LogTM divides the virtual address (VA) space into data blocks whose value in this example is given as a two-digit word and seven dashes (for the other eight-byte words of a 64-byte block). Each data block has associated read (R) and write (W) bits. Circles indicate changes from the previous snapshot. Section 2.2 explains the purpose of the R bits. Part (b) shows a load from virtual address 00 setting the block's R bit.</p><p>Part (c) shows a store to virtual address c0 setting the block's W bit and logging its virtual address and old data (34 --------). Part (d) shows a read-modify write of address 78 that sets the block's R and W bits and logs its virtual address (40) and old data (-------23). Part (e) shows a transaction commit that decrements TMcount, and, because TMcount is now zero, resets LogPtr and R and W bits. Part (f) shows an alternative execution where, after part (d), something triggers a conflict that results in abort. The abort handler restores values from the log before resetting the TMcount, LogPtr, and R/W bits. ory and re-fetched in the same transaction (due to a subtle interaction with conflict detection (Section 2.2)). Writing log entries generates less overhead than one might expect. Log writes will often be cache hits, because the log is cacheable, thread private, and most transactions write few blocks. A single entry micro-TLB effectively pre-translates the log's virtual address. A small hardware log buffer reduces contention for the L1 cache port and hides any L1 cache miss latencies. Since the log is not needed until abort time, these writes can be delayed in a hardware log write buffer and either discarded on a commit, or performed on an abort or when resources fill. Processors with the ability to buffer four blocks would avoid almost all log writes for most of our workloads (Section 3.3).</p><p>The principle merit of LogTM's eager version management is fast commits. To commit, a LogTM processor flash clears its cache's W bits and resets the thread's log pointer (to discard the transaction's log).</p><p>A drawback of eager version management is that aborts are slower. To abort, LogTM must "undo" the transaction by writing old values back to their appropriate virtual addresses from the log before resetting the W bits. Since a block may be logged more than once, "undo" must proceed from the end of the log back to the beginning (last-infirst-out). Section 2.3 describes LogTM's conflict handler interface that allows abort sequencing to be done by (library) software.</p><p>To make LogTM more concrete, <ref type="figure">Figure 1</ref> and its caption "animate" a transaction on LogTM (a-d) with two alternative endings: commit (e) and abort (f).</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="2.2.">Conflict detection</head><p>Conceptually, LogTM performs eager conflict detection in several steps: (a) the requesting processor sends a coherence request to the directory, (b) the directory responds and possibly forwards the request to one or more processors, (c) each responding processor examines some local state to detect a conflict, (d) the responding processors each ack (no conflict), or nack (conflict) the request, and (e) the requesting processor resolves any conflict (see Section 2.3).</p><p>For in-cache blocks, LogTM follows others <ref type="bibr" target="#b1">[2,</ref><ref type="bibr" target="#b10">11,</ref><ref type="bibr" target="#b13">14</ref>] to augment each cache block with a read (R) bit (see <ref type="figure">Fig- ure</ref> 2), as well as the W bit discussed above. LogTM sets the R bit for each block read during a transaction (see <ref type="figure">Fig- ure</ref> 3-b) and flash clears all R bits, along with the W bits, when a transaction ends. LogTM only sets an R bit for valid blocks (MOESI states: Modified (M), Owned (O), Exclusive (E), or Shared (S)) and a W bit for blocks in the M state. This ensures that standard directory protocols will properly forward all potentially-conflicting requests to the appropriate processor(s) for conflict detection. As illustrated in <ref type="figure" target="#fig_1">Figure 3</ref>-c, after receiving a request from the directory, a processor checks its local state to detect a possible conflict.</p><p>A contribution of LogTM is its graceful handling of conflict detection even after transactions overflow the cache. The key step is extending the directory protocol to forward all potentially conflicting requests to the appropriate processors, even after cache replacements. The process works as follows: a processor P replaces a transactional block and sets a per-processor overflow bit (like VTM's XADT overflow count), the extended directory protocol continues to forward potentially conflicting requests to P, which nacks to signal a (potential) conflict. Thus, LogTM conservatively detects conflicts with slightly-augmented coherence hardware. LogTM's solution does not require a data structure insertion for a cache replacement (like LTM, UTM, and VTM), a data structure walk to provide a coherence response (LTM), or data structure clean up at commit (LTM, UTM, and VTM).</p><p>Specifically, if processor P replaces transactional block B (i.e., B's R or W bit is set) the directory must continue to forward processor Q's conflicting requests to P. LogTM's replacement behavior depends on B's valid MOESI state:</p><p>M. P replaces B using a transactional writeback, transitioning the directory to a new state "sticky-M@P" ( <ref type="figure" target="#fig_1">Figure  3-d)</ref>. When Q requests B, the directory in "sticky-M@P" forwards the request to P. P has no record of B, but infers the (potential) conflict from the forwarded request ( <ref type="figure" target="#fig_1">Figure  3</ref>-e).  This example illustrates LogTM's conflict detection (but elides version management). The example shows the state for one block at the directory and in processors P's and Q's private caches. Processor P writes the block and replaces it in a transaction that eventually commits (f). The state of the block includes the cache state and R/W bits in caches and an owner or sharer list at the directory. In addition to the state for the block, each processor maintains a TMcount and an overflow bit. (a) Begin transaction: Processor P begins a transaction, incrementing its TMcount; the block is valid at the directory only. (b) P stores the block: Not finding the block in its cache, P sends a get exclusive (GETX) request to the directory (step ). The directory responds with data (the "old" version of this block). When the data arrives, the store completes creating the "new" version of the data and setting the R and W bits for the block in P's cache (step ). P sends an ACK to the directory to confirm that it received the data (step ). (c) In-cache transaction conflict: In step , Q issues a get-shared (GETS) request to the directory. In step , the directory forwards the request to P. In step , P detects the conflict (the W bit is set) and nacks the request. When Q receives the NACK, it resolves the conflict (not shown). Q sends a NACK to the directory to signal that its request has completed unsuccessfully (step ). (d) Cache overflow: In step , P informs the directory that it intends to update the data value at memory (currently <ref type="bibr">[old]</ref>) by sending a put-exclusive (PUTX) request; In step , the directory acknowledges the request (ACK). In step , P writes the new data back to memory (WB_XACT) and sets its overflow bit. After the writeback, the block is in state I at P, but P remains the owner of the block at the directory (the "sticky-M" state); memory has the new data. (e) Out-of-cache conflict: In step , Q re-issues its request from part (c), which the directory again forwards to P (step ). Upon receiving a forwarded request for a block not present in its cache, P checks its overflow bit. In step , since the overflow bit is set, P assumes a conflict, and nacks Q's request, signalling a conflict. As in (c), Q sends a NACK to the directory to signal that its request has completed unsuccessfully (step ). (f) Lazy clear of the sticky-M state: P commits its transaction by decrementing its TMcount. Since TMcount is now zero, P flash clears the R and W bits in its cache and resets the overflow bit. The block is still in the sticky-M state at the directory. In step , Q once again retries its request, which is again forwarded to P by the directory (step ). This time, P's overflow bit is clear. In step , P responds indirectly by sending a clean-up (CLEAN) message to the directory. This message informs the directory that it has valid data, which it sends to Q (step ). Finally, Q informs the directory that its load completed successfully and the block is left in state E@Q (step ).</p><formula xml:id="formula_0">M@P [old] Directory M (R W) [new] P (b) TMcount: 1 Overflow: 0 G E T X D A T A A C K M@P [old] Directory M (R W) [new] P (c) TMcount: 1 Overflow: 0 Q TMcount: 1 Overflow: 0 G E T S F w d _ G E T S NACK conflict! N A C K M@P [new] Directory I (--) [ ] P (d) TMcount: 1 Overflow: 1 P U T X A C K W B _ X A C T sticky M@P [new] Directory I (--) [ ] P (e) TMcount: 1 Overflow: 1 Q TMcount: 1 Overflow: 0 G E T S F w d _ G E T S NACK conflict! N A C K sticky E@Q [new] Directory I (--) [ ] P (f) TMcount: 0 Overflow: 0 Q TMcount: 1 Overflow: 0 G E T S F w d _ G E T S A C K I (--) [ ] E (R -) [new] C L E A N D A T A I (--) [ ] commit_transaction                   </formula><p>S. P silently replaces B, leaving P in the directory's sharer list. Conceptually, we consider the directory in "sticky-S" but the actual state is unchanged. When Q requests B exclusively, the directory naturally forwards invalidations to all sharers, enabling P to detect the (potential) conflict. O. P writes B back to the directory, which adds P to the sharer list. When Q requests B exclusively, behavior is the same as for the S replacement above. E. P behaves the same as the O replacement above. Alternatively, P could silently replace E state blocks, but on a forwarded request it must assume it was previously in M, resulting in more false conflicts.</p><p>LogTM makes commits very fast: a committing processor simply resets its overflow bit and log pointer, and flash clears its cache's R and W bits. The processor does not walk data structures to find replaced blocks (like LTM and VTM), but instead lazily clears the sticky states. This means that processor Q's request for block B may be forwarded to processor P even after P has committed the transaction that overflowed.</p><p>Coherence requests forwarded by "sticky" directory states are only potential conflicts. Forwarded requests that arrive while P is not in a transaction clearly result from a "stale" sticky state from an earlier transaction. The same is true if P is in a transaction, but has not overflowed (overflow = 0). In both cases, P clears the "sticky" state by sending a CLEAN message to the directory. The directory then responds to processor Q's request with the already valid data <ref type="figure" target="#fig_1">(Figure 3-f)</ref>. False conflicts only arise when processor Q accesses (writes) a block in "sticky-M@P" ("sticky-S@P") and processor P is currently executing a later transaction that has also overflowed. Processor P must conservatively assume that the "sticky" state originated during the current transaction and represents an actual conflict <ref type="figure" target="#fig_1">(Figure 3-e)</ref>.</p><p>LogTM's approach of lazily cleaning up sticky states makes the most sense if transactions rarely overflow the cache (as in our current benchmarks). If overflow occurs more frequently, LogTM's single overflow bit can be replaced by a more accurate filter (e.g., a per-set bit <ref type="bibr" target="#b1">[2]</ref> or Bloom filter <ref type="bibr" target="#b25">[25]</ref>). If overflows become the norm, other approaches may be preferred.</p><p>A subtle ambiguity arises when a processor P fetches a block B in "sticky-M@P" during a transaction. This case could arise from a writeback and re-fetch during the same transaction, requiring only that P set the R and W bits. Alternatively, the writeback could have occurred in an earlier transaction, requiring that P treat this fetch as the first access to B (and thus log the old value on the first store). LogTM handles this case conservatively, having P set B's R and W bits and (perhaps redundantly) logging B's old value.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="2.3.">LogTM specifics</head><p>Interface. <ref type="table" target="#tab_2">Table 2</ref> presents LogTM's interface in three levels. The user interface (top) allows user threads to begin, commit and abort transactions. All user-level memory references between begin and commit are part of a transaction executed with strong atomicity <ref type="bibr" target="#b2">[3]</ref>-i.e., atomic and isolated from all other user threads whether or not they are in transactions. The system/library interface (middle) lets thread packages initialize per-thread logs and </p><note type="other">tural registers, condition codes, etc.). commit_transaction() Ends successful transaction begun by matching begin_transaction(). Discards any transaction state saved for potential abort. abort_transaction() Transfers control to a previously-registered conflict handler which should undo and discard work since last begin_transaction() and (usually) restarts the transaction. System/Library Interface initialize_transactions(Thread* thread_struct, Address log_base, Address log_bound) Initiates a thread's transactional support, including allocating virtual address space for a thread's log.</note><p>As for each thread's stack, page table entries and physical memory may be allocated on demand and the thread fails if it exceeds the large, but finite log size. (Other options are possible if they prove necessary.) We expect this call to be wrapped with a user-level thread initiation call (e.g., for P-Threads). If a block is logged more than once, its first entry pushed on the log must contain its pre-transaction value. The log also contains a record of pre-transaction user-visible non-memory thread state. Abort Post-conditions: If conflict resolution resulted in abort, the handler called undo_log_entry() to pop off every log entry then called complete_abort(restart) Low-Level Interface undo_log_entry() Reads a block's (virtual) address and pre-write data from the last log entry, writes the data to the address, and pops the entry off of the log. complete_abort(bool restart) Ends isolation on all memory blocks. Either restores thread's non-memory state from last begin_transaction(), and resumes execution there, or returns to conflict handler to handle error conditions or switch user-level threads.</p><p>register a handler to resolve conflicts (discussed below). Conflicts may result in transaction abort, which LogTM handles in software by "undoing" the log via a sequence of calls using the low-level interface (bottom). In the common case, the handler can restart the transaction with uservisible register and memory state restored to their pretransaction values. Rather than just restart, a handler may decide to execute other code after rolling back the transaction, (e.g., to avoid repeated conflicts).</p><p>Operating System Interaction. LogTM's model is that transactions pertain to user-visible state (e.g., registers and user virtual memory) being manipulated by user threads running in a single virtual address space on top of a commercial operating system (OS). Currently, the OS operates outside of user-level transactions. Thus, the OS never stalls or aborts due to user-level transactions, but cannot currently use transactions itself.</p><p>The current LogTM implementation still has considerable OS limitations. LogTM transactions may only invoke the trivial subset of system calls which do not require an "undo," such as sbrk invoked by malloc and SPARC TLB miss traps. LogTM does not currently handle transactional data that are both paged out and paged back in within the same transaction, or thread switching/migration, as do UTM and VTM.</p><p>Processor Support. LogTM extends each processor with a transaction nesting count (TMcount) and log pointer (shown in <ref type="figure">Figure 2)</ref>. TMcount allows the first, outer transaction to subsume subsequent, inner transactions. The processor also implements the user-level instructions begin, commit and abort to directly support the LogTM interface. Instruction begin increments the TMcount. If the processor was previously not in transaction mode (i.e., TMcount = 0), it checkpoints the thread's architectural registers to a shadow register file. Although logically part of the log, lazy update semantics effectively allow register checkpoints to remain in the shadow copy indefinitely. Instruction commit decrements TMcount. If now zero, the processor commits the outermost transaction, resetting the overflow bit and flash clearing the cache's R and W bits. Instruction abort triggers a trap to the software conflict handler, which aborts the transaction. On completion of the abort, the handler resets the TMcount, overflow bit, and log pointer.</p><p>Conflict Resolution. When two transactions conflict, at least one transaction must stall (risking deadlock) or abort (risking live-lock). The decision can be made quickly, but myopically, by hardware, or slowly, but carefully, by a software contention manager <ref type="bibr" target="#b26">[26]</ref>. Ultimately, a hybrid solution might be best, where hardware seeks a fast resolution, but traps to software when problems persist.</p><p>Recall that when a LogTM processor Q makes a coherence request, it may get forwarded to processor P to detect a conflict. P then responds to Q with an ack (no conflict) or a nack (conflict). If there is a conflict, processor Q must resolve it on receiving the nack. Q could always abort its transaction, but this wastes work (and power). Alternatively, Q may re-issue its request (perhaps after a backoff delay) in the hope that P had completed its conflicting transaction. Q cannot wait indefinitely for P, however, without risking deadlock (e.g., if P is waiting on Q).</p><p>To guarantee forward progress and reduce aborts, the current LogTM implementation logically orders transactions using TLR's distributed timestamp method <ref type="bibr" target="#b24">[24]</ref>. LogTM only traps to the conflict handler when a transaction (a) could introduce deadlock and (b) is logically later than the transaction with which it conflicts. LogTM detects potential deadlock by recognizing the situation in which one transaction is both waiting for a logically earlier transaction and causing a logically earlier transaction to wait. This is implemented with a per-processor possible_cycle flag, which is set if a processor sends a nack to a logically earlier transaction. A processor triggers a conflict only if it receives a nack from a logically earlier transaction while its possible_cycle flag is set.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="2.4.">Generalizing LogTM</head><p>LogTM implementations may also relax some of the concrete assumptions made above. First, Section 2.2 describes LogTM using a system with private cache hierarchies and full-mapped directory protocol. The LogTM approach extends easily to a chip multiprocessor (CMP) where the shared L2 cache tracks where blocks are cached in per-core L1 caches, effectively acting as a directory. Second, the LogTM implementation uses the directory to filter coherence requests when transactions overflow. Alternative LogTM implementations could use other coherence protocols (e.g., snooping), extended with appropriate filters to limit false conflicts. Third, LogTM uses hardware to save user-visible register state and restore it on transaction abort (Section 2.3). This could also be done by the compiler or run-time support.</p><p>Finally, the current LogTM implementation uses timestamps to prioritize transactions and resolve conflicts. This simple, but rigid policy may result in convoys (e.g., if a transaction gets pre-empted) or priority inversion (e.g., if a logically earlier transaction holds a block needed by a higher priority, but logically later transaction). Future work will investigate having the (software) conflict handler invoke an application-level contention manager that implements more flexible policies. To do this, LogTM needs a few additional mechanisms, such as allowing a processor P to abort another thread's transaction, particularly one that is not actively running on a processor.</p><p>Because LogTM stores the old values in the user program's address space, these mechanisms appear possible. A sufficiently robust software contention manager may also obviate the low-level timestamp mechanism.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.">Evaluation</head><p>This section describes the simulation of LogTM and a baseline system using spin locks (Section 3.1) and compares them using a microbenchmark (Section 3.2) and parallel applications from the SPLASH-2 suite <ref type="bibr" target="#b32">[32]</ref> (Section 3.3).</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.1.">Target System &amp; Simulation Model</head><p>LogTM and the baseline system share the same basic SPARC/Solaris multiprocessor architecture, summarized in <ref type="table" target="#tab_3">Table 3</ref>. Each system has 32 processors, each with two levels of private cache. A MOESI directory protocol maintains coherence over a high-bandwidth switched interconnect. Though single-issue and in-order, the processor model includes an aggressive, single-cycle non-memory IPC. The detailed memory system model includes most timing intricacies of the transactional memory extensions.</p><p>Some TM systems advocate special transactional load instructions for data likely to be stored soon <ref type="bibr" target="#b13">[14]</ref>. This support avoids obtaining read permission and then later write permission (with implications on both traffic and conflicts). The LogTM implementation obtains a similar effect using a write set predictor that tracks the addresses of 64 blocks recently loaded and then stored within a transaction.</p><p>The simulation framework uses Virtutech Simics <ref type="bibr" target="#b16">[17]</ref> in conjunction with customized memory models built on Wisconsin GEMS <ref type="bibr" target="#b18">[19,</ref><ref type="bibr" target="#b31">31]</ref>. Simics, a full-system functional simulator, accurately models the SPARC architecture but does not support transactional memory. Support for the LogTM interface was added using Simics "magic" instructions: special no-ops that Simics catches and passes to the memory model. To implement the begin instruction, the memory simulator uses a Simics call to read the thread's architectural registers and create a checkpoint. During a transaction, the memory simulator models the log updates. After an abort rolls back the log, the register checkpoint is written back to Simics, and the thread restarts the transaction.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.2.">Microbenchmark Analysis</head><p>This section uses a shared-counter micro-benchmark to show that LogTM performs well under high contention, despite frequent conflicts. <ref type="figure">Figure 4</ref> illustrates a simple, multi-threaded program that generates high contention for a shared variable. Each thread repeatedly tries to atomically fetch-and-increment a single shared counter and update some private state with a random think time between accesses (avg. 2.5 µs). This delay generates opportunities for parallelism and allows improved performance with multiple threads.</p><p>For comparison, the begin_transaction() and commit_transaction() calls translate to test-and-testand-set locks with exponential backoff (EXP), MCS locks <ref type="bibr" target="#b21">[21]</ref>, or LogTM transactions (LogTM). <ref type="figure">Figure 5</ref> displays the execution times for 10,000 iterations of the shared for(i=0; i&lt;10000; ++i){ begin_transaction(); new_total = total.count + 1; private_data <ref type="bibr">[id]</ref>.count++; total.count = new_total; commit_transaction(); think(); } counter micro-benchmarks for varying number of threads. For locks, results confirm that MCS locks are slower than EXP with little contention (less than 15 threads), but faster under high contention. In contrast, the LogTM implementation fulfills the potential of transactional memory by always performing better than either lock implementation and consistently benefiting from more threads. Moreover, more detailed analysis (not shown) reveals that, for this simple microbenchmark, LogTM never wastes work by aborting a transaction, but rather stalls transactions when conflicts occur.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.3.">SPLASH Benchmarks</head><p>This section evaluates LogTM on a subset of the SPLASH-2 benchmarks. The benchmarks described in <ref type="table" target="#tab_4">Table 4</ref> use locks in place of, or in addition to, barriers. The results show that LogTM improves performance relative to locks.</p><p>The LogTM version of the SPLASH-2 benchmarks replaces locks with begin_transaction() and commit_transaction() calls. Barriers and other synchronization mechanisms are not changed. The SPLASH-2 benchmarks use PARMACS library locks, which use test-and-test-and-set locks but yield the processor after a pre-determined number of attempts (only one for these experiments). Raytrace has two versions: Raytrace-Base and Raytrace-Opt, which eliminates false sharing between two transactions. <ref type="figure" target="#fig_4">Figure 6</ref> shows the speedup from using LogTM transactions versus locks for the SPLASH-2 benchmarks, running 32 user threads on a 32-way multiprocessor. All LogTM versions are faster than the lock-based ones. Some speedups are modest (Water 4% faster, Ocean 12%, and Barnes 13%). Other speedups are good (Cholesky 23% and Radiosity 33%). Finally, Raytrace speedup is "off scale" with Raytrace-Base speeding up 2.7x and RaytraceOpt 4.2x! These speedups occur because LogTM (and other TM systems) enable critical section parallelism (an oxymoron) by allowing multiple threads to operate concurrently in the same critical section. For example, LogTM allows an average of 3.2 concurrent threads in Raytrace-Base's most frequently-executed critical section, as measured by dividing the sum of each thread's cycles in the critical section by the total cycles when one or more threads was in the critical section. Raytrace-Opt increases the critical section parallelism to 5.5. In contrast, lock-based critical section parallelism is always one.</p><p>LogTM makes two central design decisions that assume that commits occur much more frequently than aborts. First, by writing new values in place, eager version management makes commits faster than aborts. Second, LogTM traps to software to handle conflicts and abort transactions. The results in column four of <ref type="table" target="#tab_5">Table 5</ref> support these decisions: only 1-2% of transactions end in an abort for all benchmarks, except Barnes, in which 15% of transactions abort.</p><p>LogTM makes aborts less common by using stalls to resolve conflicting transactions when deadlock is not possible (Section 2.3). Column three of <ref type="table" target="#tab_5">Table 5</ref> shows the fraction of transactions that stalled before committing, while column four gives the fraction that aborted. The fraction of transactions that conflicted with at least one other transaction is the sum of columns three and four. For several benchmarks (e.g., Cholesky, Radiosity, and Raytrace-Opt), LogTM stalls transactions 2-5 times more often than it aborts them. Raytrace-Base stalls nearly 25% of all transactions!  Stalling a transaction wastes less work than aborting it, but represents lost opportunity. A potential third alternative is to switch to another thread, perhaps making progress on another transaction. Such an action requires additional enhancements to LogTM, such as the software contention manager discussed in Section 2.4. <ref type="figure" target="#fig_5">Figure 7</ref> presents the cumulative stall distribution (in cycles) and shows that while many stalls are shorter than a typical software context switch, the distribution has a heavy tail. An enhanced LogTM implementation might stall for a while in hardware before trapping to a software contention manager to possibly abort and switch threads.</p><p>The Raytrace-Base stall behavior also reveals a limitation of TM systems that build on cache coherence: Reducing false sharing with TM is even more important that reducing it with locks. With TM, false sharing creates (apparent) conflicts that can stall or abort entire transactions. Raytrace-Opt eliminates most false sharing in Raytrace-Base by moving two global variables (ray identifier and free list pointer) to different blocks. This optimization improved the lock-based Raytrace's performance a little and LogTM Raytrace's a lot (due to eliminating conflicts between a frequent but short transaction that accesses the ray identifier and a less frequent but long transaction that accesses the free list pointer). LogTM shares this limitation with other transactional memory implementations <ref type="bibr" target="#b1">[2,</ref><ref type="bibr" target="#b13">14,</ref><ref type="bibr" target="#b25">25]</ref>, except TCC <ref type="bibr" target="#b10">[11]</ref>, which optionally tracks transactions' read and write sets at word or byte granularity.</p><p>These experiments also alleviate two concerns about LogTM's eager version management. First, LogTM must read a data block before writing it to the log. This read is extra work if the data would not otherwise be read. Fortunately, the final column of <ref type="table" target="#tab_5">Table 5</ref> shows that (except for Barnes) most data blocks are read before written within a transaction. Thus, LogTM does not usually add the cost of an additional read. Second, writing LogTM's log could significantly increase cache write bandwidth. Fortunately, because the log does not need to be valid until an abort occurs, a LogTM implementation could use a k-block log write buffer to elide log writes for transactions that write k or fewer blocks (Section 2.1). <ref type="table" target="#tab_6">Table 6</ref> shows the cumulative distribution of transaction write-set size. A four-entry buffer eliminates all log writes for committed transactions in Cholesky, Ocean, Raytrace, and Water and all but 3% for Radiosity. A 16-entry buffer eliminates all but 0.4% of Radiosity's writes and all but 5% of Barnes's.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="4.">Discussion and Related Work</head><p>We developed and evaluated Log-based Transactional Memory (LogTM) that (a) always stores new values "in place," to make commits faster than aborts, (b) extends a MOESI directory protocol to enable fast conflict detection and transaction commits, even when data has been evicted from caches, and (c) handles aborts in software, since they are uncommon. LogTM is most-closely related to TCC,   LTM, UTM, and VTM, but we see substantial differences in both version management and conflict detection.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>TCC.</head><p>Whereas TCC version management keeps new data in a speculative cache until commit, when they are written through to a shared L2 cache, LogTM can operate with writeback caches and generates no traffic at commit. In TCC's lazy conflict detection, other transactions learn about transaction T's conflicting store when T commits, not earlier when the store is executed. In contrast, LogTM uses eager conflict detection to detect conflicts when the store is executed to facilitate earlier corrective action.</p><p>LTM. Like LogTM, LTM keeps new data in cache when it can. However, when a transaction overflows a set in the cache, LTM stores new values in an uncacheable in-memory hash table. On commit, LTM copies overflowed data to its new location. In contrast, LogTM allows both old and new versions to be cached (often generating no memory traffic) and never copies data on commit. Whereas an LTM processor must search a table in uncacheable memory on an incoming request to any set that has overflowed a block during the transaction, a LogTM processor needs check only local state allowing it to respond immediately to a directory request.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>UTM. Like LogTM, UTM version management stores</head><p>new values in place and old values in a log. UTM's log is larger, however, because it contains blocks that are targets of both loads and stores, whereas LogTM's log only contains blocks targeted by stores. UTM uses this extra log state to provide more complete virtualization of conflict detection, allowing transactions to survive paging, context switching and thread migration. UTM's conflict detection must, however, walk the log on certain coherence requests, and clean up log state on commit, while LogTM uses a simple directory protocol extension (that does not even know the location of the log) and uses lazy cleanup to optimize commits. VTM. VTM takes most in-cache TM systems and adds a per-address-space virtual mode that handles transactions after cache evictions, paging, and context switches. In this mode, VTM performs version-management lazily (in contrast to LogTM's eager approach). Both virtualized VTM and LogTM do eager conflict detection, but VTM uses low-level PAL or micro-code, while LogTM continues to use coherence hardware. In contrast to VTM (and UTM), however, LogTM handles (infrequent) cache evictions, but not paging or context switches. In addition, other work informs and enriches recent work on (hardware) TM systems. Early TM work showed the way, but exposed fixed hardware sizes to programmers <ref type="bibr" target="#b13">[14,</ref><ref type="bibr" target="#b14">15,</ref><ref type="bibr" target="#b30">30]</ref>. The 801 minicomputer <ref type="bibr" target="#b3">[4]</ref> provided lock bits on memory blocks for conflict detection. Thread-level speculation work developed version management and conflict detection mechanisms for a different purpose: achieving serial semantics <ref type="bibr" target="#b0">[1,</ref><ref type="bibr" target="#b6">7,</ref><ref type="bibr" target="#b7">8,</ref><ref type="bibr" target="#b9">10,</ref><ref type="bibr" target="#b22">22,</ref><ref type="bibr" target="#b28">28,</ref><ref type="bibr" target="#b29">29,</ref><ref type="bibr" target="#b33">33,</ref><ref type="bibr" target="#b34">34]</ref>. In fact, both Garzarán et al. <ref type="bibr" target="#b6">[7]</ref> and Zhang et al. <ref type="bibr" target="#b33">[33,</ref><ref type="bibr" target="#b34">34]</ref> use the mechanism of undo logs for this different purpose. Others speculatively turn explicit parallel synchronization (e.g., locks) into implicit transactions when resources are sufficient <ref type="bibr" target="#b20">[20,</ref><ref type="bibr" target="#b23">23,</ref><ref type="bibr" target="#b24">24]</ref>, but fall back on explicit synchronization otherwise. Finally, many researchers seek all software TM solutions <ref type="bibr" target="#b11">[12,</ref><ref type="bibr" target="#b12">13,</ref><ref type="bibr" target="#b17">18,</ref><ref type="bibr" target="#b27">27]</ref>.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="5.">Conclusions and Future Work</head><p>LogTM is a promising approach to providing hardware (assisted) transactional memory. LogTM optimizes for the expected common case of small (i.e., in-cache) transactions, yet efficiently supports dynamically infrequent large transactions. LogTM also optimizes for the expected common case that transactions commit, using eager version management and software abort handling.</p><p>Looking forward, LogTM presents several challenges and opportunities. Challenges include the need for better virtualization to support paging, context switches, and other operating system interactions without undue runtime overhead or complexity. This work also identifies the challenge that false sharing presents to all TM systems based on cache coherence. Opportunities include generalizing LogTM to a true hardware-software hybrid where hardware implements mechanisms and software sets policies. LogTM's log structure also lends itself to a straight-forward extension to nested transactions. Finally, LogTM is implemented in a full-system simulation environment and is available under GPL in the GEMS distribution <ref type="bibr" target="#b18">[19]</ref>.</p></div><figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_1"><head>Figure 3 . LogTM Conflict Detection Examples: in-cache detection (a)-(c), and out-of-cache detection (d)-(f).</head><label>3</label><figDesc>Figure 3. LogTM Conflict Detection Examples: in-cache detection (a)-(c), and out-of-cache detection (d)-(f).</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_2"><head>register_conflict_handler(void (*) conflict_handler)</head><label></label><figDesc>Registers a function to be called when transactions conflict or are explicitly aborted. Conflict handlers are registered on a per-thread basis. The registered handler should assume the following pre-conditions and ensure the following post-conditions if the transaction aborts: Conflict Handler Pre-conditions: Memory blocks written by the thread (a) have new values in (virtual) memory, (b) are still isolated, and (c) have their (virtual) address and pre-write values in the log.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_3"><head>Figure 4 . Shared-counter microbenchmark (Figure 5 . Execution time for LogTM transactions, test-and-test-and-set locks with exponential backoff (EXP) and MCS locks (MCS).</head><label>45</label><figDesc>Figure 4. Shared-counter microbenchmark (main loop)</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_4"><head>Figure 6 . SPLASH performance comparison: execution time of "transactionized" SPLASH benchmarks on LogTM normalized to the performance of the benchmarks with lock-based synchronization on the baseline system</head><label>6</label><figDesc>Figure 6. SPLASH performance comparison: execution time of "transactionized" SPLASH benchmarks on LogTM normalized to the performance of the benchmarks with lock-based synchronization on the baseline system</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_5"><head>Figure 7 .</head><label>7</label><figDesc>Figure 7. Stall distribution</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_0" validated="true"><head>Table 1 : A Transactional Memory (TM) taxonomy</head><label>1</label><figDesc></figDesc><table>Version Management 
+
+Lazy 
+Eager 
+
+Conflict 
+
+Lazy 
+OCC DBMSs [16] 
+Stanford TCC [11] 
+
+none 
+
+Eager 
+MIT LTM [2] 
+Intel/Brown VTM [25] 
+(on cache conflicts) 
+
+CCC DBMSs [6] 
+MIT UTM [2] 
+LogTM [new] </table></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_2" validated="false"><head>Table 2 : LogTM Interface</head><label>2</label><figDesc></figDesc><table>User Interface 
+begin_transaction() Requests that subsequent 
+dynamic statements form a transaction. Logically saves a 
+copy of user-visible non-memory thread state (i.e., architec-
+</table></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_3" validated="true"><head>Table 3 . System model parameters</head><label>3</label><figDesc></figDesc><table>System Model Settings 
+
+Processors 32, 1 GHz, single-issue, in-order, non-
+memory IPC=1 
+
+L1 Cache 
+16 kB 4-way split, 1-cycle latency 
+
+L2 Cache 
+4 MB 4-way unified, 12-cycle latency 
+
+Memory 
+4 GB 80-cycle latency 
+
+Directory 
+Full-bit vector sharer list; migratory 
+sharing optimization; 
+Directory cache, 6-cycle latency 
+
+Interconnection 
+Network 
+
+Hierarchical switch topology, 14-cycle 
+link latency 
+
+</table></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_4" validated="false"><head>Table 4 . SPLASH-2 Benchmarks and Inputs</head><label>4</label><figDesc></figDesc><table>Benchmark 
+Input 
+Synchronization 
+Methods 
+
+Barnes 
+512 bodies 
+locks on tree nodes 
+
+Cholesky 
+14 
+task queue locks 
+
+Ocean 
+contiguous par-
+titions, 258 
+
+barriers 
+
+Radiosity 
+room 
+task queue &amp; buffer 
+locks 
+
+Raytrace-
+Base 
+
+small image 
+(teapot) 
+
+work list &amp; counter 
+locks 
+
+Raytrace-
+Opt 
+
+small 
+image(teapot) 
+
+work list &amp; counter 
+locks 
+
+Water N-
+Squared 
+
+512 molecules 
+barriers 
+
+0.0 
+
+0.5 
+
+1.0 
+
+1.5 
+
+2.0 
+
+Speedup 
+
+BARNES 
+
+1.13 
+
+CHOLESKY 
+
+1.23 
+
+OCEAN 
+
+1.12 
+
+RADIOSITY 
+
+1.33 
+
+RAYTRACE 
+-BASE 
+
+2.68 
+
+RAYTRACE 
+-OPT 
+
+4.18 
+
+WATER 
+
+1.04 
+
+</table></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_5" validated="true"><head>Table 5 : Selected transactional data</head><label>5</label><figDesc></figDesc><table>Benchmark 
+
+# Trans. 
+% Stalls 
+% Aborts 
+Stores/Trans. 
+
+% Read-Modify-
+
+Writes 
+
+Barnes 
+3,067 4.89 15.3 
+5.50 
+27.9 
+
+Cholesky 
+22,309 4.54 2.07 
+1.68 
+82.3 
+
+Ocean 
+6,693 0.30 0.52 0.112 
+100 
+
+Radiosity 279,750 3.96 1.03 
+1.64 
+82.7 
+
+Raytrace-Base 
+48,285 24.7 1.24 
+1.96 
+99.9 
+
+Raytrace-Opt 
+47,884 2.04 0.41 
+1.97 
+99.9 
+
+Water 
+35,398 0.00 0.11 
+1.98 
+99.6 
+
+20000 
+40000 
+60000 
+
+Stall Duration (in cycles) 
+
+0 
+
+20 
+
+40 
+
+60 
+
+80 
+
+100 
+
+% Stalls 
+
+Barnes 
+Cholesky 
+Ocean 
+Radiosity 
+RT-base 
+RT-opt 
+Water 
+
+</table></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_6" validated="false"><head>Table 6 :</head><label>6</label><figDesc></figDesc><table>Cumulative distribution of write set sizes (in 
+64-byte blocks) 
+
+Benchmark 
+% &lt; 4 
+% &lt; 8 
+% &lt; 16 
+% &lt; 32 
+% &lt; 64 
+Max 
+
+Barnes 44.5 85.7 95.0 95.3 100 
+55 
+
+Cholesky 
+100 
+100 
+100 
+100 100 
+3 
+
+Ocean 
+100 
+100 
+100 
+100 100 
+1 
+
+Radiosity 97.0 99.6 99.6 
+100 100 
+67 
+
+Raytrace-Base 
+100 
+100 
+100 
+100 100 
+3 
+
+Raytrace-Opt 
+100 
+100 
+100 
+100 100 
+3 
+
+Water 
+100 
+100 
+100 
+100 100 
+2 </table></figure>
+		</body>
+		<back>
+
+			<div type="acknowledgement">
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="6.">Acknowledgments</head><p>This work is supported in part by the National Science Foundation (NSF), with grants CCF-0085949, CCR-0105721, EIA/CNS-0205286, CCR-0324878, as well as donations from Intel and Sun Microsystems. Hill and Wood have significant financial interest in Sun Microsystems. The views expressed herein are not necessarily those of the NSF, Intel, or Sun Microsystems.</p><p>We thank Virtutech AB, the Wisconsin Condor group, and the Wisconsin Computer Systems Lab for their help and support. We thank Zoran Radovic for help configuring our benchmarks. We thank Alaa Alameldeen, Brad Beckmann, Ben Liblit, Mike Marty, Mark Moir, Dan Nussbaum, Ravi Rajwar, Dan Sorin, Min Xu, the UW Computer Architecture Affiliates, and the Wisconsin Multifacet project for their helpful feedback on this work.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="7.">References</head></div>
+			</div>
+
+			<div type="references">
+
+				<listBibl>
+
+<biblStruct xml:id="b0">
+	<analytic>
+		<title level="a" type="main">A Dynamic Multithreading Processor</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Haitham</forename><surname>Akkary</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Michael</forename><forename type="middle">A</forename><surname>Driscoll</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of the 31st Annual IEEE/ACM Intl. Symp. on Microarchitecture</title>
+		<meeting>of the 31st Annual IEEE/ACM Intl. Symp. on Microarchitecture</meeting>
+		<imprint>
+			<date type="published" when="1998-11" />
+			<biblScope unit="page" from="226" to="236" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b1">
+	<analytic>
+		<title level="a" type="main">Unbounded Transactional Memory</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Scott Ananian</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Krste</forename><surname>Asanovic</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Bradley</forename><forename type="middle">C</forename><surname>Kuszmaul</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Charles</forename><forename type="middle">E</forename><surname>Leiserson</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Sean</forename><surname>Lie</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of the Eleventh IEEE Symp. on High-Performance Computer Architecture</title>
+		<meeting>of the Eleventh IEEE Symp. on High-Performance Computer Architecture</meeting>
+		<imprint>
+			<date type="published" when="2005-02" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b2">
+	<analytic>
+		<title level="a" type="main">Deconstructing Transactional Semantics: The Subtleties of Atomicity</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Colin</forename><surname>Blundell</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Christopher</forename><surname>Lewis</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Milo</forename><forename type="middle">M</forename></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Workshop on Duplicating, Deconstructing, and Debunking (WDDD)</title>
+		<imprint>
+			<date type="published" when="2005-06" />
+		</imprint>
+	</monogr>
+	<note>Martin</note>
+</biblStruct>
+
+<biblStruct xml:id="b3">
+	<analytic>
+		<title level="a" type="main">801 Storage: Architecture and Programming</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Albert</forename><surname>Chang</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Mark</forename><forename type="middle">F</forename><surname>Mergen</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">ACM Trans. on Computer Sys</title>
+		<imprint>
+			<biblScope unit="volume">6</biblScope>
+			<biblScope unit="issue">1</biblScope>
+			<date type="published" when="1988-02" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b4">
+	<monogr>
+		<title level="m" type="main">Parallel Computer Architecture: A Hardware/Software Approach</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">David</forename><forename type="middle">E</forename><surname>Culler</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><forename type="middle">P</forename><surname>Singh</surname></persName>
+		</author>
+		<imprint>
+			<date type="published" when="1999" />
+			<publisher>Morgan Kaufmann Publishers, Inc</publisher>
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b5">
+	<analytic>
+		<title level="a" type="main">The Notions of Consistency and Predicate Locks in a Database System</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">K</forename><forename type="middle">P</forename><surname>Eswaran</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><forename type="middle">N</forename><surname>Gray</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><forename type="middle">A</forename><surname>Lorie</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">I</forename><forename type="middle">L</forename><surname>Traiger</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Communications of the ACM</title>
+		<imprint>
+			<biblScope unit="volume">19</biblScope>
+			<biblScope unit="issue">11</biblScope>
+			<biblScope unit="page" from="624" to="633" />
+			<date type="published" when="1976" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b6">
+	<analytic>
+		<title level="a" type="main">Using Software Logging to Support Multi-Version Buffering in Thread-Level Speculation</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Milos</forename><surname>María Jesús Garzarán</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Victor</forename><surname>Prvulovic</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">José</forename><forename type="middle">María</forename><surname>Viñals</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Lawrence</forename><surname>Llabería</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Josep</forename><surname>Rauchwerger</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><surname>Torrellas</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of the Intl. Conference on Parallel Architectures and Compilation Techniques</title>
+		<meeting>of the Intl. Conference on Parallel Architectures and Compilation Techniques</meeting>
+		<imprint>
+			<date type="published" when="2003-09" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b7">
+	<analytic>
+		<title level="a" type="main">Speculative Versioning Cache</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">T</forename><forename type="middle">N</forename><surname>Sridhar Gopal</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">James</forename><forename type="middle">E</forename><surname>Vijaykumar</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Gurindar</forename><forename type="middle">S</forename><surname>Smith</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><surname>Sohi</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of the Fourth IEEE Symp. on High-Performance Computer Architecture</title>
+		<meeting>of the Fourth IEEE Symp. on High-Performance Computer Architecture</meeting>
+		<imprint>
+			<date type="published" when="1998-02" />
+			<biblScope unit="page" from="195" to="205" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b8">
+	<analytic>
+		<title level="a" type="main">Granularity of Locks and Degrees of Consistency in a Shared Database</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Gray</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Lorie</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">F</forename><surname>Putzolu</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">I</forename><surname>Traiger</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Modeling in Data Base Management Systems</title>
+		<meeting><address><addrLine>New York</addrLine></address></meeting>
+		<imprint>
+			<publisher>Elsevier North Holland</publisher>
+			<date type="published" when="1975" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b9">
+	<analytic>
+		<title level="a" type="main">Data Speculation Support for a Chip Multiprocessor</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Lance</forename><surname>Hammond</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Mark</forename><surname>Willey</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Kunle</forename><surname>Olukotun</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of the Eighth Intl. Conference on Architectural Support for Programming Languages and Operating Systems</title>
+		<meeting>of the Eighth Intl. Conference on Architectural Support for Programming Languages and Operating Systems</meeting>
+		<imprint>
+			<date type="published" when="1998-10" />
+			<biblScope unit="page" from="58" to="69" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b10">
+	<analytic>
+		<title level="a" type="main">Transactional Memory Coherence and Consistency</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Lance</forename><surname>Hammond</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Vicky</forename><surname>Wong</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Mike</forename><surname>Chen</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Brian</forename><forename type="middle">D</forename><surname>Carlstrom</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">John</forename><forename type="middle">D</forename><surname>Davis</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Ben</forename><surname>Hertzberg</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">K</forename><surname>Manohar</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Honggo</forename><surname>Prabhu</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Christos</forename><surname>Wijaya</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Kunle</forename><surname>Kozyrakis</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><surname>Olukotun</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of the 31st Annual Intl. Symp. on Computer Architecture</title>
+		<meeting>of the 31st Annual Intl. Symp. on Computer Architecture</meeting>
+		<imprint>
+			<date type="published" when="2004-06" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b11">
+	<analytic>
+		<title level="a" type="main">Language support for lightweight transactions</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Tim</forename><surname>Harris</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Keir</forename><surname>Fraser</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of the 18th SIGPLAN Conference on Object-Oriented Programming, Systems, Languages and Application (OOPSLA)</title>
+		<meeting>of the 18th SIGPLAN Conference on Object-Oriented Programming, Systems, Languages and Application (OOPSLA)</meeting>
+		<imprint>
+			<date type="published" when="2003-10" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b12">
+	<analytic>
+		<title level="a" type="main">Software Transactional Memory for DynamicSized Data Structures</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Maurice</forename><surname>Herlihy</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Victor</forename><surname>Luchangco</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Mark</forename><surname>Moir</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">William</forename><surname>Scherer</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Iii</forename></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Twenty-Second ACM Symp. on Principles of Distributed Computing</title>
+		<meeting><address><addrLine>Boston, Massachusetts</addrLine></address></meeting>
+		<imprint>
+			<date type="published" when="2003-07" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b13">
+	<analytic>
+		<title level="a" type="main">Transactional Memory: Architectural Support for Lock-Free Data Structures</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Maurice</forename><surname>Herlihy</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><forename type="middle">B</forename><surname>Eliot</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><surname>Moss</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of the 20th Annual Intl. Symp. on Computer Architecture</title>
+		<meeting>of the 20th Annual Intl. Symp. on Computer Architecture</meeting>
+		<imprint>
+			<date type="published" when="1993-05" />
+			<biblScope unit="page" from="289" to="300" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b14">
+	<analytic>
+		<title level="a" type="main">An Architecture for Mostly Functional Languages</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Tom</forename><surname>Knight</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of the ACM Conference on LISP and Functional Programming</title>
+		<meeting>of the ACM Conference on LISP and Functional Programming</meeting>
+		<imprint>
+			<date type="published" when="1986" />
+			<biblScope unit="page" from="105" to="112" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b15">
+	<analytic>
+		<title level="a" type="main">On Optimistic Methods for Concurrency Control</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">H</forename><forename type="middle">T</forename><surname>Kung</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><forename type="middle">T</forename><surname>Robinson</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">ACM Transactions on Database Systems</title>
+		<imprint>
+			<biblScope unit="page" from="213" to="226" />
+			<date type="published" when="1981-06" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b16">
+	<analytic>
+		<title level="a" type="main">Simics: A Full System Simulation Platform</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Peter</forename><forename type="middle">S</forename><surname>Magnusson</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">IEEE Computer</title>
+		<imprint>
+			<biblScope unit="volume">35</biblScope>
+			<biblScope unit="issue">2</biblScope>
+			<biblScope unit="page" from="50" to="58" />
+			<date type="published" when="2002-02" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b17">
+	<analytic>
+		<title level="a" type="main">Adaptive Software Transactional Memory</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">V</forename><forename type="middle">J</forename><surname>Marathe</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">W</forename><forename type="middle">N</forename><surname>Scherer</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Iii</forename></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><forename type="middle">L</forename><surname>Scott</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Technical Report</title>
+		<imprint>
+			<biblScope unit="volume">868</biblScope>
+			<date type="published" when="2005" />
+		</imprint>
+		<respStmt>
+			<orgName>Computer Science Department, University of Rochester</orgName>
+		</respStmt>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b18">
+	<monogr>
+		<title/>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><forename type="middle">K</forename><surname>Milo</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Daniel</forename><forename type="middle">J</forename><surname>Martin</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Bradford</forename><forename type="middle">M</forename><surname>Sorin</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Michael</forename><forename type="middle">R</forename><surname>Beckmann</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Min</forename><surname>Marty</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Alaa</forename><forename type="middle">R</forename><surname>Xu</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Kevin</forename><forename type="middle">E</forename><surname>Alameldeen</surname></persName>
+		</author>
+		<imprint/>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b19">
+	<analytic>
+		<title level="a" type="main">Multifacet&apos;s General Execution-driven Multiprocessor Simulator (GEMS) Toolset</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Mark</forename><forename type="middle">D</forename><surname>Moore</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">David</forename><forename type="middle">A</forename><surname>Hill</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><surname>Wood</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Computer Architecture News</title>
+		<imprint>
+			<date type="published" when="2005" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b20">
+	<analytic>
+		<title level="a" type="main">Speculative Synchronization: Applying Thread-Level Speculation to Explicitly Parallel Applications</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">F</forename><surname>José</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Josep</forename><surname>Martínez</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><surname>Torrellas</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of the Tenth Intl. Conference on Architectural Support for Programming Languages and Operating Systems</title>
+		<meeting>of the Tenth Intl. Conference on Architectural Support for Programming Languages and Operating Systems</meeting>
+		<imprint>
+			<date type="published" when="2002-10" />
+			<biblScope unit="page" from="18" to="29" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b21">
+	<analytic>
+		<title level="a" type="main">Algorithms for Scalable Synchronization on Shared-Memory Multiprocessors</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>John</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Michael</forename><forename type="middle">L</forename><surname>Mellor-Curmmey</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><surname>Scott</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">ACM Transactions on Computer Systems</title>
+		<imprint>
+			<biblScope unit="volume">9</biblScope>
+			<biblScope unit="issue">1</biblScope>
+			<biblScope unit="page" from="21" to="65" />
+			<date type="published" when="1991" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b22">
+	<analytic>
+		<title level="a" type="main">Removing Architectural Bottlenecks to the Scalability of Speculative Parallelization</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Milos</forename><surname>Prvulovic</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Jesús</forename><surname>María</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Lawrence</forename><surname>Garzarán</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Josep</forename><surname>Rauchwerger</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><surname>Torrellas</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of the 28th Intl. Symp. on Computer Architecture</title>
+		<meeting>of the 28th Intl. Symp. on Computer Architecture</meeting>
+		<imprint>
+			<date type="published" when="2001-07" />
+			<biblScope unit="page" from="204" to="215" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b23">
+	<analytic>
+		<title level="a" type="main">Speculative Lock Elision: Enabling Highly Concurrent Multithreaded Execution</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Ravi</forename><surname>Rajwar</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">James</forename><forename type="middle">R</forename><surname>Goodman</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of the 34th Annual IEEE/ACM Intl. Symp. on Microarchitecture</title>
+		<meeting>of the 34th Annual IEEE/ACM Intl. Symp. on Microarchitecture</meeting>
+		<imprint>
+			<date type="published" when="2001-12" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b24">
+	<analytic>
+		<title level="a" type="main">Transactional LockFree Execution of Lock-Based Programs</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Ravi</forename><surname>Rajwar</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">James</forename><forename type="middle">R</forename><surname>Goodman</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of the Tenth Intl. Conference on Architectural Support for Programming Languages and Operating Systems</title>
+		<meeting>of the Tenth Intl. Conference on Architectural Support for Programming Languages and Operating Systems</meeting>
+		<imprint>
+			<date type="published" when="2002-10" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b25">
+	<analytic>
+		<title level="a" type="main">Virtualizing Transactional Memory</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Ravi</forename><surname>Rajwar</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Maurice</forename><surname>Herlihy</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Konrad</forename><surname>Lai</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of the 32nd Annual Intl. Symp. on Computer Architecture</title>
+		<meeting>of the 32nd Annual Intl. Symp. on Computer Architecture</meeting>
+		<imprint>
+			<date type="published" when="2005-06" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b26">
+	<analytic>
+		<title level="a" type="main">Advanced Contention Management for Dynamic Software Transactional Memory</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">W</forename><forename type="middle">N</forename><surname>Scherer</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><forename type="middle">L</forename><surname>Scott</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">24th ACM Symp. on Principles of Distributed Computing</title>
+		<imprint>
+			<date type="published" when="2005-07" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b27">
+	<analytic>
+		<title level="a" type="main">Software Transactional Memory</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Nir</forename><surname>Shavit</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Dan</forename><surname>Touitou</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Fourteenth ACM Symp. on Principles of Distributed Computing</title>
+		<meeting><address><addrLine>Ottawa, Ontario, Canada</addrLine></address></meeting>
+		<imprint>
+			<date type="published" when="1995-08" />
+			<biblScope unit="page" from="204" to="213" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b28">
+	<analytic>
+		<title level="a" type="main">Multiscalar Processors</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">G</forename><forename type="middle">S</forename><surname>Sohi</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Breach</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">T</forename><forename type="middle">N</forename><surname>Vijaykumar</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of the 22nd Annual Intl. Symp. on Computer Architecture</title>
+		<meeting>of the 22nd Annual Intl. Symp. on Computer Architecture</meeting>
+		<imprint>
+			<date type="published" when="1995-06" />
+			<biblScope unit="page" from="414" to="425" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b29">
+	<analytic>
+		<title level="a" type="main">The Potential for Using Thread-Level Data Speculation to Facilitate Automatic Parallelization</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Gregory</forename><surname>Steffan</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Todd</forename><forename type="middle">C</forename><surname>Mowry</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of the Fourth IEEE Symp. on High-Performance Computer Architecture</title>
+		<meeting>of the Fourth IEEE Symp. on High-Performance Computer Architecture</meeting>
+		<imprint>
+			<date type="published" when="1998-02" />
+			<biblScope unit="page" from="2" to="13" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b30">
+	<analytic>
+		<title level="a" type="main">Multiple Reservations and the Oklahoma Update</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Janice</forename><forename type="middle">M</forename><surname>Stone</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Harold</forename><forename type="middle">S</forename><surname>Stone</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Philip</forename><surname>Heidelberger</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">John</forename><surname>Turek</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">IEEE Parallel and Distributed Technology</title>
+		<imprint>
+			<biblScope unit="volume">1</biblScope>
+			<biblScope unit="issue">4</biblScope>
+			<biblScope unit="page" from="58" to="71" />
+			<date type="published" when="1993-11" />
+		</imprint>
+	</monogr>
+	<note>Systems, &amp; Applications</note>
+</biblStruct>
+
+<biblStruct xml:id="b31">
+	<analytic>
+		<title/>
+		<ptr target="http://www.cs.wisc.edu/gems" />
+	</analytic>
+	<monogr>
+		<title level="j">Wisconsin Multifacet GEMS</title>
+		<imprint/>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b32">
+	<analytic>
+		<title level="a" type="main">Jaswinder Pal Singh, and Anoop Gupta. The SPLASH-2 Programs: Characterization and Methodological Considerations</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Moriyoshi</forename><surname>Steven Cameron Woo</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Evan</forename><surname>Ohara</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><surname>Torrie</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of the 22nd Annual Intl. Symp. on Computer Architecture</title>
+		<meeting>of the 22nd Annual Intl. Symp. on Computer Architecture</meeting>
+		<imprint>
+			<date type="published" when="1995-06" />
+			<biblScope unit="page" from="24" to="37" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b33">
+	<analytic>
+		<title level="a" type="main">Hardware for Speculative Run-Time Parallelization in Distributed Shared-Memory Multiprocessors</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Ye</forename><surname>Zhang</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Lawrence</forename><surname>Rauchwerger</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Josep</forename><surname>Torrellas</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of the Fourth IEEE Symp. on High-Performance Computer Architecture</title>
+		<meeting>of the Fourth IEEE Symp. on High-Performance Computer Architecture</meeting>
+		<imprint>
+			<date type="published" when="1998-02" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b34">
+	<analytic>
+		<title level="a" type="main">Hardware for Speculative Parallelization of Partially-Parallel Loops in DSM Multiprocessors</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Ye</forename><surname>Zhang</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Lawrence</forename><surname>Rauchwerger</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Josep</forename><surname>Torrellas</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of the Fifth IEEE Symp. on High-Performance Computer Architecture</title>
+		<meeting>of the Fifth IEEE Symp. on High-Performance Computer Architecture</meeting>
+		<imprint>
+			<date type="published" when="1999-01" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+				</listBibl>
+			</div>
+		</back>
+	</text>
+</TEI>

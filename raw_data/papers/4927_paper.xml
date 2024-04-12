@@ -1,0 +1,540 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<TEI xmlns="http://www.tei-c.org/ns/1.0" 
+xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+xsi:schemaLocation="http://www.tei-c.org/ns/1.0 /Users/atharsefid/Desktop/grobid-0.5.3/grobid-home/schemas/xsd/Grobid.xsd"
+ xmlns:xlink="http://www.w3.org/1999/xlink">
+	<teiHeader xml:lang="en">
+		<encodingDesc>
+			<appInfo>
+				<application version="0.5.3" ident="GROBID" when="2019-03-26T17:06+0000">
+					<ref target="https://github.com/kermitt2/grobid">GROBID - A machine learning software for extracting information from scholarly documents</ref>
+				</application>
+			</appInfo>
+		</encodingDesc>
+		<fileDesc>
+			<titleStmt>
+				<title level="a" type="main">Data-Centric Reconfiguration with Network-Attached Disks</title>
+			</titleStmt>
+			<publicationStmt>
+				<publisher/>
+				<availability status="unknown"><licence/></availability>
+			</publicationStmt>
+			<sourceDesc>
+				<biblStruct>
+					<analytic>
+						<author>
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Alexander</forename><surname>Shraer</surname></persName>
+							<email>shralex@tx.technion.ac.il</email>
+						</author>
+						<author>
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Jean-Philippe</forename><surname>Martin</surname></persName>
+							<email>jpmartin@microsoft.com</email>
+						</author>
+						<author>
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Dahlia</forename><surname>Malkhi</surname></persName>
+						</author>
+						<author>
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Idit</forename><surname>Keidar</surname></persName>
+						</author>
+						<author>
+							<affiliation key="aff0">
+								<orgName type="department">Dept. of Electrical Engineering Technion</orgName>
+								<orgName type="institution">Microsoft Research Mountain View</orgName>
+								<address>
+									<settlement>Haifa</settlement>
+									<region>CA</region>
+									<country>Israel, USA</country>
+								</address>
+							</affiliation>
+						</author>
+						<author>
+							<affiliation key="aff1">
+								<orgName type="department">Dept. of Electrical Engineering Technion</orgName>
+								<orgName type="institution">Microsoft Research Mountain View</orgName>
+								<address>
+									<settlement>Haifa</settlement>
+									<region>CA</region>
+									<country>USA, Israel</country>
+								</address>
+							</affiliation>
+						</author>
+						<title level="a" type="main">Data-Centric Reconfiguration with Network-Attached Disks</title>
+					</analytic>
+					<monogr>
+						<imprint>
+							<date/>
+						</imprint>
+					</monogr>
+				</biblStruct>
+			</sourceDesc>
+		</fileDesc>
+		<profileDesc>
+			<textClass>
+				<keywords>
+					<term>B32 [Memory Structures]: Design Styles-shared mem- ory</term>
+					<term>C24 [Computer-Communication Networks]: Dis- tributed Systems-Distributed applications</term>
+					<term>D42 [Operating Systems]: Storage Management-secondary storage, dis- tributed memories</term>
+					<term>D45 [Operating Systems]: Reliabil- ity-fault-tolerance</term>
+					<term>H34 [Information Storage and Re- trieval]: Systems and Software-distributed systems General Terms Algorithms, Design, Reliability, Performance Keywords Shared-memory emulations, dynamic systems, atomic stor- age</term>
+				</keywords>
+			</textClass>
+			<abstract>
+				<p>We consider data-centric distributed storage, where storage-nodes are directly attached to the network. We present DynaDisk, the first read/write storage system that allows clients to add and remove storage devices in a completely decentralized manner, and without stopping ongoing read/write operations. DynaDisk supports two alternative approaches to reconfiguration, one partially synchronous (consensus-based) and one asynchronous. We evaluate DynaDisk on a LAN cluster and compare these two reconfiguration methods .</p>
+			</abstract>
+		</profileDesc>
+	</teiHeader>
+	<text xml:lang="en">
+		<body>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="1.">INTRODUCTION</head><p>Distributed storage architectures <ref type="bibr" target="#b9">[10,</ref><ref type="bibr" target="#b15">16,</ref><ref type="bibr" target="#b0">1]</ref> provide a cheap and scalable alternative to expensive monolithic disk array systems currently used in enterprise environments. Such distributed architectures make use of many unreliable storage- * Supported by Eshkol Fellowship from the Israeli Ministry of Science. <ref type="bibr">LADIS 2010 Zurich, Switzerland</ref> nodes directly attached to the network and provide reliability through redundancy, e.g., by replicating each object on 3 nodes. We focus on large scale distributed storage that provides read/write functionality with atomic guarantees.</p><p>The large number of fault-prone storage-nodes requires supporting dynamic configuration changes when faulty nodes are removed and new ones are introduced. When such reconfigurations occur, proper coordination is essential to avoid "split-brain" behavior. In this paper we consider the problem of reconfiguration in the data-centric system model <ref type="bibr" target="#b7">[8]</ref>, motivated in Section 1.1, where storage-nodes are accessed directly through the network by many ephemeral clients. Neither the storage devices nor the clients communicate with their peers.</p><p>We present DynaDisk, the first data-centric read/write storage system that reconfigures in a completely decentralized fashion. DynaDisk can be configured to either use an asynchronous or a partially synchronous (consensus-based) algorithm for reconfigurations. In fact, one of our main goals is to compare the two reconfiguration approaches. Our solution can be seen as a data-centric version of our DynaStore algorithm <ref type="bibr" target="#b2">[3]</ref> (see Section 1.2). DynaDisk encapsulates the core mechanism enabling reconfigurations, (whether asynchronous or partially-synchronous), in an object with similar guarantees to the weak snapshots of <ref type="bibr" target="#b2">[3]</ref>. Thus, DynaDisk provides a unified framework for evaluating different reconfiguration approaches. In particular, in order to compare the consensus-based reconfiguration approach to an asynchronous one, we implement weak snapshots using each approach. We implement weak snapshots in the asynchronous data-centric model for the first time (Section 3). Note that the storage overhead of message-passing snapshot algorithms <ref type="bibr" target="#b1">[2,</ref><ref type="bibr" target="#b2">3]</ref> is linear in the number of coordinating parties. Thus, if adopted na¨ıvelyna¨ıvely to the data-centric model, the overhead would be linear in the number of clients, which is prohibitive as it can be unbounded. Our new asynchronous implementation is conceptually different and entails an overhead proportional only to the number of storage-nodes currently in the system. Beyond weak snapshots, DynaDisk makes several other modifications to adapt DynaStore to our model (see Section 4). These include eliminating the broadcast of new configurations among storage-nodes, adding support for multiple objects (DynaStore implements a single object), and incremental state transfer.</p><p>We evaluate DynaDisk to investigate an interesting question -what coordination mechanism is preferable in practice? Our evaluation (see Section 5) shows that, compared to the consensus-based approach, asynchronous reconfigurations have a significant negative effect on latency of read and write operations that execute concurrently with reconfigurations. Essentially, this inherently stems from the fact that a consensus-free algorithm must sometimes work with multiple configurations that it considers possible, whereas an algorithm based on consensus can always work with a single configuration on which all clients agree. Having said that, the asynchronous algorithm achieves a slightly better and much more predictable reconfiguration latency when many reconfigurations occur simultaneously. In such extreme situations, the consensus-based algorithm sometimes takes a long time to reach a decision (in theory, reconfigurations are not guaranteed to complete <ref type="bibr" target="#b8">[9]</ref>).</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="1.1">Why data-centric?</head><p>We believe that in distributed storage, replication algorithms should be separate from replica state. This is enabled by the data-centric approach <ref type="bibr" target="#b7">[8]</ref> which enforces a two-tier architecture, where replication protocols are executed by clients, and storage-nodes simply provide persistent storage. The alternative approach that requires communication among storage-nodes is undesirable for many reasons. First, it unnecessarily complicates storage functionality. In fact, even though advances in storage technology allow customization of controller logic <ref type="bibr" target="#b10">[11]</ref>, application-dependent communication among storage-nodes would turn storage-nodes into servers with local disks. Allowing clients to directly access the storage simplifies control logic and reduces the number of faultprone system components. In addition, enabling the disks to transfer data directly to clients eliminates the server bandwidth bottleneck.</p><p>Whether disks are directly connected to the network or through servers, the data-centric approach increases system throughput as storage-nodes are able to respond to clients immediately, without prior coordination involving other nodes.</p><p>Finally, note that each object is usually stored on a different small subset of storage-nodes and each storage-node hosts a vast amount of objects. Therefore, in a non-data-centric solution, each storage-node has to communicate with a large overall number of peers coordinating updates on all of its objects. As TCP is the transfer protocol most used in datacenters <ref type="bibr" target="#b4">[5]</ref>, this may lead to a scalability problem since the number of connections is expected to be very large.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="1.2">Related work</head><p>Data-centric read/write storage is considered in many works, e.g., <ref type="bibr" target="#b0">[1,</ref><ref type="bibr" target="#b5">6,</ref><ref type="bibr" target="#b13">14,</ref><ref type="bibr" target="#b14">15]</ref>. Most of these, however, assume a static world, where the set of storage devices is fixed from the outset. The only exceptions we are aware of are Ursa Minor <ref type="bibr" target="#b0">[1]</ref> and the work of Martin et al. <ref type="bibr" target="#b14">[15]</ref>, which employ a centralized sequencer for configuration changes. Unlike Ursa Minor <ref type="bibr" target="#b0">[1]</ref>, the protocol of Martin et al. <ref type="bibr" target="#b14">[15]</ref> allows read/write operations to continue during reconfigurations. DynaDisk is completely decentralized -it allows every client to reconfigure the system without communicating with other clients, and also allows read/write operations to continue.</p><p>Reconfiguration was mainly considered in models where servers storing object replicas communicate. This enabled solutions where servers run consensus or virtual synchrony algorithms to agree on the configuration <ref type="bibr" target="#b12">[13,</ref><ref type="bibr" target="#b15">16]</ref>. Recently, Aguilera et al. <ref type="bibr" target="#b2">[3]</ref> proposed DynaStore, a reconfigurable read/write storage algorithm based on consensus-free coordination also using direct communication among storage servers. In the data-centric model, however, the reconfiguration problem is more challenging since storage-nodes cannot coordinate directly, whereas clients are mostly disconnected from the system.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="2.">SYSTEM ARCHITECTURE</head><p>We assume an unknown, unbounded universe of storagenodes Π and infinitely many clients that access them over the network. All clients and storage-nodes can crash, though as we mention below, excessive storage-node crashes can hamper liveness. The system emulates multiple atomic (highlevel) objects with a read and write interface, provided as a client-side library. Each high-level object is replicated, and is stored in multiple basic storage units called base-objects, each residing on one of the storage-nodes. The initial value of every high-level object is ⊥ and base-objects are created only when a non-⊥ value is written to the high-level object for the first time.</p><p>In addition to read and write operations, clients expose a reconfig interface, which allows for adding and removing storage-nodes and returns the new configuration. We say that a storage-node i is active if i does not crash, some client invokes a reconfig operation to add i, and no client invokes a reconfig operation to remove i. We assume that each active storage-node i responds to client requests starting from the time a reconfig operation adding i is invoked.</p><p>Obviously, system liveness depends on reconfig operations -for example, if all storage-nodes are removed, liveness is inevitably lost. Intuitively, each read, write and reconfig operation is guaranteed to complete as long as changes to the system are introduced gradually, and there is only a finite number of changes that occur during the operation (a formal liveness definition appears in <ref type="bibr" target="#b2">[3]</ref>). A prerequisite for operation liveness is that clients are able to find a current set of storage-nodes. We discuss this further below.</p><p>Storage-nodes' interface. Clients can invoke read i and writei operations on every storage-node i ∈ Π. These operations can operate on one or more base-objects stored on i. Multi-object operations only access individual base-objects atomically -they are simply an optimization and can be replaced with multiple single-object operations.</p><p>We further assume that the storage-nodes support readmodify-write access, e.g., a compare&amp;swap operation, which updates an object only if it equals to some value and returns the old value. This simple additional functionality does not require full customization of controller logic, as in Active Disks <ref type="bibr" target="#b10">[11]</ref>, and can be reused by multiple applications. Note that it is impossible to use a collection of fail-prone readmodify-write objects to emulate a reliable one <ref type="bibr" target="#b11">[12]</ref> or solve consensus, but they can be used to enable reliable atomic read/write storage <ref type="bibr" target="#b3">[4]</ref>.</p><p>Algorithm 1 Asynchronous weak snapshot algorithm.</p><formula xml:id="formula_0">1: Base-objects: ∀i, j ∈ S, Ni[j] is a base-object on storage-node i, initially ⊥ 2: operation update(c) 3: (j, c ) ← (⊥, ⊥) 4:</formula><p>S ← any subset of size (|S| + 1)/2 from S 5: invoke in parallel for all i ∈ S : 6:</p><p>prev</p><formula xml:id="formula_1">← compare&amp;swap i (Ni[i], ⊥, c) 7: if prev = ⊥ then (j, c ) ← (i, prev) 8: else (j, c ) ← (i, c) 9:</formula><p>wait until (j, c ) = (⊥, ⊥) 10:</p><p>M ← ∅ 11: invoke in parallel for all i ∈ S: 12:</p><formula xml:id="formula_2">M ← M ∪ {writei(Ni[j], c ))} 13:</formula><p>wait until |M | ≥ (|S| + 1)/2 14:</p><p>return OK</p><formula xml:id="formula_3">15: operation scan() 16: if collect() = ∅ then return ∅ 17:</formula><p>return collect() 18: procedure collect() 19:</p><formula xml:id="formula_4">M1, M2 ← ⊥; L ← ⊥ |S| 20:</formula><p>invoke in parallel for all i ∈ S:</p><formula xml:id="formula_5">21: M1 ← M1 ∪ {readi(Ni)} 22:</formula><p>wait until |M1| ≥ (|S| + 1)/2 23:</p><formula xml:id="formula_6">forall i ∈ S s.t. L [i] =⊥ for some L ∈M1 24: L[i] ← L [i] 25: I ← {i | L[i] = ⊥} 26:</formula><p>invoke in parallel for all i ∈ S:</p><formula xml:id="formula_7">27: M2 ← M2 ∪ {writei(Ni{I}, L{I})} 28:</formula><p>wait until |M2| ≥ (|S| + 1)/2 29:</p><formula xml:id="formula_8">return {L[i] | L[i] = ⊥}</formula><p>Service discovery. Finding the service is usually overlooked or not treated explicitly in theoretic distributed computing literature dealing with dynamic services. To address this issue, we model the service discovery component as a publicly known oracle, accessible by all clients. When queried by a client, the oracle returns some configuration previously returned by a reconfig operation, or the initial configuration if no reconfig has yet completed. If reconfigurations stop and the oracle is queried infinitely many times, it is assumed to eventually output the last configuration of the system.</p><p>The oracle can be implemented in different ways, e.g., using a publicly known naming service, such as DNS or UDDI. In case all storage-nodes are located inside an organization's network, it can be implemented by having clients broadcast a discovery request (e.g., as in ARP or Web Services Dynamic Discovery protocol). Note that after initially finding some node in the system, clients can usually proceed without the oracle, and may learn the latest configuration by contacting a storage-node they already know. Nevertheless, if the system reconfigures too quickly, they might need to contact the oracle again. It is important to note that the functionality we require of the oracle is very weak and cannot be used, e.g., to reach consensus in an asynchronous model. Finding the weakest sufficient oracle is an interesting direction for future work.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.">DISTRIBUTED WEAK SNAPSHOTS</head><p>A weak snapshot distributed object (WS, introduced in <ref type="bibr" target="#b2">[3]</ref>) exposes two operations: update(c) and scan(). Weak snapshot is implemented on some fixed set S of storage-nodes and can be accessed by any number of clients. A client calls update(c) to propose a new value c, and calls scan() to retrieve a subset of previously proposed values. When used for reconfigurations in DynaDisk, c is a set of proposed configuration changes.</p><p>WS ensures the following safety guarantees <ref type="bibr" target="#b2">[3]</ref>: Once at least one update completes, every newly invoked scan returns a non-empty set of updates; and once some value is returned in one complete scan, it is returned by all scans invoked thereafter. Moreover, WS ensures that there exists some common update value c that is returned in all non-empty scans. Intuitively, c can be seen as the first value to have been proposed, although in the presence of concurrent updates there isn't always a clear notion of the first one. WS ensures liveness of all operations provided that a majority (or quorum) of the fixed set of storage-nodes holding it are active.</p><p>WS objects allow us to encapsulate coordination necessary to reconfigure separately from the data objects stored in the system. These objects can be implemented in different ways, which allows for comparing different reconfiguration approaches in a modular fashion. Note, however, that previously proposed asynchronous WS algorithms <ref type="bibr" target="#b1">[2,</ref><ref type="bibr" target="#b2">3]</ref> are unsuitable for the data-centric model, since the storage overhead they require (when adapted na¨ıvelyna¨ıvely to our model) is proportional to the number of clients, which can be arbitrarily large. We next present a new data-centric asynchronous WS algorithm, whose overhead is proportional only to the number of storage-nodes in the current system configuration, and is independent of the number of clients.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.1">Asynchronous algorithm</head><p>Algorithm 1 is an asynchronous data-centric WS implementation. It uses a vector Ni of |S| base-objects stored at each storage-node i, where Ni[j] stores the value "endorsed" by storage-node j, if this value is known to storage-node i (initially ⊥). The update(c) operation contacts a majority of the storage-nodes asking them to endorse the value c by invoking compare&amp;swap on each storage-node in line 6. It then waits until the first storage-node, j, responds. Its response, prev, indicates whether j endorses c because it is the first such request it receives (prev=⊥), or whether Nj <ref type="bibr">[j]</ref> was not changed to c, and it is still equal to prev =⊥. The update then writes the value endorsed by j to Ni[j] at a majority of storage-nodes (line 12). Note that all non-⊥ values that appear in Ni <ref type="bibr">[j]</ref> for the same j are identical, as compare&amp;swap guarantees that each storage-node endorses at most one value. For the same reason, once a base-object gets a non-⊥ value, it is never modified.</p><p>The scan operation returns a set of values that were endorsed by storage-nodes. It invokes collect, which reads vectors Ni from a majority of the storage-nodes, and merges them into a single vector L in lines 23-24. The k-th entry in L is the value endorsed by storage-node k, if such a value appears in one or more of the vectors retrieved in line 21, or ⊥ otherwise. Then, similarly to the update operation, collect has a write-back phase (lines 26-28) where it makes sure that a majority of the storage-nodes have the latest information, in this case, the non-⊥ values appearing in L (in line 27 we denote by L{I} the sub-vector of L consisting of entries that correspond to indices in the set I). After invoking collect once, scan checks whether the returned set of values is empty. If so, it returns ∅, and otherwise invokes collect one more time. The second invocation is required to ensure that some common value appears in all non-empty sets returned by scan operations. In the full paper we prove that Algorithm 1 guarantees the properties of weak snapshots.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="4.">DYNADISK</head><p>Our data-centric reconfiguration system, DynaDisk, is based on the DynaStore algorithm <ref type="bibr" target="#b2">[3]</ref>. The heart of DynaStore is the WS object, which encapsulates the coordination mechanism necessary for reconfigurations. In DynaDisk, each configuration w has a weak snapshot object WS(w) that stores reconfiguration proposals, i.e., changes proposed to w by clients. For each configuration, the associated storagenodes keep several replicas of the stored data. Clients contact storage-nodes to read or write the data, or to learn about storage-nodes that were added or removed. If all the storage-nodes that a client knew about have been removed, then that client uses the discovery service to locate some suitable storage-nodes.</p><p>The protocol leverages the WS properties to guarantee that all clients observe read and write operations as if they happened in the same total order (which conforms with the operation precedence relation), despite crashes and concurrent reconfiguration requests. DynaDisk uses two alternative algorithms for implementing WS objects -an asynchronous algorithm presented in Section 3.1 and a second algorithm based on consensus.</p><p>In DynaDisk, as in DynaStore, each configuration's WS object may be updated by multiple clients. We can define a unique global sequence of configurations, as the sequence that starts with some fixed initial configuration, and continues by following the "first" proposal stored in each configuration's WS. Although this sequence is not visible to clients, they can read a superset of proposals, namely, the current set of values in the WS, which is guaranteed to contain the first proposed one. They then follow and read from all potential next configurations. Then, they write back the latest data they read to a final configuration, which is guaranteed to be part of the global sequence. In this way, even without consensus on the unique global sequence, the latest written data is guaranteed to be observed by a reader.</p><p>Besides the WS algorithm used by DynaStore, which is unsuitable for the data-centric model (see Section 3), most of DynaStore remaining logic can be easily adapted to the model. In particular, its read/write mechanism is based on the ABD algorithm <ref type="bibr" target="#b3">[4]</ref>. The only other functionality of DynaStore that cannot work in our model is the broadcast of new configurations. This is required to inform all servers in a new configuration that it can now be used. In DynaDisk, this mechanism was replaced by an oracle, explained in Section 2, which encapsulates the necessary service-location functionality. When blocking on a wait statement longer than some threshold of time, a client starts querying the oracle periodically. If the oracle responds with a newer configuration the client restarts the operation in that configuration.</p><p>We stress that a location service is needed in any reconfigurable storage system. However, like other server-based (non-data-centric) solutions (e.g., <ref type="bibr" target="#b12">[13]</ref>), DynaStore did not deal with the question of how clients can find the servers.</p><p>In the data-centric model this question cannot be avoided, as the algorithm is now run by clients who must be able to find the storage.</p><p>Another important modification to DynaStore concerns adding support for multiple data objects. DynaDisk does not restrict the number of objects that an application can read and write, and at the same time, employs only one WS object per configuration. Supporting a large number of objects might pose a difficulty for clients that transfer the state during reconfigurations, as clients cannot be expected to have sufficient memory for copying all objects from the old configuration to the new one, e.g., if the entire storage-node's memory must be copied. To mitigate this, we added support for incremental state transfer, which copies objects one by one (or in small sets of limited size).</p><p>With incremental state transfer, it is possible that one object is copied to the new configuration c1, but when a second object is transfered, a later configuration c2 is found and the second object is written in c2. When state-transfer is complete, reconfig "marks" the configuration to which the first object was transfered, c1 in our example, as ready; all other objects can be found by following updates stored in WSs starting from the WS of configuration c1. We implement ready as an atomic shared boolean object stored on the nodes in c1 using the ABD algorithm <ref type="bibr" target="#b3">[4]</ref>. Clients start their operations (read, write or reconfig) from some previously known ready configuration c, and whenever a new configuration c is found, the client reads its ready object to determine whether it is safe to start subsequent operations in c rather than c. The details of this mechanism, as well as other modifications and optimizations made to DynaStore, are deferred to the full paper.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="5.">IMPLEMENTATION AND EVALUATION</head><p>In order to compare the two approaches to reconfigurations we implemented DynaDisk's WS module in two ways: (1) using our asynchronous Algorithm 1; and (2) using the Active Disk Paxos consensus algorithm <ref type="bibr" target="#b6">[7]</ref>, with exponential backoff as the leader-election mechanism (1ms. was used as minimal backoff). We used C# with the Microsoft CCR (Concurrency and Coordination Runtime) library. Clients use TCP to communicate with storage-nodes.</p><p>The storage overhead of consensus-based coordination is constant for each storage-node in each configuration (this stems from the properties of Active Disk Paxos), whereas the overhead of Algorithm 1 is linear with the number of storagenodes in the configuration.</p><p>We deployed the system on a cluster of 2-core 2GHz AMD Opteron machines connected by 1Gb Ethernet. We used 8 such machines -6 for storage (2 storage-nodes per machine), and 2 for clients. In each experiment described below, all 12 storage-nodes are initially in the system. 5 clients concurrently perform sequences of write operations (with data size of 4KB). During each sequence, we start 1, 2, or 5 clients that simultaneously invoke reconfig to remove one of the storage-nodes.</p><p>We first examine the latency of write operations.  shows that, as expected, in stable periods, when no reconfig is ongoing, the latency is the same whether we use consensus or not. When one or more reconfiguration are executing simultaneously with the write, we can see that the consensusfree approach has a noticeable negative effect on latency compared to the consensus-based approach. This happens because with consensus, even if multiple clients contend on who will become the leader and be the first to reconfigure the system, all other clients find out about changes to the configuration only after the consensus algorithm has reached a decision, and then, a single new configuration exists. On the other hand, in the consensus-free approach writers see all reconfiguration proposals as they are made and work with multiple possible configurations until a single configuration including all changes is formed.</p><p>We next examine the latency of reconfig operations in <ref type="figure" target="#fig_2">Fig- ure 2</ref>. We see that when using consensus, average reconfig latency is slightly longer when many reconfigurations are in progress at the same time, and the variance of the time it takes to reconfigure is much bigger. This happens since multiple clients attempt to become leaders at the same time, which can lead to "infinite executions" in theory <ref type="bibr" target="#b8">[9]</ref>.</p><p>We have also emulated network latencies taken from distributions that model noisy LAN and WAN settings, as well as read operations instead of writes and experimented with adding storage-nodes instead of removing them. We got similar results, which are omitted for lack of space. </p></div><figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_1"><head>Figure 1 :</head><label>1</label><figDesc>Figure 1: Average write latency.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_2"><head>Figure 2 :</head><label>2</label><figDesc>Figure 2: Average reconfig latency.</figDesc></figure>
+		</body>
+		<back>
+
+			<div type="acknowledgement">
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>Acknowledgments</head><p>We thank Marcos K. Aguilera for many discussions and his insightful comments.</p></div>
+			</div>
+
+			<div type="references">
+
+				<listBibl>
+
+<biblStruct xml:id="b0">
+	<analytic>
+		<title level="a" type="main">Ursa minor: Versatile cluster-based storage</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Abd-El-Malek</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">W</forename><forename type="middle">V</forename><surname>Courtright</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">I</forename><forename type="middle">I</forename></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Cranor</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">G</forename><forename type="middle">R</forename><surname>Ganger</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Hendricks</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><forename type="middle">J</forename><surname>Klosterman</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><forename type="middle">P</forename><surname>Mesnier</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Prasad</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">B</forename><surname>Salmon</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><forename type="middle">R</forename><surname>Sambasivan</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Sinnamohideen</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><forename type="middle">D</forename><surname>Strunk</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">E</forename><surname>Thereska</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Wachs</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><forename type="middle">J</forename><surname>Wylie</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">FAST</title>
+		<imprint>
+			<date type="published" when="2005" />
+			<biblScope unit="page" from="59" to="72" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b1">
+	<analytic>
+		<title level="a" type="main">Atomic snapshots of shared memory</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Y</forename><surname>Afek</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">H</forename><surname>Attiya</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Dolev</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">E</forename><surname>Gafni</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Merritt</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">N</forename><surname>Shavit</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Journal of the ACM</title>
+		<imprint>
+			<biblScope unit="volume">40</biblScope>
+			<biblScope unit="issue">4</biblScope>
+			<biblScope unit="page" from="873" to="890" />
+			<date type="published" when="1993" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b2">
+	<analytic>
+		<title level="a" type="main">Dynamic atomic storage without consensus</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><forename type="middle">K</forename><surname>Aguilera</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">I</forename><surname>Keidar</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Malkhi</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Shraer</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">PODC</title>
+		<imprint>
+			<date type="published" when="2009" />
+			<biblScope unit="page" from="17" to="25" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b3">
+	<analytic>
+		<title level="a" type="main">Sharing memory robustly in message-passing systems</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">H</forename><surname>Attiya</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Bar-Noy</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Dolev</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Journal of the ACM</title>
+		<imprint>
+			<biblScope unit="volume">42</biblScope>
+			<biblScope unit="issue">1</biblScope>
+			<biblScope unit="page" from="124" to="142" />
+			<date type="published" when="1995" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b4">
+	<analytic>
+		<title level="a" type="main">Toward a cloud computing research agenda</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">K</forename><surname>Birman</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">G</forename><surname>Chockler</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Van Renesse</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">SIGACT News</title>
+		<imprint>
+			<biblScope unit="volume">40</biblScope>
+			<biblScope unit="issue">2</biblScope>
+			<biblScope unit="page" from="68" to="80" />
+			<date type="published" when="2009" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b5">
+	<analytic>
+		<title level="a" type="main">Reliable distributed storage</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">G</forename><surname>Chockler</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Guerraoui</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">I</forename><surname>Keidar</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Vukolic</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">IEEE Computer</title>
+		<imprint>
+			<biblScope unit="volume">42</biblScope>
+			<biblScope unit="issue">4</biblScope>
+			<biblScope unit="page" from="60" to="67" />
+			<date type="published" when="2009" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b6">
+	<monogr>
+		<title level="m" type="main">Active disk paxos with infinitely many processes. Distributed Computing</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">G</forename><surname>Chockler</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Malkhi</surname></persName>
+		</author>
+		<imprint>
+			<date type="published" when="2005" />
+			<biblScope unit="volume">18</biblScope>
+			<biblScope unit="page" from="73" to="84" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b7">
+	<analytic>
+		<title level="a" type="main">A data-centric approach for scalable state machine replication</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">G</forename><surname>Chockler</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Malkhi</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Dolev</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">FuDiCo</title>
+		<imprint>
+			<biblScope unit="volume">2584</biblScope>
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b8">
+	<analytic>
+		<title level="a" type="main">Impossibility of distributed consensus with one faulty process</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><forename type="middle">J</forename><surname>Fischer</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">N</forename><forename type="middle">A</forename><surname>Lynch</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><forename type="middle">S</forename><surname>Paterson</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Journal of the ACM</title>
+		<imprint>
+			<biblScope unit="volume">32</biblScope>
+			<biblScope unit="issue">2</biblScope>
+			<biblScope unit="page" from="374" to="382" />
+			<date type="published" when="1985" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b9">
+	<analytic>
+		<title level="a" type="main">The Google file system</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Ghemawat</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">H</forename><surname>Gobioff</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><forename type="middle">T</forename><surname>Leung</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">SOSP</title>
+		<imprint>
+			<date type="published" when="2003" />
+			<biblScope unit="page" from="29" to="43" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b10">
+	<analytic>
+		<title level="a" type="main">A cost-effective, high-bandwidth storage architecture</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">G</forename><forename type="middle">A</forename><surname>Gibson</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><forename type="middle">F</forename><surname>Nagle</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">K</forename><surname>Amiri</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Butler</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">F</forename><forename type="middle">W</forename><surname>Chang</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">H</forename><surname>Gobioff</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Hardin</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">E</forename><surname>Riedel</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Rochberg</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Zelenka</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">SIGOPS Operating Systems Review</title>
+		<imprint>
+			<biblScope unit="volume">32</biblScope>
+			<biblScope unit="issue">5</biblScope>
+			<biblScope unit="page" from="92" to="103" />
+			<date type="published" when="1998" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b11">
+	<analytic>
+		<title level="a" type="main">Fault-tolerant wait-free shared objects</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>Jayanti</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">T</forename><forename type="middle">D</forename><surname>Chandra</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Toueg</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Journal of the ACM</title>
+		<imprint>
+			<biblScope unit="volume">45</biblScope>
+			<biblScope unit="issue">3</biblScope>
+			<date type="published" when="1998" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b12">
+	<analytic>
+		<title level="a" type="main">RAMBO: A reconfigurable atomic memory service for dynamic networks</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">N</forename><forename type="middle">A</forename><surname>Lynch</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><forename type="middle">A</forename><surname>Shvartsman</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">DISC</title>
+		<imprint>
+			<date type="published" when="2002" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b13">
+	<analytic>
+		<title level="a" type="main">Byzantine quorum systems</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Malkhi</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Reiter</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">STOC</title>
+		<imprint>
+			<date type="published" when="1997" />
+			<biblScope unit="page" from="569" to="578" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b14">
+	<analytic>
+		<title level="a" type="main">A framework for dynamic Byzantine storage</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J.-P</forename><surname>Martin</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">L</forename><surname>Alvisi</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">DSN</title>
+		<imprint>
+			<date type="published" when="2004" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b15">
+	<analytic>
+		<title level="a" type="main">Fab: Building distributed enterprise disk arrays from commodity components</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Y</forename><surname>Saito</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Frølund</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><forename type="middle">C</forename><surname>Veitch</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Merchant</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Spence</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">ASPLOS</title>
+		<imprint>
+			<date type="published" when="2004" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+				</listBibl>
+			</div>
+		</back>
+	</text>
+</TEI>

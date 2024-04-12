@@ -1,0 +1,1118 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<TEI xmlns="http://www.tei-c.org/ns/1.0" 
+xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+xsi:schemaLocation="http://www.tei-c.org/ns/1.0 /Users/atharsefid/Desktop/grobid-0.5.3/grobid-home/schemas/xsd/Grobid.xsd"
+ xmlns:xlink="http://www.w3.org/1999/xlink">
+	<teiHeader xml:lang="en">
+		<encodingDesc>
+			<appInfo>
+				<application version="0.5.3" ident="GROBID" when="2019-03-26T16:49+0000">
+					<ref target="https://github.com/kermitt2/grobid">GROBID - A machine learning software for extracting information from scholarly documents</ref>
+				</application>
+			</appInfo>
+		</encodingDesc>
+		<fileDesc>
+			<titleStmt>
+				<title level="a" type="main">Measurement and Analysis of TCP Throughput Collapse in Cluster-based Storage Systems</title>
+			</titleStmt>
+			<publicationStmt>
+				<publisher/>
+				<availability status="unknown"><licence/></availability>
+			</publicationStmt>
+			<sourceDesc>
+				<biblStruct>
+					<analytic>
+						<author>
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Amar</forename><surname>Phanishayee</surname></persName>
+							<affiliation key="aff0">
+								<orgName type="institution">Carnegie Mellon University</orgName>
+							</affiliation>
+						</author>
+						<author>
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Elie</forename><surname>Krevat</surname></persName>
+							<affiliation key="aff0">
+								<orgName type="institution">Carnegie Mellon University</orgName>
+							</affiliation>
+						</author>
+						<author>
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Vijay</forename><surname>Vasudevan</surname></persName>
+							<affiliation key="aff0">
+								<orgName type="institution">Carnegie Mellon University</orgName>
+							</affiliation>
+						</author>
+						<author>
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">David</forename><forename type="middle">G</forename><surname>Andersen</surname></persName>
+							<affiliation key="aff0">
+								<orgName type="institution">Carnegie Mellon University</orgName>
+							</affiliation>
+						</author>
+						<author>
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Gregory</forename><forename type="middle">R</forename><surname>Ganger</surname></persName>
+							<affiliation key="aff0">
+								<orgName type="institution">Carnegie Mellon University</orgName>
+							</affiliation>
+						</author>
+						<author>
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Garth</forename><forename type="middle">A</forename><surname>Gibson</surname></persName>
+							<affiliation key="aff0">
+								<orgName type="institution">Carnegie Mellon University</orgName>
+							</affiliation>
+						</author>
+						<author>
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Srinivasan</forename><surname>Seshan</surname></persName>
+							<affiliation key="aff0">
+								<orgName type="institution">Carnegie Mellon University</orgName>
+							</affiliation>
+						</author>
+						<title level="a" type="main">Measurement and Analysis of TCP Throughput Collapse in Cluster-based Storage Systems</title>
+					</analytic>
+					<monogr>
+						<imprint>
+							<date/>
+						</imprint>
+					</monogr>
+				</biblStruct>
+			</sourceDesc>
+		</fileDesc>
+		<profileDesc>
+			<abstract>
+				<p>Cluster-based and iSCSI-based storage systems rely on standard TCP/IP-over-Ethernet for client access to data. Unfortunately, when data is striped over multiple net-worked storage nodes, a client can experience a TCP throughput collapse that results in much lower read band-width than should be provided by the available network links. Conceptually, this problem arises because the client simultaneously reads fragments of a data block from multiple sources that together send enough data to overload the switch buffers on the client&apos;s link. This paper analyzes this Incast problem, explores its sensitivity to various system parameters, and examines the effectiveness of alternative TCP-and Ethernet-level strategies in mitigating the TCP throughput collapse.</p>
+			</abstract>
+		</profileDesc>
+	</teiHeader>
+	<text xml:lang="en">
+		<body>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="1">Introduction</head><p>Cluster-based storage systems are becoming an increasingly important target for both research and industry <ref type="bibr" target="#b0">[1,</ref><ref type="bibr" target="#b35">36,</ref><ref type="bibr" target="#b14">15,</ref><ref type="bibr" target="#b23">24,</ref><ref type="bibr" target="#b13">14,</ref><ref type="bibr" target="#b7">8]</ref>. These storage systems consist of a networked set of smaller storage servers, with data spread across these servers to increase performance and reliability. Building these systems using commodity TCP/IP and Ethernet networks is attractive because of their low cost and ease-of-use, and because of the desire to share the bandwidth of a storage cluster over multiple compute clusters, visualization systems, and personal machines. Furthermore, non-IP storage networking lacks some of the mature capabilities and breadth of services available in IP networks. However, building storage systems on TCP/IP and Ethernet poses several challenges. In this paper, we analyze one important barrier to high-performance storage over TCP/IP: the Incast problem <ref type="bibr" target="#b23">[24]</ref>. <ref type="bibr" target="#b0">1</ref> Incast is a catastrophic TCP throughput collapse that occurs as the number of storage servers sending data to a client increases past the ability of an Ethernet switch to buffer packets. As we explore further in §2, the problem arises from a subtle interaction between limited Ethernet switch buffer sizes, the communication patterns common in cluster-based storage systems, and TCP's loss recovery mechanisms. Briefly put, data striping couples the behavior of multiple storage servers, so the system is limited by the request completion time of the slowest storage node <ref type="bibr" target="#b6">[7]</ref>. Small Ethernet buffers are exhausted by a concurrent flood of traffic from many servers, which results in packet loss and one or more TCP timeouts. These timeouts impose a delay of hundreds of millisecondsorders of magnitude greater than typical data fetch timessignificantly degrading overall throughput.</p><p>This paper provides three contributions. First, we explore in detail the root causes of the Incast problem, characterizing its behavior under a variety of conditions (buffer space, varying numbers of servers, etc.). We find that Incast is a general barrier to increasing the number of source nodes in a cluster-based storage system. While increasing the amount of buffer space available can delay the onset of Incast, any particular switch configuration will have some maximum number of servers that can send simultaneously before throughput collapse occurs.</p><p>Second, we examine the effectiveness of existing TCP variants (e.g., <ref type="bibr">Reno [3]</ref>, NewReno <ref type="bibr" target="#b12">[13]</ref>, SACK <ref type="bibr" target="#b21">[22]</ref>, and limited transmit <ref type="bibr" target="#b1">[2]</ref>) designed to improve the robustness of TCP's loss recovery. While we do find that the move from Reno to NewReno substantially improves performance, none of the additional improvements help. Fundamentally, when TCP loses all packets in its window or loses retransmissions, no clever loss recovery algorithms can help.</p><p>Third, we examine a set of techniques that are moderately effective in masking Incast, such as drastically reducing TCP's retransmission timeout timer. With some of these solutions, building a high-performance, scalable cluster storage system atop TCP/IP and Ethernet can be practical. Unfortunately, while these techniques can be effective, none of them is without drawbacks. Our final conclusion is that no existing solutions are entirely sufficient, and further research is clearly indicated to devise a principled solution for the Incast problem.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="2">Background</head><p>In cluster-based storage systems, data is stored across many storage servers to improve both reliability and performance. Typically, their networks have high bandwidth (1-10 Gbps) and low latency (round trip times of tens to hundreds of microseconds) with clients separated from storage servers by one or more switches. In this environment, data blocks are striped over a number of servers, such that each server stores a fragment of a data block, denoted as a Server Request Unit (SRU), as shown in <ref type="figure" target="#fig_0">Figure 1</ref>. A client requesting a data block sends request packets to all of the storage servers containing data for that particular block; the client requests the next block only after it has received all the data for the current block. We refer to such reads as synchronized reads.</p><p>This simple environment abstracts away many details of real storage systems, such as multiple stripes per data block, multiple outstanding block requests from a client, and multiple clients on a single switch making requests across a shared subset of servers. However, this is the most basic representative setting in which Incast can occur and simplifies our analysis.</p><p>The need for a high performance environment that supports parallel operations such as synchronized reads is particularly important because of such recent projects as Parallel NFS (pNFS). pNFS is a component of NFSv4.1 that supports parallel data transfers and data striping across multiple file servers <ref type="bibr" target="#b36">[37,</ref><ref type="bibr" target="#b27">28,</ref><ref type="bibr" target="#b17">18]</ref>.</p><p>Most networks are provisioned so the client's link capacity to the switch is the throughput bottleneck of any parallel data transfer <ref type="bibr" target="#b15">[16,</ref><ref type="bibr" target="#b20">21]</ref>. Unfortunately, when performing synchronized reads for data blocks across an increasing number of servers, a client may observe a TCP throughput drop of one or two orders of magnitude below its link capacity. <ref type="figure" target="#fig_1">Figure 2</ref> illustrates this performance drop in a cluster-based storage network environment when a client requests data from just seven servers.</p><p>Early parallel network storage projects, such as the NASD project <ref type="bibr" target="#b14">[15]</ref>, observed TCP throughput collapse in cluster-based storage systems during synchronous data transfers. This was documented as part of a larger paper by Nagle et al. <ref type="bibr" target="#b23">[24]</ref>, who termed the problem Incast and attributed it to multiple senders overwhelming a fixed-size switch buffer. However, while Nagle demonstrated the problem and suggested that an alternative TCP implementation shows a modest improvement, a full analysis and measurement of the problem was not performed nor were possible solutions presented.</p><p>Incast has not been thoroughly studied. Current systems attempt to avoid TCP throughput collapse by limiting the number of servers involved in any block transfer, or by artificially limiting the rate at which they transfer data. These solutions, however, are typically specific to one configuration (e.g. a number of servers, data block sizes, link capacities, etc.), and thus are not robust to changes in the storage network environment.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3">Experimental Setup</head><p>In this section, we describe the simulation and real system environments where we measure the effects of Incast and the corresponding workloads that we use in both settings.  <ref type="table">Table 1</ref>: Simulation parameters with default settings.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.1">Simulation Environment</head><p>All of our simulations use ns-2 <ref type="bibr" target="#b26">[27]</ref>, an event-driven network simulator that models networked applications at the packet granularity. Our default simulation configuration consists of one client and multiple servers all connected to the same switch as shown in <ref type="figure" target="#fig_0">Figure 1</ref>. <ref type="table">Table 1</ref> shows the parameters and their corresponding default values that we vary in simulation. We choose a 256KB default SRU size to model a production storage system <ref type="bibr" target="#b8">[9]</ref>. From our simulations, we obtain global and per-flow TCP statistics such as retransmission events, timeout events, TCP window sizes, and other TCP parameters to aid in our analysis of Incast.</p><p>Our test application performs synchronized reads over TCP in ns-2 to model a typical striped file system data transfer operation. The client requests a data block from n servers by sending a request packet to each server for one SRU worth of data. When a client receives the entire data block of n·SRU total bytes, it immediately sends request packets for the next block. Each measurement runs for 20 seconds of simulated time, transferring enough data to accurately calculate throughput.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.2">Cluster-based Storage Environment</head><p>Our experiments use a networked group of storage servers as configured in production storage systems. Our application performs the same synchronized reads protocol as in simulation and measures the achieved throughput. All systems have 1 Gbps links and a client-to-server Round Trip Time (RTT) of approximately 100µs. We evaluated three different storage clusters:</p><p>• Procurve: One or more HP Procurve 2848 Ethernet switches configured in a tree hierarchy connect a client to up to 64 servers, each running Linux 2.6.18 SMP. 2</p><p>• S50: A Force10 S50 switch connects 48 Redhat4 Linux 2.6.9-22 machines on one switch (1 client, 47 servers).</p><p>• E1200: A Force10 E1200 switch with 672 ports with at least 1MB output buffer per port. This switch connects 88 Redhat4 Linux 2.6.9-22 machines (1 client, 87 servers).</p><p>For our workload and analysis, we keep the SRU size fixed while we scale the number of servers, implicitly increasing the data block size with the number of servers. <ref type="bibr" target="#b2">3</ref> </p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="4">Reproducing Incast</head><p>In this section, we first demonstrate Incast occurring in several real-world cluster-based storage environments. Using simulation, we then show that Incast is a generic problem and identify the causes of Incast. We find that the results obtained from our experimental setup validate our simulation results. Finally, we show that attempts to mitigate Incast by varying parameters such as switch buffer size and SRU size are incomplete solutions that either scale poorly or introduce system inefficiencies when interacting with a storage system.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="4.1">Incast in real systems</head><p>To ensure that the throughput collapse shown in <ref type="figure" target="#fig_1">Figure 2</ref> is not an isolated instance, we study Incast on the three storage clusters described in §3.2. <ref type="figure" target="#fig_2">Figure 3</ref> indicates that both the Procurve and S50 environments experience up to an order of magnitude drop in goodput (throughput as observed by the application). The E1200, however, did not exhibit any throughput drop for up to the 87 available servers, which we attribute to the large amount of buffer space available on the switch.</p><p>In our analysis, we use estimates of the output buffer sizes gathered from network administrators and switch specifications. Unfortunately, we are unable to determine the exact per-port buffer sizes on these switches. <ref type="bibr" target="#b3">4</ref> This information is not available because most switches dynamically allocate each link's output buffer from a shared memory pool. Also, when QoS queues are enabled, the amount of memory allocated to the queues depends on vendor-specific implementations. However, our estimates for output buffer sizes are corroborated by simulation results. Many switches provide QoS support to enable prioritization of different kinds of traffic. A common implementation technique for providing QoS is to partition the output queue for each class of service. As a result, disabling QoS increases the effective size of the output queues, though the amount of this increase varies across different vendors and switches. As shown in <ref type="figure" target="#fig_2">Figure 3(a)</ref>, disabling QoS on the Procurve environment does not significantly affect throughput -a collapse still occurs around 7 servers. In contrast, <ref type="figure" target="#fig_2">Figure 3</ref>(b) shows that disabling QoS on the Force10 S50 significantly delays the onset of Incast. These results suggest that the Force10 S50 allocates a relatively larger amount of buffer space and switch resources to QoS support in comparison to the Procurve 2848. Switch buffer sizes play an important role in mitigating Incast, as we evaluate in §4.3.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="4.2">Validation and Analysis in Simulation</head><p>To determine how general a problem Incast is for clusterbased storage over TCP/IP/Ethernet, we also reproduce Incast in the ns-2 network simulator. <ref type="figure" target="#fig_3">Figure 4</ref> shows Incast in simulation with an order of magnitude collapse at around 8 servers and beyond. These results closely match those from the Procurve environment. The differences between the results, including the difference in behavior below 3 servers, have a few possible causes. First, simulated source nodes serve data as rapidly as the network can handle, while real systems often have other slight delays. We attribute the lower performance of the real system between 1-3 servers to these differences. Also, simulation does not model Ethernet switching behavior, which may introduce small timing and performance differences.</p><p>Despite these differences, real world experiments validate our simulation measurements, showing that the im- pact of Incast is nearly identical in both real world system measurements and simulation.</p><p>An analysis of the TCP traces obtained from simulation reveals that TCP retransmission timeouts are the primary cause of Incast ( <ref type="figure" target="#fig_4">Figure 5</ref>). <ref type="bibr" target="#b4">5</ref> When goodput degrades, most servers still send their SRU quickly, but one or more other servers experience a timeout due to packet losses. The servers that finish their transfer do not receive the next request from the client until the client receives the complete data block, resulting in an underutilized link. </p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="4.2.1">Why Timeouts Occur</head><p>The rest of the paper assumes a familiarity with TCP terms and concepts. For a brief refresher on TCP, we refer the reader to the Appendix.</p><p>Reading blocks of data results in simultaneous transmission of packets from servers. Because the buffer space associated with the output port of the switch is limited, these simultaneous transmissions can overload the buffer resulting in losses. TCP recovers from losses by retransmitting packets that it has detected as being lost. This loss detection is either data-driven or is based on a timeout for a packet at the sender.</p><p>A TCP sender assigns sequence numbers to transmitted packets and expects TCP acknowledgements (ACKs) for individual packets from the receiver. The TCP receiver acknowledges the last packet it received in-order. Out-oforder packets generate duplicate ACKs for the last packet received in-order. Receiving multiple duplicate ACKs for a packet is an indication of a loss -this is data-driven loss detection. Timeouts are used as a fallback option in the absence of enough feedback, and are typically an indication of severe congestion.</p><p>In <ref type="figure" target="#fig_2">Figure 3</ref>(a), we see an initial drop from 900Mbps to 500Mbps between 3-5 servers on the Procurve. Analysis of TCP logs reveal that this drop in throughput is caused by the delayed ACK mechanism <ref type="bibr" target="#b2">[3]</ref>. In the delayed ACK specification, an acknowledgement should be generated for at least every second packet and must be generated within 200ms of the arrival of the first unacknowledged packet. Most TCP implementations wait only</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>Finding</head><p>Location Incast is caused by too-small switch output buffers: increasing buffer size can alleviate the situation. §4.3 TCP NewReno and SACK improve goodput considerably over TCP Reno, but do not prevent Incast. §5.1.1</p><p>Improvements to TCP loss recovery using Limited Transmit or reducing the Duplicate ACK threshold do not help. §5.1.2</p><p>Reducing the penalty of a timeout by lowering the minimum retransmission value can help significantly, but poses questions of safety and generality. §5.2</p><p>Enabling Ethernet flow control is effective only in the very simplest setting, but not for more common multi-switched systems. §6 40ms before generating this ACK. This 40ms delay causes a "mini-timeout", leading to underutilized link capacity similar to a normal timeout. However, normal timeouts are responsible for the order of magnitude collapse seen beyond 5 servers in Incast. We explore TCP-level solutions to avoid timeouts and to reduce the penalty of timeouts in detail in §5.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="4.3">Reducing Losses: Larger Switch Buffers</head><p>Since timeouts are the primary cause of Incast, we try to prevent the root cause of timeouts -packet losses -to mitigate Incast by increasing the available buffer space allocated at the Ethernet switch. §4.1 mentioned that a larger switch buffer size delays the onset of Incast. <ref type="figure">Fig- ure 6</ref> shows that doubling the size of the switch's output port buffer in simulation doubles the number of servers that can transmit before the system experiences Incast.</p><p>With a large enough buffer space, Incast can be avoided for a certain number of servers, as shown in <ref type="figure">Figure 6</ref>. This is corroborated by the fact that we were unable to observe Incast with 87 servers on the Force10 E1200 switch, which has very large buffers. But <ref type="figure">Figure 6</ref> shows that for a 1024KB buffer, 64 servers only utilize about 65% of the client's link bandwidth, and doubling the number of servers only improves goodput to 800Mbps.</p><p>Unfortunately, switches with larger buffers tend to cost more (the E1200 switch costs over $500,000 USD), forcing system designers to choose between overprovisioning, future scalability, and hardware budgets. Furthermore, switch manufacturers may need to move to faster and more expensive memory (e.g., SRAM) as they   <ref type="figure">Figure 6</ref>: Effect of varying switch buffer size -doubling the size of the switch's output port buffer doubles the number of servers that can be supported before the system experiences Incast.</p><p>move to 10Gbps and beyond. This move places cost pressure on manufacturers to keep buffer sizes small. Hence a more cost-effective solution other than increasing buffer sizes is required. While the above experiments are run in a controlled environment with only one client reading from many servers, real storage environments are likely more complicated, with many clients making multiple concurrent requests to different sets of servers. Since the amount of buffer space available per client request likely decreases in common shared memory switch architectures (and does not increase otherwise), we expect overall performance to be worse in these more complex environments.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="4.4">Reducing Idle Link Time by Increasing</head><p>SRU Size <ref type="figure" target="#fig_6">Figure 7</ref> illustrates that increasing the SRU size improves the overall goodput. With 64 servers, the 1000KB SRU size run is two orders of magnitude faster than the 10KB SRU size run. <ref type="figure" target="#fig_7">Figure 8</ref> shows that real switches, in this case the Force10 S50, behave similarly. TCP performs well in settings without synchronized reads, which can be modeled by an infinite SRU size. The simple TCP throughput tests in netperf do not exhibit Incast <ref type="bibr" target="#b23">[24]</ref>. With larger SRU sizes, servers will use the spare link capacity made available by any stalled flow waiting for a timeout event; this effectively reduces the ratio of timeout time to transfer time.</p><p>A large SRU size helps maximize disk head utilization on reads. Unfortunately, an SRU size of even 8MB is quite impractical: most applications ask for data in small chunks, corresponding to an SRU size range of 1-256KB. For example, when requesting an 8MB block from the storage system, one would like to stripe this block across as many servers as needed to saturate the link. In addition, a larger SRU size can increase lock contention due to overlapping writes, leading to poor write performance in filesystem implementations <ref type="bibr" target="#b8">[9]</ref>.   </p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="5">TCP-level Solutions</head><p>Because TCP timeouts are the primary reason that Incast hurts throughput, we analyze TCP-level solutions designed to reduce both the number and penalty of timeouts. We perform this analysis using ns-2 simulations.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="5.1">Avoiding Timeouts</head><p>In this section, we analyze three different approaches to avoiding timeouts by:</p><p>• Improving TCP's resilience to common loss patterns by using alternative TCP implementations; • Addressing the lack of sufficient data-driven feedback; • Reducing the traffic injection rate of exponentially growing TCP windows during slow-start <ref type="bibr" target="#b2">[3]</ref>.</p><p>Analysis Method -Performance and Timeout Categorization: For each approach, we ask two questions: 1) how much does the approach improve goodput and 2) if timeouts still occur, why? To answer the second question, we look at the number of Duplicate ACKs Received at the point when a flow experiences a Timeout (the DART count). The purpose of this analysis is to categorize the situations under which timeouts occur to understand whether the timeout could have been avoided.</p><p>There are three types of timeouts that cannot be avoided by most TCP implementations. The first occurs when an entire window of data is lost and there is no feedback available for TCP to use in recovery, leading to a DART value of zero. We categorize this kind of timeout as a Full Window Loss.</p><p>The second type occurs when the last packet of an SRU is dropped and there is no further data available in this block request for data-driven recovery. We categorize this type of timeout as a Last Packet Loss case. We find, however, that there are relatively few Last Packet Loss cases.</p><p>The last unavoidable timeout situation occurs when a retransmitted packet triggered by TCP's loss recovery mechanism is also dropped. Since there is no way for the sender to know whether this retransmitted packet is dropped, the sender experiences a timeout before retransmitting the packet again. We categorize this unavoidable timeout as a Lost Retransmit. The DART count does not help in categorizing Lost Retransmit cases; we examine the TCP trace files to identify these situations.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="5.1.1">Alternative TCP Implementations -Reno, NewReno, and SACK</head><p>Many TCP variants help reduce expensive timeouts by using acknowledgements to more precisely identify packet losses <ref type="bibr" target="#b18">[19,</ref><ref type="bibr" target="#b2">3,</ref><ref type="bibr" target="#b12">13,</ref><ref type="bibr" target="#b21">22]</ref>. A well-documented problem with the classic TCP Reno algorithm is that it recovers poorly from multiple losses in a window, leaving it susceptible to patterns of loss that cause a timeout <ref type="bibr" target="#b12">[13]</ref>. For example, with a window size of six, Reno will always experience a timeout when the first two packets of the window are lost. The most popular solutions to this problem are the improved retransmission algorithms in TCP NewReno <ref type="bibr" target="#b12">[13]</ref> and the selective acknowledgements scheme in TCP SACK <ref type="bibr" target="#b21">[22]</ref>. TCP NewReno, unlike Reno, does not exit fast recovery and fast retransmit when it receives a partial ACK (an indication of another loss in the original window), but instead immediately transmits the next packet indicated by the partial ACK. TCP SACK uses a selective acknowledgment scheme to indicate the specific packets in a window that need to be resent <ref type="bibr" target="#b11">[12]</ref>. <ref type="figure" target="#fig_0">Figure 10</ref> shows that both TCP NewReno and TCP SACK outperform TCP Reno. Note that TCP NewReno offers up to an order of magnitude better performance  </p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>Reno NewReno</head><p>NewReno + da thresh = 1 <ref type="figure" target="#fig_0">(Fig. 11(a)</ref>) <ref type="figure" target="#fig_0">(Fig. 11(b)</ref>) <ref type="figure" target="#fig_0">(Fig. 11(c</ref>   <ref type="figure" target="#fig_0">Figure 11)</ref> compared to TCP Reno in this example. Unfortunately, none of the TCP implementations can eliminate the large penalty to goodput caused by Incast. <ref type="figure" target="#fig_0">Figure 11</ref>(a) and (b) shows the DART distribution for TCP Reno and NewReno, while <ref type="table" target="#tab_4">Table 3</ref> shows the categorization of timeout events. The total number of timeouts per data block is much lower for NewReno, partially explaining the goodput improvement over Reno. While most timeouts can be categorized as Full Window Loss cases or Lost Retransmit cases, there are still 78 timeouts that do not fall into these cases: they occur when the flows obtain some, but not enough feedback to trigger data-driven loss recovery. We next examine two schemes designed to improve these remaining cases.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="5.1.2">Addressing the Lack of Sufficient Feedback -Limited Transmit and Reduced Duplicate ACK Threshold</head><p>When a flow has a small window or when a sufficiently large number of packets in a large window are lost, Limited Transmit <ref type="bibr" target="#b1">[2]</ref> attempts to ensure that enough packets are sent to trigger the 3 duplicate ACKs necessary for data-driven recovery. Alternatively, we can reduce the duplicate ACK threshold (da thresh ) from 3 to 1 to automatically trigger fast retransmit and fast recovery upon receiving any duplicate acknowledgement. <ref type="figure" target="#fig_0">Figure 12</ref> illustrates that neither of these mechanisms provide any throughput benefit over TCP NewReno. We  plot the DART distribution for setting da thresh =1 in <ref type="figure" target="#fig_0">Fig- ure 11(c)</ref>. The reduced retransmit variant successfully eliminates timeouts when only 1 or 2 duplicate ACKs were received. Unfortunately, this improvement does not increase goodput because each data block transfer still experiences at least one timeout. These remaining timeouts are mostly due to full window losses or lost retransmissions, which none of the TCP variants we study can eliminate. </p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="5.1.3">Disabling TCP Slow-Start</head><p>Finally, we disable TCP slow-start to prevent network congestion produced by flows that exponentially increase their window sizes to discover link capacity following a timeout (or at the beginning of a TCP transfer). <ref type="figure" target="#fig_0">Figure 12</ref> shows that forcing TCP flows to discover link capacity using only additive increase does not alleviate the situation. We leave an analysis of even more conservative congestion control algorithms for future work.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="5.2">Reducing the Penalty of Timeouts</head><p>Because many of the TCP timeouts seem unavoidable (e.g. Full Window Loss, Lost Retransmit), here we examine reducing the time spent waiting for a timeout. While this approach can significantly improve goodput, this solution should be viewed with caution because it also increases the risk of premature timeouts, particularly in the widearea <ref type="bibr" target="#b3">[4]</ref>. We discuss the consequences of this effect below. The penalty of a timeout, or the amount of time a flow waits before retransmitting a lost packet without the "fast retransmit" mechanism provided by three duplicate ACKs, is the retransmission timeout (RTO). Estimating the right RTO value is important for achieving a timely response to packet losses while avoiding premature timeouts. A premature timeout has two negative effects: 1) it leads to a spurious retransmission; and 2) with every timeout, TCP re-enters slow-start even though no packets were lost. Since there is no congestion, TCP thus would underestimate the link capacity and throughput would suffer. TCP has a conservative minimum RTO (RT O min ) value to guard against spurious retransmissions <ref type="bibr" target="#b28">[29,</ref><ref type="bibr" target="#b18">19]</ref>.</p><p>Popular TCP implementations use an RT O min value of 200ms <ref type="bibr" target="#b34">[35]</ref>. Unfortunately, this value is orders of magnitude greater than the round-trip times in SAN settings, which are typically around 100µs for existing 1Gbps Ethernet SANs, and 10µs for Infiniband and 10Gbps Ethernet. This large RT O min imposes a huge throughput penalty because the transfer time for each data block is significantly smaller than RT O min . <ref type="figure" target="#fig_0">Figure 13</ref> shows that reducing RT O min from 200ms to 200µs improves goodput by an order of magnitude for between 8 to 32 servers. In general, for any given SRU size, reducing RT O min to 200µs results in an order of magnitude improvement in goodput using TCP Reno <ref type="figure" target="#fig_0">(Figure 13(a)</ref>). <ref type="figure" target="#fig_0">Figure 13</ref>(b) shows that even with an aggressive RT O min value of 200µs, TCP NewReno still observes a 30% decrease in goodput for 64 servers.</p><p>Unfortunately, setting RT O min to such a small value poses significant implementation challenges and raises questions of safety and generality.</p><p>Implementation Problems: Reducing RT O min to 200µs requires a TCP clock granularity of 100µs, according the standard RTO estimation algorithm <ref type="bibr" target="#b28">[29,</ref><ref type="bibr" target="#b18">19]</ref>. BSD TCP and Linux TCP implementations are currently unable to provide this fine-grained timer. BSD implementations expect the OS to provide two coarse-grained "heartbeat" software interrupts every 200ms and 500ms, which are used to handle internal per-connection timers <ref type="bibr" target="#b4">[5]</ref>; Linux TCP uses a TCP clock granularity of 1 to 10ms. A TCP timer in microseconds needs either hardware support that does not exist or efficient software timers <ref type="bibr" target="#b5">[6]</ref> that are not available on most operating systems.</p><p>Safety and Generality: Even if sufficiently finegrained TCP timers were supported, reducing the RT O min value might be harmful, especially in situations where the servers communicate with clients in the wide-area. Allman et. al. <ref type="bibr" target="#b3">[4]</ref> note that RT O min can be used for trading "timely response with premature timeouts" but there is no optimal balance between the two in current TCP imple-  mentations: a very low RT O min value increases premature timeouts. Earlier studies of RTO estimation in similar high-bandwidth, low-latency ATM networks also show that very low RT O min values result in spurious retransmissions <ref type="bibr" target="#b33">[34]</ref> because variation in the round-trip-times in the wide-area clash with the standard RTO estimator's short RTT memory.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="6">Ethernet Flow Control</head><p>Some Ethernet switches provide a per-hop mechanism for flow control that operates independently of TCP's flow control algorithm. When a switch that supports Ethernet Flow Control (EFC) is overloaded with data, it may send a "pause" frame to the interface sending data to the congested buffer, informing all devices connected to that interface to stop sending or forwarding data for a designated period of time. During this period, the overloaded switch can reduce the pressure on its queues. We find that EFC is effective in the simplest configuration (i.e. all clients and servers connected to one switch), but does not work well with more than one switch, has adverse effects on other flows in all configurations, and is inconsistently implemented across different switches.</p><p>We measure the effect of enabling Ethernet Flow Control on a single HP Procurve 2848 switch, where one client and multiple servers are directly connected to the switch. <ref type="figure" target="#fig_0">Figure 14</ref> shows that EFC can significantly improve performance. Unfortunately, TCP goodput is still highly variable and is lower than it would be without Incast.</p><p>Despite its potential benefits, our simple network topology and workload hide adverse side effects that surface when EFC is used on larger multi-switch networks with many more clients and active TCP flows. For many of these reasons, most switch vendors and network operators keep EFC inactive.</p><p>The most significant problem with EFC is head-of-line blocking, which occurs when a pause frame originating from one congested interface stops several other flows from communicating simultaneously. The effects of headof-line blocking can be particularly severe in heterogeneous bandwidth settings where one slow link can cause other faster links to be underutilized. In other words, pause frames pause all traffic entering an interface, regardless of whether that traffic is causing congestion.</p><p>Due to the complexities of head-of-line blocking, and because the particular interactions of EFC across multiple switches is inconsistently implemented across switch vendors, enabling EFC effectively across more than one switch can be a difficult or impossible task. For instance, in order to provide link aggregation between two HP Procurve 2848 switches, our system was configured with a virtual interface for the trunk -a configuration over which the switch did not support flow control.</p><p>While Ethernet Flow Control currently interacts adversely with other flows, a number of recent Ethernet initiatives have been introduced to add congestion management with rate-limiting behavior and to improve the pause functionality with a more granular per-channel capability <ref type="bibr" target="#b38">[39]</ref>. These initiatives are part of a larger movement to create a lossless and flow-controlled version of Ethernet, referred to as Data Center Ethernet, which will allow the consolidation of multiple communication fabrics (including storage networks running Fibre Channel) into a single Ethernet solution.</p><p>Truly lossless behavior at the Ethernet level is a valid solution to the Incast problem, but it will take a number of years before these new standards are implemented in switches, and even then there are no guarantees that new switches will implement these standards uniformly or that they will be as commoditized and inexpensive as current Ethernet switches.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="7">Related Work</head><p>Providing storage via a collection of storage servers networked using commodity TCP/IP/Ethernet components is an increasingly popular approach. The Incast problem studied comprehensively in this paper has been noted previously by several researchers (e.g., <ref type="bibr" target="#b14">[15,</ref><ref type="bibr" target="#b16">17,</ref><ref type="bibr" target="#b24">25,</ref><ref type="bibr" target="#b23">24]</ref>) while developing this cluster-based approach.</p><p>Nagle et al. briefly discussed the switch buffer overruns caused by clients reading striped data in a synchronized many-to-one traffic pattern <ref type="bibr" target="#b24">[25]</ref>. Upgrading to better switches with larger buffer sizes was one adopted solution. They also mentioned the possibility of using link-level flow control, but highlight the difficulties of such an approach for different non-trivial switch topologies without incorporating higher-level striping information used by the storage system.</p><p>In later work, Nagle et al. again report on the effects of Incast on scalable cluster-based file storage performance <ref type="bibr" target="#b23">[24]</ref>. Specifically, they report on experiments with a production-quality system where a single client reads a file sequentially using an 8MB synchronization block size striped across multiple storage servers. As the number of storage servers is increased for their system, keeping all other variables of the network constant, the authors observe a linear scaling of storage bandwidth for up to 7 storage servers, a steady plateau until around 14 servers, and then a rapid drop-off. The primary cause of this performance collapse was attributed to multiple senders overwhelming the buffer size of the network switch. This prior work also observed that the Incast problem does not appear when running a streaming network benchmark like netperf. Therefore, the performance collapse is also attributed to the synchronized and coordinated reads in a cluster-based storage environment. Nagle et al. also discuss modest performance gains when using SACK or reducing the length of TCP retransmission timeouts. Although this last point is not quantified, they observe that degraded performance still persists even with these changes.</p><p>At a higher level, the Incast problem is a particular form of network congestion, a topic which has been studied extensively in different environments. Early work on congestion control in the wide-area network by Van Jacobson addressed the TCP congestion collapse of the Internet around 1985 <ref type="bibr" target="#b18">[19]</ref>. Adopted as the basis of TCP congestion control, the idea was to provide a method for a networked connection to discover and dynamically adjust to the available end-to-end bandwidth when transferring data. Chiu and Jain describe why the window mechanism of "additive increase / multiplicative decrease" achieves fairness and stability in this setting <ref type="bibr" target="#b9">[10]</ref>.</p><p>Unfortunately, TCP's congestion control and avoidance algorithms are not directly applicable to all settings. For example, they are known to have problems in wireless settings, where packet losses may not actually be caused by congestion. TCP also has problems in high-latency, high-bandwidth network settings <ref type="bibr" target="#b19">[20]</ref>. The Incast problem provides another example of a network setting where using TCP may cause poor performance.</p><p>The performance and fairness of TCP when many flows share the same bottleneck was studied by Morris <ref type="bibr" target="#b22">[23]</ref>. As the number of TCP flows through a bottleneck increases to the point where there are more flows than packets in the bandwidth-delay product, there is an increasingly high loss rate and variation of unfair bandwidth allocation across flows. This paper applies some of Morris's methods and analysis techniques to the synchronized reads setting that produces Incast.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="8">Conclusion</head><p>Incast occurs when a client simultaneously receives a short burst of data from multiple sources, overloading the switch buffers associated with its network link such that all original packets from some sources are dropped. When this occurs, the client receives no data packets from those sources and so sends no acknowledgement packets, requiring the sources to timeout and then retransmit. Often, the result of these TCP timeouts is an order of magnitude decrease in goodput.</p><p>Unfortunately, this traffic pattern is very common for the growing class of cluster-based storage systems. When data is striped across multiple storage nodes, each client read creates this pattern and large sequential reads create it repeatedly (once for each full stripe).</p><p>Whether or not Incast will cause goodput collapse in a system depends on details of the TCP implementation, network switch (especially buffer sizes), and system configuration (e.g., the number of servers over which data is striped). Unfortunately, avoiding collapse often requires limiting striping to a small number of servers. Techniques such as very short timeouts and link-level flow control can mitigate the effects of Incast in some circumstances, but have their own drawbacks. No existing solution is entirely satisfactory, and additional research is needed to find new solutions by building on the understanding provided by this paper.</p><p>We provide the reader with a brief background on TCP for the purposes of understanding the terms used in this paper. While we skip many of the detailed nuances of TCP, we refer the reader to several well known resources for further TCP details <ref type="bibr" target="#b32">[33,</ref><ref type="bibr" target="#b2">3,</ref><ref type="bibr" target="#b10">11,</ref><ref type="bibr" target="#b37">38,</ref><ref type="bibr" target="#b29">30,</ref><ref type="bibr" target="#b25">26]</ref>.</p><p>The Transmission Control Protocol (TCP) <ref type="bibr" target="#b32">[33]</ref> is a connection-oriented protocol that guarantees a reliable, in-order byte-stream communication service between two processes, in contrast to the best-effort connectionless datagram delivery service provided by the User Datagram Protocol (UDP) <ref type="bibr" target="#b30">[31]</ref>. Both TCP and UDP use the Internet Protocol (IP) <ref type="bibr" target="#b31">[32]</ref>, a best-effort datagram service, to carry their messages. The use of TCP is attractive for applications that perform pairwise communication as it offers the following advantages:</p><p>• Reliability -dealing with message loss, duplication, damage, and delay • The in-order delivery of data • Flow control and congestion control • Multiplexing and demultiplexing to support multiple end-points on the same host through the use of port numbers A TCP connection is Full Duplex -once a TCP connection is established between two end-points using a 3-way handshake protocol, the connection supports a pair of byte streams, one in each direction. TCP transfers a byte-stream by bundling together contiguous bytes into a TCP segment or packet.</p><p>A TCP packet, encapsulated in an IP packet, may be dropped en-route to the destination due to several causes, such as 1) the sender's kernel buffer being full, 2) a router buffer on the path to the destination being full, 3) routing errors, or 4) the receiver's kernel buffer being full. TCP uses a positive acknowledgement scheme with retransmissions to achieve reliable data transfer. To assist in the in-order delivery of data at the receiver, the TCP sender assigns a sequence number to every byte of data sent over a TCP connection. For a given packet, the sequence number assigned to the packet is the sequence number of the first byte within the packet. TCP uses a cumulative acknowledgment scheme: the ACK packet contains a sequence number informing the sender that it has received all bytes up to, but not including, that sequence number. While TCP assigns sequence numbers based on bytes, for simplicity, we discuss sequence numbers based on packets.</p><p>To make efficient use of the link, TCP uses a sliding window algorithm to keep multiple packets in flight. A window defines the number of packets that are unacknowledged: the left-edge of the window indicates the first packet not acknowledged by the receiver. For example, as shown in <ref type="figure" target="#fig_0">Figure 15</ref>, if the sender's window has a left-edge sequence number of 10 and a window size of 6, then the receiver has acknowledged the receipt of all packets with a sequence number less than 10, and the sender can transmit packets 10-15 all at once. When packets 10 and 11 reach the receiver, the receiver sends an ACK for packets 11 and 12 respectively. Since the left edge of the window now starts at 12 and the window size is 6, the sender may now transmit packets 16 and 17. If a packet is delivered to a TCP receiver out-of-order, either due to re-ordering or losses in the network, the receiver generates a duplicate ACK for the last packet it received in-order. Building on the example above, if packet 12 was dropped by the network, then on receiving packet 13, the TCP receiver generates an ACK for packet 12 instead of packet 14, and the left edge of the window is not advanced.</p><p>A TCP sender detects a packet loss using the two schemes described below. Once a packet loss is detected, a TCP sender recovers from the loss by retransmitting the packet.</p><p>Timeout driven loss recovery: Consider the case shown in <ref type="figure" target="#fig_0">Figure 16</ref>(a). Packets 1 to 5 sent by the sender are all dropped. The sender waits for a certain amount of time, defined by the retransmission timeout (RTO), before a timeout event indicates the possible loss of packet 1, at which point the sender recovers from the loss by retransmitting packet 1. The RTO value is based on the round trip time (RTT), which is an estimated value.</p><p>Data driven loss recovery: A duplicate ACK can be used as an indication of loss, but it could also be generated due to packet reordering in the network. To distinguish benign reordering from actual loss, TCP senders normally consider 3 duplicate ACKs for a packet as an indication of a loss. <ref type="figure" target="#fig_0">Figure 16(b)</ref> shows a case where a sender transmits 5 packets but the second packet is lost. Packets 3, 4, and 5 generate duplicate ACKs indicating that packet 2 is lost. On getting 3 duplicate ACKs for packet 2, the sender assumes that packet 2 is lost and retransmits it: this is called fast retransmit. On receiving packet 2, the receiver ACKs packet 6, the next in-order packet it expects from the sender. Data-driven loss recovery responds to losses more quickly than timeout-driven recovery.</p><p>TCP provides end-to-end flow control whereby the receiver can control the amount of data a sender transmits.  With every ACK, the receiver returns a window size indicating the number of packets a sender may transmit. TCP is adaptive -flows utilize available bandwidth by probing the network. On startup and following a timeout, TCP has no good estimate of the capacity of the end-toend path, so it enters slow-start to discover the capacity. For every ACKed packet received, the sender grows its window by 1. This results in an exponential growth in the window size and, hence, in the sending rate.</p><p>Congestion occurs when the sending rate exceeds the available bandwidth and packets are dropped. Various TCP algorithms have been designed to deal with congestion -they do this by reacting to congestion (indicated by loss) by throttling the rate at which the sender transmits data. Under data-driven loss recovery, the sender performs a multiplicative decrease by halving its window (also accompanied by fast-recovery) and begins an additive increase (or congestion avoidance) phase, where for every window of data acknowledged by the receiver, the sender increases its window size by 1. Under timeoutdriven recovery, the sender reduces its window to 1, performs slow-start until a certain threshold, and then enters the congestion avoidance phase.</p></div><figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_0"><head>Figure 1 :</head><label>1</label><figDesc>Figure 1: A simple cluster-based storage environment with one client requesting data from multiple servers through synchronized reads.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_1"><head>Figure 2 :</head><label>2</label><figDesc>Figure 2: TCP throughput collapse for a synchronized reads application performed on a storage cluster.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_2"><head>Figure 3 :</head><label>3</label><figDesc>Figure 3: Incast observed on different switch configurations with and without QoS support. Disabling QoS support has only a small effect for (a) the HP Procurve 2848, but significantly delays the onset of Incast for (b) the Force10 S50.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_3"><head>Figure 4 :</head><label>4</label><figDesc>Figure 4: Comparison of Incast in simulation and in real world cluster-based settings.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_4"><head>Figure 5 :</head><label>5</label><figDesc>Figure 5: Instantaneous goodput averaged over 5ms intervals. Timeouts are the primary cause of Incast, and one stalled flow during a block transfer results in an idle link duration of around 200ms. Timeout events indicate when a flow begins recovery.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_6"><head>Figure 7 :</head><label>7</label><figDesc>Figure 7: Effect of varying SRU size -for a given number of servers, a larger SRU improves goodput.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_7"><head>Figure 8 :</head><label>8</label><figDesc>Figure 8: Effect of varying SRU size for Force10 S50 with QoS support enabled.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_8"><head>Figure 9 shows</head><label>9</label><figDesc>Figure 9 shows an alternate scaling model in simulation where the data block size is fixed and the number of storage servers are increased, placing an upper bound per request on the amount of pinned kernel memory in the client. This scaling model more closely resembles how file systems request data. A rapid drop-off in goodput is observed for a fixed block size as the number of servers increases. Because the data block size is fixed, increasing the number of servers reduces the SRU size. Thus, the effect of increasing the number of servers is compounded by a reduced SRU size and results in even lower goodput.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_9"><head>Figure 9 :</head><label>9</label><figDesc>Figure 9: For a fixed data block size, as opposed to a fixed SRU size, increasing the number of servers also reduces the SRU size requested from each server and results in even lower goodput.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_10"><head>Figure 10 :</head><label>10</label><figDesc>Figure 10: NewReno outperforms Reno and SACK</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_12"><head>Figure 11 :</head><label>11</label><figDesc>Figure 11: Distribution of Duplicate Acknowledgements Received at a Timeout (DART) recorded for a 20s run with 16 servers, 64 packet switch buffer, 256KBytes SRU size.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_14"><head>Figure 12 :</head><label>12</label><figDesc>Figure 12: NewReno variants designed to improve loss recovery provide no benefit.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_15"><head>Figure 13 :</head><label>13</label><figDesc>Figure 13: A lower RTO value (RT O min = 200µs) in simulation improves goodput by an order of magnitude for both Reno and NewReno. rto represents runs with a modified RT O min value.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_17"><head>Figure 14 :</head><label>14</label><figDesc>Figure 14: Enabling Ethernet Flow Control can mitigate Incast for a single-switch network.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_18"><head>Left</head><label></label><figDesc>Figure 15: An illustration of TCP's sliding window mechanism with a fixed window size.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_19"><head>Figure 16 :</head><label>16</label><figDesc>Figure 16: Recovery schemes in TCP</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_1" validated="false"><head>Table 2 : Summary of Major Results.</head><label>2</label><figDesc></figDesc><table></table></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_4" validated="false"><head>Table 3 :</head><label>3</label><figDesc>Categorization of timeout events under different TCP scenarios (corresponding to</figDesc><table></table></figure>
+
+			<note place="foot" n="1"> Some people use the term incast to characterize many-to-one communication. In this paper, we use the term Incast to refer to TCP throughput collapse in a synchronized reads setting.</note>
+
+			<note place="foot" n="2"> Although this topology does not exactly match our simulation topology, we find that multiple switches do not prevent Incast.</note>
+
+			<note place="foot" n="3"> Some storage systems might instead scale by keeping the block size fixed and increasing the number of servers used to stripe data over. We explore the effects of a fixed block size scaling model in §4. 4 While most modern switches use Combined Input-Output Queuing (CIOQ), we focus our attention on the output buffer size. Since our simulation results are validated by our experimental results, we did not find it necessary to model additional complexity into our switches in simulation.</note>
+
+			<note place="foot" n="5"> TCP goodput could also be degraded by a large number of packet retransmissions that waste network capacity. We find, however, that retransmitted packets make up only about 2% of all transmissions. This overhead is not significant when compared to the penalty of a retransmission timeout.</note>
+		</body>
+		<back>
+
+			<div type="acknowledgement">
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>Acknowledgments</head><p>We are grateful to Jeff Butler, Abbie Matthews, and Brian Mueller at Panasas Inc. for helping us conduct experiments on their systems. Finally, we'd like to thank Michael Stroucken for his help managing the PDL cluster, and Michael Abd-El-Malek for feedback on our work. We thank our paper shepherd Ric Wheeler and the reviewers for their feedback.</p><p>We also thank the members and companies of the PDL Consortium (including APC, Cisco, EMC, Google, Hewlett-Packard, Hitachi, IBM, Intel, LSI, Microsoft, Network Appliance, Oracle, Seagate, and Symantec) for their interest, insights, feedback, and support. This material is based on research sponsored in part by the National Science Foundation, via grants #CNS-0546551, #CNS-0326453 and #CCF-0621499, by the Army Research Office under agreement number DAAD19-02-1-0389, by the Department of Energy under Award Number #DE-FC02-06ER25767, and by DARPA under grant #HR00110710025. Elie Krevat is supported in part by an NDSEG Fellowship from the Department of Defense.</p></div>
+			</div>
+
+			<div type="annex">
+			</div>
+			<div type="references">
+
+				<listBibl>
+
+<biblStruct xml:id="b0">
+	<analytic>
+		<title level="a" type="main">Ursa Minor: Versatile Cluster-based Storage</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Abd-El-Malek</forename></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Ii</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">W</forename><forename type="middle">V C</forename><surname>Cranor</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Ganger</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">G</forename><forename type="middle">R</forename><surname>Hendricks</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Klosterman</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><forename type="middle">J</forename><surname>Mesnier</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Prasad</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Salmon</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">B</forename><surname>Sambasivan</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><forename type="middle">R</forename><surname>Sinnamohideen</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Strunk</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><forename type="middle">D</forename><surname>Thereska</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">E</forename><surname>Wachs</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>And</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Wylie</forename></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><forename type="middle">J</forename></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. 4th USENIX Conference on File and Storage Technologies</title>
+		<meeting>4th USENIX Conference on File and Storage Technologies<address><addrLine>San Francisco, CA</addrLine></address></meeting>
+		<imprint>
+			<date type="published" when="2005-12" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b1">
+	<monogr>
+		<title level="m" type="main">Enhancing TCP&apos;s Loss Recovery Using Limited Transmit. Internet Engineering Task Force</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Allman</forename></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Balakrishnan</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">H</forename><surname>And</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Floyd</forename></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename></persName>
+		</author>
+		<imprint>
+			<date type="published" when="2001-01" />
+		</imprint>
+	</monogr>
+	<note>RFC 3042</note>
+</biblStruct>
+
+<biblStruct xml:id="b2">
+	<analytic>
+		<title/>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Allman</forename></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>And</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Paxson</forename></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">V</forename></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">TCP Congestion Control. Internet Engineering Task Force</title>
+		<imprint>
+			<date type="published" when="1999-04" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b3">
+	<analytic>
+		<title level="a" type="main">On Estimating End-to-End Network Path Properties</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Allman</forename></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>And</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Paxson</forename></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">V</forename></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">SIGCOMM Comput. Commun. Rev</title>
+		<imprint>
+			<biblScope unit="volume">31</biblScope>
+			<biblScope unit="page">supplement</biblScope>
+			<date type="published" when="2001" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b4">
+	<monogr>
+		<title level="m" type="main">TCP Implementation Enhancements for Improving Webserver Performance</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Aron</forename></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>And</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Druschel</forename></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename></persName>
+		</author>
+		<imprint>
+			<date type="published" when="1999-06" />
+		</imprint>
+		<respStmt>
+			<orgName>Rice University</orgName>
+		</respStmt>
+	</monogr>
+<note type="report_type">Tech. Rep. TR99-335</note>
+</biblStruct>
+
+<biblStruct xml:id="b5">
+	<analytic>
+		<title level="a" type="main">Soft timers: Efficient Microsecond Software Timer Support for Network Processing</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Aron</forename></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>And</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Druschel</forename></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">ACM Transactions on Computer Systems</title>
+		<imprint>
+			<biblScope unit="volume">18</biblScope>
+			<biblScope unit="page" from="197" to="228" />
+			<date type="published" when="2000" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b6">
+	<analytic>
+		<title level="a" type="main">Fail-Stutter Fault Tolerance</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Arpaci-Dusseau</forename></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><forename type="middle">H</forename><surname>And</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Arpaci-Dusseau</forename></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><forename type="middle">C</forename></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. HotOS VIII (Schloss-Elmau</title>
+		<meeting>HotOS VIII (Schloss-Elmau<address><addrLine>Germany</addrLine></address></meeting>
+		<imprint>
+			<date type="published" when="2001-05" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b7">
+	<monogr>
+		<title level="m" type="main">File Systems for Clusters from a Protocol Perspective</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Braam</forename></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><forename type="middle">J</forename></persName>
+		</author>
+		<ptr target="http://www.lustre.org" />
+		<imprint/>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b8">
+	<monogr>
+		<title/>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Butler</forename></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename></persName>
+		</author>
+		<imprint>
+			<date type="published" when="2007-03" />
+		</imprint>
+	</monogr>
+	<note>Personal communication</note>
+</biblStruct>
+
+<biblStruct xml:id="b9">
+	<analytic>
+		<title level="a" type="main">Analysis of the Increase and Decrease Algorithms for Congestion Avoidance in Computer Networks</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Chiu</forename></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D.-M</forename><surname>And</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Jain</forename></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Computer Networks and ISDN Systems</title>
+		<imprint>
+			<biblScope unit="volume">17</biblScope>
+			<biblScope unit="page" from="1" to="14" />
+			<date type="published" when="1989" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b10">
+	<analytic>
+				<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Comer</forename></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><forename type="middle">E</forename></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Principles, Protocols, and Architecture</title>
+		<meeting><address><addrLine>Englewood Cliffs, N.J</addrLine></address></meeting>
+		<imprint>
+			<publisher>Prentice Hall</publisher>
+			<date type="published" when="2000" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b11">
+	<analytic>
+		<title level="a" type="main">Simulation-based Comparisons of Tahoe, Reno, and Sack TCP</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Fall</forename></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">K</forename><surname>And</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Floyd</forename></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">ACM Computer Communications Review</title>
+		<imprint>
+			<biblScope unit="volume">26</biblScope>
+			<biblScope unit="issue">3</biblScope>
+			<biblScope unit="page" from="5" to="21" />
+			<date type="published" when="1996-07" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b12">
+	<analytic>
+		<title level="a" type="main">The NewReno Modification to TCP&apos;s Fast Recovery Algorithm. Internet Engineering Task Force</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Floyd</forename></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Henderson</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">T</forename><surname>And</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Gurtov</forename></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">RFC</title>
+		<imprint>
+			<biblScope unit="volume">3782</biblScope>
+			<date type="published" when="2004-04" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b13">
+	<analytic>
+		<title level="a" type="main">The Google File System</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Ghemawat</forename></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Gobioff</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">H</forename><surname>And</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Leung</forename></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S.-T</forename></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. 19th ACM Symposium on Operating Systems Principles (SOSP)</title>
+		<meeting>19th ACM Symposium on Operating Systems Principles (SOSP)<address><addrLine>Lake George, NY</addrLine></address></meeting>
+		<imprint>
+			<date type="published" when="2003-10" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b14">
+	<analytic>
+		<title level="a" type="main">A Cost-Effective, High-Bandwidth Storage Architecture</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Gibson</forename></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">G</forename><forename type="middle">A</forename><surname>Nagle</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><forename type="middle">F</forename><surname>Amiri</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">K</forename><surname>But-Ler</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Chang</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">F</forename><forename type="middle">W</forename><surname>Gobioff</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">H</forename><surname>Hardin</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Riedel</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">E</forename><surname>Rochberg</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>And</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Zelenka</forename></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. 8th International Conf. on Architectural Support for Programming Languages and Operating Systems (ASPLOS)</title>
+		<meeting>8th International Conf. on Architectural Support for Programming Languages and Operating Systems (ASPLOS)<address><addrLine>San Jose, CA</addrLine></address></meeting>
+		<imprint>
+			<date type="published" when="1998-10" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b15">
+	<analytic>
+		<title level="a" type="main">PaScal -A New Parallel and Scalable Server IO Networking Infrastructure for Supporting Global Storage/File Systems in Large-size Linux Clusters</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Grider</forename></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">G</forename><surname>Chen</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">H</forename><surname>Junez</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Poole</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Wacha</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Fields</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>Martinez</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Khalsa</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Matthews</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>And</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Gibson</forename></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">G</forename></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the 25th IEEE International Performance Computing and Communications Conference</title>
+		<meeting>the 25th IEEE International Performance Computing and Communications Conference<address><addrLine>Phoenix, AZ</addrLine></address></meeting>
+		<imprint>
+			<date type="published" when="2006-04" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b16">
+	<monogr>
+				<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Haskin</forename></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename></persName>
+		</author>
+		<title level="m">High performance NFS. Panel: High Performance NFS: Facts &amp; Fictions, SC&apos;06</title>
+		<imprint/>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b17">
+	<analytic>
+		<title level="a" type="main">Working Towards a Heterogeneous Future</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Hildebrand</forename></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Honeyman</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>And</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Adam-Son</forename></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">W</forename><forename type="middle">A</forename><surname>Pnfs</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Linux</forename></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">8th LCI International Conference on High-Performance Cluster Computing</title>
+		<meeting><address><addrLine>Lake Tahoe, CA</addrLine></address></meeting>
+		<imprint>
+			<date type="published" when="2007-05" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b18">
+	<analytic>
+		<title level="a" type="main">Congestion Avoidance and Control</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Jacobson</forename></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">V</forename></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. ACM SIGCOMM</title>
+		<meeting>ACM SIGCOMM<address><addrLine>Vancouver, British Columbia, Canada</addrLine></address></meeting>
+		<imprint>
+			<date type="published" when="1998-09" />
+			<biblScope unit="page" from="314" to="329" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b19">
+	<analytic>
+		<title level="a" type="main">Congestion Control for High Bandwidth-Delay Product Networks</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Katabi</forename></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Handley</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>And</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Rohrs</forename></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. ACM SIGCOMM</title>
+		<meeting>ACM SIGCOMM<address><addrLine>Pittsburgh, PA</addrLine></address></meeting>
+		<imprint>
+			<date type="published" when="2002-08" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b20">
+	<analytic>
+		<title level="a" type="main">Fat-trees: Universal Networks for Hardware-efficient Supercomputing</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Leiserson</forename></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><forename type="middle">E</forename></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">IEEE Transactions on Computers</title>
+		<imprint>
+			<biblScope unit="volume">34</biblScope>
+			<biblScope unit="page" from="892" to="901" />
+			<date type="published" when="1985-10" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b21">
+	<monogr>
+		<title level="m" type="main">TCP Selective Acknowledgment Options</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Mathis</forename></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Mahdavi</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Floyd</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>And Ro-Manow</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename></persName>
+		</author>
+		<imprint>
+			<date type="published" when="1996" />
+		</imprint>
+		<respStmt>
+			<orgName>Internet Engineering Task Force</orgName>
+		</respStmt>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b22">
+	<analytic>
+		<title level="a" type="main">TCP Behavior with Many Flows</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Morris</forename></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">IEEE International Conference on Network Protocols (ICNP)</title>
+		<imprint>
+			<date type="published" when="1997-10" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b23">
+	<analytic>
+		<title level="a" type="main">The Panasas ActiveScale Storage Cluster: Delivering Scalable High Bandwidth Storage</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Nagle</forename></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Serenyi</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>And</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Matthews</forename></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">SC &apos;04: Proceedings of the 2004 ACM/IEEE Conference on Supercomputing</title>
+		<meeting><address><addrLine>Washington, DC, USA</addrLine></address></meeting>
+		<imprint>
+			<date type="published" when="2004" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b24">
+	<analytic>
+		<title level="a" type="main">Network Support for Network-attached Storage</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Nagle</forename></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><forename type="middle">F</forename><surname>Ganger</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">G</forename><forename type="middle">R</forename><surname>Butler</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Goodson</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">G</forename><surname>And</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Sabol</forename></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Hot Interconnects</title>
+		<meeting><address><addrLine>Stanford, CA</addrLine></address></meeting>
+		<imprint>
+			<date type="published" when="1999" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b25">
+	<monogr>
+		<title level="m" type="main">The transmission control protocol: an introduction to tcp and a research survey</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Noureddine</forename></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">W</forename><surname>And</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Tobagi</forename></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">F</forename></persName>
+		</author>
+		<imprint>
+			<date type="published" when="2002" />
+		</imprint>
+		<respStmt>
+			<orgName>Stanford University</orgName>
+		</respStmt>
+	</monogr>
+<note type="report_type">Tech. rep</note>
+</biblStruct>
+
+<biblStruct xml:id="b26">
+	<monogr>
+		<title level="m" type="main">ns-2 Network Simulator</title>
+		<imprint/>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b27">
+	<monogr>
+		<title level="m" type="main">Network File System Version 4 (nfsv4) charter page</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Pawlowski</forename></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">B</forename><surname>And</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Shepler</forename></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename></persName>
+		</author>
+		<imprint/>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b28">
+	<monogr>
+		<title level="m" type="main">Computing TCP&apos;s Retransmission Timer. Internet Engineering Task Force</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Paxson</forename></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">V</forename><surname>And</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Allman</forename></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename></persName>
+		</author>
+		<imprint>
+			<date type="published" when="2000-11" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b29">
+	<monogr>
+		<title level="m" type="main">Computer Networks: A Systems Approach</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Peterson</forename></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">L</forename><forename type="middle">L</forename><surname>And</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Davie</forename></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">B</forename><forename type="middle">S</forename></persName>
+		</author>
+		<imprint>
+			<date type="published" when="2003" />
+			<publisher>Morgan Kaufmann Publishers</publisher>
+			<pubPlace>San Fransisco, CA</pubPlace>
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b30">
+	<monogr>
+		<title level="m" type="main">User Datagram Protocol. Internet Engineering Task Force</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Postel</forename></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><forename type="middle">B</forename></persName>
+		</author>
+		<imprint>
+			<date type="published" when="1980-08" />
+		</imprint>
+	</monogr>
+	<note>RFC 768</note>
+</biblStruct>
+
+<biblStruct xml:id="b31">
+	<analytic>
+		<title level="a" type="main">Internet Protocol. Internet Engineering Task Force</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Postel</forename></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><forename type="middle">B</forename></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Information Sciences Institute</title>
+		<imprint>
+			<date type="published" when="1981" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b32">
+	<monogr>
+		<title level="m" type="main">Transmission Control Protocol. Internet Engineering Task Force</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Postel</forename></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><forename type="middle">B</forename></persName>
+		</author>
+		<imprint>
+			<date type="published" when="1981-09" />
+		</imprint>
+	</monogr>
+	<note>RFC 793</note>
+</biblStruct>
+
+<biblStruct xml:id="b33">
+	<analytic>
+		<title level="a" type="main">Dynamics of TCP traffic over ATM networks</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Romanow</forename></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>And</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Floyd</forename></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">ACM Computer Communications Review</title>
+		<imprint>
+			<biblScope unit="volume">24</biblScope>
+			<biblScope unit="page" from="79" to="88" />
+			<date type="published" when="1994" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b34">
+	<analytic>
+		<title level="a" type="main">Congestion control in Linux TCP</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Sarolahti</forename></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>And</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Kuznetsov</forename></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. USENIX Annual Technical Conference</title>
+		<meeting>USENIX Annual Technical Conference<address><addrLine>Berkeley, CA</addrLine></address></meeting>
+		<imprint>
+			<date type="published" when="2002-06" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b35">
+	<analytic>
+		<title level="a" type="main">GPFS: A SharedDisk File System for Large Computing Clusters</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Schmuck</forename></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">F</forename><surname>And</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Haskin</forename></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. USENIX Conference on File and Storage Technologies (FAST)</title>
+		<meeting>USENIX Conference on File and Storage Technologies (FAST)<address><addrLine>Monterey, CA</addrLine></address></meeting>
+		<imprint>
+			<date type="published" when="2002-01" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b36">
+	<monogr>
+		<title level="m" type="main">NFSv4 Minor Version 1 -Draft Standard</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Shepler</forename></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Eisler</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>And</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Noveck</forename></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename></persName>
+		</author>
+		<imprint/>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b37">
+	<monogr>
+		<title/>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">W</forename><forename type="middle">R</forename><surname>Stevens</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><surname>Tcp/Ip Illustrated</surname></persName>
+		</author>
+		<imprint>
+			<date type="published" when="1994" />
+			<publisher>Addison-Wesley</publisher>
+			<biblScope unit="volume">1</biblScope>
+			<pubPlace>Reading, MA</pubPlace>
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b38">
+	<analytic>
+		<title level="a" type="main">Enhanced Ethernet for Data Center: Reliable, Channelized and Robust</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Wadekar</forename></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">15th IEEE Workshop on Local and Metropolitan Area Networks</title>
+		<imprint>
+			<date type="published" when="2007-06" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+				</listBibl>
+			</div>
+		</back>
+	</text>
+</TEI>

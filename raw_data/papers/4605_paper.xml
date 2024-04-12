@@ -1,0 +1,387 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<TEI xmlns="http://www.tei-c.org/ns/1.0" 
+xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+xsi:schemaLocation="http://www.tei-c.org/ns/1.0 /Users/atharsefid/Desktop/grobid-0.5.3/grobid-home/schemas/xsd/Grobid.xsd"
+ xmlns:xlink="http://www.w3.org/1999/xlink">
+	<teiHeader xml:lang="en">
+		<encodingDesc>
+			<appInfo>
+				<application version="0.5.3" ident="GROBID" when="2019-03-26T16:54+0000">
+					<ref target="https://github.com/kermitt2/grobid">GROBID - A machine learning software for extracting information from scholarly documents</ref>
+				</application>
+			</appInfo>
+		</encodingDesc>
+		<fileDesc>
+			<titleStmt>
+				<title level="a" type="main">Phoenix++: Modular MapReduce for Shared-Memory Systems</title>
+			</titleStmt>
+			<publicationStmt>
+				<publisher/>
+				<availability status="unknown"><licence/></availability>
+			</publicationStmt>
+			<sourceDesc>
+				<biblStruct>
+					<analytic>
+						<author>
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Justin</forename><surname>Talbot</surname></persName>
+							<email>jtalbot@stanford.edu</email>
+							<affiliation key="aff0">
+								<orgName type="department">Computer Systems Laboratory</orgName>
+								<orgName type="institution">Stanford University</orgName>
+							</affiliation>
+						</author>
+						<author>
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Richard</forename><forename type="middle">M</forename><surname>Yoo</surname></persName>
+							<email>rmyoo@stanford.edu</email>
+							<affiliation key="aff0">
+								<orgName type="department">Computer Systems Laboratory</orgName>
+								<orgName type="institution">Stanford University</orgName>
+							</affiliation>
+						</author>
+						<author>
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Christos</forename><surname>Kozyrakis</surname></persName>
+							<email>kozyraki@stanford.edu</email>
+							<affiliation key="aff0">
+								<orgName type="department">Computer Systems Laboratory</orgName>
+								<orgName type="institution">Stanford University</orgName>
+							</affiliation>
+						</author>
+						<title level="a" type="main">Phoenix++: Modular MapReduce for Shared-Memory Systems</title>
+					</analytic>
+					<monogr>
+						<imprint>
+							<date/>
+						</imprint>
+					</monogr>
+				</biblStruct>
+			</sourceDesc>
+		</fileDesc>
+		<profileDesc>
+			<textClass>
+				<keywords>
+					<term>D13 [Software]: Programming Techniques-concurrent pro- gramming; E2 [Data]: Data Storage Representations General Terms Algorithms</term>
+					<term>Design</term>
+					<term>Measurement</term>
+					<term>Performance Keywords Shared-Memory MapReduce</term>
+					<term>Modularity</term>
+					<term>Performance</term>
+				</keywords>
+			</textClass>
+			<abstract>
+				<p>This paper describes our rewrite of Phoenix, a MapReduce framework for shared-memory CMPs and SMPs. Despite successfully demonstrating the applicability of a MapReduce-style pipeline to shared-memory machines, Phoenix has a number of limitations; its uniform intermediate storage of key-value pairs, inefficient combiner implementation, and poor task overhead amortization fail to efficiently support a wide range of MapReduce applications, encouraging users to manually circumvent the framework. We describe an alternative implementation, Phoenix++, that provides a modular , flexible pipeline that can be easily adapted by the user to the characteristics of a particular workload. Compared to Phoenix, this new approach achieves a 4.7-fold performance improvement and increased scalability, while allowing users to write simple, strict MapReduce code.</p>
+			</abstract>
+		</profileDesc>
+	</teiHeader>
+	<text xml:lang="en">
+		<body>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="1.">INTRODUCTION</head><p>MapReduce <ref type="bibr" target="#b2">[3]</ref> is a functional language-inspired parallel programing model for large-scale machines. Its simplicity, coupled with its applicability to practical problems, has led to adoption on a range of computing platforms <ref type="bibr" target="#b10">[11,</ref><ref type="bibr" target="#b3">4]</ref>. The Phoenix project <ref type="bibr" target="#b8">[9,</ref><ref type="bibr" target="#b11">12]</ref>, in particular, demonstrated that the MapReduce model could be used on shared-memory machines, with scalability comparable, in some cases, to handcoded PThreads solutions.</p><p>Permission to make digital or hard copies of all or part of this work for personal or classroom use is granted without fee provided that copies are not made or distributed for profit or commercial advantage and that copies bear this notice and the full citation on the first page. To copy otherwise, to republish, to post on servers or to redistribute to lists, requires prior specific permission and/or a fee. While cluster-based MapReduce performance is limited primarily by disk and network I/O, shared-memory MapReduce performance, without these bottlenecks, is sensitive to a wide range of workload-influenced details such as intermediate key-value data layout, memory allocation pressure, and framework overhead <ref type="bibr" target="#b11">[12]</ref>.</p><p>Despite the wide variation in possible MapReduce workload characteristics, Phoenix adopts a static MapReduce pipeline similar to cluster-based implementations. For example, intermediate key-value pairs are always stored in a fixed-size hash table and combiner execution always occurs at the end of the map stage. However, these implementation decisions are inefficient for many types of workloads. As a result, we have found that users often have to work around the Phoenix pipeline-managing memory manually, implementing combiner functionality in the map function, etc.-to get high performance. Furthermore, the framework exposes internal task scheduling details, requiring the user to manage library and scheduling overhead. <ref type="bibr">Phoenix 2 [12]</ref>, although significantly improved in terms of scalability and NUMA-awareness, suffers from similar problems since it is based on the same Phoenix code.</p><p>More recent shared-memory MapReduce implementations have attempted to address this performance issue by modifying the MapReduce paradigm. The Tiled-MapReduce system <ref type="bibr" target="#b0">[1]</ref> executes the map and combine tasks in groups to minimize resource usage and increase locality, resulting in a maximum reported speedup of about 3.5x over Phoenix 2. The MATE system <ref type="bibr" target="#b6">[7]</ref> uses a heavily revised MapReduce API that requires the user to write combined map / reduce functions, producing a 1x-3x speedup over Phoenix.</p><p>We take a different approach to enabling high performance shared-memory MapReduce. Phoenix++ is a complete revision of the Phoenix framework that achieves speed through modularity in performance critical sections. It provides a flexible intermediate key-value storage abstraction that permits workload-tailored implementations and a more effective combiner implementation that can minimize memory usage, all the while hiding the task scheduling details in a modular fashion and maintaining the basic MapReduce model. We demonstrate that on a 32-core Linux machine, the result is an average 4.7-fold performance improvement and substantially improved scalability over Phoenix 2, while greatly reducing the amount of code that users must write.</p><p>In the next section, we characterize MapReduce workloads along key application dimensions and discuss the implications on MapReduce library design. Section 3 discusses the shortcomings of Phoenix design and demonstrates how users must work around the framework to get good performance. Then, in Section 4, we describe our system, Phoenix++, which overcomes these problems with a flexible, modular pipeline design. In Section 5, we show that this approach achieves better performance and scalability than Phoenix, while significantly reducing the amount of code that a user must write. In Section 6 we position the new implementation among related work, and Section 7 concludes. To better understand how different workloads impact sharedmemory MapReduce performance, we tried to systematically characterize the 7 example workloads included in the Phoenix 2 distribution <ref type="bibr" target="#b11">[12]</ref>. After some iteration, we settled on three dimensions (shown in <ref type="figure" target="#fig_1">Figure 1</ref>): 1. the map task to intermediate key distribution, with three possible values, * : * any map task can emit any key, where the number of keys is not known before execution, * :k any map task can emit any of a fixed number of keys, k, and 1:1 each task outputs a single, unique key.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="2.">WORKLOAD CHARACTERIZATION</head></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>Per</head><p>2. the number of values emitted per key, which typically scales with the data set size, and</p><p>3. the amount of per task computation compared to the total framework overhead.</p><p>While not completely orthogonal, we believe that these dimensions capture the important workload characteristics that impact performance on shared-memory MapReduce. Table 1 summarizes the impact of each workload dimension on key framework design decisions.</p><p>The key distribution is the relationship between the set of map tasks and intermediate keys. For highest performance, the runtime must leverage key distribution knowledge to provide efficient key-value storage between the map and reduce phases. While * : * workloads such as word_ count must use a hash table storage structure, other key distributions can use more efficient data structures that consume less memory and have lower fixed costs.</p><p>The number of emitted values per key typically grows with the size of the data set used in the workload. Larger data sets stress the runtime's capability to efficiently manage inmemory buffer space. Hence it is preferable to invoke combiner functions frequently, but individual combiner call overheads can add up.</p><p>Finally, per task computation is the ratio between the complexity of the user-provided map or reduce functions and the overhead of the MapReduce framework, such as time necessary to dequeue the task or to emit the intermediate key-value pair. When the per task computation is low, as in the linear_regression and histogram workloads, such overhead can dominate.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.">LIMITATIONS OF PHOENIX</head><p>Like the cluster-based MapReduce implementations that preceded it, Phoenix is statically optimized for a particular class of workloads (shown in gray in <ref type="figure" target="#fig_1">Figure 1</ref>), featuring high per task computation and a large, unknown number of keys. Phoenix's design decisions are summarized in <ref type="table">Table 1</ref>. In the rest of the section, we describe Phoenix's design in more detail and demonstrate how users are forced to work around the Phoenix framework to improve performance.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.1">Inefficient Key-Value Storage</head><p>In a shared-memory MapReduce implementation, maintaining the intermediate key-value storage is a complicated task, since containers must provide fast lookup and retrieval over potentially large dataset, all the while coordinating accesses across multiple threads.</p><p>The approach proposed in Phoenix is to utilize map threadspecific fixed-width hash tables (i.e., the number of hash buckets is constant) <ref type="bibr" target="#b11">[12]</ref>. The fixed size is necessary to permit reduce threads to access the hash tables in a crosscutting fashion, taking matching key-value pairs from the same bucket in each hash table, without requiring locking.</p><p>However, the fixed-width hash table is not a good fit for any of the workload key distribution categories we identified; its fixed-width limits the performance over * : * workloads with large number of keys, and it is inefficient for other distributions. Listing 1, for example, shows the map function of the histogram application, which counts up the number of times a particular red, green, or blue component value occurs in a large image. As can be seen in lines 5∼7, in order to avoid the costly overhead of using the fixed-width hash table of Phoenix, the programmer uses fixed-size arrays instead, to manually store the component counts before emitting them. This optimization is possible since the user knows a priori that the number of possible keys is limited to the 768 pixel values (i.e., a * :k workload).</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.2">Ineffective Combiner</head><p>In standard MapReduce, a user can optionally specify a combiner function <ref type="bibr" target="#b2">[3]</ref>, typically associative and commutative, which is run locally on key-value pairs emitted by the map function. On clusters of machines, the combiner function reduces the number of key-value pairs that must be exchanged between machines. In Phoenix 2, combiner functionality was introduced to lower memory traffic between  In an effort to improve performance, the body of the map function has been made overly complex.</p><p>the map and reduce phases <ref type="bibr" target="#b11">[12]</ref>; the user specifies the combiner function through a separate function pointer, and for each thread, it is run at the end of the map phase on top of the key-value hash table.</p><p>However, unlike cluster-based implementations, on SMP machines memory allocation costs tend to dominate, even more than the memory traffic. Running the combiner at the end of the map phase may reduce the total overhead to invoke the combiner, but it fails to reduce the memory allocation pressure, since generated key-value pairs must still be stored. Further, by the time the combiners are run, those pairs may no longer be in the cache causing expensive memory access penalties.</p><p>A better approach is to run the combiner more frequently. In lines 10∼15 of Listing 1, we can see that the Phoenixprovided combiner is ignored in favor of manually implementing the combiner inside the map function. This bypass substantially reduces memory allocation pressure. emit(out, p.b+512, 1);</p><formula xml:id="formula_0">10 } 11 };</formula><p>Listing 2: The histogram map function written for Phoenix++.</p><p>Templates are used to adapt the MapReduce pipeline to the workload while maintaining a simple programmatic interface.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.3">Exposed Task Chunking</head><p>Typical MapReduce implementations internally group tasks into chunks to reduce scheduling costs and amortize per-task overhead. Phoenix exposes this chunking to the programmer, passing chunks, rather than individual tasks, to the map function (e.g., line 10 in Listing 1).</p><p>This design enables the user-implemented optimizations described in the previous two sections. However, it also has two drawbacks-first, extra code to deal with chunks is pushed into user code, complicating the map function. Second, and more important, if the user leverages the exposed chunk to improve performance, the framework can no longer freely adjust the chunk size since doing so will affect the efficiency of the map function. Phoenix addresses this dependency by requiring the user to specify the chunk size as a parameter; however, the user's fixed chunk size may be far from optimal and could work against load balancing.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.4">Performance Impact</head><p>We tried rewriting the Phoenix histogram application to use an "ideally" simple map function that used the built-in hash table storage for key-value pairs, relied on the Phoenixprovided combiner, and operated on a single pixel at a time. Our tests showed that this ran 10x slower than the version in Listing 1. In a more extreme case, the linear_ regression workload showed a 24x slowdown. Thus, there is considerable incentive for users to work around the Phoenix framework to improve performance.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="4.">PHOENIX++ DESIGN AND IMPLEMENTATION</head><p>Motivated by the shortcomings of Phoenix discussed in the previous section, we designed a modular MapReduce framework, Phoenix++, where users can adapt performance critical elements of the pipeline to match the known characteristics of their workload. In particular, we expose the runtime's intermediate key-value grouping and storage responsibility through two abstractions: containers, which allow us to tune the framework to each workload's key distribution, and combiner objects, which permit efficiently handling workloads with large numbers of values per key. We further increase the modularity of the pipeline by allowing the user to easily replace the memory allocator and by making the final key-value sort optional. Lastly, we hide the task chunking granularity to provide a cleaner interface. Unfortunately, increasing the modularity of the framework can reduce performance due to additional function calls, less opportunities for compiler optimizations, etc. This is particularly a concern in Phoenix++ because the intermediate key-value storage is on the critical performance path. This issue motivated us to implement Phoenix++ in C++ where templates provide a mechanism to statically inline code, allowing us to build an adaptive framework without paying a performance penalty.</p><p>The result is a consistent and simple MapReduce-style programmatic interface with very high performance and scalability across all workload dimensions. Listing 2 shows the histogram workload written in Phoenix++. Compared to Phoenix, the amount of user-written code is substantially decreased. Even so, this runs faster than the corresponding Phoenix 2 code. The Phoenix++ design choices are summarized in <ref type="table">Table 1</ref> and are discussed in the following sections.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="4.1">Containers</head><p>In Phoenix++, containers provide the standard group-by functionality between the map and reduce phases, grouping emitted key-value pairs by key and then storing them in combiners. <ref type="figure" target="#fig_4">Figure 2</ref> depicts two example container configurations and their relationship to combiner objects. By mixing and matching container and combiner implementations we can get high performance key-value storage for a wide range of workloads.</p><p>To provide the highest possible performance for each key distribution, we define 3 default container implementations tuned to each of the * : * , * :k, and 1:1 workload classes.</p><p>• hash container ( * : * ): a variable-width hash table implementation where each map thread can resize its own hash table (in contrast to Phoenix where all tables are the same fixed width), initialize(num map threads, num reduce tasks) -Initialize the container container get() -Create a thread-local container "instance" put(container) -Return control of the instance to the container combiner iterator out(reduce task id) -Output combiner objects for processing by a reduce task <ref type="table">Table 2</ref>: Container interface functions.</p><p>• array container ( * :k): a fixed-size, thread-local array implementation, which requires that the keys be integers within an a priori known range [0,K-1], and</p><p>• common array container (1:1): a non-blocking array structure shared across all threads. <ref type="figure" target="#fig_4">Figure 2</ref>(a) depicts the hash container implementation. In contrast to the default fixed-width hash table in Phoenix, we allow each map thread to control the width of its own hash table. This ensures that we can maintain O(1) insertion performance even in the presence of an unexpectedly large number of keys. However, since each hash table has different width, the correspondence between keys and bucket indices has been lost. This makes it more difficult to group values with the same key across threads. We address this issue by copying values out of the hash tables at the end of the map phase and inserting them into a new fixed-width hash table with the same number of buckets as reduce tasks. This extra copy is unfortunate, but as we show in Section 5, the overall performance is higher than the fixed-width hash table.</p><p>Figure 2(b) shows the arrangement of the array container. For tasks with a known, small key cardinality, insertion into a fixed size array avoids the cost of hashing keys and repeatedly checking if the hash table should be resized. This structure can provide a substantial performance increase, especially in cases where the amount of computation per task is small. In Listing 2, line 4, we can see that the Phoenix++ histogram workload uses the array_container.</p><p>Lastly, the common array container leverages the fact that each emitted key is unique in 1:1 workloads; all threads can write into the same array without any synchronization.</p><p>Interface.</p><p>The user is also free to specify her own container through the common interface shown in <ref type="table">Table 2</ref>. Through the get() method, each map thread can ask the container class for a container "instance". When done emitting key-value pairs into the instance, each map thread returns its instance through the put() method. Using this instance interface permits us to support a wide range of possible container implementations. For example, when the get() function is called, the container is free to return either a thread-local data structure, which it will later merge with similar structures from other map threads, or a global data structure, which is controlled by locks or other synchronization mechanisms. When the workload properties permit, the container can even expose a global data structure without any synchronization mechanisms at all, as is the case for the common array container.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="4.2">Combiner Objects</head><p>The combiner object abstraction in Phoenix++ is used to store all emitted values with the same key. Thus, in Phoenix++, combiners are not just functions, but are stateful objects. In order to maximally reduce memory pressure initialize() -Initialize the combiner object add(value) -Insert a new value into the combiner object add(combiner) -Combine the state of two combiner objects bool discard() -Return true if the combiner object should not be passed to the reduce stage value* next() -Iterate over values in the combiner object -Return NULL if all values have been returned By contrast, the associative_combiner does not buffer values. Instead, it leverages the fact that the combiner will be called for every emitted value, and maintains a single aggregate value which is incrementally combined with each emitted value. This completely eliminates the overhead associated with maintaining a buffer. In the sample workloads, we make wide use of the sum_combiner (Listing 2, line 4), an instantiation of associative_combiner which simply stores the sum of all the values inserted into it.</p><p>Additionally, unlike the standard MapReduce formulation which specifies that combiner functions are run per machine, and then reduce functions are run across machines <ref type="bibr" target="#b2">[3]</ref>, in Phoenix++ we guarantee that combiners will be run on all emitted values across all threads, before the combiner object is passed to the reduce phase. This means that the user only has to implement the combiner function once; code does not have to be duplicated in the reduce function.</p><p>Interface. The set of functions supported by the combiner class is given in <ref type="table" target="#tab_1">Table 3</ref>. We use an initialize() method rather than a constructor since, to minimize memory allocations, the runtime may reuse combiner objects. Within each thread, the values will be added to the combiner object through add(), as they are emitted from the map function. The second add() method combines combiner objects created for the same key in different threads. The discard() method permits the user to mask certain combiner objects-typically empty combiner objects that were proactively created by the runtime-from being passed on to the reduce function. Finally, the next() method is used by the reduce function to iterate through the values in the combiner object. <ref type="table" target="#tab_2">Table 4</ref> describes how the buffer_combiner and the sum_combiner implement this common interface.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="4.3">Other Modularity in Phoenix++</head><p>Generic, optional sort. In the original Google implementation, MapReduce sorts the final output <ref type="bibr" target="#b2">[3]</ref>. Considering that I/O is the dominant factor in cluster-based MapReduce, additional sorting does not cause much overhead. However, for shared-memory MapReduce implementations, sorting at the merge phase can impose significant overhead. Thus, we permit the user to completely disable the final sort.  Additionally, if sorting is enabled, we allow the user to provide a custom sorting function that is defined over keyvalue pairs, rather than the keys alone. In cases such as word_count, which require a more complicated result sorting, the custom sorting function avoids the need for a second MapReduce pass.</p><p>Custom memory allocators. In Phoenix 2, the authors noted the importance of the memory allocator on the overall library scalability <ref type="bibr" target="#b11">[12]</ref>. In Phoenix++, we use STL's custom allocator interface to support more scalable allocators (e.g. Intel's TBB scalable_allocator <ref type="bibr" target="#b5">[6]</ref>) for the containers and combiners.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="4.4">Efficient Modularity</head><p>As discussed in the previous sections, in Phoenix++, we permit the user to swap in and out core functionalities of the framework. Moreover, we have hidden the task chunking granularity, allowing the user to write a map function that works on a single map task. While these changes simplify programming, they do introduce a large number of function calls in the inner task loops which can quickly dominate the runtime for applications with low per task computation.</p><p>To eliminate the function calls we leverage a C++ template technique known as the Curiously Recurring Template Pattern (CRTP) <ref type="bibr" target="#b1">[2]</ref>. As shown in Listing 2, the first argument to the template (line 2) is the inheriting class (Histogram) itself. This means that the user-provided map and reduce functions are statically determined, and as a result the compiler can inline them into the task loop specified in the framework's code. Additionally, since the container and combiner objects are also specified as template parameters, the compiler can inline them as well. The result is that all the function calls in the inner loops can be eliminated.     <ref type="table" target="#tab_5">Table 5</ref> describes the hardware and software settings for our experiment. We ported the test cases that ship with the Phoenix 2 release <ref type="bibr" target="#b11">[12]</ref> to work with Phoenix++. During the porting process, we updated a few of the workloads to more efficient implementations, in order to evaluate against more realistic usage scenarios. To make the comparison fair, we back-ported those optimizations to the Phoenix 2 versions. Likewise, to make replication possible, we report results using the (relatively small) data sets available on the Phoenix 2 website <ref type="bibr" target="#b9">[10]</ref>. All the results are the averages of 5 runs when the machine was idle; the execution of the various configurations were interleaved to reduce bias. <ref type="figure" target="#fig_6">Figure 3</ref> compares the performance of Phoenix++ against Phoenix 2. Phoenix++ is substantially faster and more scalable across all workloads; notice that the axes are log scales.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="5.">EXPERIMENTAL RESULTS</head></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="5.1">Performance Summary</head><p>Some workloads exhibit peak performance at 32 threads, as the performance degrades slightly when we start to utilize Hyper-Threads. At 32 threads, Phoenix++ achieves a 4.7x speedup on average over Phoenix 2.</p><p>Profiler analysis reveals that Phoenix++ achieves this performance improvement through combinations of all the major enhancements described in Section 4. The newly introduced containers improved most of the workloads, even word_count, for which Phoenix 2 had been optimized. The more effective combiner objects contributed to better data locality and lower memory allocation pressure, resulting in substantial scalability improvement on most applications. For matrix_multiply and string_match, which do not emit any intermediate key-value pairs, the combiner's discard() interface function turned out to be useful, as Phoenix 2 suffered high overheads executing empty reduce tasks. Finally, histogram and linear_regression, which exhibit the smallest per task computation, benefited significantly from the reduced function call overhead due to function inlining enabled with CRTP.</p><p>In the following sections, we try to quantify the benefit of each of these optimizations.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="5.2">Container Performance</head><p>As described in Section 4.1, containers were introduced to provide a modular way to cover different key distributions. In <ref type="figure" target="#fig_7">Figure 4</ref>, we compare the performance of the three default containers provided by Phoenix++ against a fixedwidth hash container which mimics the container used in Phoenix. Notice that not every container can be used with every workload, and that matrix_multiply and string_ match are not included in the plot, since they do not emit any key-values during the map phase and are, thus, insensitive to container choices. The first observation to make is that no single container prevails across all the workloads, justifying our approach of providing various container implementations; the * :k workloads, histogram, linear_regression, and kmeans, perform the best with the array container, and the 1:1 workload, pca, benefits the most from the common array container. Second, the default Phoenix++ containers provide better performance and scalability than the Phoenixlike fixed-width hash container-even the * : * workload, word_count, benefits from the new hash container. <ref type="figure">Figure 5</ref> shows the performance when using an associative_combiner to incrementally aggregate emitted values, compared to using a buffer_combiner to simply buffer up key-value pairs for the reduce task.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="5.3">Combiner Performance</head><p>Combiners provide a dramatic absolute performance improvement, especially for those workloads with low per task computation: e.g., histogram and linear_regression. With the exception of word_count, they also provide a substantial scalability improvement across all thread counts.</p><p>Note that this contradicts the Phoenix 2 conclusion <ref type="bibr" target="#b11">[12]</ref>, where the authors observed minimal performance improvement through combiners. The difference in conclusions can be attributed to two factors; first, Phoenix 2 only invoked the combiner at the end of the map phase. In contrast, Phoenix++ invokes the combiner after every emitted value, thus improving locality and reducing memory allocation pressure. Second, as shown in Listing 1, users tend to implement their own combiners in Phoenix 2, which hides the utility of a library-provided combiner.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="5.4">Function Call Overhead</head><p>As described earlier, we use templates with CRTP to eliminate function calls in the map and reduce inner loops in- troduced by our modularization of the pipeline. To demonstrate that these introduced function calls can be problematic, we force the compiler, using GCC's noinline function attribute, to not inline the emit_intermediate calls into the map function nor inline the map function into the framework's task loop. The histogram and linear_regression workloads, which exhibit the smallest per task computation, are particularly sensitive to the function call overhead ( <ref type="figure">Figure 6</ref>). The other workloads, with higher per task computation, were not substantially affected by the change.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="5.5">Code Size Comparison</head><p>In addition to the significant performance improvements, the other important objective of Phoenix++ was to provide a cleaner interface, allowing users to write strict, simple MapReduce code. To quantify the improvement, we compare the lines of source code for the map, reduce, and combiner functions for each workload implemented in Phoenix 2 and Phoenix++.  that work on a single map task, rather than an entire chunk. Thus, chunk looping code can be eliminated from most workloads, except for string_match and word_count which already were single task functions in Phoenix 2.</p><p>Comparing the reduce and combiner function code size reveals that (1) our combiner objects obviate the need to specify the aggregation function in multiple locations, and that (2) the two combiner abstractions, buffer_combiner and associative_combiner, provided by the runtime are sufficient to cover most of the workloads; thus, users rarely have to specify their own. One exception is the kmeans workload which requires the combiner to allocate memory to hold the aggregate value. This is not supported by the simple sum_ combiner, so we had to provide a custom associative_ combiner implementation. Phoenix 2 does not use a combiner for this workload.</p><p>Finally, with the generic sorting interface (Section 4.3), we could eliminate a second MapReduce pass to sort the results of the word_count workload, further reducing the necessary code.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="6.">RELATED WORK</head><p>Previous efforts have noted the importance of adapting to variations in workload characteristics. <ref type="bibr">Phoenix 2 [12]</ref> allows the users to specify the width of the hash table, but the initial value could be difficult to determine. Metis <ref type="bibr" target="#b7">[8]</ref> substitutes the hash table representation with a more complex B+tree, trying to handle both the small and large key spaces with a single structure. Phoenix++, on the contrary, leverages object-oriented modularity to provide different containers that are tailored to different key distributions.</p><p>Other shared-memory MapReduce implementations, such as Tiled-MapReduce <ref type="bibr" target="#b0">[1]</ref> and MATE <ref type="bibr" target="#b6">[7]</ref>, have tried to achieve higher performance by modifying the MapReduce paradigm. In contrast, Phoenix++ uses modularity and function inlining to achieve low resource usage and high locality, without substantially changing the standard MapReduce interface.</p><p>There exist other MapReduce implementations written in C++. Hadoop <ref type="bibr" target="#b10">[11]</ref>, for example, provides C++ bindings, and the Boost.MapReduce project <ref type="bibr" target="#b4">[5]</ref> plans to bring MapReduce functionality to the Boost C++ libraries. However, neither of these strategically exploits C++ features to achieve high performance and concise code.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="7.">CONCLUSION</head><p>We have demonstrated that shared-memory MapReduce frameworks can achieve much higher performance by adapting to the characteristics of their workloads. To make this possible, we specified interfaces for containers and combiners, and showed that modularity overhead could be effectively reduced using templates. As a result, Phoenix++ allows the user to write very high performance code, without having to manually circumvent the library or the MapReduce paradigm. The source code is publicly available at http://mapreduce.stanford.edu.</p></div><figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_0"><head>MapReduce' 11 ,</head><label>11</label><figDesc>June 8, 2011, San Jose, California, USA. Copyright 2011 ACM 978-1-4503-0700-0/11/06 ...$10.00.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_1"><head>Figure 1 :</head><label>1</label><figDesc>Figure 1: Phoenix sample workloads organized by workload characteristics (see text for description).</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_2"><head>/</head><label></label><figDesc>* Count occurrences, amounts to manual combine * / 10 for (int i = 0; i &lt; args-&gt;length * 3; i +=3) 11 { 12 red[data[i]]++; 13 green[data[i+1]]++; 14 blue[data[i+2]]++; 15 } 16 17 / * Selectively emit key-value pairs * / 18 for (int i = 0; i &lt; 256; i++) 19 { 20 if(red[i] &gt; 0) 21 emit(i, red[i]); 22 if(green[i] &gt; 0) 23 emit(i+256, green[i]); 24 if(blue[i] &gt; 0) 25 emit(i+512, blue[i]); 26 } 27 } Listing 1: The Phoenix map function for the histogram workload.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_4"><head>Figure 2 :</head><label>2</label><figDesc>Figure 2: Container class implementations. Each "C" represents a combiner object, which stores emitted values associated with a single key.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_5"><head></head><label></label><figDesc>-Append value to first vector in linked list add(combiner) -Concatenate combiner objects' linked lists (avoids copy- ing) bool discard() -Return true if no values were inserted value* next() -Iterate over all elements in all vectors in linked list (b) sum_combiner Implementation State -Single value (typically numeric) initialize() -Set state to 0 add(value) -state += value add(combiner) -state += combiner.state bool discard() -Return true if state == 0 value* next() -Return state and then NULL on the next call</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_6"><head>Figure 3 :</head><label>3</label><figDesc>Figure 3: Performance (top) and scalability (bottom) comparisons of Phoenix++ (blue) and Phoenix 2 (orange). Vertical lines mark 32 threads, the number of physical cores on our test machine. For the scalability comparison, black lines represent ideal scaling.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_7"><head>Figure 4 :</head><label>4</label><figDesc>Figure 4: Workload sensitivity to container choice: variable-width hash table (green), array (blue), common array (pink), and, for comparison, a Phoenixlike fixed-width hash table (orange). The default Phoenix++ containers provide high performance and scalability across a range of workloads.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_8"><head>Figure 5 :Figure 6 :</head><label>56</label><figDesc>Figure 5: Comparison of workloads with (blue) and without (green) using a combiner. In contrast to the Phoenix 2 results, we see a substantial improvement from the combiner.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_1" validated="false"><head>Table 3 :</head><label>3</label><figDesc>Combiner class member functions. due to intermediate key-value storage, Phoenix++ invokes the combiner immediately after each key-value pair is emit- ted by the map function. The default combiner, buffer_combiner, implements the standard MapReduce behavior, buffering up all emitted values until the reduce function is called. The implementa- tion follows Phoenix 2 in eliminating the need to copy values when concatenating buffers from different threads.</figDesc><table></table></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_2" validated="false"><head>Table 4 :</head><label>4</label><figDesc>Combiner class implementations provided by Phoenix++.</figDesc><table></table></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_4" validated="false"><head></head><label></label><figDesc>). Vertical lines mark 32 threads, the number of physical cores on our test machine. For the scalability comparison, black lines represent ideal scaling.</figDesc><table>Hardware Settings 
+
+CPU 
+
+4 Nehalem-EX chips 
+8 cores per chip 
+2-way Hyper-Threading per core 
+Total 64 hardware contexts on system 
+
+Cache 
+
+Per core data / instruction L1, 32 KB 
+Per core L2, 256 KB 
+Shared L3, 24 MB 
+Memory 
+32 GB 
+Interconnect 
+Point-to-point QuickPath interconnect 
+Software Settings 
+Operating System Linux kernel 2.6.32 
+Compiler 
+GCC 4.4.3 with -O3 optimization 
+
+</table></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_5" validated="false"><head>Table 5 : Experiment settings.</head><label>5</label><figDesc></figDesc><table></table></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_6" validated="false"><head>Table 6 shows the results.</head><label>6</label><figDesc></figDesc><table>Much of the code reduction in map functions is due to the 
+fact that Phoenix++ allows users to write map functions 
+
+</table></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_7" validated="false"><head>Table 6 :</head><label>6</label><figDesc></figDesc><table>Code size comparison in lines of source code 
+for workloads in Phoenix++ and Phoenix 2. 
+
+</table></figure>
+
+			<note place="foot" n="1"> void hist_map(map_args_t * args) {</note>
+		</body>
+		<back>
+
+			<div type="acknowledgement">
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>Acknowledgments</head><p>This work was supported by the Stanford Pervasive Parallelism Laboratory. We appreciate Intel Corporation for donating the machine used in this study. Justin Talbot is supported by FODAVA grant 0937123. Richard Yoo is generously supported by the David and Janet Chyan Stanford Graduate Fellowship.</p></div>
+			</div>
+
+			<div type="references">
+
+				<listBibl>
+
+<biblStruct xml:id="b0">
+	<analytic>
+		<title level="a" type="main">Tiled-MapReduce: Optimizing resource usages of data-parallel applications on multicore with tiling</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Chen</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">H</forename><surname>Chen</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">B</forename><surname>Zang</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of the 19th Int&apos;l Conference on Parallel Architectures and Compilation Techniques</title>
+		<meeting>of the 19th Int&apos;l Conference on Parallel Architectures and Compilation Techniques</meeting>
+		<imprint>
+			<date type="published" when="2010" />
+			<biblScope unit="page" from="523" to="534" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b1">
+	<analytic>
+		<title level="a" type="main">Curiously recurring template patterns</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><forename type="middle">O</forename><surname>Coplien</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">C++ Rep</title>
+		<imprint>
+			<biblScope unit="volume">7</biblScope>
+			<biblScope unit="page" from="24" to="27" />
+			<date type="published" when="1995-02" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b2">
+	<analytic>
+		<title level="a" type="main">MapReduce: Simplified data processing on large clusters</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Dean</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Ghemawat</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of the 6th Symposium on Operating Systems Design &amp; Implementation</title>
+		<meeting>of the 6th Symposium on Operating Systems Design &amp; Implementation</meeting>
+		<imprint>
+			<date type="published" when="2004" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b3">
+	<analytic>
+		<title level="a" type="main">Mars: a MapReduce framework on graphics processors</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">B</forename><surname>He</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">W</forename><surname>Fang</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Q</forename><surname>Luo</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">N</forename><forename type="middle">K</forename><surname>Govindaraju</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">T</forename><surname>Wang</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of the 17th Int&apos;l Conference on Parallel Architectures and Compilation Techniques</title>
+		<meeting>of the 17th Int&apos;l Conference on Parallel Architectures and Compilation Techniques</meeting>
+		<imprint>
+			<date type="published" when="2008" />
+			<biblScope unit="page" from="260" to="269" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b4">
+	<monogr>
+		<title/>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Henderson</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><surname>Boost</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><surname>Mapreduce</surname></persName>
+		</author>
+		<ptr target="http://www.craighenderson.co.uk/mapreduce" />
+		<imprint/>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b5">
+	<analytic>
+		<title/>
+		<ptr target="http://www.threadingbuildingblocks.org" />
+	</analytic>
+	<monogr>
+		<title level="j">Intel Corporation. Threading Building Blocks</title>
+		<imprint/>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b6">
+	<analytic>
+		<title level="a" type="main">A Map-Reduce system with an alternate API for multi-core environments</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">W</forename><surname>Jiang</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">V</forename><forename type="middle">T</forename><surname>Ravi</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">G</forename><surname>Agrawal</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of the 10th IEEE/ACM Int&apos;l Symposium on Cluster, Cloud, and Grid Computing</title>
+		<meeting>of the 10th IEEE/ACM Int&apos;l Symposium on Cluster, Cloud, and Grid Computing</meeting>
+		<imprint>
+			<date type="published" when="2010" />
+			<biblScope unit="page" from="84" to="93" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b7">
+	<monogr>
+		<title level="m" type="main">Optimizing MapReduce for multicore architectures</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Y</forename><surname>Mao</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Morris</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">F</forename><surname>Kaashoek</surname></persName>
+		</author>
+		<idno>MIT-CSAIL-TR-2010-020</idno>
+		<imprint>
+			<date type="published" when="2010" />
+		</imprint>
+	</monogr>
+<note type="report_type">Technical Report</note>
+</biblStruct>
+
+<biblStruct xml:id="b8">
+	<analytic>
+		<title level="a" type="main">Evaluating MapReduce for multi-core and multiprocessor systems</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Ranger</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Raghuraman</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Penmetsa</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">G</forename><surname>Bradski</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Kozyrakis</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of the 13th Int&apos;l Symposium on High Performance Computer Architecture</title>
+		<meeting>of the 13th Int&apos;l Symposium on High Performance Computer Architecture</meeting>
+		<imprint>
+			<date type="published" when="2007" />
+			<biblScope unit="page" from="13" to="24" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b9">
+	<monogr>
+		<title level="m" type="main">The Phoenix system for MapReduce programming</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Stanford</forename><surname>University</surname></persName>
+		</author>
+		<ptr target="http://mapreduce.stanford.edu" />
+		<imprint/>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b10">
+	<monogr>
+		<title level="m" type="main">The Apache Software Foundation</title>
+		<ptr target="http://hadoop.apache.org" />
+		<imprint/>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b11">
+	<analytic>
+		<title level="a" type="main">Phoenix rebirth: Scalable MapReduce on a large-scale shared-memory system</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><forename type="middle">M</forename><surname>Yoo</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Romano</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Kozyrakis</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of the 2009 IEEE Int&apos;l Symposium on Workload Characterization</title>
+		<meeting>of the 2009 IEEE Int&apos;l Symposium on Workload Characterization</meeting>
+		<imprint>
+			<date type="published" when="2009" />
+			<biblScope unit="page" from="198" to="207" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+				</listBibl>
+			</div>
+		</back>
+	</text>
+</TEI>

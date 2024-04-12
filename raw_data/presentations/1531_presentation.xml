@@ -1,0 +1,213 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>Uncovering Bugs in Distributed Storage Systems During Testing (not in Production!)</p>
+    <p>Pantazis Deligiannis Imperial College London</p>
+  </div>
+  <div class="page">
+    <p>Alastair Donaldson Matt McCutchenPaul Thomson</p>
+    <p>Cheng Huang Wolfram Schulte Shuo Chen</p>
+    <p>John EricksonRashmi Mudduluru</p>
+    <p>Akash Lal Shaz Qadeer</p>
+  </div>
+  <div class="page">
+    <p>Top Problem in Distributed Storage Systems: Testing Coverage</p>
+    <p>- Due to limited testing coverage, many correctness problems are only exposed in production through live-sites</p>
+    <p>- Engineering overhead extremely high to identify problems</p>
+    <p>- Practical tools that can improve testing coverage highly appreciated!</p>
+    <p>technical leaders and senior managers in Azure Storage</p>
+  </div>
+  <div class="page">
+    <p>But why programming and testing distributed systems is so HARD?</p>
+  </div>
+  <div class="page">
+    <p>Many sources of nondeterminism cause subtle (but serious) bugs that are hard to detect, diagnose and fix</p>
+    <p>races in the asynchronous interaction between system components</p>
+    <p>unexp ected</p>
+    <p>failur es,</p>
+    <p>timeo uts, e</p>
+    <p>tc</p>
+    <p>unreliable network leading</p>
+    <p>to message/data lo ses</p>
+  </div>
+  <div class="page">
+    <p>Today, to find these bugs, engineering teams use:</p>
+    <p>- Design reviews</p>
+    <p>- Code reviews</p>
+    <p>- Unit testing</p>
+    <p>- Integration testing</p>
+    <p>- Stress testing</p>
+    <p>-</p>
+    <p>CANNOT COPE WITH THE</p>
+    <p>NONDETERMINISM !!!</p>
+  </div>
+  <div class="page">
+    <p>Case Study in Microsoft: Testing Azure Storage vNext</p>
+  </div>
+  <div class="page">
+    <p>Microsoft Azure Storage</p>
+    <p>Durable, highly available, massively scalable cloud storage solution</p>
+    <p>Paxos-based, centralized metadata management</p>
+  </div>
+  <div class="page">
+    <p>New architecture to scale Azure Storage capacity by &gt;100x</p>
+    <p>Microsoft Azure Storage vNext</p>
+    <p>- Completely distributed and fully scale-out metadata management system</p>
+    <p>- Data stored in extents (GB per extent)  extent space partitioned</p>
+    <p>- Extent Nodes are managed by light-weight, distributed Extent Managers</p>
+    <p>Extent Node 3</p>
+    <p>Extent Node 1</p>
+    <p>...</p>
+    <p>Extent Manager 1</p>
+    <p>Extent Node 2</p>
+    <p>Extent Node M</p>
+    <p>...</p>
+    <p>Storage Storage Storage Storage</p>
+    <p>Network Engine</p>
+    <p>Extent Manager 2</p>
+    <p>Network Engine</p>
+    <p>Extent Manager N</p>
+    <p>Network Engine</p>
+  </div>
+  <div class="page">
+    <p>Microsoft Azure Storage vNext</p>
+    <p>- One of the key tasks of Extent Manager is to maintain the replicas</p>
+    <p>- In this case study we focus on testing the replication logic  very important as we do not want to lose customer data!</p>
+    <p>Extent Node N</p>
+    <p>Extent Node 1 ...</p>
+    <p>Extent Node 2</p>
+    <p>Storage Storage Storage</p>
+    <p>Extent Manager</p>
+    <p>Network Engine</p>
+  </div>
+  <div class="page">
+    <p>- Unit tests  always pass</p>
+    <p>- Integration tests  always pass - Launch Extent Manager and Extent Nodes</p>
+    <p>- Kill EN and launch new EN ! test extents repaired</p>
+    <p>- Stress tests  fail from time to time - ENs are constantly killed and launched</p>
+    <p>- replication process gets stuck</p>
+    <p>- hard to figure out why  too many logs accumulated!</p>
+    <p>Difficulty in Testing</p>
+  </div>
+  <div class="page">
+    <p>- P# [PLDI15] is a systematic testing framework</p>
+    <p>- Controls and systematically explores all declared sources of nondeterminism in a distributed system</p>
+    <p>- Support for modeling system components as communicating state-machines to perform component-wise testing (which can scale better than testing unmodified systems) - Provides a send primitive for sending messages between P# machines</p>
+    <p>instead of real network, and can systematically explores interleavings</p>
+    <p>- Write test harness that injects failures, timeouts, client requests, etc</p>
+    <p>- Write safety and liveness specifications</p>
+    <p>- Can be applied on message passing systems written in .NET or C++</p>
+    <p>- Open source in GitHub, available for anyone to use!</p>
+    <p>Testing vNext with P#</p>
+  </div>
+  <div class="page">
+    <p>Bug Finding as a Search Problem program start</p>
+    <p>BUG!! 13</p>
+  </div>
+  <div class="page">
+    <p>P# test harness for vNext</p>
+    <p>Wrapped in a P# state-machine</p>
+  </div>
+  <div class="page">
+    <p>Testing Driver - Setting up the distributed system</p>
+    <p>- P# simulates system in a single process!</p>
+    <p>- Messages go through P#, not the real network!</p>
+    <p>- 1 real Extent Manager, 3 modeled ENs and a single extent - Small setup sufficient to expose bug ! easy to troubleshoot</p>
+    <p>- Non-determinism modeled in P#</p>
+    <p>- E.g. EN failures, timeouts, etc</p>
+    <p>- Messages: delays and losses</p>
+    <p>- Two testing scenarios</p>
+    <p>- Scenario I: pass single extent to one EN  assert (extent eventually replicated to the other ENs)</p>
+    <p>- Scenario II: fail arbitrary EN and launch a new one  assert (extent eventually replicated to the new EN, target is 3 replicas available)</p>
+  </div>
+  <div class="page">
+    <p>Real Extent Manager Wrapper Machine</p>
+    <p>wrap testing target (real Extent Manager)</p>
+    <p>instantiate testing target and create mock network for outbound messages</p>
+    <p>relay inbound messages from ENs to the real Extent Manager</p>
+  </div>
+  <div class="page">
+    <p>Outbound Messages</p>
+    <p>real network engine</p>
+    <p>mocked network engine: intercept and relay outbound messages to P#</p>
+  </div>
+  <div class="page">
+    <p>Real Extent Manager Driven by P# Timer</p>
+    <p>disable internal timer</p>
+    <p>act upon P# timer</p>
+  </div>
+  <div class="page">
+    <p>Modeled EN Components</p>
+    <p>- Simplified EN logic only related to the replication process</p>
+    <p>- Helps to achieve better testing scalability by not having to go through the real ENs</p>
+    <p>- Reuses EN internal components whenever appropriate (to maximize code reuse)</p>
+  </div>
+  <div class="page">
+    <p>Liveness Monitor</p>
+    <p>Stuck in hot state infinitely long ! liveness bug</p>
+    <p>cold state: liveness property satisfied</p>
+    <p>hot state: liveness property not satisfied yet</p>
+  </div>
+  <div class="page">
+    <p>Liveness Checking in P#</p>
+    <p>- Approach I  similar to MaceMC [NSDI07] - Run until a given large bound</p>
+    <p>- Check liveness monitor when bound is reached</p>
+    <p>- If in hot state, report potential liveness bug</p>
+    <p>- Approach II (work-in-progress)</p>
+    <p>- Try to detect a fair, infinite loop (lasso-based approach) - If the monitor is stuck in a hot state in the loop (i.e.</p>
+    <p>never goes to a cold state), we report a liveness bug</p>
+  </div>
+  <div class="page">
+    <p>- Developers spent 2 weeks modeling the environment of the Extent Manager and writing the liveness specification P# monitor (684 loc)</p>
+    <p>- P# found a liveness violation in a matter of minutes and produced a small sequential trace</p>
+    <p>- Identify and fix bug by developers in less than an hour (one line of code  see next slide)</p>
+    <p>- After the fix, developers run the P# test harness for 1 hour without finding any bugs</p>
+    <p>Testing vNext with P#</p>
+  </div>
+  <div class="page">
+    <p>Extent Manager</p>
+    <p>Extent Manager</p>
+    <p>Extent Center</p>
+    <p>Extent Node Map</p>
+    <p>Sync report from ENs</p>
+    <p>Heartbeat from ENs</p>
+    <p>Repair requests to ENs</p>
+    <p>Extent Manager</p>
+    <p>Extent Repair Loop</p>
+  </div>
+  <div class="page">
+    <p>Extent Manager</p>
+    <p>Extent Center</p>
+    <p>Extent Node Map</p>
+    <p>Sync report from ENs</p>
+    <p>Heartbeat from ENs</p>
+    <p>Repair requests to ENs</p>
+    <p>Extent Manager</p>
+    <p>Extent Repair Loop</p>
+    <p>Liveness Bug - Extent Node EN0 failed (from 3 available)</p>
+    <p>- EN0 removed from ExtentNodeMap</p>
+    <p>- Deleted EN0s extent from ExtentCenter</p>
+    <p>(extent { EN0, EN1, EN2 }) ! (extent { EN1, EN2 })</p>
+    <p>- Extent Manager received delayed sync report from EN0</p>
+    <p>- Updated ExtentCenter</p>
+    <p>(extent { EN1, EN2 }) ! (extent { EN0, EN1, EN2 })</p>
+    <p>- EN0 no longer in ExtentNodeMap ! never deleted again from ExtentCenter</p>
+    <p>- Extent Manager never schedules repair process again</p>
+    <p>(extent { EN1, EN2 }) ! (extent { EN0, EN1, EN2 }) ! all healthy!</p>
+    <p>- If this happens two more times ! all replicas lost ! customer data lost!</p>
+    <p>- One line fix: refresh ExtentNodeMap upon sync report! 24</p>
+  </div>
+  <div class="page">
+    <p>- Tools for Software Engineers (TSE) team: used P# during development of a Live Table Migration protocol for Azure (found and fixed &gt;10 safety bugs)</p>
+    <p>- Team in MSR India: created P# executable model of Azure Service Fabric runtime, which can be eventually used to test arbitrary customer services built on top of the Service Fabric APIs</p>
+    <p>Other case studies in Microsoft</p>
+    <p>Read our paper!</p>
+  </div>
+  <div class="page">
+    <p>P# has been successfully used by Microsoft Azure to test multiple distributed systems.</p>
+    <p>P# is freely available in GitHub so you can use it for your own projects!</p>
+    <p>https://github.com/p-org/PSharp</p>
+    <p>p.deligiannis@imperial.ac.uk</p>
+    <p>Thanks! Questions?</p>
+  </div>
+</Presentation>

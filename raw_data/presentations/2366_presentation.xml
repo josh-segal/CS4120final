@@ -1,0 +1,485 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>Black-Box Problem Diagnosis in Parallel File Systems</p>
+    <p>Michael P. Kasick1</p>
+    <p>Jiaqi Tan2, Rajeev Gandhi1, Priya Narasimhan1</p>
+    <p>Michael P. Kasick Problem Diagnosis in Parallel File Systems February 24, 2010 1</p>
+  </div>
+  <div class="page">
+    <p>Problem Diagnosis Goals</p>
+    <p>To diagnose problems in off-the-shelf parallel file systems Environmental performance problems: disk &amp; network faults Target file systems: PVFS &amp; Lustre</p>
+    <p>To develop methods applicable to existing deployments Application transparency: avoid code-level instrumentation Minimal overhead, training, and configuration Support for arbitrary workloads: avoid models, SLOs, etc.</p>
+    <p>Michael P. Kasick Problem Diagnosis in Parallel File Systems February 24, 2010 2</p>
+  </div>
+  <div class="page">
+    <p>Motivation: Real Problem Anecdotes</p>
+    <p>Problems motivated by PVFS developers experiences From Argonnes Blue Gene/P PVFS cluster</p>
+    <p>Limping-but-alive server problems</p>
+    <p>No errors reported, cant identify faulty node with logs Single faulty server impacts overall system performance</p>
+    <p>Storage-related problems:</p>
+    <p>Accidental launch of rogue processes, decreases throughput Buggy RAID controller issues patrol reads when not at idle</p>
+    <p>Network-related problems:</p>
+    <p>Faulty-switch ports corrupt packets, fail CRC checks Overloaded switches drop packets but pass diagnostic tests</p>
+    <p>Michael P. Kasick Problem Diagnosis in Parallel File Systems February 24, 2010 3</p>
+  </div>
+  <div class="page">
+    <p>Motivation: Real Problem Anecdotes</p>
+    <p>Problems motivated by PVFS developers experiences From Argonnes Blue Gene/P PVFS cluster</p>
+    <p>Limping-but-alive server problems No errors reported, cant identify faulty node with logs Single faulty server impacts overall system performance</p>
+    <p>Storage-related problems:</p>
+    <p>Accidental launch of rogue processes, decreases throughput Buggy RAID controller issues patrol reads when not at idle</p>
+    <p>Network-related problems:</p>
+    <p>Faulty-switch ports corrupt packets, fail CRC checks Overloaded switches drop packets but pass diagnostic tests</p>
+    <p>Michael P. Kasick Problem Diagnosis in Parallel File Systems February 24, 2010 3</p>
+  </div>
+  <div class="page">
+    <p>Motivation: Real Problem Anecdotes</p>
+    <p>Problems motivated by PVFS developers experiences From Argonnes Blue Gene/P PVFS cluster</p>
+    <p>Limping-but-alive server problems No errors reported, cant identify faulty node with logs Single faulty server impacts overall system performance</p>
+    <p>Storage-related problems: Accidental launch of rogue processes, decreases throughput Buggy RAID controller issues patrol reads when not at idle</p>
+    <p>Network-related problems:</p>
+    <p>Faulty-switch ports corrupt packets, fail CRC checks Overloaded switches drop packets but pass diagnostic tests</p>
+    <p>Michael P. Kasick Problem Diagnosis in Parallel File Systems February 24, 2010 3</p>
+  </div>
+  <div class="page">
+    <p>Motivation: Real Problem Anecdotes</p>
+    <p>Problems motivated by PVFS developers experiences From Argonnes Blue Gene/P PVFS cluster</p>
+    <p>Limping-but-alive server problems No errors reported, cant identify faulty node with logs Single faulty server impacts overall system performance</p>
+    <p>Storage-related problems: Accidental launch of rogue processes, decreases throughput Buggy RAID controller issues patrol reads when not at idle</p>
+    <p>Network-related problems: Faulty-switch ports corrupt packets, fail CRC checks Overloaded switches drop packets but pass diagnostic tests</p>
+    <p>Michael P. Kasick Problem Diagnosis in Parallel File Systems February 24, 2010 3</p>
+  </div>
+  <div class="page">
+    <p>Outline</p>
+    <p>Michael P. Kasick Problem Diagnosis in Parallel File Systems February 24, 2010 4</p>
+  </div>
+  <div class="page">
+    <p>Target Parallel File Systems</p>
+    <p>Aim to support I/O-intensive applications Provide high-bandwidth, concurrent access</p>
+    <p>Michael P. Kasick Problem Diagnosis in Parallel File Systems February 24, 2010 5</p>
+  </div>
+  <div class="page">
+    <p>Parallel File System Architecture</p>
+    <p>network</p>
+    <p>clients</p>
+    <p>I/O servers</p>
+    <p>ios0 ios1 ios2 iosN mds0 mdsM</p>
+    <p>metadata</p>
+    <p>servers</p>
+    <p>One or more I/O and metadata servers Clients communicate with every server</p>
+    <p>No server-server communication</p>
+    <p>Michael P. Kasick Problem Diagnosis in Parallel File Systems February 24, 2010 6</p>
+  </div>
+  <div class="page">
+    <p>Parallel File System Data Striping</p>
+    <p>543210Logical File:</p>
+    <p>Server 1 0 3 6</p>
+    <p>Server 2 1 4 7</p>
+    <p>Server 3 2 5 8</p>
+    <p>Physical Files</p>
+    <p>Client stripes local file into 64 kB1 MB chunks Writes to each I/O server in round-robin order</p>
+    <p>Michael P. Kasick Problem Diagnosis in Parallel File Systems February 24, 2010 7</p>
+  </div>
+  <div class="page">
+    <p>Parallel File Systems: Empirical Insights (I)</p>
+    <p>Server behavior is similar for most requests Large requests are striped across all servers Small requests, in aggregate, equally load all servers</p>
+    <p>Hypothesis: Peer-similarity Fault-free servers exhibit similar performance metrics Faulty servers exhibit dissimilarities in certain metrics Peer-comparison of metrics identifies faulty node</p>
+    <p>Michael P. Kasick Problem Diagnosis in Parallel File Systems February 24, 2010 8</p>
+  </div>
+  <div class="page">
+    <p>Example: Disk-Hog Fault</p>
+    <p>Elapsed Time (s)</p>
+    <p>S ec</p>
+    <p>to rs</p>
+    <p>R ea</p>
+    <p>d (/</p>
+    <p>s) Faulty server</p>
+    <p>Non-faulty servers</p>
+    <p>Peer-asymmetry</p>
+    <p>Strongly motivates peer-comparison approach Michael P. Kasick Problem Diagnosis in Parallel File Systems February 24, 2010 9</p>
+  </div>
+  <div class="page">
+    <p>Parallel File Systems: Empirical Insights (II)</p>
+    <p>Faults manifest asymmetrically only on some metrics Ex: A disk-busy fault manifests . . .</p>
+    <p>Asymmetrically on latency metrics ( on faulty,  on fault-free) Symmetrically on throughput metrics ( on all nodes)</p>
+    <p>Michael P. Kasick Problem Diagnosis in Parallel File Systems February 24, 2010 10</p>
+  </div>
+  <div class="page">
+    <p>Parallel File Systems: Empirical Insights (II)</p>
+    <p>Faults manifest asymmetrically only on some metrics Ex: A disk-busy fault manifests . . .</p>
+    <p>Asymmetrically on latency metrics ( on faulty,  on fault-free)</p>
+    <p>Symmetrically on throughput metrics ( on all nodes)</p>
+    <p>Elapsed Time (s)</p>
+    <p>I/O W</p>
+    <p>ai t T</p>
+    <p>im e</p>
+    <p>(m s)</p>
+    <p>Peer-asymmetry</p>
+    <p>Michael P. Kasick Problem Diagnosis in Parallel File Systems February 24, 2010 10</p>
+  </div>
+  <div class="page">
+    <p>Parallel File Systems: Empirical Insights (II)</p>
+    <p>Faults manifest asymmetrically only on some metrics Ex: A disk-busy fault manifests . . .</p>
+    <p>Asymmetrically on latency metrics ( on faulty,  on fault-free) Symmetrically on throughput metrics ( on all nodes)</p>
+    <p>Elapsed Time (s)</p>
+    <p>S ec</p>
+    <p>to rs</p>
+    <p>R ea</p>
+    <p>d (/</p>
+    <p>s)</p>
+    <p>Faulty server Nonfaulty servers</p>
+    <p>No asymmetry</p>
+    <p>Michael P. Kasick Problem Diagnosis in Parallel File Systems February 24, 2010 10</p>
+  </div>
+  <div class="page">
+    <p>Parallel File Systems: Empirical Insights (II)</p>
+    <p>Faults manifest asymmetrically only on some metrics Ex: A disk-busy fault manifests . . .</p>
+    <p>Asymmetrically on latency metrics ( on faulty,  on fault-free) Symmetrically on throughput metrics ( on all nodes)</p>
+    <p>Faults distinguishable by which metrics are peer-divergent</p>
+    <p>Michael P. Kasick Problem Diagnosis in Parallel File Systems February 24, 2010 10</p>
+  </div>
+  <div class="page">
+    <p>Outline</p>
+    <p>Michael P. Kasick Problem Diagnosis in Parallel File Systems February 24, 2010 11</p>
+  </div>
+  <div class="page">
+    <p>System Model</p>
+    <p>Fault Model: Non-fail-stop problems</p>
+    <p>Limping-but-alive performance problems</p>
+    <p>Problems affecting storage &amp; network resources</p>
+    <p>Assumptions: Hardware is homogeneous, identically configured Workloads are non-pathological (balanced requests) Majority of servers exhibit fault-free behavior</p>
+    <p>Michael P. Kasick Problem Diagnosis in Parallel File Systems February 24, 2010 12</p>
+  </div>
+  <div class="page">
+    <p>Instrumentation</p>
+    <p>Sampling of storage &amp; network performance metrics Sampled from /proc once every second Gathered from all server nodes</p>
+    <p>Storage-related metrics of interest: Throughput: Bytes read/sec, bytes written/sec Latency: I/O wait time</p>
+    <p>Network-related metrics of interest: Throughput: Bytes received/sec, transmitted/sec Congestion: TCP sending congestion window</p>
+    <p>Michael P. Kasick Problem Diagnosis in Parallel File Systems February 24, 2010 13</p>
+  </div>
+  <div class="page">
+    <p>Workloads</p>
+    <p>ddw &amp; ddr (dd write &amp; read) Use dd to write/read many GB to/from file Large (order MB) I/O requests, saturating workload</p>
+    <p>iozonew &amp; iozoner (IOzone write &amp; read) Ran in either write/rewrite or read/reread mode Large I/O requests, workload transitions, fsync</p>
+    <p>postmark (PostMark) Metadata-heavy, small reads/writes (single server) Simulates email/news servers</p>
+    <p>Michael P. Kasick Problem Diagnosis in Parallel File Systems February 24, 2010 14</p>
+  </div>
+  <div class="page">
+    <p>Fault Types</p>
+    <p>Susceptible resources: Storage: Access contention Network: Congestion, packet loss (faulty hardware)</p>
+    <p>Manifestation mechanism: Hog: Introduces new visible workload (server-monitored) Busy/Loss: Alters existing workload (unmonitored)</p>
+    <p>Storage Network Hog disk-hog write-network-hog</p>
+    <p>read-network-hog Busy/Loss disk-busy receive-packet-loss</p>
+    <p>send-packet-loss</p>
+    <p>Michael P. Kasick Problem Diagnosis in Parallel File Systems February 24, 2010 15</p>
+  </div>
+  <div class="page">
+    <p>Fault Types</p>
+    <p>Susceptible resources: Storage: Access contention Network: Congestion, packet loss (faulty hardware)</p>
+    <p>Manifestation mechanism: Hog: Introduces new visible workload (server-monitored) Busy/Loss: Alters existing workload (unmonitored)</p>
+    <p>Storage Network Hog disk-hog write-network-hog</p>
+    <p>read-network-hog Busy/Loss disk-busy receive-packet-loss</p>
+    <p>send-packet-loss</p>
+    <p>Michael P. Kasick Problem Diagnosis in Parallel File Systems February 24, 2010 15</p>
+  </div>
+  <div class="page">
+    <p>Experiment Setup</p>
+    <p>PVFS cluster configurations: 10 clients, 10 combined I/O &amp; metadata servers 6 clients, 12 combined I/O &amp; metadata servers</p>
+    <p>Luster cluster configurations: 10 clients, 10 I/O servers, 1 metadata server 6 clients, 12 I/O servers, 1 metadata server</p>
+    <p>Each client runs same workload for 600 s</p>
+    <p>Faults injected on single server for 300 s</p>
+    <p>All workload &amp; fault combinations run 10 times</p>
+    <p>Michael P. Kasick Problem Diagnosis in Parallel File Systems February 24, 2010 16</p>
+  </div>
+  <div class="page">
+    <p>Outline</p>
+    <p>Michael P. Kasick Problem Diagnosis in Parallel File Systems February 24, 2010 17</p>
+  </div>
+  <div class="page">
+    <p>Diagnostic Algorithm</p>
+    <p>Phase I: Node Indictment Histogram-based approach (for most metrics) Time series-based approach (congestion window) Both use peer-comparison to indict faulty node</p>
+    <p>Phase II: Root-Cause Analysis Ascribes to root cause based on affected metrics</p>
+    <p>Michael P. Kasick Problem Diagnosis in Parallel File Systems February 24, 2010 18</p>
+  </div>
+  <div class="page">
+    <p>Phase I: Node Indictment (Histogram-Based) Peer-compare metric PDFs (histograms) across servers</p>
+    <p>Compute PDF of metric for each server over sliding window Compute Kullback-Leibler divergence for each server pair Flag pair anomalous if its divergence exceeds threshold Flag server if over half of its server pairs are anomalous</p>
+    <p>Michael P. Kasick Problem Diagnosis in Parallel File Systems February 24, 2010 19</p>
+  </div>
+  <div class="page">
+    <p>Phase I: Node Indictment (Histogram-Based) Peer-compare metric PDFs (histograms) across servers</p>
+    <p>Compute PDF of metric for each server over sliding window</p>
+    <p>Compute Kullback-Leibler divergence for each server pair Flag pair anomalous if its divergence exceeds threshold Flag server if over half of its server pairs are anomalous</p>
+    <p>Michael P. Kasick Problem Diagnosis in Parallel File Systems February 24, 2010 19</p>
+  </div>
+  <div class="page">
+    <p>Phase I: Node Indictment (Histogram-Based) Peer-compare metric PDFs (histograms) across servers</p>
+    <p>Compute PDF of metric for each server over sliding window Compute Kullback-Leibler divergence for each server pair</p>
+    <p>Flag pair anomalous if its divergence exceeds threshold Flag server if over half of its server pairs are anomalous</p>
+    <p>Michael P. Kasick Problem Diagnosis in Parallel File Systems February 24, 2010 19</p>
+  </div>
+  <div class="page">
+    <p>Phase I: Node Indictment (Histogram-Based) Peer-compare metric PDFs (histograms) across servers</p>
+    <p>Compute PDF of metric for each server over sliding window Compute Kullback-Leibler divergence for each server pair Flag pair anomalous if its divergence exceeds threshold</p>
+    <p>Flag server if over half of its server pairs are anomalous</p>
+    <p>Michael P. Kasick Problem Diagnosis in Parallel File Systems February 24, 2010 19</p>
+  </div>
+  <div class="page">
+    <p>Phase I: Node Indictment (Histogram-Based) Peer-compare metric PDFs (histograms) across servers</p>
+    <p>Compute PDF of metric for each server over sliding window Compute Kullback-Leibler divergence for each server pair Flag pair anomalous if its divergence exceeds threshold Flag server if over half of its server pairs are anomalous</p>
+    <p>Michael P. Kasick Problem Diagnosis in Parallel File Systems February 24, 2010 19</p>
+  </div>
+  <div class="page">
+    <p>Threshold Selection</p>
+    <p>Fault-free training session (stress test) Run ddw, ddr, &amp; postmark under fault-free conditions Find minimum threshold that eliminates all anomalies</p>
+    <p>Histogram comparison uses per-server thresholds Captures performance profile of each server Important to train on each cluster &amp; file system</p>
+    <p>Train on performance-stressing workloads only Metrics deviate most when servers are saturated Less intense workloads have better coupled behavior</p>
+    <p>Michael P. Kasick Problem Diagnosis in Parallel File Systems February 24, 2010 20</p>
+  </div>
+  <div class="page">
+    <p>Example: PVFS Throughput (Disk-Hog Fault)</p>
+    <p>Elapsed Time (s)</p>
+    <p>S ec</p>
+    <p>to rs</p>
+    <p>R ea</p>
+    <p>d (/</p>
+    <p>s)</p>
+    <p>Faulty server Nonfaulty servers</p>
+    <p>PVFS + disk-hog</p>
+    <p>PVFS only</p>
+    <p>Throughput diverges due to disk-hog on faulty server Michael P. Kasick Problem Diagnosis in Parallel File Systems February 24, 2010 21</p>
+  </div>
+  <div class="page">
+    <p>Phase II: Root-Cause Analysis</p>
+    <p>Build table of metrics &amp; faults affecting them:</p>
+    <p>Storage Throughput: Storage Latency: disk-hog disk-hog</p>
+    <p>disk-busy Network Throughput: Network Congestion: network-hog network-hog packet-loss (ACKs only) packet-loss</p>
+    <p>Derive checklist that maps divergent metrics to cause Infers resource responsible Determines mechanism by which resource faulted</p>
+    <p>Michael P. Kasick Problem Diagnosis in Parallel File Systems February 24, 2010 22</p>
+  </div>
+  <div class="page">
+    <p>Checklist for Root-Cause Analysis</p>
+    <p>Peer-divergence in . . .</p>
+    <p>Yes: disk-hog faultStorage throughput? No: next question</p>
+    <p>Yes: disk-busy faultStorage latency? No: . . .</p>
+    <p>Yes: network-hog faultNetwork throughput? No: . . .</p>
+    <p>Yes: packet-loss faultNetwork congestion? No: no fault discovered</p>
+    <p>Must diverge in both receive &amp; transmit, or in absence of congestion</p>
+    <p>Michael P. Kasick Problem Diagnosis in Parallel File Systems February 24, 2010 23</p>
+  </div>
+  <div class="page">
+    <p>Outline</p>
+    <p>Michael P. Kasick Problem Diagnosis in Parallel File Systems February 24, 2010 24</p>
+  </div>
+  <div class="page">
+    <p>Results: Single Cluster</p>
+    <p>control diskhog diskbusy wnethog rnethog recvloss sendloss</p>
+    <p>Indicted True Positive Diagnosed True Positive Indicted False Positive Diagnosed False Positive</p>
+    <p>Fault</p>
+    <p>A cc</p>
+    <p>ur ac</p>
+    <p>y R</p>
+    <p>at e</p>
+    <p>(% )</p>
+    <p>Michael P. Kasick Problem Diagnosis in Parallel File Systems February 24, 2010 25</p>
+  </div>
+  <div class="page">
+    <p>Results: Aggregate</p>
+    <p>PVFS 10/10 PVFS 6/12 Lustre 10/10 Lustre 6/12</p>
+    <p>Indicted True Positive Diagnosed True Positive Indicted False Positive Diagnosed False Positive</p>
+    <p>Cluster</p>
+    <p>A cc</p>
+    <p>ur ac</p>
+    <p>y R</p>
+    <p>at e</p>
+    <p>(% )</p>
+    <p>Michael P. Kasick Problem Diagnosis in Parallel File Systems February 24, 2010 26</p>
+  </div>
+  <div class="page">
+    <p>Results Summary</p>
+    <p>True-positives inconsistent across faults Some faults are not observable for all workloads Minimal performance effect where not observable</p>
+    <p>True- &amp; false-positives inconsistent across clusters Algorithm sensitive to imprecise thresholds Rank metrics based on degree of dissimilarity</p>
+    <p>Strategy is promising in general</p>
+    <p>Instrumentation overhead &lt; 1% increase in workload runtime, negligible</p>
+    <p>Michael P. Kasick Problem Diagnosis in Parallel File Systems February 24, 2010 27</p>
+  </div>
+  <div class="page">
+    <p>Outline</p>
+    <p>Michael P. Kasick Problem Diagnosis in Parallel File Systems February 24, 2010 28</p>
+  </div>
+  <div class="page">
+    <p>Future Work</p>
+    <p>Analysis: Improve diagnosis accuracy rates Make analysis robust to imprecise thresholds</p>
+    <p>Real-world data: Deploy on a production system Validate technique on real workloads, at scale</p>
+    <p>Coverage: Expand target problem class Other sources of performance &amp; non-performance faults</p>
+    <p>Instrumentation: Expand instrumentation Additional black-box metrics, request sniffing &amp; tracing</p>
+    <p>Michael P. Kasick Problem Diagnosis in Parallel File Systems February 24, 2010 29</p>
+  </div>
+  <div class="page">
+    <p>Summary</p>
+    <p>Problem diagnosis in parallel file systems Illustrates use of OS-level metrics in diagnosis Leverages peer-comparison to identify faulty nodes Demonstrates root-cause analysis by metrics affected</p>
+    <p>Diagnosis method is applicable to existing deployments Instrumentation is minimally invasive, low overhead Fault-free training with stress tests</p>
+    <p>Michael P. Kasick Problem Diagnosis in Parallel File Systems February 24, 2010 30</p>
+  </div>
+  <div class="page">
+    <p>Peer-Comparison Scalability</p>
+    <p>Number of comparisons: n(n1)2 = O(n 2)</p>
+    <p>Insight: Dont need to compare one node against all</p>
+    <p>Proposed solution: Establish nk partitions with k servers Perform peer-comparisons among servers in each partition Repartition with a different grouping for each window</p>
+    <p>Solution comparisons: (nk)k(k1)2 = O(n)</p>
+    <p>Michael P. Kasick Problem Diagnosis in Parallel File Systems February 24, 2010 31</p>
+  </div>
+  <div class="page">
+    <p>Congestion Window Problem</p>
+    <p>No closely-coupled peer behavior cwnd is intentionally noisy under normal conditions Synchronized connections cant fully use link capacity Cant compare histograms, too much variance</p>
+    <p>Congestion window packet-loss heuristic: TCP responds to packet-loss by halving cwnd Exponential decay after multiple loss events Log scale: Each loss results in linear cwnd decrease</p>
+    <p>Michael P. Kasick Problem Diagnosis in Parallel File Systems February 24, 2010 32</p>
+  </div>
+  <div class="page">
+    <p>Time Series Comparison Example</p>
+    <p>Elapsed Time (s)</p>
+    <p>S eg</p>
+    <p>m en</p>
+    <p>ts</p>
+    <p>Elapsed Time (s)</p>
+    <p>S eg</p>
+    <p>m en</p>
+    <p>ts</p>
+    <p>Michael P. Kasick Problem Diagnosis in Parallel File Systems February 24, 2010 33</p>
+  </div>
+  <div class="page">
+    <p>Time Series Comparison Example</p>
+    <p>Elapsed Time (s)</p>
+    <p>S eg</p>
+    <p>m en</p>
+    <p>ts</p>
+    <p>Elapsed Time (s)</p>
+    <p>S eg</p>
+    <p>m en</p>
+    <p>ts</p>
+    <p>Michael P. Kasick Problem Diagnosis in Parallel File Systems February 24, 2010 33</p>
+  </div>
+  <div class="page">
+    <p>Time Series Comparison Example</p>
+    <p>Elapsed Time (s)</p>
+    <p>S eg</p>
+    <p>m en</p>
+    <p>ts</p>
+    <p>Michael P. Kasick Problem Diagnosis in Parallel File Systems February 24, 2010 34</p>
+  </div>
+  <div class="page">
+    <p>Time Series Comparison Example</p>
+    <p>Elapsed Time (s)</p>
+    <p>S eg</p>
+    <p>m en</p>
+    <p>ts</p>
+    <p>Michael P. Kasick Problem Diagnosis in Parallel File Systems February 24, 2010 34</p>
+  </div>
+  <div class="page">
+    <p>Heterogeneous Hardware (ddr)</p>
+    <p>Elapsed Time (s)</p>
+    <p>I/O W</p>
+    <p>ai t T</p>
+    <p>im e</p>
+    <p>(m s)</p>
+    <p>Disks are same model, have different performance profiles Michael P. Kasick Problem Diagnosis in Parallel File Systems February 24, 2010 35</p>
+  </div>
+  <div class="page">
+    <p>Load Imbalances (postmark)</p>
+    <p>+ 05</p>
+    <p>+ 05</p>
+    <p>Elapsed Time (s)</p>
+    <p>B yt</p>
+    <p>es R</p>
+    <p>ec ei</p>
+    <p>ve d</p>
+    <p>(B /s</p>
+    <p>)</p>
+    <p>/ on one metadata server, all path lookups go there Michael P. Kasick Problem Diagnosis in Parallel File Systems February 24, 2010 36</p>
+  </div>
+  <div class="page">
+    <p>Cross-Resource Influence (ddr)</p>
+    <p>Elapsed Time (s)</p>
+    <p>S eg</p>
+    <p>m en</p>
+    <p>ts</p>
+    <p>Faulty server Nonfaulty servers</p>
+    <p>Disk-busy effect on server cwnd, unintentional sync Michael P. Kasick Problem Diagnosis in Parallel File Systems February 24, 2010 37</p>
+  </div>
+  <div class="page">
+    <p>Delayed ACKs (ddw)</p>
+    <p>+ 05</p>
+    <p>+ 05</p>
+    <p>Elapsed Time (s)</p>
+    <p>B yt</p>
+    <p>es T</p>
+    <p>ra ns</p>
+    <p>m itt</p>
+    <p>ed (</p>
+    <p>B /s</p>
+    <p>)</p>
+    <p>Faulty server Nonfaulty servers</p>
+    <p>Packet-loss fault may also deviate network throughput Michael P. Kasick Problem Diagnosis in Parallel File Systems February 24, 2010 38</p>
+  </div>
+  <div class="page">
+    <p>Results: PVFS 10/10 Cluster</p>
+    <p>control diskhog diskbusy wnethog rnethog recvloss sendloss</p>
+    <p>Indicted True Positive Diagnosed True Positive Indicted False Positive Diagnosed False Positive</p>
+    <p>Fault</p>
+    <p>A cc</p>
+    <p>ur ac</p>
+    <p>y R</p>
+    <p>at e</p>
+    <p>(% )</p>
+    <p>Michael P. Kasick Problem Diagnosis in Parallel File Systems February 24, 2010 39</p>
+  </div>
+  <div class="page">
+    <p>Results: PVFS 6/12 Cluster</p>
+    <p>control diskhog diskbusy wnethog rnethog recvloss sendloss</p>
+    <p>Indicted True Positive Diagnosed True Positive Indicted False Positive Diagnosed False Positive</p>
+    <p>Fault</p>
+    <p>A cc</p>
+    <p>ur ac</p>
+    <p>y R</p>
+    <p>at e</p>
+    <p>(% )</p>
+    <p>Michael P. Kasick Problem Diagnosis in Parallel File Systems February 24, 2010 40</p>
+  </div>
+  <div class="page">
+    <p>Results: Lustre 10/10 Cluster</p>
+    <p>control diskhog diskbusy wnethog rnethog recvloss sendloss</p>
+    <p>Indicted True Positive Diagnosed True Positive Indicted False Positive Diagnosed False Positive</p>
+    <p>Fault</p>
+    <p>A cc</p>
+    <p>ur ac</p>
+    <p>y R</p>
+    <p>at e</p>
+    <p>(% )</p>
+    <p>Michael P. Kasick Problem Diagnosis in Parallel File Systems February 24, 2010 41</p>
+  </div>
+  <div class="page">
+    <p>Results: Lustre 6/12 Cluster</p>
+    <p>control diskhog diskbusy wnethog rnethog recvloss sendloss</p>
+    <p>Indicted True Positive Diagnosed True Positive Indicted False Positive Diagnosed False Positive</p>
+    <p>Fault</p>
+    <p>A cc</p>
+    <p>ur ac</p>
+    <p>y R</p>
+    <p>at e</p>
+    <p>(% )</p>
+    <p>Michael P. Kasick Problem Diagnosis in Parallel File Systems February 24, 2010 42</p>
+  </div>
+  <div class="page">
+    <p>Results: Aggregate</p>
+    <p>PVFS 10/10 PVFS 6/12 Lustre 10/10 Lustre 6/12</p>
+    <p>Indicted True Positive Diagnosed True Positive Indicted False Positive Diagnosed False Positive</p>
+    <p>Cluster</p>
+    <p>A cc</p>
+    <p>ur ac</p>
+    <p>y R</p>
+    <p>at e</p>
+    <p>(% )</p>
+    <p>Michael P. Kasick Problem Diagnosis in Parallel File Systems February 24, 2010 43</p>
+  </div>
+</Presentation>

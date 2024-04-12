@@ -1,0 +1,264 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>Log2: A Cost-Aware Logging Mechanism for Performance Diagnosis</p>
+    <p>Rui Ding*, Hucheng Zhou*, Jian-Guang Lou*, Hongyu Zhang*, Qingwei Lin*, Qiang Fu**, Dongmei Zhang*, Tao Xie***</p>
+    <p>* Microsoft Research ** Microsoft</p>
+    <p>*** University of Illinois at Urbana-Champaign</p>
+    <p>July 2015</p>
+  </div>
+  <div class="page">
+    <p>Performance logging in practice</p>
+    <p>Recording begin/end time of a specific function call</p>
+    <p>Such a function (foo1) is named Monitored Code Region (MCR)</p>
+    <p>Monitoring system state</p>
+    <p>Diagnosing perf. issues</p>
+    <p>Performance logging APIs</p>
+  </div>
+  <div class="page">
+    <p>Logging cost matters  Logging introduces overhead</p>
+    <p>I/O bandwidth  Storage  CPU  Memory</p>
+    <p>Potential impact on normal execution Example: When logging is fully conducted, latency increases 16.3% and average throughput decreases 1.48% for a search engine*</p>
+    <p>Potential burden on log analysis  Long log processing time  Useful logs hidden among huge number of irrelevant logs</p>
+    <p>*SIGELMAN et al., Dapper, a large-scale distributed systems tracing infrastructure. In Google technical report (2010).</p>
+  </div>
+  <div class="page">
+    <p>An empirical study of logging cost in Microsoft</p>
+    <p>We conducted a survey of 82 logging experts from 5 divisions in Microsoft</p>
+    <p>80% agreed that logging cost is a non-negligible issue</p>
+    <p>59% experienced negative consequences of heavy logging cost</p>
+    <p>Category Example of Reported Experiences</p>
+    <p>Storage (59%)  Other process that needs disk space may crash and even logging system could crash</p>
+    <p>I/O bandwidth (58%)  Overuse of I/O caused perception of interference with core functionality</p>
+    <p>CPU (56%)  Service is slowed down significantly once the CPU usage of logging is increased to double digits</p>
+    <p>Memory (32%)  Unexpected increases of memory usage of logging system once caused service incident</p>
+  </div>
+  <div class="page">
+    <p>Practice of controlling logging cost</p>
+    <p>Solutions to control logging cost</p>
+    <p>(93%) Adjusting logging level</p>
+    <p>(64%) Removing unnecessary logs</p>
+    <p>(43%) Archiving local log files periodically</p>
+    <p>Overall satisfactory</p>
+    <p>(65%) Not satisfied, needs improvement</p>
+    <p>(32%) Satisfied</p>
+    <p>( 3%) I dont know</p>
+    <p>What are the most common solutions to control logging cost?</p>
+    <p>Are these solutions satisfactory?</p>
+  </div>
+  <div class="page">
+    <p>Insight from our survey</p>
+    <p>(83%) Agreed that many log messages are not useful to the issue under investigation</p>
+    <p>Eliminating useless logs has little effect on diagnostic purpose</p>
+    <p>A solution on reducing logging cost while preserving effectiveness is feasible</p>
+  </div>
+  <div class="page">
+    <p>Log2: Cost-aware logging mechanism for performance diagnosis</p>
+    <p>Problem definition Given a pre-specified budget on I/O bandwidth*, provide a lightweight logging mechanism to dynamically eliminate irrelevant logs, such that the preserved logs are</p>
+    <p>* Defined as the maximum volume of logs allowed to be output in a time interval</p>
+  </div>
+  <div class="page">
+    <p>Challenges</p>
+    <p>Retaining budget-compliant while preserving logging effectiveness</p>
+    <p>Incurring low additional overhead (i.e., low CPU and Memory usage)</p>
+    <p>Self-adapting to system changes (e.g., workload changes, or configuration changes, etc.)</p>
+  </div>
+  <div class="page">
+    <p>Overview of Log2</p>
+    <p>System diagram of Log2</p>
+    <p>Log2 makes whether to log decision through a two-phase filtering mechanism</p>
+    <p>Local filter: a large number of irrelevant logs are discarded efficiently</p>
+    <p>Global filter: useful logs are cached and output while complying with logging budget</p>
+    <p>Adjusted</p>
+    <p>threshold</p>
+    <p>Adjusted</p>
+    <p>thresholdLocal filter</p>
+    <p>Local filter</p>
+    <p>Global filter</p>
+    <p>Logging</p>
+    <p>requests</p>
+    <p>Disk</p>
+    <p>Logging</p>
+    <p>requests</p>
+    <p>Local filter</p>
+    <p>...</p>
+    <p>...</p>
+  </div>
+  <div class="page">
+    <p>Illustrated examples of whether to log</p>
+    <p>The execution time of function</p>
+    <p>foo is 55ms</p>
+    <p>I know that normally, foo is executed within</p>
+    <p>This log looks normal, not</p>
+    <p>necessarily to be dumped to disk</p>
+    <p>This log is discarded</p>
+    <p>Current cache of logs are</p>
+    <p>Budget is 500KB/interval</p>
+    <p>Identifying best 500KB logs from cache to dump</p>
+    <p>Notifying local filters to raise the bar of log</p>
+    <p>discarding</p>
+    <p>Local filter</p>
+    <p>Global filter</p>
+  </div>
+  <div class="page">
+    <p>Local filter</p>
+    <p>Utility score calculation  Measuring usefulness of logging</p>
+    <p>request</p>
+    <p>Taking current execution time t and its histogram into account</p>
+    <p>Log discarding  Based on a global threshold th</p>
+    <p>th is updated dynamically by global filter</p>
+  </div>
+  <div class="page">
+    <p>Design of utility score</p>
+    <p>Design goals Approach</p>
+    <p>Capturing normal behavior of each MCR  Adopting method of moments to</p>
+    <p>represent histogram of execution time  Memory complexity O(1)</p>
+    <p>Tackling slow-varying system states Adopting exponential smoothing to estimate moments</p>
+    <p>Minimizing additional computational cost of Log2</p>
+    <p>Incremental update with time complexity O(1)</p>
+    <p>Asynchronized updating to avoid lock contention</p>
+    <p>Flexibility to tackle various types of performance issues</p>
+    <p>Configurable definition of utility score</p>
+    <p>t: execution time : mean of execution time : standard deviation of execution time : tolerance factor</p>
+    <p>Example of three utility scores</p>
+    <p>=</p>
+    <p>=</p>
+    <p>=</p>
+  </div>
+  <div class="page">
+    <p>Global filter</p>
+    <p>Log flushing  Identifying and dumping most</p>
+    <p>useful logs</p>
+    <p>Compliant with budget</p>
+    <p>Utility threshold adjustment  Adjusting threshold th to</p>
+    <p>control cache size within budget</p>
+    <p>Informing local filter of threshold th changes</p>
+    <p>Cached logs</p>
+    <p>ranking</p>
+    <p>budget</p>
+    <p>Choosing top-k logs dumped to disk (volume  budget)</p>
+    <p>Cache size</p>
+    <p>&gt;budget ?</p>
+    <p>Increase threshold</p>
+    <p>Y</p>
+    <p>Decrease threshold</p>
+    <p>N</p>
+    <p>Log flushing Threshold adjustment</p>
+  </div>
+  <div class="page">
+    <p>Design of threshold adjustment</p>
+    <p>Modeling of threshold adjustment  Assumption: workload changes slowly, distribution of utility</p>
+    <p>score varies slowly</p>
+    <p>The volume of logs passing through local filter</p>
+    <p>, = ()</p>
+    <p>,</p>
+    <p>(): workload</p>
+    <p>, : probability distribution of utility score</p>
+    <p>: threshold for utility score at time n</p>
+    <p>: volume of logs dumped at time n</p>
+    <p>: budget</p>
+    <p>Updating method</p>
+    <p>Estimating , s.t.  = ()    ,</p>
+    <p>Adopting Secant Method</p>
+    <p>= 1  (1  ) 12</p>
+    <p>12</p>
+    <p>Design goals Approach</p>
+    <p>Bounding memory usage of Log2</p>
+    <p>Discarding more logs when memory usage increases</p>
+    <p>Self-adapting to workload changes</p>
+    <p>Supporting budget change on-the-fly</p>
+    <p>Adjusting threshold th using reinforcement learning</p>
+    <p>Agile to the workload or budget change</p>
+    <p>Adopting Secant-Method to achieve super-linear convergence rate</p>
+    <p>Minimizing additional computational cost of Log2</p>
+    <p>Incremental threshold update with time complexity O(1)</p>
+  </div>
+  <div class="page">
+    <p>Evaluation  Evaluation subjects</p>
+    <p>BlogEngine  A popular open-source blogging platform  More than 1,000,000 downloads as of January 2015</p>
+    <p>Microsoft ServiceX  A 3-tier large-scale online service system  Serving millions of users globally</p>
+    <p>Evaluation metrics  Logging throughput: I/O throughput of by Log2 vs. existing logging system  Logging effectiveness*: Effectiveness of capturing performance issues by Log2</p>
+    <p>Additional overhead: Additional CPU and memory usage of Log2</p>
+    <p>* measured as the percentage of performance issues that can be captured by the flushed logs.</p>
+  </div>
+  <div class="page">
+    <p>Evaluation on BlogEngine</p>
+    <p>Instrumentation  Three types of Monitoring Code Regions (MCRs)</p>
+    <p>Expensive system level API  Loop blocks  Cross-boundary function calls</p>
+    <p>~1000 individual MCRs in total are instrumented</p>
+    <p>Performance issue injection  Uploading a large file  Searching a strange term  Exhausting CPU usage by other process</p>
+    <p>Environment setup  ~100 synthetic users concurrently accessing BlogEngine  Each round of experiment lasts two hours  7 rounds</p>
+  </div>
+  <div class="page">
+    <p>Evaluation results on I/O throughput</p>
+    <p>Average reduction on logging throughput: &gt;97%</p>
+    <p>Comparison of logging throughput. (budget = 120 logs/interval)</p>
+  </div>
+  <div class="page">
+    <p>Evaluation results on logging effectiveness</p>
+    <p>Coverage close to ~100% when budget size reaching ~ 100 logs/interval (~2.5% sampling rate) for all three utility scores</p>
+    <p>Logging effectiveness vs. budget size</p>
+  </div>
+  <div class="page">
+    <p>Evaluation results on additional overhead</p>
+    <p>Additional memory usage is not noticeable</p>
+    <p>Average CPU usage of Log2 is slightly lower than that of baseline logging system</p>
+    <p>Logging system Memory (GB) CPU(%)</p>
+    <p>Log2 4.74(0.21) 63.43.0</p>
+    <p>Baseline 4.70(0.25) 70.64.1</p>
+    <p>CPU and memory usage comparison of Log2 vs. traditional logging system</p>
+  </div>
+  <div class="page">
+    <p>Evaluation on Microsoft ServiceX  Randomly selected real logs  Performance hotspots labeling</p>
+    <p>Logs with top 0.3% longest execution time are identified as performance hotspots</p>
+    <p>Results  Coverage quickly reaching 100% with small budget  ~98% coverage with ~0.77% sampling rate</p>
+  </div>
+  <div class="page">
+    <p>Discussion and future directions</p>
+    <p>Budget control for multiple services</p>
+    <p>Supporting more types of performance analysis</p>
+    <p>Multiple objectives</p>
+    <p>Where to log</p>
+    <p>Leveraging non-performance logs</p>
+    <p>Extension to failure diagnosis</p>
+  </div>
+  <div class="page">
+    <p>Conclusion</p>
+    <p>We propose a cost-aware logging mechanism, Log2, to make optimal whether to log decisions  Selectively recording useful logs</p>
+    <p>Compliant with budget</p>
+    <p>Self-adapt to system changes</p>
+    <p>Experimental results show that Log2 can control logging overhead while preserving logging effectiveness.</p>
+  </div>
+  <div class="page">
+    <p>Q&amp;A</p>
+    <p>Thanks!</p>
+  </div>
+  <div class="page">
+    <p>Implementation details</p>
+    <p>Bounded memory usage  Maximum memory usage of Log2 is configurable (currently set to 50MB)</p>
+    <p>Logs are discarded directly when memory usage reaches upper bound</p>
+    <p>Handling system idle time  Overshoot avoidance</p>
+    <p>Nested instrumentation  Thread-local stack is adopted</p>
+    <p>Window size selection  Currently, Log2 sets adjust interval to 30 seconds, same as flush interval</p>
+  </div>
+  <div class="page">
+    <p>Additional experiment results</p>
+    <p>Dynamics of swap buffer size</p>
+    <p>Buffer size vs. workload changes</p>
+    <p>Buffer size vs. budget changes</p>
+  </div>
+  <div class="page">
+    <p>Additional evaluation results on ServiceX</p>
+    <p>Total volume reduced: 90.1% Illustration of effectiveness on top-5 hot monitored-scopes</p>
+    <p>Results</p>
+  </div>
+  <div class="page">
+    <p>Budget assurance cache</p>
+    <p>Assuring budget compliance</p>
+    <p>High efficiency data structure  Using swap buffer to reduce lock</p>
+    <p>contention</p>
+    <p>Dump buffer Cache buffer</p>
+    <p>swap swap</p>
+    <p>insertdump</p>
+  </div>
+</Presentation>

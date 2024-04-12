@@ -1,0 +1,283 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>Transaction Support Using Compound Commands</p>
+    <p>in Key-Value SSDs</p>
+    <p>Sang-Hoon Kim*, Jinhong Kim, Kisik Jeong, and Jin-Soo Kim</p>
+    <p>HotStorage19</p>
+    <p>*</p>
+  </div>
+  <div class="page">
+    <p>Key-Value Store is Popular and Important</p>
+    <p>Simplify storing semi-structured data</p>
+    <p>Accelerate enterprise services</p>
+    <p>Also, as backend for distributed file systems  E.g., Ceph RADOS</p>
+  </div>
+  <div class="page">
+    <p>Downsides of Software Key-Value Store</p>
+    <p>Deepen I/O stack, incurring additional overhead  Writes are significantly amplified (e.g., LSM tree)</p>
+    <p>Reads take long</p>
+    <p>File system</p>
+    <p>FTL</p>
+    <p>Flash</p>
+    <p>Key-value store</p>
+    <p>Hardware</p>
+    <p>Software</p>
+    <p>Application (key, value)</p>
+    <p>(file, offset)</p>
+    <p>LBA</p>
+    <p>(block, page)</p>
+    <p>Block interface</p>
+  </div>
+  <div class="page">
+    <p>Application</p>
+    <p>Key-Value SSD (KVSSD)</p>
+    <p>Provide the key-value store service at a device level  Allow to replace the deep software stack with off-the-shelf devices</p>
+    <p>Promise performance improvement yet simplify storage management  Directly respond to data requests from an application with minimal</p>
+    <p>involvement of the host software</p>
+    <p>Key-value engine + FTL</p>
+    <p>Flash</p>
+    <p>Hardware Key-value interface (key, value)</p>
+    <p>(block, page)</p>
+    <p>Software</p>
+  </div>
+  <div class="page">
+    <p>Prototype KVSSD</p>
+    <p>Specification</p>
+    <p>Interface NVMe / U.2</p>
+    <p>Key size 4  255 bytes</p>
+    <p>Value size 0 byte  2 MB</p>
+    <p>KV commands Store, Retrieve, Delete, Exist, Iterate</p>
+  </div>
+  <div class="page">
+    <p>But, Current KV Interface is Too Simple</p>
+    <p>Each KV operation is independently processed</p>
+    <p>Thus, unable to group multiple operations together</p>
+    <p>Application</p>
+    <p>Key-value engine + FTL</p>
+    <p>Flash</p>
+    <p>Hardware Key-value interface (key, value)</p>
+    <p>(block, page)</p>
+    <p>Software</p>
+  </div>
+  <div class="page">
+    <p>But, Current KV Interface is Too Simple</p>
+    <p>Each KV operation is independently processed</p>
+    <p>Thus, unable to group multiple operations together</p>
+    <p>High interfacing overhead for small KV operations  Common in KV store workloads</p>
+    <p>Host</p>
+    <p>KVSSD DMA</p>
+    <p>KV1 + KV2 + KV3</p>
+    <p>Request</p>
+    <p>Re sp</p>
+    <p>on se</p>
+    <p>Host</p>
+    <p>KVSSD</p>
+    <p>Request</p>
+    <p>Re sp</p>
+    <p>on se</p>
+    <p>DMA</p>
+    <p>KV1 KV2 KV3 Time</p>
+  </div>
+  <div class="page">
+    <p>But, Current KV Interface is Too Simple</p>
+    <p>Each KV operation is independently processed</p>
+    <p>Thus, unable to group multiple operations together</p>
+    <p>High interfacing overhead for small KV operations  Common in KV store workloads</p>
+    <p>Unable to support transaction comprised of multiple KV operations</p>
+  </div>
+  <div class="page">
+    <p>Compound Command</p>
+    <p>Extend the original KVSSD command set to overcome the limitations</p>
+    <p>Allow multiple KV pairs/operations to be packed in a single NVMe command</p>
+    <p>And specify a semantic on the key-value group  E.g., transaction, locality group</p>
+  </div>
+  <div class="page">
+    <p>List of Contents</p>
+    <p>Introduction</p>
+    <p>Extending KVSSD Command Set</p>
+    <p>User API</p>
+    <p>Transaction Support</p>
+    <p>Evaluation</p>
+  </div>
+  <div class="page">
+    <p>KVSSD Command Set</p>
+    <p>The original NVMe command format  Each NVMe operation is translated to a 64-byte NVMe command</p>
+    <p>Command Namespace ID (NSID)</p>
+    <p>Not used</p>
+    <p>Metadata Pointer (MPTR)</p>
+    <p>Data Pointer (PRP) 1</p>
+    <p>Data Pointer (PRP) 2</p>
+    <p>Command specific DWORD 10/11</p>
+    <p>Command specific DWORD 12/13</p>
+    <p>Command specific DWORD 14/15</p>
+  </div>
+  <div class="page">
+    <p>KVSSD Command Set</p>
+    <p>Extends the NVMe command set standard  Supports KV operations; Store, Retrieve, Delete, Exist, and Iterate</p>
+    <p>Command Namespace ID (NSID)</p>
+    <p>Not used</p>
+    <p>Option / Value offset</p>
+    <p>Value PRP1</p>
+    <p>Value PRP2</p>
+    <p>Key [0:7] or Key PRP</p>
+    <p>Key [8:15]</p>
+    <p>Key length</p>
+    <p>Not used</p>
+    <p>Small keys ( 16 bytes) can be inlined in the command  Otherwise, stored in memory and its</p>
+    <p>location is specified  KVSSD fetches it through DMA</p>
+    <p>Extended to include key-value operations</p>
+  </div>
+  <div class="page">
+    <p>KVSSD Command Set</p>
+    <p>Extends the NVMe command set standard  Supports KV operations; Store, Retrieve, Delete, Exist, and Iterate</p>
+    <p>Command Namespace ID (NSID)</p>
+    <p>Not used</p>
+    <p>Option / Value offset</p>
+    <p>Value PRP1</p>
+    <p>Value PRP2</p>
+    <p>Key [0:7] or Key PRP</p>
+    <p>Key [8:15]</p>
+    <p>Key length</p>
+    <p>Not used</p>
+    <p>Always stored in memory and its address is passed</p>
+    <p>Long value can be composed with a scatter-gather list</p>
+  </div>
+  <div class="page">
+    <p>KVSSD Command Set</p>
+    <p>Extends the NVMe command set standard  Supports KV operations; Store, Retrieve, Delete, Exist, and Iterate</p>
+    <p>KVSSD may need up to 2 DMAs to fetch key and value</p>
+    <p>Command Namespace ID (NSID)</p>
+    <p>Not used</p>
+    <p>Option / Value offset</p>
+    <p>Value PRP1</p>
+    <p>Value PRP2</p>
+    <p>Key [0:7] or Key PRP</p>
+    <p>Key [8:15]</p>
+    <p>Key length</p>
+    <p>Not used</p>
+  </div>
+  <div class="page">
+    <p>Extending KVSSD Command Set</p>
+    <p>Compound command uses the same command format  CC identification number + CC payload</p>
+    <p>Command Namespace ID (NSID)</p>
+    <p>Not used</p>
+    <p>Option / Payload offset</p>
+    <p>Payload PRP1</p>
+    <p>Payload PRP2</p>
+    <p>Compound Command ID [0:7]</p>
+    <p>Compound Command ID [8:15]</p>
+    <p>ID length</p>
+    <p>Not used</p>
+    <p>16-byte identification number  Can be used as TX ID or group ID</p>
+    <p>Specify the location of payload  KVSSD can fetch the entire payload</p>
+    <p>with a single DMA operation</p>
+  </div>
+  <div class="page">
+    <p>Extending KVSSD Command Set</p>
+    <p>Compound command uses the same command format  CC identification number + CC payload</p>
+    <p>Command Namespace ID (NSID)</p>
+    <p>Not used</p>
+    <p>Option / Payload offset</p>
+    <p>Payload PRP1</p>
+    <p>Payload PRP2</p>
+    <p>Compound Command ID [0:7]</p>
+    <p>Compound Command ID [8:15]</p>
+    <p>ID length</p>
+    <p>Not used</p>
+  </div>
+  <div class="page">
+    <p>User API for Compound Commands</p>
+    <p>int ret; CC_HANDLE *h;</p>
+    <p>h = begin_compound(CC_GROUP); ret = retrieve(h, k1, k1_len, v1, &amp;v1_len); ret = retrieve(h, k2, k2_len, v2, &amp;v2_len); ret = retrieve(h, k3, k3_len, v3, &amp;v3_len); ret = commit_compound(h);</p>
+    <p>h = begin_compound(CC_TRANSACTION); ret = store(h, k1, k1_len, v1, v1_len); ret = store(h, k2, k2_len, v2, v2_len); ret = commit_compound(h);</p>
+    <p>Define a handle for CC</p>
+    <p>Start building CC</p>
+    <p>Append retrieve operations for k1, k2, and k3</p>
+    <p>Submit the CC</p>
+    <p>Start building CC for TX Append store operations for k1 and k2 Submit the transaction</p>
+  </div>
+  <div class="page">
+    <p>User API for Compound Commands</p>
+    <p>int ret; CC_HANDLE *h;</p>
+    <p>h = begin_compound(CC_GROUP); ret = retrieve(h, k1, k1_len, v1, &amp;v1_len); ret = retrieve(h, k2, k2_len, v2, &amp;v2_len); ret = retrieve(h, k3, k3_len, v3, &amp;v3_len); ret = commit_compound(h);</p>
+    <p>h = begin_compound(CC_TRANSACTION); ret = store(h, k1, k1_len, v1, v1_len); ret = store(h, k2, k2_len, v2, v2_len); ret = commit_compound(h);</p>
+    <p>Define a handle for CC</p>
+    <p>Start building CC</p>
+    <p>Append retrieve operations for k1, k2, and k3</p>
+    <p>Submit the CC</p>
+    <p>Start building CC for TX Append store operations for k1 and k2 Submit the transaction</p>
+    <p>How can KVSSD internally process compound command TXs?</p>
+  </div>
+  <div class="page">
+    <p>Transaction Support in KVSSD</p>
+    <p>Option 1: Combine well-known policies and mechanisms  Disallow other operations to be interleaved between transaction</p>
+    <p>operations (A, I)</p>
+    <p>Use WAL techniques to guarantee atomic update (A, D)</p>
+    <p>Safely and properly store data on the flash memory (D)</p>
+    <p>Check consistency restrictions, and proceed only if operations do not violate the restrictions (C)  Allow simple implementation and API</p>
+    <p>But, only provide limited consistency  Unable to mix different operation types in a compound command</p>
+  </div>
+  <div class="page">
+    <p>Transaction Support in KVSSD</p>
+    <p>Option 2: Apply Amazon DynamoDBs approach  Application specifies preconditions for a transaction</p>
+    <p>E.g., Increase value of A by 10 only if A is less than 20</p>
+    <p>KVSSD processes KV operations while ensuring the preconditions</p>
+    <p>Can support sophisticated consistency models</p>
+    <p>Can process transactions concurrently, improving performance</p>
+    <p>But, require complicated APIs</p>
+    <p>preconditionoperation</p>
+  </div>
+  <div class="page">
+    <p>Evaluation</p>
+    <p>It would be best to modify the KVSSD firmware to make KVSSD understand the compound command and handle it accordingly</p>
+    <p>However, it was not feasible at the time of paper submission</p>
+    <p>Instead, estimate the performance  Measure the fundamental performance from the prototype KVSSD</p>
+    <p>Calculated the performance from measurement result</p>
+    <p>Please see the paper for the detail 21</p>
+  </div>
+  <div class="page">
+    <p>Evaluation: Microbenchmark</p>
+    <p>Baseline (KVSSD)</p>
+    <p>P er</p>
+    <p>-o pe</p>
+    <p>ra tio</p>
+    <p>n La</p>
+    <p>te nc</p>
+    <p>y (u</p>
+    <p>s)</p>
+    <p># of KVs in a compound command</p>
+    <p>Store Retrieve</p>
+  </div>
+  <div class="page">
+    <p>Evaluation: I/O Bandwidth</p>
+    <p>We cannot evaluate from real devices</p>
+    <p>Instead, we used KVEMU  Extension of FEMU (USENIX FAST18)</p>
+    <p>Provides a virtual KVSSD device to guest OSes in virtualized environments</p>
+    <p>Emulate operation latency using latency models</p>
+    <p>Used the microbenchmark result for the latency model</p>
+  </div>
+  <div class="page">
+    <p>Evaluation: I/O Bandwidth</p>
+    <p>KVCeph on KVEMU  SW TX: Modified KVCeph to properly handle transactions using</p>
+    <p>WAL-style update</p>
+    <p>HW TX: KVEMU processes compound commands by logging payload and then atomically switching index and data</p>
+    <p>SW TX</p>
+    <p>HW TX</p>
+    <p>Normalized I/O Bandwidth</p>
+  </div>
+  <div class="page">
+    <p>Conclusion and Ongoing Work</p>
+    <p>KVSSD promises to renovate the deep I/O stack</p>
+    <p>But its KV interface is not properly designed to handle multiple small operations and support transactions</p>
+    <p>Compound command complements the interface</p>
+    <p>Performance optimization up to 55%</p>
+    <p>To make KVSSD understand compound commands</p>
+    <p>Working on making KVEMU public</p>
+  </div>
+  <div class="page">
+    <p>Thank you!</p>
+    <p>Sang-Hoon Kim</p>
+    <p>sanghoonkim@ajou.ac.kr https://sslab.ajou.ac.kr</p>
+  </div>
+</Presentation>

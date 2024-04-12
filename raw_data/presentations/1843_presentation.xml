@@ -1,0 +1,110 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>Highly Auditable Distributed Systems</p>
+    <p>Murat Demirbas, Sandeep Kulkarni University at Buffalo, Michigan State</p>
+    <p>[2015-07-07 Tue]</p>
+  </div>
+  <div class="page">
+    <p>Outline</p>
+  </div>
+  <div class="page">
+    <p>Auditability</p>
+    <p>Auditability lets you see what is going on in the system. Auditability helps you debug</p>
+    <p>dependencies among events performance bottlenecks latent concurrency bugs.</p>
+    <p>Auditability enables available, scalable, and reliable distributed systems.</p>
+  </div>
+  <div class="page">
+    <p>Auditability report card: Poor</p>
+    <p>Logging of system messages &amp; exceptions are OK when used on a single computer system. For distributed systems, where there is no shared memory &amp; time, naive logging is insufficient.</p>
+    <p>Dapper, Zipkin, HTrace, X-Trace</p>
+    <p>These distributed system tracers perform sparse logging. They help in identifying service dependencies and long-tail latencies but fail to support nonlocal predicate detection.</p>
+  </div>
+  <div class="page">
+    <p>Both time &amp; causality are important for auditability</p>
+    <p>Theory of distributed systems shunned the notion of time and considered asynchronous systems whose event ordering is captured by logical clocks.</p>
+    <p>Using LC, it is not possible to query events in relation to real time. Lamports logical clocks guarantees that E hb F = LC.E &lt; LC.F</p>
+    <p>Practical distributed systems employed NTP synchronized clocks to capture time but in ad hoc undisciplined ways.</p>
+    <p>It is impractical to achieve perfect clock sync in a distributed system, so even when E causally affects F (i.e., E hb F ), E may have bigger timestamp than F .</p>
+  </div>
+  <div class="page">
+    <p>Our work</p>
+    <p>By leveraging hybrid logical clocks (HLC) as a building block, we aim to bridge time &amp; causality and design highly auditable distributed systems.</p>
+    <p>By leveraging HLC, we aim to provide debugging support via detectors availability support via correctors (to correct faults and state corruptions)</p>
+  </div>
+  <div class="page">
+    <p>HLC implementation</p>
+    <p>Each node j maintains timestamp of the form l.j, c.j pt.j: physical clock of j l.j: the maximum pt.k that j is aware of c.j: the length of the causal chain</p>
+    <p>Given a maximum clock drift of , HLC guarantees that l.j is in the range [pt.j, pt.j + ] c.j is bounded: c.j is reset to 0 when l.j increases, which happens in the worst case when pt.j exceeds l.j. Worst case bound on c.j is proportional to the number of processes and . Practically, c.j is less than 10 even under stress testing over AWS.</p>
+  </div>
+  <div class="page">
+    <p>Why have c.j? Otherwise l  pt could grow unbounded</p>
+  </div>
+  <div class="page">
+    <p>Why have c.j? Otherwise l  pt could grow unbounded</p>
+  </div>
+  <div class="page">
+    <p>HLC algorithm</p>
+  </div>
+  <div class="page">
+    <p>HLC properties</p>
+    <p>HLC has uncertainty resilience: HLC is always nonblocking and captures causality correctly even when time sync has degraded.</p>
+    <p>HLC enables highly auditable systems because HLC can provide consistent-state snapshots without needing to wait out clock sync uncertainties and requiring prior coordination.</p>
+    <p>Given that E hb F = HLC.E &lt; HLC.F , we have HLC.E = HLC.F = E co F</p>
+    <p>Snapshots can be on-demand vs. post-hoc, and online vs. offline.</p>
+  </div>
+  <div class="page">
+    <p>HLC makes consistent snapshots easy</p>
+    <p>Finding a consistent snapshot for pt = 10 using HLC=10,0 Here  = 10.</p>
+  </div>
+  <div class="page">
+    <p>HLC versus TrueTime (TT) in Google Spanner</p>
+    <p>The HLC-based implementation does not require waiting  out, instead it records causality relations within this uncertainty window. HLC obviates the need for dedicated GPS or atomic clock references, and can work with NTP servers that provide an  of several tens of milliseconds. Our HLC clocks have recently been adopted by CockroachDB, an opensource clone of Google Spanner.</p>
+  </div>
+  <div class="page">
+    <p>Strawman1 for detection: Represent the distributed system state as a multiversion database</p>
+    <p>Each update of a variable (i.e., version) is recorded with its associated timestamp on that node. HLC supports efficient consistent-state querying of such a distributed multiversion database. But recording every update of each variable is expensive. For stable predicates, an occasional periodic snapshot can be enough, however, for transient predicates continuous recording is needed. Big gap!</p>
+  </div>
+  <div class="page">
+    <p>stable predicates</p>
+    <p>These are stable for at least  time and fill the gap between stable and transient predicates. A snapshot with HLC for every  suffices to detect these predicates. Just, record local state at every predetermined  epoch. E.g., mutual-exclusion violation (access engagement disengagement takes  time) E.g.,  unavailability conditions that lead to Service Level Agreement violations</p>
+  </div>
+  <div class="page">
+    <p>Predicate triggered snapshots</p>
+    <p>The developer can provide some local predicates that act as triggers for storing of a local snapshot at a node. This is analogous to user-installed breakpoints for debugging a program. The node then forwards this trigger state to the detector and the detector performs an on-demand query for the global state with that timestamp.</p>
+  </div>
+  <div class="page">
+    <p>Strawman1 for correction: a global reset</p>
+    <p>HLC simplifies global distributed reset If a reset is requested at HLC time T, the corrector can choose HLC time T&gt;T and require all nodes to reset to a certain state when their HLC clock reaches T Since HLC refines logical clocks and respects the causality relation, it ensures that the individual resets of all nodes are causally concurrent even if they do not occur at the exact same instant.</p>
+    <p>However, for very large distributed systems, resetting the entire system is unacceptable (as availability suffers) and infeasible (as stragglers &amp; corner cases cause problems).</p>
+  </div>
+  <div class="page">
+    <p>Seamless reset of subset of nodes using HLC</p>
+  </div>
+  <div class="page">
+    <p>Seamless reset of faulty nodes using HLC</p>
+    <p>By the time the frozen nodes are reset, the system time may be at T3. This is acceptable since the resulting state is still a globally consistent state as the frozen nodes refrained from communication. It is as if the frozen nodes lagged in execution.</p>
+    <p>Those reset nodes will catchup with the rest of the system. HLC is uncertainty resilient and will not lead to unsafe comparisons and updates.</p>
+  </div>
+  <div class="page">
+    <p>Related work</p>
+    <p>Crash-only software and restartability (Candea &amp; Fox, HOTOS 2003) Eidetic distributed systems (Devecsery, Chow, Dou, Flinn, Chen, OSDI 2014)</p>
+  </div>
+  <div class="page">
+    <p>silly poem version</p>
+    <p>auditability for distributed systems is always a crowd hit but it remains elusive and Dapper et.al. wont cut it the reason for this is: causality and time were studied separately we propose a way to marry them and enable auditability</p>
+    <p>HLC is hybrid of l=logical and p=physical clocks it uses c=counter, so l does not overtake p by many blocks HLC is simple with c reset every time l increases by p following yet it gives you easy consistent snapshots with an  allowing while TrueTime is blocking, HLC achieves uncertainty resilience and nonblocking</p>
+  </div>
+  <div class="page">
+    <p>silly poem version</p>
+    <p>detectors can use HLC snapshots over multiversion databases  predicates alleviates costs and recording each update eases with predicate triggered snapshot, options for fast efficient detection increases</p>
+    <p>for correctors, HLC simplifies global reset or you can be precise and use HLC-based freezing of a subset</p>
+    <p>HLC improves on both logical clocks and NTP it can be online or offline with  bound on timeliness guarantee</p>
+  </div>
+  <div class="page">
+    <p>Hybrid Vector Clocks (HVC) for more power</p>
+    <p>In the worst case HVC.j is a vector that contains an entry for each node: HVC.j [j ] is the wallclock at j and HVC.j [k ] is the knowledge of j about the wallclock of spanserver k.</p>
+    <p>Any message sent by j includes at.j. Upon a message reception, j updates HVC.j to reflect the max clock values that j is aware of, as in the case of VC. In contrast to VC, HVC.j [j ] is updated by the wallclock maintained at j.</p>
+    <p>If j does not hear (directly or transitively) from k within  then HVC.j [k ] need not be explicitly maintained. We still infer implicitly that HVC.j [k ] equals HVC.j [j ]  , thanks to clock sync.</p>
+  </div>
+</Presentation>

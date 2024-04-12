@@ -1,0 +1,322 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>Seeing Through the Same Lens:</p>
+    <p>Introspecting Guest Address Space at Native</p>
+    <p>Speed</p>
+    <p>Siqi Zhao*, Xuhua Ding*, Wen Xu, Dawu Gu</p>
+    <p>* Singapore Management University  Georgia Institute of Technology  Shanghai JiaoTong University</p>
+  </div>
+  <div class="page">
+    <p>Outline</p>
+    <p>Problem</p>
+    <p>Design</p>
+    <p>Implementation</p>
+    <p>Evaluations</p>
+  </div>
+  <div class="page">
+    <p>Problem</p>
+    <p>Considering introspecting kernel objects  Untrusted live VM</p>
+    <p>VMI tool running outside of the VM</p>
+    <p>The VMI tool and the target objects are in different address spaces.</p>
+    <p>The VMI tool needs to perform a sequence of operations for every kernel object access.</p>
+  </div>
+  <div class="page">
+    <p>Live Target VM</p>
+    <p>Problem</p>
+    <p>Considering introspecting kernel objects  Untrusted live VM</p>
+    <p>VMI tool running outside of the VM</p>
+    <p>The VMI tool and the target objects are in different address spaces.</p>
+    <p>The VMI tool needs to perform a sequence of operations for every kernel object access.</p>
+    <p>GPT</p>
+    <p>EPT</p>
+    <p>Physical Memory</p>
+    <p>task_struct at 0xC0001000</p>
+    <p>VMI Tool</p>
+    <p>VA: 0xC0001000</p>
+    <p>GPA: 0x1000</p>
+    <p>HPA: 0xFE000</p>
+    <p>ptr = 0xFE000</p>
+    <p>task_struct at 0xFE000</p>
+    <p>Goal: res = task_struct</p>
+  </div>
+  <div class="page">
+    <p>Inadequacy of Page Table Walk</p>
+    <p>Page table walk lies at the heart of VMI</p>
+    <p>Slow, compared to native address translation by MMU  A number of loads from memory</p>
+    <p>An experiment to evaluate the slowness of software based page table walk  Periodically modifies one task-&gt;cred pointer</p>
+    <p>Closely monitor the value of the pointer by repeatedly reading it from outside</p>
+    <p>Cannot catch up with frequent transient guest state changes</p>
+  </div>
+  <div class="page">
+    <p>Live Target VM</p>
+    <p>Inadequacy of Page Table Walk</p>
+    <p>Mapping consistency with the target is not maintained  Uses any mappings: ample room for</p>
+    <p>the guest to present false mappings</p>
+    <p>The target VM may also make transient changes to the page table</p>
+    <p>Caching techniques that aim to enhance efficiency further deteriorate the situation, giving up consistency for efficiency.</p>
+    <p>GPT</p>
+    <p>EPT</p>
+    <p>Physical Memory</p>
+    <p>VMI Tool</p>
+    <p>VA: 0xC0001000</p>
+    <p>task_struct at 0xFE000</p>
+    <p>GPA: 0x1000</p>
+    <p>GPA Space</p>
+    <p>task_struct at 0x1000task_struct at 0x2000</p>
+    <p>task_struct at 0xC0001000</p>
+  </div>
+  <div class="page">
+    <p>Immersive Execution Environment (ImEE) Architecture  ImEE is essentially a special VM created on</p>
+    <p>demand by VMI applications.  Scheduled by the hypervisor  Consists of only a vCPU and a small</p>
+    <p>amount of memory: code and data  ImEE hosts a piece of code called ImEE agent that actually performs introspection</p>
+    <p>ImEE acts as a memory access engine for VMI applications  Only perform memory read  Native speed read  Page table is consistent with target at any</p>
+    <p>moment</p>
+  </div>
+  <div class="page">
+    <p>Basic Idea</p>
+    <p>An environment with a twisted address mappings  Cloned CR3 content</p>
+    <p>Cloned EPT, with mappings from target EPT and restricted permission</p>
+    <p>The result: a VA is translated to the same HPA by the MMU in both environments</p>
+    <p>CR3</p>
+    <p>Target frames</p>
+    <p>RO NX</p>
+    <p>GPT</p>
+    <p>EPT</p>
+    <p>CR3</p>
+    <p>Target VMImEE</p>
+    <p>memory</p>
+    <p>memory</p>
+    <p>Cloned EPT</p>
+    <p>VA: 0xC0001000</p>
+    <p>VA: 0xC0001000</p>
+    <p>GPA: 0x1000 GPA: 0x1000</p>
+    <p>HPA: 0xFE000</p>
+  </div>
+  <div class="page">
+    <p>Making it work</p>
+    <p>Implementation issues:  Need room in the virtual address</p>
+    <p>space for  our own code</p>
+    <p>exchanging data with VMI tool</p>
+    <p>We want to avoid touching GPT</p>
+    <p>What about the number of redirected pages?</p>
+    <p>CR3</p>
+    <p>Target frames</p>
+    <p>RO NX</p>
+    <p>GPT</p>
+    <p>EPT</p>
+    <p>CR3</p>
+    <p>Target VMImEE</p>
+    <p>memory memory</p>
+    <p>EPTTEPTc</p>
+    <p>data code</p>
+    <p>Cloned EPT</p>
+  </div>
+  <div class="page">
+    <p>Immersive Execution Environment (ImEE)</p>
+    <p>Two address spaces in the ImEE</p>
+    <p>Local address space is for the ImEE agent to interact with the VMI application</p>
+    <p>The idea incarnates as the target address space in ImEE.</p>
+    <p>Introspection is only performed in the target address space</p>
+    <p>CR3</p>
+    <p>Target frames</p>
+    <p>RO NX</p>
+    <p>GPTLocal GPT</p>
+    <p>data code</p>
+    <p>EPTEPTTEPTCEPT</p>
+    <p>CR3 CR3</p>
+    <p>Target address space</p>
+    <p>Local address space</p>
+    <p>Target VMImEE</p>
+    <p>memory memory</p>
+  </div>
+  <div class="page">
+    <p>CR3</p>
+    <p>Target frames</p>
+    <p>RO NX</p>
+    <p>GPTLocal GPT</p>
+    <p>data code</p>
+    <p>EPTEPTTEPTCEPT</p>
+    <p>CR3 CR3</p>
+    <p>Target address space</p>
+    <p>Local address space</p>
+    <p>Target VMImEE</p>
+    <p>memory memory</p>
+    <p>Target Address Space</p>
+    <p>GPA space is split by the EPT  All address mappings are the same</p>
+    <p>as in the target VM, with read-only permission</p>
+    <p>One page is redirected by EPT to the agents code page, with execute-only permission</p>
+    <p>Two possible kinds of translation in the target address space:  Instruction fetch</p>
+    <p>Memory read</p>
+  </div>
+  <div class="page">
+    <p>Target Address Space</p>
+    <p>Example:</p>
+    <p>CR3</p>
+    <p>Target frames</p>
+    <p>RO NX</p>
+    <p>GPTLocal GPT</p>
+    <p>data code</p>
+    <p>EPTEPTTEPTCEPT</p>
+    <p>CR3 CR3</p>
+    <p>Target address space</p>
+    <p>Local address space</p>
+    <p>Target VMImEE</p>
+    <p>memory memory</p>
+    <p>CR3</p>
+    <p>Target frames</p>
+    <p>RO NX</p>
+    <p>GPTLocal GPT</p>
+    <p>data code</p>
+    <p>EPTEPTTEPTCEPT</p>
+    <p>CR3 CR3</p>
+    <p>Target address space</p>
+    <p>Local address space</p>
+    <p>Target VMImEE</p>
+    <p>memory memory</p>
+    <p>mov (0x1000), %eax0xBFF0:</p>
+  </div>
+  <div class="page">
+    <p>Local Address Space</p>
+    <p>Minimizes the number of redirected page in the target address space</p>
+    <p>Only two pages are mapped  All pages except one are mapped to</p>
+    <p>code  The remaining one is mapped to</p>
+    <p>data  Allowing the agent to be executed</p>
+    <p>almost anywhere, because we do not know the load address beforehand</p>
+    <p>CR3</p>
+    <p>Target frames</p>
+    <p>RO NX</p>
+    <p>GPTLocal GPT</p>
+    <p>data code</p>
+    <p>EPTEPTTEPTCEPT</p>
+    <p>CR3 CR3</p>
+    <p>Target address space</p>
+    <p>Local address space</p>
+    <p>Target VMImEE</p>
+    <p>memory memory</p>
+  </div>
+  <div class="page">
+    <p>Local Address Spaces</p>
+    <p>Example:</p>
+    <p>CR3</p>
+    <p>Target frames</p>
+    <p>RO NX</p>
+    <p>GPTLocal GPT</p>
+    <p>data code</p>
+    <p>EPTEPTTEPTCEPT</p>
+    <p>CR3 CR3</p>
+    <p>Target address space</p>
+    <p>Local address space</p>
+    <p>Target VMImEE</p>
+    <p>memory memory</p>
+    <p>mov %eax, (0x2000)0xBFFA:</p>
+  </div>
+  <div class="page">
+    <p>The ImEE Agent</p>
+    <p>The ImEE agent is the only code that runs inside ImEE  Reside within one page, self-contained</p>
+    <p>Position independent</p>
+    <p>Granted ring 0 privilege</p>
+    <p>Initially, the agent is loaded at a page whose VA is mapped as executable in the guest page tables.  The hypervisor uses the page that the current IP points to</p>
+  </div>
+  <div class="page">
+    <p>The ImEE Agent</p>
+    <p>The agents execution straddles between the two address spaces.</p>
+    <p>Simplified pseudo-code:</p>
+  </div>
+  <div class="page">
+    <p>Other Issues</p>
+    <p>Blind spot  The code page in the target GPA</p>
+    <p>space is redirected</p>
+    <p>Any virtual address mapped to this GPA cannot be read</p>
+    <p>Cannot be eliminated</p>
+    <p>Only detected when introspection is on the blind spot  Relying on EPT mappings</p>
+    <p>Relocate agent once detected</p>
+    <p>CR3</p>
+    <p>Target frames</p>
+    <p>GPT</p>
+    <p>code</p>
+    <p>EPTEPTTEPTC</p>
+    <p>CR3</p>
+    <p>Target VMImEE</p>
+    <p>memory</p>
+    <p>VA: 0xC0001000</p>
+    <p>GPA: 0x1000</p>
+    <p>HPA: 0xBFF0</p>
+    <p>HPA: 0xFE000</p>
+  </div>
+  <div class="page">
+    <p>Advantages</p>
+    <p>Native speed  Address translation is performed at native speed by hardware.</p>
+    <p>Consistency  Page table used is kept consistent with the current one in the target.</p>
+    <p>CR3 is synchronized</p>
+  </div>
+  <div class="page">
+    <p>Implementation</p>
+    <p>We implemented a prototype of ImEE  Hypervisor changes: modified KVM module</p>
+    <p>Consists of around 1400 SLOC</p>
+    <p>Two new IOCTLs as interface to user space</p>
+    <p>Optimized code path that handles ImEE specific VM exit</p>
+    <p>Agent: specially crafted assembly code  Within one page, a few tens of instructions</p>
+    <p>Position independent</p>
+    <p>One data page for exchange data with VMI tool</p>
+  </div>
+  <div class="page">
+    <p>Evaluation</p>
+    <p>We use LibVMI as the base line.  LibVMI: the only open source tool</p>
+    <p>Serves as building block for various other tools such as Volatility</p>
+    <p>Experiment setup:  Hardware: Intel Core i7-2600, 4GB DDR3 RAM</p>
+    <p>Guest VM: 1GB RAM and one vCPU</p>
+  </div>
+  <div class="page">
+    <p>Evaluation</p>
+    <p>ImEE Overhead  Launch time: time taken for the hypervisor to prepare relevant data such as the EPT</p>
+    <p>Activation time: time for a launched, but not running, ImEE to begin execute the agent code</p>
+    <p>ImEE LibVMI Speedup</p>
+    <p>Launch time 97 s 100 ms 1031 times</p>
+    <p>Activation time 3.2 s</p>
+  </div>
+  <div class="page">
+    <p>Evaluation</p>
+    <p>Guest access speed  We measure the time take to read a number of bytes from the target</p>
+    <p>LibVMIs translation cache is on, data cache off</p>
+    <p># of Bytes ImEE LibVMI (s) Speedup</p>
+  </div>
+  <div class="page">
+    <p>Tools</p>
+    <p>syscalldmp: dumps totally 351 entries of the guests system call table</p>
+    <p>pidlist: lists all process identifiers in the guest.</p>
+    <p>pslist: lists all tasks identifiers and task names stored in task struct.</p>
+    <p>credlist: lists all tasks credential structures referenced by the task structs cred pointer.</p>
+  </div>
+  <div class="page">
+    <p>Evaluation</p>
+    <p>We ran our four tools in four setups: ImEE, kernel, LibVMI on KVM and LibVMI on Xen</p>
+    <p>Measure time taken to complete the task</p>
+    <p>Results:  Comparable to kernel</p>
+    <p>Significant speedup compared to LibVMI</p>
+    <p>Kernel (s) LibVMI / KVM (s) LibVMI / Xen (s) ImEE (s) Speedup (KVM) Speedup (Xen)</p>
+    <p>syscalldmp 0.2 28.2 43 2.9 9 times 15 times</p>
+    <p>pidlist 10 5887 2180 31.6 186 times 68 times</p>
+    <p>pslist 10.4 8319 1477 38.6 215 times 38 times</p>
+    <p>credlist 25.3 8234 2274 25.6 321 times 88 times</p>
+  </div>
+  <div class="page">
+    <p>Evaluation</p>
+    <p>Scanning multiple VMs  We setup four VMs and measure:</p>
+    <p>Time to scan every VM</p>
+    <p>Time to switch scan target</p>
+    <p>Results:</p>
+    <p>LibVMI ImEE Speedup</p>
+    <p>Scanning all VMs 561 ms 377 s 1400 times</p>
+    <p>Switching target VM 19 ms 4.4 s 4300 times</p>
+  </div>
+  <div class="page">
+    <p>Conclusion</p>
+    <p>ImEE is a novel memory access engine for out-of-VM introspeciton applications for live VM.</p>
+    <p>Based on hardware virtualization, ImEE shows remarkable speed up compared to existing approaches.</p>
+    <p>ImEE maintains mapping consistency during introspection. Complemented by its high speed, ImEE is suitable for security sensitive VMI applications.</p>
+  </div>
+  <div class="page">
+    <p>Questions?</p>
+  </div>
+</Presentation>

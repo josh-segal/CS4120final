@@ -1,0 +1,228 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>Logical Synchronous Replication in the Tintri VMstore File System</p>
+    <p>Gideon Glass gxglass@gmail.com</p>
+    <p>joint work with Arjun Gopalan, Dattatraya Koujalagi, Abhinand Palicherla, and Sumedh Sakdeo</p>
+  </div>
+  <div class="page">
+    <p>Outline Background and Motivation (30%)</p>
+    <p>Major Technical Problems (60%)</p>
+    <p>Lessons Learned (10%)</p>
+  </div>
+  <div class="page">
+    <p>Tintri VMstore Ecosystem</p>
+    <p>ESX host ESX host</p>
+    <p>VMware ESX host</p>
+    <p>VM1 VM3</p>
+    <p>VM2</p>
+    <p>NFS v3</p>
+    <p>SSD SSDSSD</p>
+    <p>/tintri /tintri/VM1/ /tintri/VM1/VM1.vmx /tintri/VM1/VM1.vmdk /tintri/VM1/VM1-flat.vmdk  /tintri/VM2/VM2.vmx /tintri/VM2/VM2.vmdk /tintri/VM2/VM2-flat.vmdk</p>
+    <p>Typical VM: several dozen files Dynamic operation mix:</p>
+    <p>~70% reads  ~30% writes  ~0.1% other</p>
+    <p>Client view: 10.20.100.5:/tintri</p>
+  </div>
+  <div class="page">
+    <p>Secondary Storage System (B)</p>
+    <p>Client</p>
+    <p>Primary Storage System (A)</p>
+    <p>Generic Synchronous Replication</p>
+  </div>
+  <div class="page">
+    <p>Client</p>
+    <p>Storage System A Storage System B (New Primary)</p>
+    <p>Transparent Failover</p>
+  </div>
+  <div class="page">
+    <p>What to replicate? Alternatives considered How user might configure replication</p>
+    <p>Reason for rejecting</p>
+    <p>Selected LUNs VMstore does not expose LUNs</p>
+    <p>Selected filesystem volumes We only have one filesystem</p>
+    <p>Whole system Forces users to replicate all data; subtle complications to rest of system</p>
+    <p>Per-VM Does not work well with transparent failover</p>
+    <p>Directory This is what we did -- let users configure one or more directories for replication, and replicate all filesystem operations occurring on files/subdirectories within these directories.</p>
+  </div>
+  <div class="page">
+    <p>Major data path design challenges Replicate writes</p>
+    <p>Replicate arbitrary filesystem operations</p>
+    <p>Resync efficiently: handle extended outages</p>
+    <p>Primary/Secondary integrity check</p>
+  </div>
+  <div class="page">
+    <p>Replicating writes Objective: minimize added latency</p>
+    <p>Requirements:</p>
+  </div>
+  <div class="page">
+    <p>Filesystem Write Path</p>
+    <p>RPC/NFS Receive</p>
+    <p>Sync Repl Splitting</p>
+    <p>QoS</p>
+    <p>Other Read/ Write</p>
+    <p>Sync repl handshake</p>
+    <p>RPC/NFS Response</p>
+    <p>Sync Repl Incoming</p>
+    <p>QoS</p>
+    <p>Other Read/ Write</p>
+    <p>Sync repl Ack</p>
+  </div>
+  <div class="page">
+    <p>Bookkeeping for in-flight writes Objective: keep track of in-flight writes persistently for crash recovery</p>
+    <p>All operations tagged with sequence number (OSN)</p>
+    <p>NVRAM entries: data, plus &lt;FileId, Offset, Length, OSN&gt;</p>
+    <p>Persistent metadata. For each replicated directory, keep a map of</p>
+    <p>OSN  &lt;FileId, Offset, Length&gt;</p>
+  </div>
+  <div class="page">
+    <p>Crash Recovery Example Client</p>
+    <p>Secondary</p>
+    <p>Primary</p>
+    <p>Write W1: {file1, offset1, len1}</p>
+  </div>
+  <div class="page">
+    <p>Crash Recovery Example (2) Client</p>
+    <p>Secondary</p>
+    <p>Primary</p>
+    <p>W1</p>
+    <p>Write W1: {file1, offset1, len1}</p>
+  </div>
+  <div class="page">
+    <p>Crash Recovery Example (3) Client</p>
+    <p>Secondary</p>
+    <p>Primary</p>
+    <p>W1</p>
+    <p>Now what?</p>
+    <p>Crash and recover</p>
+    <p>Write W1: {file1, offset1, len1}</p>
+  </div>
+  <div class="page">
+    <p>Crash Recovery Example (4): Distributed Recovery Client</p>
+    <p>Secondary</p>
+    <p>Primary</p>
+    <p>W1</p>
+    <p>{W1}</p>
+    <p>old(W1)</p>
+    <p>What writes do you know about?</p>
+    <p>Write W1: {file1, offset1, len1}</p>
+  </div>
+  <div class="page">
+    <p>Data Path 2: Operations Other Than Writes Undo not possible (e.g., deletes &amp; renames)</p>
+    <p>Less frequent: can afford higher overhead</p>
+    <p>Approach: two-phase commit</p>
+  </div>
+  <div class="page"/>
+  <div class="page"/>
+  <div class="page">
+    <p>Data Path 3: Resync Client</p>
+    <p>Secondary</p>
+    <p>Primary</p>
+    <p>T0</p>
+    <p>Secondary becomes unavailable</p>
+  </div>
+  <div class="page">
+    <p>Resync Timeline Client</p>
+    <p>Secondary</p>
+    <p>Primary</p>
+    <p>T0</p>
+    <p>Takes Secondary out of sync. Resync snapshots created.</p>
+    <p>T1</p>
+  </div>
+  <div class="page">
+    <p>Resync Timeline Client</p>
+    <p>Secondary</p>
+    <p>Primary</p>
+    <p>T0</p>
+    <p>Resync Begins</p>
+    <p>T3</p>
+    <p>T2</p>
+    <p>T1</p>
+  </div>
+  <div class="page">
+    <p>Resync Timeline Client</p>
+    <p>Secondary</p>
+    <p>Primary</p>
+    <p>T0 T3</p>
+    <p>T2T1</p>
+  </div>
+  <div class="page">
+    <p>Data Path 4: Distributed integrity checking Goal: verify that Primary &amp; Secondary have identical content</p>
+    <p>Leverage existing per-file content checksum</p>
+    <p>Periodically and on demand (e.g. after resync):</p>
+    <p>a. Primary: extract logical file content checksum; send the checksum to Secondary b. Secondary: extract local checksum; compare with value from Primary</p>
+    <p>i. If different, preserve state &amp; take Secondary out of sync</p>
+  </div>
+  <div class="page">
+    <p>Lessons Learned</p>
+  </div>
+  <div class="page">
+    <p>Lessons Learned Integrity check: invaluable</p>
+  </div>
+  <div class="page">
+    <p>Lessons Learned Integrity check: invaluable</p>
+    <p>Automatic cluster failover: more important to customers than anticipated</p>
+  </div>
+  <div class="page">
+    <p>Lessons Learned Integrity check: invaluable</p>
+    <p>Automatic cluster failover: more important to customers than anticipated</p>
+    <p>Ease of use &amp; flexibility: well received</p>
+  </div>
+  <div class="page">
+    <p>Questions</p>
+  </div>
+  <div class="page">
+    <p>Backup Slides</p>
+  </div>
+  <div class="page">
+    <p>Example VM</p>
+  </div>
+  <div class="page">
+    <p>Network topology</p>
+    <p>Customer must ensure that hosts at both sites can reach whichever VMstore is Primary, i.e. whichever one exposes the Cluster IP address for a given replicated directory. Typically this is done via a stretched L2 or L3 network.</p>
+  </div>
+  <div class="page">
+    <p>Configuration Example</p>
+    <p>Datastores hosted by a given VMstore</p>
+    <p>Replicated?</p>
+  </div>
+  <div class="page">
+    <p>Resync Semantics &amp; Requirements Primary takes Secondary out of sync if Secondary is down for &gt;= ~30s</p>
+    <p>Primary continues to serve data and accept writes while out of sync</p>
+    <p>When Secondary comes back:</p>
+    <p>Replicate only new/changed data</p>
+    <p>Must discover &amp; read this data efficiently</p>
+    <p>Must converge reasonably quickly</p>
+  </div>
+  <div class="page">
+    <p>Resync algorithm Primary decides to take Secondary out of sync, coordinates with quorum service to do this</p>
+    <p>Primary creates resync snapshots on all files in replicated directory</p>
+    <p>time passes</p>
+    <p>When Secondary comes back,</p>
+    <p>a. Content between (resync snapshot creation, current time) can be efficiently obtained b. Do this in order of FileId's ordered by creation time c. increasing logical byte offset within each file</p>
+  </div>
+  <div class="page">
+    <p>Performance (1)</p>
+    <p>Workload 8KiB Writes 64KiB Writes 256Kib Writes</p>
+    <p>Throughput reduction with sync repl</p>
+    <p>Disclaimer: old hardware; software may have improved subsequent to taking these measurements</p>
+  </div>
+  <div class="page">
+    <p>Performance (2) Incremental improvements already made (~ +60% improvement over unoptimized starting point for 8K writes):</p>
+    <p>vectorized socket I/O (mainly write side)  socket reads into large buffers, rather than per-message buffers. Generally,</p>
+    <p>remove mallocs on network input processing code paths  increase thread priority of thread(s) reading from replication sockets. [There</p>
+    <p>are many threads in the system, around 1,000, and not many replication socket reading threads.]</p>
+    <p>more could be done</p>
+  </div>
+  <div class="page">
+    <p>Latency Visualization</p>
+  </div>
+  <div class="page"/>
+  <div class="page"/>
+  <div class="page">
+    <p>Secondary Down</p>
+    <p>Conceptual State Machine: Data Availability</p>
+    <p>(data not available)</p>
+  </div>
+  <div class="page">
+    <p>VMstore file-level snapshots</p>
+  </div>
+</Presentation>

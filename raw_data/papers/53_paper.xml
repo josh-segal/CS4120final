@@ -1,0 +1,955 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<TEI xmlns="http://www.tei-c.org/ns/1.0" 
+xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+xsi:schemaLocation="http://www.tei-c.org/ns/1.0 /Users/atharsefid/Desktop/grobid-0.5.3/grobid-home/schemas/xsd/Grobid.xsd"
+ xmlns:xlink="http://www.w3.org/1999/xlink">
+	<teiHeader xml:lang="en">
+		<encodingDesc>
+			<appInfo>
+				<application version="0.5.3" ident="GROBID" when="2019-03-26T16:28+0000">
+					<ref target="https://github.com/kermitt2/grobid">GROBID - A machine learning software for extracting information from scholarly documents</ref>
+				</application>
+			</appInfo>
+		</encodingDesc>
+		<fileDesc>
+			<titleStmt>
+				<title level="a" type="main">Modeling Residual-Geometric Flow Sampling</title>
+			</titleStmt>
+			<publicationStmt>
+				<publisher/>
+				<availability status="unknown"><licence/></availability>
+			</publicationStmt>
+			<sourceDesc>
+				<biblStruct>
+					<analytic>
+						<author>
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Xiaoming</forename><surname>Wang</surname></persName>
+							<email>xmwang@gmail.com</email>
+						</author>
+						<author>
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Xiaoyong</forename><surname>Li</surname></persName>
+							<email>xiaoyong@cse.tamu.edu</email>
+						</author>
+						<author>
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Dmitri</forename><surname>Loguinov</surname></persName>
+							<email>dmitri@cse.tamu.edu</email>
+						</author>
+						<author>
+							<affiliation key="aff0">
+								<orgName type="institution">Texas A&amp;M University College Station</orgName>
+								<address>
+									<postCode>98101, 77843</postCode>
+									<settlement>Seattle</settlement>
+									<region>WA, TX</region>
+									<country>USA, USA</country>
+								</address>
+							</affiliation>
+						</author>
+						<author>
+							<affiliation key="aff1">
+								<orgName type="institution">Texas A&amp;M University College Station</orgName>
+								<address>
+									<postCode>77843</postCode>
+									<region>TX</region>
+									<country key="US">USA</country>
+								</address>
+							</affiliation>
+						</author>
+						<title level="a" type="main">Modeling Residual-Geometric Flow Sampling</title>
+					</analytic>
+					<monogr>
+						<imprint>
+							<date/>
+						</imprint>
+					</monogr>
+				</biblStruct>
+			</sourceDesc>
+		</fileDesc>
+		<profileDesc>
+			<abstract>
+				<p>Traffic monitoring and estimation of flow parameters in high speed routers have recently become challenging as the Internet grew in both scale and complexity. In this paper, we focus on a family of flow-size estimation algorithms we call Residual-Geometric Sampling (RGS), which generates a random point within each flow according to a geometric random variable and records all remaining packets in a flow counter. Our analytical investigation shows that previous estimation algorithms based on this method exhibit certain bias in recovering flow statistics from the sampled measurements. To address this problem, we derive a novel set of unbiased estimators for RGS, validate them using real Internet traces, and show that they provide an accurate and scalable solution to Internet traffic monitoring.</p>
+			</abstract>
+		</profileDesc>
+	</teiHeader>
+	<text xml:lang="en">
+		<body>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>I. INTRODUCTION</head><p>Recent growth of the Internet in both scale and complexity has imposed a number of challenges on network management, operation, and traffic monitoring. The main problem in this line of work is to scale measurement algorithms to achieve certain objectives (e.g., accuracy) while satisfying real-time resource constraints (e.g., fixed memory consumption and per-packet processing delay) of high-speed Internet routers. This is commonly accomplished (e.g., <ref type="bibr" target="#b4">[5]</ref>, <ref type="bibr" target="#b5">[6]</ref>, <ref type="bibr" target="#b6">[7]</ref>, <ref type="bibr" target="#b7">[8]</ref>, <ref type="bibr" target="#b8">[9]</ref>, <ref type="bibr" target="#b9">[10]</ref>, <ref type="bibr" target="#b10">[11]</ref>, <ref type="bibr" target="#b13">[14]</ref>, <ref type="bibr" target="#b14">[15]</ref>, <ref type="bibr" target="#b16">[17]</ref>, <ref type="bibr" target="#b20">[21]</ref>, <ref type="bibr" target="#b17">[18]</ref>, <ref type="bibr" target="#b18">[19]</ref>, <ref type="bibr" target="#b19">[20]</ref>, <ref type="bibr" target="#b21">[22]</ref>, <ref type="bibr" target="#b23">[25]</ref>, <ref type="bibr" target="#b28">[30]</ref>) by reducing the amount of information a router has to store in its internal tables, which comes at the expense of deploying special estimation techniques that can recover metrics of interest from the collected samples.</p><p>In this paper, we study two problems in the general area of measuring flow sizes -1) determining the number of packets transmitted by "elephant" flows <ref type="bibr" target="#b10">[11]</ref>, <ref type="bibr" target="#b14">[15]</ref>, <ref type="bibr" target="#b16">[17]</ref>, <ref type="bibr" target="#b20">[21]</ref>, <ref type="bibr" target="#b19">[20]</ref>, <ref type="bibr" target="#b21">[22]</ref> and 2) building the distribution of flow sizes seen by the router in some time window <ref type="bibr" target="#b6">[7]</ref>, <ref type="bibr" target="#b17">[18]</ref>, <ref type="bibr" target="#b28">[30]</ref> -coupled in a single measurement technique. The former problem arises in usage-based accounting and traffic engineering <ref type="bibr" target="#b5">[6]</ref>, <ref type="bibr" target="#b10">[11]</ref>, <ref type="bibr" target="#b11">[12]</ref>, <ref type="bibr" target="#b12">[13]</ref>, <ref type="bibr" target="#b24">[26]</ref>, while the latter has many security applications such as anomaly and intrusion detection <ref type="bibr" target="#b0">[1]</ref>, <ref type="bibr" target="#b22">[23]</ref>, <ref type="bibr" target="#b15">[16]</ref>.</p><p>Our interest falls within the family of residual sampling, which selects a random point A within each flow and then samples the remainder R of that flow until it ends. Denoting by L the size (in packets) of a random flow, sampled residuals R are simply L − A. Stochastically larger A results in fewer flows being sampled and leads to lower overhead in terms of both CPU and RAM consumption. Besides reduced overhead arising from omission of many small-size flows from counter * Supported by NSF grants CNS-0720571 and <ref type="bibr">CNS-1017766.</ref> tables, residual sampling guarantees to capture large flows with probability 1 − o(1) as their size L → ∞. This allows ISPs to determine "heavy-hitters" and charge the corresponding customers for generated traffic.</p><p>While in P2P networks residual sampling distributes the initial point A uniformly within user lifetimes <ref type="bibr" target="#b27">[29]</ref>, flow-based estimation <ref type="bibr" target="#b10">[11]</ref>, <ref type="bibr" target="#b16">[17]</ref> usually employs geometric A since it can be easily implemented with a sequence of independent Bernoulli variables. We call the resulting approach ResidualGeometric Sampling (RGS) and note that it has received some limited analytical attention in <ref type="bibr" target="#b10">[11]</ref>, <ref type="bibr" target="#b16">[17]</ref>; however, unbiased estimation of individual flow sizes, analysis of the resulting error, asymptotically accurate recovery of flow-size distribution P (L = i) from sampled residuals R, and analysis of space-CPU requirements in steady state have not been explored. We overcome these issues below.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>A. Single-Flow Usage</head><p>We start with the problem of obtaining sizes of individual flows for accounting purposes. Since residual sampling requires an estimator to convert residuals into the metrics of interest, our first task is to define proper notation and desired properties for the estimation algorithm. Assume that for a flow of size L the sampling algorithm produces residual R L , where both L and R L are random variables. We call an estimator e(R L ) unbiased if its expectation produces the correct flow size, i.e., E[e(R L )|L = l] = E[e(R l )] = l. Unbiased estimation allows one to average the estimated size of several flows of a given size l and accurately estimate their total contribution. We further call an estimator elephant-accurate if ratio e(R l )/l converges to 1 in mean-square as l → ∞. Elephant-accuracy ensures that the variance of e(R l )/l tends to zero as l → ∞, which means that the amount of relative error between e(R l ) and l becomes negligible for large flows.</p><p>Prior work on RGS <ref type="bibr" target="#b10">[11]</ref>, <ref type="bibr" target="#b16">[17]</ref> has suggested the following estimator:</p><formula xml:id="formula_0">e(R L ) = R L − 1 + 1/p,<label>(1)</label></formula><p>where 0 &lt; p ≤ 1 is the parameter of geometric variable A.</p><p>To understand the performance of (1), we first build a general probabilistic model for residual-geometric sampling and derive the relationship between flow size L and its residual R L . Using this result, we prove that:</p><formula xml:id="formula_1">E[e(R l )] = l 1 − (1 − p) l ,<label>(2)</label></formula><p>which indicates that (2) is generally biased and on average tends to overestimate the original flow size by a factor of up to 1/p. To address this problem, we derive a different estimator:</p><formula xml:id="formula_2">ˆ e(R L ) = R L − 1 + 1/p − (1 − p) RL p<label>(3)</label></formula><p>and prove that it is both unbiased and elephant-accurate. We also derive in closed-form the mean-square error</p><formula xml:id="formula_3">δ l = E[(ˆ e(R l )/l − 1) 2 ]</formula><p>for finite l, which can be used to determine when (3) approximates the true flow size with accuracy sufficient for billing purposes.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>B. Flow-Size Distribution</head><p>Our second problem is estimation of the original flow-size probability mass function (PMF), which we assume is given by f i = P (L = i), i = 1, 2, . . . We call PMF estimator q i asymptotically unbiased if it converges in probability to f i for all i as the number of sampled flows M → ∞. One may be at first tempted to compute this distribution based on the values produced by either (1) or (3) for each observed flow; however, we show that such q i almost always differ from the original distribution f i and the bias persists as sample size M → ∞. The reason for this discrepancy is that e(.) andêandˆandê(.) both estimate the sizes of flows that have been sampled by the algorithm, which are not representative of the entire population passing through the router. As longer flows are more likely to be selected by residual sampling, this approach overestimates their fraction and skews the PMF towards the tail.</p><p>Denote by M i the number of sampled flows with R L = i and define a new estimator:</p><formula xml:id="formula_4">˜ q i = M i − (1 − p)M i+1 M p + (1 − p)M 1 .<label>(4)</label></formula><p>Using the general model of RGS derived later in the paper, we prove that˜qthat˜ that˜q i tends to f i in probability as M = ∑ i M i → ∞ and obtain the amount of error |˜q|˜q i − f i | for finite M . We also provide asymptotically unbiased estimators for the total number of flows n:</p><formula xml:id="formula_5">˜ n = M + 1 − p p M 1<label>(5)</label></formula><p>and the number of flows n i with exactly i packets:</p><formula xml:id="formula_6">˜ n i = M i − (1 − p)M i+1 p ,<label>(6)</label></formula><p>whereñwhere˜whereñ/n → 1 andñand˜andñ i /n i → 1, both in probability, as M → ∞. We call the resulting combination (3)-(6) Unbiased Residual-Geometric Estimators (URGE).</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>C. Performance Evaluation</head><p>To reduce RAM overhead, our implementation periodically discards flow records if the corresponding flows have completed (i.e., FIN, RST packets detected) or if no packets from these flows arrive within some timeout τ . Unfortunately, no analytical results are available on the number of flows M (t) that a router needs to track in steady state or the amount of RAM needed to keep the counters. We overcome this problem by deriving E[M (t)] in equilibrium and showing that it can be orders of magnitude smaller than both the total number of flows n and the number of sampled flows M .</p><p>We finish the paper by evaluating URGE with real Internet traces obtained from NLANR <ref type="bibr">[24]</ref> and CAIDA <ref type="bibr" target="#b2">[3]</ref>. Our experiments reveal that the proposed algorithm produces very accurate estimation of flow metrics and thus allows one to perform more aggressive sampling (i.e., smaller probability p) of the monitored traffic. We also discover in experiments that URGE works very well even on short traces, which makes it suitable for monitoring small customer networks and individual protocols.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>II. RELATED WORK</head><p>In this section, we review several sampling algorithms in the area of traffic monitoring. In particular, we classify existing work into two categories: packet sampling and flow sampling, where the former makes per-packet and the latter per-flow decisions to sample incoming traffic.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>A. Packet Sampling</head><p>Sampled NetFlow (SNF) <ref type="bibr" target="#b23">[25]</ref> is a widely used technique in which incoming packets are sampled with a fixed probability p. The general goal of SNF is to obtain the PMF of flow sizes; however, <ref type="bibr" target="#b13">[14]</ref> shows that it is impossible to accurately recover the original flow-size distribution from sampled SNF data. <ref type="bibr">Estan et al. [10]</ref> propose Adaptive NetFlow (ANF), which adjusts the sampling probability p according to the size of the flow table; however, ANF's bias in the sampled data is equivalent to that in SNF and is similarly difficult to overcome in practice.</p><p>Instead of using one uniform probability for all flows as in <ref type="bibr" target="#b9">[10]</ref>, <ref type="bibr" target="#b23">[25]</ref>, another direction in packet sampling is to compute p i (c) for each flow i based on its currently observed size c. This approach has been studied by two independent papers, Sketch-Guided Sampling (SGS) <ref type="bibr" target="#b19">[20]</ref> and Adaptive Non-Linear Sampling (ANLS) <ref type="bibr" target="#b14">[15]</ref>. A common feature of these two methods is to sample a new flow with probability 1 and then monotonically decrease p i (c) as c grows. Both methods must maintain a counter for each flow present in the network and are difficult to scale due to the high RAM/CPU usage.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>B. Flow Sampling</head><p>In flow thinning <ref type="bibr" target="#b13">[14]</ref>, each flow is sampled independently with probability p and then all packets in sampled flows are counted. <ref type="bibr">Hohn et al. [14]</ref> show that flow thinning is able to accurately estimate the flow size distribution; however, this method typically misses 1 − p percent of elephant flows and thus does not support applications such as usage-based accounting and traffic engineering <ref type="bibr" target="#b5">[6]</ref>, <ref type="bibr" target="#b10">[11]</ref>, <ref type="bibr" target="#b11">[12]</ref>, <ref type="bibr" target="#b12">[13]</ref>, <ref type="bibr" target="#b24">[26]</ref>. For highly skewed distributions with a few extremely large flows and many short ones (which is typical for Internet links), this method may also take a long time to converge.</p><p>To address these problems of flow thinning, Estan et. al. <ref type="bibr" target="#b10">[11]</ref> introduce a size-dependent flow sampling algorithm called Sample-and-Hold (S&amp;H), which is proposed to identify elephant flows. For each packet from a new flow, the algorithm creates a flow counter with probability p; once a flow is sampled, all of its subsequent packets are then counted. It is easy to verify that S&amp;H samples a flow with size l with probability 1 − (1 − p) l , which quickly approaches 1 as l grows. Creating a unifying analytical model for this approach and understanding the properties of samples it collects is the main topic of this paper.</p><p>Another direction of size-dependent flow sampling has been explored by <ref type="bibr">Duffield et al. in [5]</ref>, <ref type="bibr" target="#b5">[6]</ref>, <ref type="bibr" target="#b7">[8]</ref>, which present another size-dependent flow measurement method called Smart Sampling. Their approach selects each flow of size L with probability p(L) = min(1, L/z), where z is some constant. Since this method requires flow size L before deciding whether to sample it or not, it can only be applied off-line.</p><p>Kompella et. al.</p><p>[17] examine a method called Flow Slicing (FS), which combines SNF and S&amp;H with a variant of smart sampling. Other non-sampling methods include exact counting <ref type="bibr" target="#b25">[27]</ref>, <ref type="bibr" target="#b29">[31]</ref> and lossy counting <ref type="bibr" target="#b17">[18]</ref>, <ref type="bibr" target="#b21">[22]</ref>, which are orthogonal to our work.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>III. UNDERLYING MODEL</head><p>In this section, we build a general probabilistic model of Sample-and-Hold <ref type="bibr" target="#b10">[11]</ref> and establish the necessary analytical foundation for the results that follow. Due to limited space, omitted proofs, simulations, and various implementation details can be found in the extended technical report <ref type="bibr" target="#b26">[28]</ref>.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>A. Sample-and-Hold</head><p>Consider a sequence of packets traversing a router and assume that its flow-measurement algorithm checks each packet's flow identifier x in some RAM table. If x is found in the table, the corresponding counter is incremented by 1; otherwise, with probability p a new entry for x is created in the table (with counter value 1) and with probability 1 − p the packet is ignored.</p><p>To model this process, we first need several definitions. Assume that flow sizes are i.i.d. random variables and define geometric age A L to be the number of packets discarded from the front of a flow with size L before it is sampled (see <ref type="figure" target="#fig_0">Fig.  1</ref>). Let G be a shifted geometric random variable with success probability p, i.e.,</p><formula xml:id="formula_7">P (G = j) = (1 − p) j p. It thus follows that A L is simply: A L = min(G, L).<label>(7)</label></formula><p>Now define geometric residual R L to be the final counter value of a flow of size L conditioned on the fact that it has been sampled (i.e., A L &lt; L):</p><formula xml:id="formula_8">R L = L − A L ,<label>(8)</label></formula><p>which is also illustrated in <ref type="figure" target="#fig_0">Fig. 1</ref>. From the perspective of traffic monitoring in this paper, geometric residual R L is the only quantity collected during measurement and available to an estimation algorithm. Since this approach belongs to the class of residual-sampling techniques <ref type="bibr" target="#b27">[29]</ref> and specifically uses geometric age, this paper calls S&amp;H by a more mathematicallyspecific name Residual-Geometric Sampling (RGS). Assume that L has a PMF f i = P (L = i), where i = 1, 2, . . ., and denote by p s = P (A L &lt; L) the probability that a random flow is sampled. Then, we have the following result.</p><formula xml:id="formula_9">packets in a flow discarded packet sampled packet Age A L Residual R L flow size L</formula><p>Lemma 1: Probability p s that a flow is selected by RGS is:</p><formula xml:id="formula_10">p s = E[1 − (1 − p) L ] = 1 − ∞ ∑ i=1 f i (1 − p) i .<label>(9)</label></formula><p>Next, let h i = P (R L = i) be the PMF of geometric residual R L . The following lemma expresses h i in terms of f i .</p><p>Lemma 2: The PMF of geometric residual R L is:</p><formula xml:id="formula_11">h i = p ∑ ∞ j=i f j (1 − p) j−i p s .<label>(10)</label></formula><p>The result of Lemma 2 is fundamental as most of the results in this paper are conveniently derived from (10).</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>B. Fixed Flow Size</head><p>We next analyze a special case of residual sampling where the original flow size is fixed at L = l. Note that residuals are now R l instead of R L since the original flow size is no longer a random variable. Recall that the goal of single-flow size estimation is to obtain l from R l for each sampled flow. The next corollary follows from (10) and gives the distribution and expectation of geometric residual R l .</p><p>Corollary 1: Given flow size L = l, the PMF of R l is:</p><formula xml:id="formula_12">P (R l = i) = (1 − p) l−i p 1 − (1 − p) l<label>(11)</label></formula><p>and its expectation is:</p><formula xml:id="formula_13">E[R l ] = l 1 − (1 − p) l + 1 − 1/p.<label>(12)</label></formula><p>Next, we apply the results obtained in this section to analyze existing estimation methods that have been proposed for RGS.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>IV. ANALYSIS OF EXISTING METHODS</head><p>In this section, we examine prior approaches <ref type="bibr" target="#b10">[11]</ref>, <ref type="bibr" target="#b16">[17]</ref> to estimating single-flow usage and whether their results can be generalized to recover the PMF of L.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>A. Single-Flow Usage</head><p>To evaluate single-flow estimators, we use the following definition that is commonly used in statistics <ref type="bibr" target="#b1">[2]</ref>.</p><formula xml:id="formula_14">Definition 1: Estimator e(R l ) is called unbiased if E[e(R l )] = l for all l ≥ 1.</formula><p>Unbiased estimation is a key property of an estimator as it allows accurate estimation of the total contribution from a sufficiently large pool of flows (e.g., one customer network). However, since large flows are typically rare, one commonly  <ref type="formula" target="#formula_0">(13)</ref> in simulations and its model <ref type="bibr" target="#b13">(14)</ref>.</p><p>faces an additional requirement to estimate their size with just a single sample e(R l ), which is formalized in the next definition.</p><formula xml:id="formula_15">Definition 2: Estimator e(R l ) is called elephant-accurate if e(R l )/l → 1 in mean-square as l → ∞.</formula><p>Elephant-accuracy guarantees that the amount of relative error between e(R l ) and l decays to zero as l → ∞. As before, suppose that a flow of size l produces a counter with value R l . Recall that <ref type="bibr" target="#b10">[11]</ref>, <ref type="bibr" target="#b16">[17]</ref> suggest the following estimator:</p><formula xml:id="formula_16">e(R l ) = R l − 1 + 1/p,<label>(13)</label></formula><p>where p is the probability of residual-geometric sampling. The next result directly follows from (12).</p><formula xml:id="formula_17">Theorem 1: Expectation E[e(R l )]</formula><p>is given by:</p><formula xml:id="formula_18">E[e(R l )] = l 1 − (1 − p) l .<label>(14)</label></formula><p>Note that (14) indicates that (13) is generally biased, especially when lp is small. Indeed, for lp ≈ 0, we have 1 − (1 − p) l ≈ lp and E[e(R l )] ≈ 1/p regardless of l, which shows that in such cases E[e(R l )] carries no information about the original flow size. However, as l → ∞, it is straightforward to verify that the bias in e(R l ) vanishes exponentially, which is consistent with the analysis in <ref type="bibr" target="#b16">[17]</ref>, which has only considered the case of l → ∞.</p><p>To see the extent of bias in (13) and verify <ref type="formula" target="#formula_0">(14)</ref>, we apply residual-geometric sampling to flows of size l ranging from 1 to 10 6 packets, feed the measured sizes to <ref type="bibr" target="#b12">(13)</ref>, and average the result after 1000 iterations for each l. <ref type="figure" target="#fig_1">Fig. 2</ref> plots the obtained E[e(R l )] along with model <ref type="bibr" target="#b13">(14)</ref>. The figure indicates that (14) indeed captures the bias and that (13) tends to overestimate the size of short flows even in expectation, where smaller sampling probability p leads to more error.</p><p>To quantify the error of individual values e(R l ) in estimating flow size l and to understand elephant-accuracy, denote by Y l = e(R l )/l and define the Relative Root Mean Square Error (RRMSE) to be:</p><formula xml:id="formula_19">δ l = √ E[(Y l − 1) 2 ].<label>(15)</label></formula><p>Note that δ l → 0 indicates that Y l → 1 in mean-square and thus implies elephant-accurate estimation. The next result derives δ l in closed form.  <ref type="formula" target="#formula_0">(13)</ref> in simulations and its model (16).</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>Theorem 2:</head><p>The RRMSE of <ref type="formula" target="#formula_0">(13)</ref> is given by:</p><formula xml:id="formula_20">δ l = √ 1 − p − l(l − 1)p 2 (1 − p) l − (1 − p) l+1 l 2 p 2 (1 − (1 − p) l ) .<label>(16)</label></formula><p>Observe from (16) that for flows with size l = 1, the relative error is √ 1 − p/p, but as l → ∞, δ l → 0 and the estimator is elephant-accurate. <ref type="figure" target="#fig_2">Fig. 3</ref> plots <ref type="formula" target="#formula_0">(16)</ref>  </p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>B. Flow-Size Distribution</head><p>We now investigate whether e(R L ) defined in (13) can be used to estimate the actual flow-size distribution {f i } ∞ i=1 . Denote by q i = P (e(R L ) = i) the PMF of estimated sizes among the sampled flows. To understand our objectives with approximating the PMF of L, the following definition is in order.</p><p>Definition 3: An estimator</p><formula xml:id="formula_21">{q i } ∞ i=1 of PMF {f i } ∞ i=1</formula><p>is called asymptotically unbiased if q i converges in probability to f i for all i as the number of sampled flows M → ∞.</p><p>The next theorem follows directly from (10). Theorem 3: The PMF of flow sizes estimated from (13) is given by:</p><formula xml:id="formula_22">q i = ∑ ∞ j=y(i) f j (1 − p) j−y(i) p p s ,<label>(17)</label></formula><p>where y(i) = ⌈i + 1 − 1/p⌉ and p s is in (9). The result in (17) indicates that each q i is different from f i regardless of the sampling duration and thus cannot be used to approximate the flow-size distribution. We verify (17) with a simulated packet stream with 5M flows, where flow sizes follow a power-law distribution P (L ≤ i) = 1 − i −α for i = 1, 2, . . . and α = 1.1. <ref type="figure" target="#fig_4">Fig. 4</ref> plots the CCDF of random variable e(R L ) obtained from simulations as well as model (17), both in comparison to the tail of the actual distribution. The figure shows that (17) accurately predicts the values obtained from simulations and that PMF {q i } is indeed quite different from {f i }.</p><p>So far, our study of existing methods in residual-geometric sampling has shown that they are not only generally biased, but also unable to recover the flow-size distribution from residuals R L . This motivates us to seek better estimation approaches, which we perform next.  </p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>V. URGE</head><p>This section proposes a family of algorithms called Unbiased Residual-Geometric Estimators (URGE), proves their accuracy, and verifies them in simulations.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>A. Single-Flow Usage</head><p>For estimating individual flow sizes, we first consider an estimator directly implied by the result in (12). Notice that solving (12) for l and expressing flow size l in terms of E[R l ], we get:</p><formula xml:id="formula_23">l = u − 1 log(1 − p) W ( u(1 − p) u log(1 − p) ) ,<label>(18)</label></formula><p>where u = E[R l ] + 1/p − 1 and W (z) is Lambert's function (i.e., a multi-valued solution to W e W = z) <ref type="bibr" target="#b3">[4]</ref>. Thus, a possible estimator can be computed from <ref type="formula" target="#formula_0">(18)</ref>  </p><formula xml:id="formula_24">ˆ e(R l ) = R l − 1 + 1/p − (1 − p) R l p .<label>(19)</label></formula><p>and next show that it is unbiased.</p><formula xml:id="formula_25">Lemma 3: EstimatorêEstimatorˆEstimatorê(R l ) in (19) is unbiased, i.e., E[ˆ e(R l )] = l.<label>(20)</label></formula><p>We plot in <ref type="figure" target="#fig_5">Fig. 5</ref> simulation results obtained from <ref type="bibr" target="#b18">(19)</ref>. The figure indicates thatêthatˆthatê(R l ) accurately estimates actual sizes for all flows in both cases of p. Next, we derive the RRMSE of URGE.</p><p>Theorem 4: The RRMSE of <ref type="formula" target="#formula_0">(19)</ref> is given by:</p><formula xml:id="formula_26">ˆ δ l = √ 1 − p + lp(p − 2)(1 − p) l − (1 − p) 2l+1 l 2 p 2 (1 − (1 − p) l ) .<label>(21)</label></formula><p>It is easy to verify from (21) that URGE has zero RRMSE for l = 1 or l → ∞, confirming its elephant-accuracy. We plotˆδplotˆ plotˆδ l obtained from simulations along with the model in <ref type="figure" target="#fig_6">Fig.  6</ref>, which shows that (21) accurately tracks the actual relative error. From Figures 5-6, it is clear thatêthatˆthatê(R l ) significantly improves the accuracy of estimating small flow sizes compared to e(R l ). In practice, (21) can be used to determine threshold l 0 , which leads to desired bounds on error for all l ≥ l 0 and allows ISPs to use e(R l ) instead of l.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>B. Flow-Size Distribution</head><p>It is worth mentioning that while (19) produces unbiased estimation of flow sizes, ˆ e(R L ) is not suitable for computing the flow-size distribution, as we show below. Denote byˆq byˆ byˆq i = P (ˆ e(R L ) = i) the PMF ofêofˆofê(R L ). Then, we have the following result.</p><p>Lemma 4: PMF ofêofˆofê(R L ) is given by:</p><formula xml:id="formula_27">ˆ q i = 1 p s ∞ ∑ j=y(i) (1 − p) j−y(i) f j p,<label>(22)</label></formula><p>where p s is in (9), function y(i) is:</p><formula xml:id="formula_28">y(i) = ⌈i + 1 − 1/p − ω⌉,<label>(23)</label></formula><p>and</p><formula xml:id="formula_29">ω = W ( −(1 − p) i+1−1/p log(1 − p)</formula><p>) . Notice from (22)-(23) that distributionˆqdistributionˆ distributionˆq i does not even remotely approximate the original PMF f i . This problem is fundamental since residual sampling exhibits bias towards larger flows and even if we could recover L from R L exactly, the distribution of sampled flow sizes would not accurately approximate that of all flows passing through the router.</p><p>We thus explore another technique for estimating the flowsize distribution. Before doing that, we need the next lemma.</p><p>Lemma 5: The flow size distribution f i can be expressed using the PMF of geometric residuals {h i } in <ref type="formula" target="#formula_0">(10)</ref> as: This result leads to a new estimator for the flow-size distribution:</p><formula xml:id="formula_30">f i = h i − (1 − p)h i+1 p + (1 − p)h 1 .<label>(24)</label></formula><formula xml:id="formula_31">˜ q i = M i − (1 − p)M i+1 M p + (1 − p)M 1 ,<label>(25)</label></formula><p>where M is the total number of sampled flows and M i is the number of them with the geometric residual equal to i. Since M i /M → h i in probability as M → ∞ (from the weak law of large numbers), we immediately get the following result. Corollary 2: The estimator in <ref type="formula" target="#formula_1">(25)</ref> is asymptotically unbiased.</p><p>We next verify the accuracy of˜qof˜ of˜q i in simulations with 5M flows in the same setting as in the previous section. We plot in <ref type="figure" target="#fig_7">Fig. 7</ref> the CCDF estimated from (25) along with the actual distribution. The figure shows that˜qthat˜ that˜q i accurately follows the actual distribution for both cases of p.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>C. Convergence Speed</head><p>We next examine the effect of sample size M on the convergence of estimator˜qestimator˜ estimator˜q i . To illustrate the problems arising from small M , we study (25) with p = 10 −4 and 10 −5 in simulations with the same 5M flows. The estimator obtained M = 3, 090 flows for p = 10 −4 and just M = 337 for p = 10 −5 . <ref type="figure" target="#fig_8">Fig. 8</ref> indicates that while the estimated curves under both choices of p still approximate the trend of the original distribution, they exhibit different levels of noise. As the next result indicates, small p leads to a small sample size M and thus more noise in the estimated values.</p><p>Corollary 3: Suppose that M flows are selected by residual-geometric sampling from a total of n flows. Then, the expected value of M is given by:</p><formula xml:id="formula_32">E[M ] = np s = nE[1 − (1 − p) L ].<label>(26)</label></formula><p>To shed light on the choice of proper p for RGS, we show how to determine the minimum M that would guarantee a certain level of accuracy iñ q i . Define˜hDefine˜ Define˜h i = M i /M to be an estimate of h i = P (R L = i). The next lemma follows from Lemma 5 and Corollary 2 and indicates that the accuracy of˜q of˜ of˜q i directly depends on whether˜hwhether˜ whether˜h i approximates h i accurately.</p><p>Lemma 6: Suppose that | ˜ h j − h j | ≤ ηh j holds with probability 1 − ξ for j ∈ [1, i + 1] and small constants η and ξ. Then, there exists a constant ζ: such that ζ → 0 as η → 0 and P (|˜q</p><formula xml:id="formula_33">ζ = η(p + 2η(1 − p)h 1 ) p + (1 − p)(1 − η)h 1<label>(27)</label></formula><formula xml:id="formula_34">|˜q i − f i | ≤ ζf i ) = 1 − ξ.</formula><p>Next, we obtain a bound on M from the requirement that˜h that˜ that˜h i be bounded in probability within a given range</p><formula xml:id="formula_35">[h i (1 − η), h i (1 + η)].</formula><p>Theorem 5: For small constants η and ξ, | ˜ h i − h i | ≤ ηh i holds with probability 1 − ξ if sample size M is no less than:</p><formula xml:id="formula_36">M ≥ (1 − h i ) h i η 2 ( Φ −1 (1 − ξ/2) ) 2 ,<label>(28)</label></formula><p>where Φ(x) is the CDF of the standard Gaussian distribution N (0, 1).</p><p>For example, to bound˜hbound˜ bound˜h i within 10% percent of h i (i.e., η = 0.1) with probability 1 − ξ = 95% for all h i ≥ 10 −2 , the following must hold:</p><formula xml:id="formula_37">M ≥ (1 − 10 −2 ) × 1.96 2 10 −2 × 0.1 2 ≈ 3.8 × 10 4 ,<label>(29)</label></formula><p>which indicates that M = 38K flows must be sampled to achieve target accuracy. If we reduce η to 1%, increase 1−ξ to 99%, and require the approximation to hold for all h i ≥ 10 −3 , then M must be at least 66M flows. Converting η into ζ using <ref type="bibr" target="#b25">(27)</ref>, one can establish similar bounds on the deviation of˜qof˜ of˜q i from f i .</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>D. Estimation of Other Flow Metrics</head><p>Besides flow sizes and the flow-size distribution, URGE also provides estimators for the total number of flows and the number of them with size i. Before introducing these estimators, we need the next lemma.</p><p>Lemma 7: The expected number of flows with sampled residuals R L = i is:</p><formula xml:id="formula_38">E[M i ] = E[M ]h i = nh i p s ,<label>(30)</label></formula><p>where h i is the PMF of geometric residuals R L and p s is given by (9). Based on this, we next develop two estimators and prove their accuracy. LetñLet˜Letñ be an estimator of the total number of flows n observed in the measurement window <ref type="bibr">[0, T ]</ref>:</p><formula xml:id="formula_39">˜ n = M + (1 − p) p M 1<label>(31)</label></formula><p>andñand˜andñ i be an estimator of the number of flows n i with size i:</p><formula xml:id="formula_40">˜ n i = M i − (1 − p)M i+1 p .<label>(32)</label></formula><p>Then, the next result shows that both of these estimators are asymptotically unbiased.</p><p>Lemma 8: RatiosñRatios˜Ratiosñ/n andñand˜andñ i /n i converge to 1 in probability as M → ∞.</p><p>Note that <ref type="bibr" target="#b16">[17]</ref> provided a similar estimator as (31) and proved E[˜ n] = n using a different approach from ours; however, our results are stronger as they show convergence in probability and additionally address estimation of n i . Simulations verifying (31)-(32) are omitted for brevity.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>E. Active Flows</head><p>In a typical implementation of URGE, one needs a flow table to keep a mapping between flow identifiers and associated counters. An important element of any sampling algorithm is to ensure that the table keeps only active flows, which can be accomplished by periodic sweeps through RAM and removal of all flows that have completed. Such a strategy together with RGS can achieve a significant reduction in the table size.</p><p>To understand how much benefit removal of dead flows provides to memory consumption, we next derive the expected number of active flows at any time t and their fraction sampled by the algorithm. Assume a measurement window <ref type="bibr">[0, T ]</ref>, where T is given in packets seen by the router. For each flow j, let inter-packet delays within the flow be given by a random variable ∆ j , which counts the number of packet arrivals from other flows between adjacent packets of j. Denoting by ∆ = E[∆ j ], we have the following result.</p><p>Lemma 9: Assuming stationary flow arrivals in <ref type="bibr">[0, T ]</ref> and T → ∞, the expected number of active flows N (t) at time t is given by:</p><formula xml:id="formula_41">E[N (t)] = ∆ + 1.<label>(33)</label></formula><p>Our baseline reduction in flow volume comes from geometric sampling in previous sections and reduces the number of flows by a factor of r 1 = n/E <ref type="bibr">[M ]</ref>. Now additionally define ratio r 2 = n/E[N (t)] = T /(∆ + 1)E <ref type="bibr">[L]</ref> and observe that longer observation windows (i.e., larger T ), smaller flow sizes <ref type="bibr">(i.e., smaller E[L]</ref>), and denser arrivals (i.e., smaller ∆) imply more savings of memory. In fact, T → ∞ results in r 2 → ∞ if the other parameters are fixed. However, even more reduction is possible by discarding dead flows in RGS. Denote by M (t) the number of sampled flows that are still alive at t and consider the next result.</p><p>Lemma 10: Assuming the flow arrival process is stationary in <ref type="bibr">[0, T ]</ref> and T → ∞, the expected number of active sampled flows at time t is given by:</p><formula xml:id="formula_42">E[M (t)] = (∆ + 1) ( 1 − 1 − p pE[L] p s ) ,<label>(34)</label></formula><p>where p s in <ref type="formula" target="#formula_10">(9)</ref> is the fraction of all flows sampled by RGS. Define r 3 = n/E[M (t)] and notice that it increases not only as T grows, but also when p decreases. Performing a selfcheck using Jensen's inequality, observe that 0</p><formula xml:id="formula_43">≤ p s /pE[L] ≤ 1 and therefore E[M (t)] ≤ E[N (t)]</formula><p>, which means that the former indeed always results in more reduction in table size. Simulations with heavy-tailed flows (omitted due to limited space) show that the model is very accurate. </p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>VI. PERFORMANCE EVALUATION</head><p>In this section, we evaluate our models using several Internet traces in <ref type="table" target="#tab_1">Table I</ref> from NLANR <ref type="bibr">[24]</ref> and CAIDA <ref type="bibr" target="#b2">[3]</ref>. Trace FRG was collected from a gigabit link between UCSD and Abilene in 2006. We extracted from it additional traces with only Web, DNS, and NTP flows (also seen in the table). Additionally, we use three traces from CAIDA: LARGE -a one-hour trace from an OC48 link, MEDIUM -a one-minute trace from a OC192 link, and SMALL -a 7-minute trace from a gigabit link.</p><p>As the table shows, URGE typically sees a reasonably large number of flows M over the entire interval <ref type="bibr">[0, T ]</ref>; however, the number of active flows N (t) and those constantly kept in memory M (t) is much smaller. For the FRG trace, for example, E[M ] is 15 times smaller than n, while E[N (t)] is 81 and E[M (t)] is 658 times smaller. In general, NLANR traces benefit more from the removal of dead flows than CAIDA data, because former was collected over two consecutive days and thus had a larger observation window T , which led to larger ratios r 2 and r 3 . The same reasoning also explains the fact that the LARGE trace exhibits much higher benefit from removing dead flows than MEDIUM or SMALL traces.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>A. Estimation Accuracy</head><p>First, we examine the problem of estimating the total number of flows n in <ref type="bibr">[0, T ]</ref> and size-one flows n 1 in this interval. The fifth and eighth columns of Table II list the absolute error of models <ref type="formula" target="#formula_0">(31)</ref> and <ref type="formula" target="#formula_1">(32)</ref>, respectively. The table indicates that these estimates are commonly within 2.5% of the correct value.</p><p>We next evaluate the performance of URGE in estimating single-flow usage. <ref type="figure">Fig. 9</ref> plots the expectation of estimated   flow sizes (averaged over 100 iterations) along with the actual values obtained from the FRG trace using p = 0.001. The figure shows that the estimator e(R l ) from previous work tends to overestimate the sizes of small flows, while URGE's estimatorêestimatorˆestimatorê(R l ) accurately follows the actual values. We also compare the relative errors of the two studied methods in <ref type="figure" target="#fig_0">Fig.  10</ref>, which indicates that URGE has RRMSE bounded by 1 for all flows, while e(R l ) exhibits very large δ l for small and medium flows, which is an increasing function of 1/p. For the flow-size distribution, we first examine three values of p to compare its effect on the accuracy of URGE in the FRG trace. <ref type="figure" target="#fig_0">Fig. 11</ref> indicates that estimation for all three values of p are very consistent and all of them follow the actual distribution accurately. In our experiments with p = 0.0001, URGE recovered the original PMF {f i } using only M = 7, 616 total flows out of n = 1.75M.</p><p>Finally, we apply URGE with p = 0.001 to NLANR traces of different traffic types and plot in <ref type="figure" target="#fig_0">Fig. 12</ref> the estimated distributions along with the actual ones. As the figure shows, the flow statistics of different applications can be accurately estimated by URGE. We observe a similar match in our experiments with three CAIDA traces as shown in <ref type="figure" target="#fig_0">Fig. 13</ref>.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>VII. CONCLUSION</head><p>In this paper, we proved that previous methods based on residual-geometric sampling had certain bias in estimating single-flow usage and were unable to recover the flow-size distribution from the sampled residuals. To overcome this limitation, we proposed a novel modeling framework for analyzing residual sampling and developed a set of algorithms that were able to perform accurate estimation of flow statistics, even under the constraints of small router RAM size, short trace duration, and low CPU sampling overhead. </p></div><figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_0"><head>Fig. 1 .</head><label>1</label><figDesc>Fig. 1. Residual-geometric sampling of a flow with size L.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_1"><head>Fig. 2 .</head><label>2</label><figDesc>Fig. 2. Expectation of estimator (13) in simulations and its model (14).</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_2"><head>Fig. 3 .</head><label>3</label><figDesc>Fig. 3. RRMSE of (13) in simulations and its model (16).</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_3"><head></head><label></label><figDesc>against simulations, indicating a close match. The figure also shows that the RRMSE starts from 1/p and decreases towards zero as Θ(1/l) as l → ∞.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_4"><head>Fig. 4 .</head><label>4</label><figDesc>Fig. 4. Distribution {q i } in simulations and its model (17).</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_5"><head>Fig. 5 .</head><label>5</label><figDesc>Fig. 5. Expectation of estimator (19) in simulations.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_6"><head>Fig. 6 .</head><label>6</label><figDesc>Fig. 6. RRMSE of (19) in simulations and model (21).</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_7"><head>Fig. 7 .</head><label>7</label><figDesc>Fig. 7. Estimator (25) in simulations.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_8"><head>Fig. 8 .</head><label>8</label><figDesc>Fig. 8. Estimator (25) in simulations with very small p.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_9"><head>Fig. 9 .Fig. 10 .</head><label>910</label><figDesc>Fig. 9. Estimating single-flow usage in the FRG trace with p = 0.001.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_10"><head>Fig. 11 .</head><label>11</label><figDesc>Fig. 11. Estimating the flow size distribution using URGE in the FRG trace.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_11"><head>Fig. 12 .Fig. 13 .</head><label>1213</label><figDesc>Fig. 12. Estimating the flow size distribution using URGE in NLANR traces with p = 0.001.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_1" validated="false"><head>TABLE I REDUCTION IN THE NUMBER OF FLOWS USING RESIDUAL SAMPLING WITH p = 0.01 AND DIFFERENT TYPES OF PERIODIC REMOVAL OF DEAD FLOWS source trace total flows n total pkts nE[L] sampling only removal only both E[M ] r 1 E[N (t)] r 2 E[M (t)] r 3</head><label>I</label><figDesc></figDesc><table>NLANR 
+
+FRG 
+1, 756, 702 
+131, 821, 685 
+117, 995 15 
+21, 645 
+81 
+2, 669 
+658 
+Web 
+239, 174 
+6, 497, 894 
+26, 051 
+9 
+9, 698 
+24 
+985 
+240 
+DNS 
+120, 446 
+292, 977 
+2, 073 
+44 
+600 
+152 
+19 
+4, 797 
+NTP 
+382, 489 
+720, 447 
+4, 086 
+54 
+3, 036 
+73 
+77 
+2, 887 
+
+CAIDA 
+
+LARGE 
+9, 653, 609 
+117, 250, 415 
+519, 144 19 
+262, 525 
+37 
+21, 590 
+447 
+MEDIUM 
+2, 317, 369 
+43, 837, 666 
+139, 316 17 
+281, 137 
+8 
+53, 903 
+43 
+SMALL 
+200, 910 
+2, 179, 574 
+12, 862 
+16 
+44, 414 
+5 
+5, 948 
+34 
+
+</table></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_2" validated="false"><head>TABLE II PERFORMANCE OF URGE WITH p = 0.001</head><label>II</label><figDesc></figDesc><table>source 
+trace 
+# of flows 
+# of size-one flows 
+actual (n) 
+estimated (˜ n) 
+error 
+actual (n 1 ) 
+estimated (˜ n 1 ) 
+error 
+
+NLANR 
+
+FRG 
+1, 756, 702 
+1, 736, 261 
+1.16% 
+768, 742 
+749, 958 
+2.44% 
+Web 
+239, 174 
+253, 996 
+6.2% 
+13, 686 
+13, 922 
+1.72% 
+DNS 
+120, 446 
+124, 176 
+3.1% 
+76, 607 
+78, 045 
+1.88% 
+NTP 
+382, 489 
+375, 326 
+1.87% 
+281, 370 
+279, 096 
+0.8% 
+
+CAIDA 
+
+LARGE 
+9, 653, 609 
+9, 717, 315 
+0.66% 
+4, 535, 449 
+4, 630, 037 
+2.09% 
+MEDIUM 
+2, 317, 369 
+2, 278, 984 
+1.66% 
+1, 299, 343 
+1, 273, 989 
+1.95% 
+SMALL 
+200, 910 
+202, 604 
+0.84% 
+93, 575 
+95, 106 
+1.64% 
+
+</table></figure>
+		</body>
+		<back>
+			<div type="references">
+
+				<listBibl>
+
+<biblStruct xml:id="b0">
+	<analytic>
+		<title level="a" type="main">Impact of Traffic Sampling on Anomaly Detection Metrics</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Brauckhoff</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">B</forename><surname>Tellenbach</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Wagner</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Lakhina</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>May</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. ACM IMC</title>
+		<meeting>ACM IMC</meeting>
+		<imprint>
+			<date type="published" when="2006-10" />
+			<biblScope unit="page" from="159" to="164" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b1">
+	<monogr>
+				<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">G</forename><surname>Casella</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><forename type="middle">L</forename><surname>Berger</surname></persName>
+		</author>
+		<title level="m">Statistical Inference</title>
+		<imprint>
+			<date type="published" when="2002" />
+		</imprint>
+	</monogr>
+	<note>2nd ed. Duxbury/Thomson Learning</note>
+</biblStruct>
+
+<biblStruct xml:id="b2">
+	<monogr>
+		<title level="m" type="main">Cooperative Association for Internet Data Analysis (CAIDA)</title>
+		<ptr target="http://www.caida.org/" />
+		<imprint/>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b3">
+	<analytic>
+		<title level="a" type="main">On the Lambert W Function</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><forename type="middle">M</forename><surname>Corless</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">G</forename><forename type="middle">H</forename><surname>Gonnet</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><forename type="middle">E G</forename><surname>Hare</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><forename type="middle">J</forename><surname>Jeffrey</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><forename type="middle">E</forename><surname>Knuth</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Advances in Computational Mathematics</title>
+		<imprint>
+			<biblScope unit="volume">5</biblScope>
+			<biblScope unit="page" from="329" to="359" />
+			<date type="published" when="1996" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b4">
+	<analytic>
+		<title level="a" type="main">Predicting Resource Usage and Estimation Accuracy in an IP Flow Measurement Collection Infrastructure</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">N</forename><surname>Duffield</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Lund</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. ACM IMC</title>
+		<meeting>ACM IMC</meeting>
+		<imprint>
+			<date type="published" when="2003-10" />
+			<biblScope unit="page" from="179" to="191" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b5">
+	<analytic>
+		<title level="a" type="main">Charging from Sampled Network Usage</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">N</forename><surname>Duffield</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Lund</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Thorup</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. ACM IMW</title>
+		<meeting>ACM IMW</meeting>
+		<imprint>
+			<date type="published" when="2001-11" />
+			<biblScope unit="page" from="245" to="256" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b6">
+	<analytic>
+		<title level="a" type="main">Estimating Flow Distributions from Sampled Flow Statistics</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">N</forename><surname>Duffield</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Lund</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Thorup</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. ACM SIGCOMM</title>
+		<meeting>ACM SIGCOMM</meeting>
+		<imprint>
+			<date type="published" when="2003-08" />
+			<biblScope unit="page" from="325" to="336" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b7">
+	<analytic>
+		<title level="a" type="main">Flow Sampling under Hard Resource Constraints</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">N</forename><surname>Duffield</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Lund</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Thorup</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. ACM SIGMETRICS</title>
+		<meeting>ACM SIGMETRICS</meeting>
+		<imprint>
+			<date type="published" when="2004-06" />
+			<biblScope unit="page" from="85" to="96" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b8">
+	<analytic>
+		<title level="a" type="main">Learn More, Sample Less: Control of Volume and Variance in Network Measurement</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">N</forename><surname>Duffield</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Lund</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Thorup</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">IEEE Trans. Inform. Theory</title>
+		<imprint>
+			<biblScope unit="volume">51</biblScope>
+			<biblScope unit="issue">5</biblScope>
+			<biblScope unit="page" from="1756" to="1775" />
+			<date type="published" when="2005-05" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b9">
+	<analytic>
+		<title level="a" type="main">Building a Better Netflow</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Estan</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">K</forename><surname>Keys</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Moore</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">G</forename><surname>Varghese</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. ACM SIGCOMM</title>
+		<meeting>ACM SIGCOMM</meeting>
+		<imprint>
+			<date type="published" when="2004-08" />
+			<biblScope unit="page" from="245" to="256" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b10">
+	<analytic>
+		<title level="a" type="main">New Directions in Traffic Measurement and Accounting</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Estan</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">G</forename><surname>Varghese</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. ACM SIGCOMM</title>
+		<meeting>ACM SIGCOMM</meeting>
+		<imprint>
+			<date type="published" when="2002-08" />
+			<biblScope unit="page" from="323" to="336" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b11">
+	<analytic>
+		<title level="a" type="main">Inter-AS Traffic Patterns and their Implications</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">W</forename><surname>Fang</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">L</forename><surname>Peterson</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. IEEE GLOBECOM</title>
+		<meeting>IEEE GLOBECOM</meeting>
+		<imprint>
+			<date type="published" when="1999-12" />
+			<biblScope unit="page" from="1859" to="1868" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b12">
+	<analytic>
+		<title level="a" type="main">Deriving Traffic Demands for Operational IP Networks: Methodology and Experience</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Feldmann</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Greenberg</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Lund</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">N</forename><surname>Reingold</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Rexford</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">F</forename><surname>True</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">IEEE/ACM Trans. Netw</title>
+		<imprint>
+			<biblScope unit="volume">9</biblScope>
+			<biblScope unit="issue">3</biblScope>
+			<biblScope unit="page" from="265" to="280" />
+			<date type="published" when="2001-06" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b13">
+	<analytic>
+		<title level="a" type="main">Inverting Sampled Traffic</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">N</forename><surname>Hohn</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Veitch</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. ACM IMC</title>
+		<meeting>ACM IMC</meeting>
+		<imprint>
+			<date type="published" when="2003-10" />
+			<biblScope unit="page" from="222" to="233" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b14">
+	<analytic>
+		<title level="a" type="main">Accurate and Efficient Traffic Monitoring Using Adaptive Non-linear Sampling Method</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Hu</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Wang</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Tian</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">B</forename><surname>Liu</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Y</forename><surname>Cheng</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Y</forename><surname>Chen</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. IEEE INFOCOM</title>
+		<meeting>IEEE INFOCOM</meeting>
+		<imprint>
+			<date type="published" when="2008-04" />
+			<biblScope unit="page" from="421" to="429" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b15">
+	<analytic>
+		<title level="a" type="main">Effect of Sampling Rate and Monitoring Granularity on Anomaly Detectability</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">K</forename><surname>Ishibashi</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Kawahara</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">T</forename><surname>Mori</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">T</forename><surname>Kondoh</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Asano</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. IEEE Global Internet Symposium</title>
+		<meeting>IEEE Global Internet Symposium</meeting>
+		<imprint>
+			<date type="published" when="2007-05" />
+			<biblScope unit="page" from="25" to="30" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b16">
+	<analytic>
+		<title level="a" type="main">The Power of Slicing in Internet Flow Measurement</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><forename type="middle">R</forename><surname>Kompella</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Estan</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. USENIX/ACM IMC</title>
+		<meeting>USENIX/ACM IMC</meeting>
+		<imprint>
+			<date type="published" when="2005-10" />
+			<biblScope unit="page" from="105" to="118" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b17">
+	<analytic>
+		<title level="a" type="main">Data Streaming Algorithms for Efficient and Accurate Estimation of Flow Size Distribution</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Kumar</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Sung</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Xu</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Wang</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. ACM SIGMETRICS</title>
+		<meeting>ACM SIGMETRICS</meeting>
+		<imprint>
+			<date type="published" when="2004-06" />
+			<biblScope unit="page" from="177" to="188" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b18">
+	<analytic>
+		<title level="a" type="main">A Data Streaming Algorithm for Estimating Subpopulation Flow Size Distribution</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Kumar</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Sung</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Xu</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">E</forename><surname>Zegura</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. ACM SIGMETRICS</title>
+		<meeting>ACM SIGMETRICS</meeting>
+		<imprint>
+			<date type="published" when="2005-06" />
+			<biblScope unit="page" from="61" to="72" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b19">
+	<analytic>
+		<title level="a" type="main">Sketch Guided Sampling -Using On-Line Estimates of Flow Size for Adaptive Data Collection</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Kumar</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Xu</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. IEEE INFOCOM</title>
+		<meeting>IEEE INFOCOM</meeting>
+		<imprint>
+			<date type="published" when="2006-04" />
+			<biblScope unit="page" from="1" to="11" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b20">
+	<analytic>
+		<title level="a" type="main">Space-Code Bloom Filter for Efficient Per-Flow Traffic Measurement</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Kumar</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Xu</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Wang</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">O</forename><surname>Spatschek</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">L</forename><surname>Li</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. IEEE INFOCOM</title>
+		<meeting>IEEE INFOCOM</meeting>
+		<imprint>
+			<date type="published" when="2004-03" />
+			<biblScope unit="page" from="1762" to="1773" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b21">
+	<analytic>
+		<title level="a" type="main">Counter Braids: A Novel Counter Architecture for Per-Flow Measurement</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Y</forename><surname>Lu</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Montanari</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">B</forename><surname>Prabhakar</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Dharmapurikar</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Kabbani</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. ACM SIGMETRICS</title>
+		<meeting>ACM SIGMETRICS</meeting>
+		<imprint>
+			<date type="published" when="2008-06" />
+			<biblScope unit="page" from="121" to="132" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b22">
+	<analytic>
+		<title level="a" type="main">Is Sampled Data Sufficient for Anomaly Detection</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Mai</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C.-N</forename><surname>Chuah</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Sridharan</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">T</forename><surname>Ye</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">H</forename><surname>Zang</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. ACM IMC</title>
+		<meeting>ACM IMC</meeting>
+		<imprint>
+			<date type="published" when="2006-10" />
+			<biblScope unit="page" from="165" to="176" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b23">
+	<monogr>
+		<title/>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Netflow</forename><surname>Cisco Sampled</surname></persName>
+		</author>
+		<ptr target="http://www.cisco.com/en/US/docs/ios/120s/feature/guide/12ssanf.html" />
+		<imprint/>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b24">
+	<analytic>
+		<title level="a" type="main">Approximate Fairness through Differential Dropping</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Pan</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">L</forename><surname>Breslau</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">B</forename><surname>Prabhakar</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Shenker</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">ACM SIGCOMM Comp. Comm. Rev</title>
+		<imprint>
+			<biblScope unit="volume">33</biblScope>
+			<biblScope unit="issue">2</biblScope>
+			<biblScope unit="page" from="23" to="39" />
+			<date type="published" when="2003-04" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b25">
+	<analytic>
+		<title level="a" type="main">Efficient Implementation of a Statistics Counter Architecture</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Ramabhadran</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">G</forename><surname>Varghese</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. ACM SIGMETRICS</title>
+		<meeting>ACM SIGMETRICS</meeting>
+		<imprint>
+			<date type="published" when="2003-06" />
+			<biblScope unit="page" from="261" to="271" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b26">
+	<analytic>
+		<title level="a" type="main">Modeling Residual-Geometric Flow Sampling (extended version)</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">X</forename><surname>Wang</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">X</forename><surname>Li</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Loguinov</surname></persName>
+		</author>
+		<ptr target="http://irl.cs.tamu.edu/publications/" />
+	</analytic>
+	<monogr>
+		<title level="j">Texas A&amp;M University</title>
+		<imprint>
+			<date type="published" when="2010-12-02" />
+		</imprint>
+	</monogr>
+<note type="report_type">Tech. Rep</note>
+</biblStruct>
+
+<biblStruct xml:id="b27">
+	<analytic>
+		<title level="a" type="main">Residual-Based Measurement of Peer and Link Lifetimes in Gnutella Networks</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">X</forename><surname>Wang</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Z</forename><surname>Yao</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Loguinov</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. IEEE INFOCOM</title>
+		<meeting>IEEE INFOCOM</meeting>
+		<imprint>
+			<date type="published" when="2007-05" />
+			<biblScope unit="page" from="391" to="399" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b28">
+	<analytic>
+		<title level="a" type="main">Sampled Based Estimation of Network Traffic Flow Characteristics</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">L</forename><surname>Yang</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Michailidis</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. IEEE INFOCOM</title>
+		<meeting>IEEE INFOCOM</meeting>
+		<imprint>
+			<date type="published" when="2007-05" />
+			<biblScope unit="page" from="1775" to="1783" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b29">
+	<analytic>
+		<title level="a" type="main">Design of a Novel Statistics Counter Architecture with Optimal Space and Time Efficiency</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Q</forename><surname>Zhao</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Xu</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Z</forename><surname>Liu</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. ACM SIGMETRICS</title>
+		<meeting>ACM SIGMETRICS</meeting>
+		<imprint>
+			<date type="published" when="2006-06" />
+			<biblScope unit="page" from="323" to="334" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+				</listBibl>
+			</div>
+		</back>
+	</text>
+</TEI>

@@ -1,0 +1,321 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>Ding Yuan, Soyeon Park, Peng Huang, Yang Liu, Michael Lee, Xiaoming Tang, Yuanyuan Zhou, Stefan Savage</p>
+    <p>University of California, San Diego University of Illinois at Urbana-Champaign</p>
+    <p>Be Conservative: Enhancing Failure Diagnosis with Proactive Logging</p>
+    <p>http://opera.ucsd.edu/errlog.html</p>
+  </div>
+  <div class="page">
+    <p>Motivation</p>
+    <p>Production failures are hard to reproduce  Privacy concerns for input  Hard to recreate the production setting</p>
+  </div>
+  <div class="page">
+    <p>Importance of log messages</p>
+    <p>Diagnosis time* (normalized)</p>
+    <p>* result from &gt;100 randomly sampled failures per software</p>
+    <p>Vendors actively collect logs  EMC, NetApp, Cisco, Dell collect logs from &gt;50% of their</p>
+    <p>customers [SANS2009][EMC][Dell]</p>
+    <p>Log messages cut diagnosis time by 2.2X</p>
+    <p>Fifth annual SANS Survey Reveals 99% of Organizations Collect Logs or Plan to Implement Log Management</p>
+  </div>
+  <div class="page">
+    <p>An real-world example of good logging</p>
+    <p>$ ./apachectl start</p>
+    <p>What if there is no such log message?</p>
+    <p>Starting Apache web server</p>
+    <p>Typo misconfiguration</p>
+    <p>Could not open group file: /etc/httpd/gorup No such file or directory</p>
+  </div>
+  <div class="page">
+    <p>Real-world failure report</p>
+    <p>User: Apache httpd cannot start. No log message printed.</p>
+    <p>if ((status = fileopen(grpfile, ..)) != SUCCESS) {</p>
+    <p>return DECLINED; }</p>
+    <p>+ ap_log_error(Could not open group file: %s, grpfile);</p>
+    <p>Developer: Cannot reproduce the failure Ask lots of user information Users misconfiguration: typo in group file name.</p>
+    <p>Reative instead of proactive!</p>
+    <p>Detected error &amp; terminate</p>
+  </div>
+  <div class="page">
+    <p>Real-world bug in Squid web-cache</p>
+    <p>User: In an array of squid servers, from time to time the available file descriptors drops down to nearly zero.</p>
+    <p>No log message or anything!</p>
+    <p>Developer: Cannot reproduce the failure Ask user for [debug] level logs Ask user for configuration file Additional log statements. Ask user for DNS statistics</p>
+  </div>
+  <div class="page">
+    <p>Real-world bug in Squid web-cache</p>
+    <p>User: In an array of squid servers, from time to time the available file descriptors drops down to nearly zero.</p>
+    <p>No log message or anything!</p>
+    <p>if (status != OK) { idnsSendQuery (q);</p>
+    <p>}</p>
+    <p>DNS lookup error</p>
+    <p>Not handled properly</p>
+    <p>+ idnsTcpCleanup(q); + error(Failed to connect to DNS server with TCP);</p>
+  </div>
+  <div class="page">
+    <p>What we have seen from the examples</p>
+    <p>Developers miss obvious log opportunities  Analogy: solving crime without evidence</p>
+    <p>How many real-world cases are like this?  What are other obvious places to log?</p>
+  </div>
+  <div class="page">
+    <p>Our contributions</p>
+    <p>Quantitative evidences  Many opportunities that developers could have logged  Small set of generic log-worthy patterns</p>
+    <p>Errlog: a tool to automate logging</p>
+    <p>Errlog if (status != OK) { .. .. .. }</p>
+    <p>if (status != OK) { elog(.. ..); .. .. .. } Added log</p>
+    <p>statement</p>
+  </div>
+  <div class="page">
+    <p>Outline</p>
+    <p>Introduction  Characterizing logging efficacy  Errlog design  Evaluation results  Conclusion</p>
+  </div>
+  <div class="page">
+    <p>Goals of our study</p>
+    <p>Do real-world failures have log messages?</p>
+    <p>Where to log?</p>
+  </div>
+  <div class="page">
+    <p>Study methodology</p>
+    <p>Randomly sampled 250 recently reported failures*  Carefully studied the discussion and related code/patch  Study took 4 authors 4 months</p>
+    <p>Software Sampled failures Apache httpd 65</p>
+    <p>Squid 50</p>
+    <p>PostgreSQL 45</p>
+    <p>SVN 45</p>
+    <p>GNU Coreutils 45</p>
+    <p>Total 250</p>
+    <p>* Data can be found at: http://opera.ucsd.edu/errlog.html</p>
+  </div>
+  <div class="page">
+    <p>How many missed log message?</p>
+    <p>Only 43% failures have log messages</p>
+    <p>W/ Log (43%)</p>
+    <p>W/O Log (57%)</p>
+    <p>Software Failures with log Apache httpd 37%</p>
+    <p>Squid 40%</p>
+    <p>PostgreSQL 53%</p>
+    <p>SVN 56%</p>
+    <p>Coreutils 33%</p>
+    <p>Overall 43%</p>
+  </div>
+  <div class="page">
+    <p>How many missed log message?</p>
+    <p>Only 43% failures have log messages  77% have easy-to-log opportunities</p>
+    <p>W/ Log (43%)</p>
+    <p>W/O Log (57%)</p>
+    <p>Software Failures with log Apache httpd 37%</p>
+    <p>Squid 40%</p>
+    <p>PostgreSQL 53%</p>
+    <p>SVN 56%</p>
+    <p>Coreutils 33%</p>
+    <p>Overall 43%</p>
+    <p>Easy-to-log opportunity</p>
+  </div>
+  <div class="page">
+    <p>Pattern I: function return error</p>
+    <p>if ((status = fileopen (grpfile, ..)) != SUCCESS) { return DECLINED; }</p>
+    <p>No log:</p>
+    <p>/* Apache httpd misconfiguration. */</p>
+    <p>wrapper function of open system call</p>
+    <p>Unnecessary user complain and debugging efforts</p>
+  </div>
+  <div class="page">
+    <p>Pattern I: function return error</p>
+    <p>svn_err_t* svn_export(..) { SVN_ERR(svn_versioned(..)); }</p>
+    <p>Good practice:</p>
+    <p>/* SVN */</p>
+    <p>svn_err_t* svn_versioned(..) { if (!entry) return error_create(%s is not under version control, ..); }</p>
+    <p>#define SVN_ERR(func) svn_error_t* temp=(func); if (temp) return temp;</p>
+    <p>int main (..) { if (svn_export(..)) .. .. }</p>
+    <p>print message once</p>
+    <p>Propagate to caller</p>
+    <p>Macro to detect all func. return error</p>
+    <p>Create and return an error message</p>
+  </div>
+  <div class="page">
+    <p>Pattern I: function return error</p>
+    <p>svn_err_t* svn_export(..) { SVN_ERR(svn_versioned(..)); }</p>
+    <p>Good practice:</p>
+    <p>/* SVN */</p>
+    <p>svn_err_t* svn_versioned(..) { if (!entry) return error_create(%s is not under version control, ..); }</p>
+    <p>#define SVN_ERR(func) svn_error_t* temp=(func); if (temp) return temp;</p>
+    <p>int main (..) { if (svn_export(..)) .. .. }</p>
+    <p>print message once</p>
+    <p>Propagate to caller</p>
+    <p>Macro to detect all func. return error</p>
+    <p>Create and return an error message</p>
+  </div>
+  <div class="page">
+    <p>Pattern II: abnormal exit</p>
+    <p>if (svn_dirent_is_root) abort ();</p>
+    <p>No log:</p>
+    <p>/* SVN */</p>
+    <p>+ svn_error_raise_on_malfunction(_FILE_, _LINE_);</p>
+    <p>+ svn_error_raise_on_malfunction (..) { + err=svn_error_create(In file %s line %d: internal malfunction); + svn_handle_error2 (err); + abort(); + }</p>
+    <p>I really hate abort() calls! Instead of getting a usable core-dump, I often got nothing.</p>
+    <p>--- developers check-in message</p>
+    <p>A bug triggered this abort</p>
+    <p>Over 10 discussion messages btw. user and dev.</p>
+    <p>print error message.</p>
+  </div>
+  <div class="page">
+    <p>Generic log-worthy patterns</p>
+  </div>
+  <div class="page">
+    <p>Generic log-worthy patterns</p>
+    <p>Exception conditions</p>
+  </div>
+  <div class="page">
+    <p>Log the exception</p>
+    <p>Classic Fault-Error-Failure model [Laprie.95]</p>
+    <p>Fault</p>
+    <p>Root cause, e.g., s/w bug,</p>
+    <p>h/w fault, misconfiguration,</p>
+    <p>etc</p>
+    <p>Failure</p>
+    <p>Affect service/result Visible to user</p>
+    <p>Error (exception)</p>
+    <p>Start to misbehave, e.g., system-call</p>
+    <p>error return</p>
+    <p>Log? Fault is hard to find!</p>
+    <p>Log!</p>
+    <p>Not too much overhead Relevant to the failures</p>
+  </div>
+  <div class="page">
+    <p>Failure</p>
+    <p>Why developers missed logging?</p>
+    <p>Fault</p>
+    <p>Undetected Error</p>
+    <p>Detected Error</p>
+    <p>no log: 46 154 (61%)</p>
+    <p>Give up</p>
+    <p>no log: 96</p>
+    <p>Failure</p>
+    <p>Failure</p>
+    <p>Handle incorrectly</p>
+    <p>Dont be optimistic; conservatively log!</p>
+    <p>Log detected errors!</p>
+    <p>Carefully check the error!</p>
+  </div>
+  <div class="page">
+    <p>Outline</p>
+    <p>Introduction  Characterizing logging efficacy  Errlog design  Evaluation results  Conclusion</p>
+    <p>automate such logging</p>
+  </div>
+  <div class="page">
+    <p>Errlog: a practical logging tool</p>
+    <p>Exception identification</p>
+    <p>Source code</p>
+    <p>Modified source code</p>
+    <p>Is it already logged?</p>
+    <p>Insertion &amp; optimization</p>
+    <p>errlog logfunc=error CVS/src</p>
+    <p>No</p>
+  </div>
+  <div class="page">
+    <p>Exception identification</p>
+    <p>Mechanically search for generic error conditions  Learn domain-specific error conditions</p>
+    <p>if (status != COMM_OK) goto ERROR; .. .. ERROR: error(network failure);</p>
+    <p>if (status != COMM_OK){</p>
+    <p>}</p>
+    <p>Frequently logged</p>
+    <p>+ elog ();</p>
+  </div>
+  <div class="page">
+    <p>Log statement insertion</p>
+    <p>Check if the exception is already logged  Each log statement contains:</p>
+    <p>Unique log ID, global counter, call stack, useful variables</p>
+    <p>/* Errlog modified code */ if (status != COMM_OK) { + elog (logID, glob_counter, logEnhancer()); }</p>
+    <p>LogEnhancer [TOCS12]</p>
+  </div>
+  <div class="page">
+    <p>Adaptive sampling to reduce overhead</p>
+    <p>Not every identified condition is a true error  E.g., using error return of stat to test the existence of file</p>
+    <p>Adaptive sampling [HauswirthASPLOS04]  More frequently it occurs, less likely to be a true error  Differentiate run-time log by call stack and errno</p>
+    <p>Logged occurrence</p>
+    <p>n</p>
+  </div>
+  <div class="page">
+    <p>Evaluation</p>
+    <p>Applied Errlog on ten software projects</p>
+    <p>Software LOC Apache httpd 317K</p>
+    <p>Squid 121K</p>
+    <p>PostgreSQL 1029K</p>
+    <p>SVN 288K</p>
+    <p>Coreutils 69K</p>
+    <p>Software LOC CVS 111K</p>
+    <p>OpenSSH 81K</p>
+    <p>Lighttpd 56K</p>
+    <p>gzip 22K</p>
+    <p>GNU make 29K</p>
+    <p>Software used in our empirical study</p>
+    <p>New software not used in our empirical study</p>
+  </div>
+  <div class="page">
+    <p>Reducing silent failures</p>
+    <p>Errlog adds 0.60X extra log printing statements  What is the benefit?</p>
+    <p>Evaluated on 141 silent failures</p>
+    <p>Failures originally print no logs</p>
+    <p>Subtle exceptions.</p>
+  </div>
+  <div class="page">
+    <p>Comparison with manual logging</p>
+    <p>16,065 existing log stmt. in ten systems  Many added reactively</p>
+    <p>Average: 83%</p>
+    <p>Used in study</p>
+    <p>Average: 85%</p>
+    <p>New</p>
+    <p>Objective baseline</p>
+  </div>
+  <div class="page">
+    <p>Performance overhead</p>
+    <p>&lt;1% &lt;1% &lt;1% &lt;1% &lt;1% &lt;1%</p>
+    <p>Maximum 4.6%</p>
+    <p>Why Errlog has overhead?  A few noisy log messages in normal execution</p>
+    <p>Errlog adds 1.4% overhead</p>
+  </div>
+  <div class="page">
+    <p>User study</p>
+    <p>20 programmers from UCSD  5 real-world failures</p>
+    <p>Failure Repro? Description apache crash</p>
+    <p>Yes NULL ptr. dereference caused by user misconfiguration.</p>
+    <p>apache no-file</p>
+    <p>Yes Misconfiguration caused apache cannot find the group-file</p>
+    <p>chmod No Silently fail on dangling symbolic link</p>
+    <p>cp Yes Fail to copy the content of /proc/cpuinfo</p>
+    <p>squid No Denies users valid authentication when using an external authentication server</p>
+    <p>GDB can be used.</p>
+  </div>
+  <div class="page">
+    <p>User study result</p>
+    <p>On average, Errlog reduces diagnosis time by 61%</p>
+    <p>(Errlog added) logs are in particular helpful for debugging complex systems or unfamiliar code where it required a great deal of time in isolating the buggy code path.  from a users feedback</p>
+  </div>
+  <div class="page">
+    <p>Limitations</p>
+    <p>Study result might not be representative  Only five software projects  All written in C/C++</p>
+    <p>Not all failures can benefit from Errlog  Still 35% of the silent failures remain silent</p>
+    <p>Semantic of the log message is not as good</p>
+  </div>
+  <div class="page">
+    <p>Related work</p>
+    <p>Detecting bugs in exception handling code [RenzelmannOSDI12][GunawiFAST08][GonzalesPLDI09] [MarinescuTOCS11][GunawiNSDI11][YangOSDI04]</p>
+    <p>Different: logging instead of bug detection  Complementary: exception patterns can benefit previous work</p>
+    <p>Deterministic replay [VeeraraghavanASPLOS11][AltekarSOSP09] [DunlapOSDI02][SubhravetiSIGMETRICS11]</p>
+    <p>Overhead and privacy</p>
+    <p>Log enhancement [Yuan TOCS12][Yuan ICSE12]  Unique challenges: Shooting blind and overhead  Different approaches: failure study, exception identification,</p>
+    <p>check if exception is logged, adaptive sampling, etc.</p>
+  </div>
+  <div class="page">
+    <p>Conclusions</p>
+    <p>Many obvious exceptions are not logged  Carefully write error checking code  Conservatively log the detected error, even when its handled</p>
+    <p>Errlog: practical log automation tool  User study: Errlog shortens the diagnosis by 61%  Adding only 1.4% overhead</p>
+  </div>
+  <div class="page">
+    <p>Failure diagnosis reports can be found at:</p>
+    <p>http://opera.ucsd.edu/errlog.html</p>
+    <p>&quot;As personal choice, we tend not to use debuggers beyond getting a stack trace or the value of a variable We find stepping through a program less productive than thinking harder and adding output statements and self-checking code at critical places. More important, debugging statements stay with the program; debugging sessions are transient.</p>
+    <p>--- Brian W. Kernighan and Rob Pike The Practice of Programming</p>
+    <p>Thanks!</p>
+  </div>
+</Presentation>

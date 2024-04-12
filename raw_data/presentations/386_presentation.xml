@@ -1,0 +1,421 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>A Design for Comprehensive Kernel</p>
+    <p>Instrumentation</p>
+    <p>Peter Feiner Angela Demke Brown Ashvin Goel peter@cs.toronto.edu demke@cs.toronto.edu ashvin@eecg.toronto.edu</p>
+    <p>University of Toronto</p>
+  </div>
+  <div class="page">
+    <p>Motivation Transparent fault isolation for device drivers</p>
+    <p>Want to isolate existing driver binaries Inspired by Byte Granularity Isolation</p>
+    <p>Requires source code Use Dynamic Binary Instrumentation (DBI)</p>
+    <p>Does not require source code  Inspect &amp; modify instructions before they execute</p>
+    <p>x86 Driver Code</p>
+    <p>Kernel</p>
+  </div>
+  <div class="page">
+    <p>Motivation Transparent fault isolation for device drivers</p>
+    <p>Want to isolate existing driver binaries Inspired by Byte Granularity Isolation</p>
+    <p>Requires source code Use Dynamic Binary Instrumentation (DBI)</p>
+    <p>Does not require source code  Inspect &amp; modify instructions before they execute</p>
+    <p>x86 Driver Code</p>
+    <p>Instrumented Driver</p>
+    <p>Kernel</p>
+  </div>
+  <div class="page">
+    <p>Motivation Transparent fault isolation for device drivers</p>
+    <p>Want to isolate existing driver binaries Inspired by Byte Granularity Isolation</p>
+    <p>Requires source code Use Dynamic Binary Instrumentation (DBI)</p>
+    <p>Does not require source code  Inspect &amp; modify instructions before they execute</p>
+    <p>x8 6</p>
+    <p>D riv</p>
+    <p>er</p>
+    <p>C od</p>
+    <p>e</p>
+    <p>x86 Driver Code</p>
+    <p>Instrumented Driver</p>
+    <p>Kernel DBI</p>
+  </div>
+  <div class="page">
+    <p>Motivation DBI applied for debugging and security at the user level</p>
+    <p>Memcheck - checks memory errors  Program Shepherding - control flow integrity</p>
+    <p>Various user-level DBI frameworks are available</p>
+    <p>APIs for inspecting and modifying instructions  e.g., Valgrind, DynamoRIO, Pin</p>
+    <p>These frameworks dont work in the kernel</p>
+    <p>What would it take?</p>
+  </div>
+  <div class="page">
+    <p>OS</p>
+    <p>The Key Difference User frameworks sit between applications and the OS</p>
+    <p>Interpose on system calls  Take advantage of OS services, e.g. I/O</p>
+    <p>Kernel frameworks need to sit between the OS &amp; CPU</p>
+    <p>Isnt that what hypervisors do?</p>
+    <p>Ap ps</p>
+    <p>DBI</p>
+    <p>CPU</p>
+  </div>
+  <div class="page">
+    <p>Our Approach We need to combine a DBI framework with a hypervisor</p>
+    <p>Choice 1: Port DBI to an existing hypervisor  Pros: both exist  Cons: both very complex  Choice 2: Create a minimal hypervisor,</p>
+    <p>similar to SecVisors approach</p>
+    <p>Pros: easier to do  Pros: possibly higher performance</p>
+    <p>We designed a minimal hypervisor around a DBI framework</p>
+    <p>Lets see how DBI works &amp; what it needs 5</p>
+    <p>O S</p>
+    <p>Kernel DBI</p>
+    <p>Apps</p>
+    <p>CPU</p>
+  </div>
+  <div class="page">
+    <p>DBI Technique Copy basic blocks of x86 code into code cache before execution</p>
+    <p>Code executed from cache  Instrumentation added to copy  Manipulate copies to return</p>
+    <p>control to the dispatcher</p>
+    <p>Execute from Code Cache</p>
+    <p>Dispatch</p>
+    <p>Cached? Copy Block No</p>
+    <p>Yes</p>
+    <p>x86 Code</p>
+    <p>Start</p>
+  </div>
+  <div class="page">
+    <p>DBI Requirements Never execute machines original code</p>
+    <p>Necessary for security applications Hide framework from instrumented code</p>
+    <p>Instrumented code should observe un-instrumented machine state Dispatcher should use instrumented code with care</p>
+    <p>Implementation cannot use non-reentrant instrumented code Detect changes to the original code</p>
+    <p>Invalidate stale code in the cache Preserve multicore concurrency</p>
+    <p>Essential for performance and accuracy</p>
+  </div>
+  <div class="page">
+    <p>Well look at the first three in more detail</p>
+    <p>Meeting DBI Requirements</p>
+    <p>User Kernel</p>
+    <p>Never Execute Original Code</p>
+    <p>New Threads, Signals</p>
+    <p>Kernel Entry Points</p>
+    <p>Transparency Signals Interrupts, Exceptions</p>
+    <p>Reentrance Use OS Code Implement Everything</p>
+    <p>From Scratch</p>
+    <p>Detect Code Changes System Calls</p>
+    <p>mmap, mprotect, etc. Shadow Page Tables</p>
+    <p>Concurrency Locking,</p>
+    <p>Thread Private CPU Private</p>
+  </div>
+  <div class="page">
+    <p>Never Execute Original Code</p>
+    <p>User Code</p>
+    <p>ExceptionsInterrupts</p>
+    <p>OS Binaries (kernel, drivers)</p>
+    <p>User Mode Supervisor Mode</p>
+  </div>
+  <div class="page">
+    <p>Never Execute Original Code</p>
+    <p>User Code</p>
+    <p>ExceptionsInterrupts</p>
+    <p>User Mode Supervisor Mode</p>
+    <p>DispatcherCode Cache</p>
+    <p>Load kernel module that redirects entry points to the dispatcher</p>
+    <p>OS Binaries (kernel, drivers)</p>
+  </div>
+  <div class="page">
+    <p>Redirecting Entry Points</p>
+    <p>Entry 1</p>
+    <p>Entry 2</p>
+    <p>Table Register</p>
+    <p>OS Binaries</p>
+    <p>Descriptor Table</p>
+  </div>
+  <div class="page">
+    <p>Redirecting Entry Points</p>
+    <p>Entry 1</p>
+    <p>Entry 2</p>
+    <p>Table Register</p>
+    <p>Dispatcher</p>
+    <p>OS Binaries</p>
+    <p>Entry 1</p>
+    <p>Entry 2</p>
+    <p>Code Cache</p>
+    <p>Descriptor Table</p>
+    <p>Shadow Table</p>
+  </div>
+  <div class="page">
+    <p>Redirecting Entry Points</p>
+    <p>Entry 1</p>
+    <p>Entry 2</p>
+    <p>Table Register</p>
+    <p>Dispatcher</p>
+    <p>OS Binaries</p>
+    <p>Entry 1</p>
+    <p>Entry 2</p>
+    <p>Code Cache</p>
+    <p>Cant write to table register, otherwise loose control</p>
+    <p>Descriptor Table</p>
+    <p>Shadow Table</p>
+  </div>
+  <div class="page">
+    <p>Redirecting Entry Points</p>
+    <p>Entry 1</p>
+    <p>Entry 2</p>
+    <p>Table Register</p>
+    <p>Dispatcher</p>
+    <p>OS Binaries</p>
+    <p>Entry 1</p>
+    <p>Entry 2</p>
+    <p>Shadow Register</p>
+    <p>Code Cache</p>
+    <p>Cant write to table register, otherwise loose control  Cant drop the write, otherwise you loose transparency</p>
+    <p>Descriptor Table</p>
+    <p>Shadow Table</p>
+  </div>
+  <div class="page">
+    <p>Transparency Need to hide DBI framework from instrumented code</p>
+    <p>Sometimes essential for correctness Many transparency issues, including</p>
+    <p>Code cache return addresses  Shadowed registers  Exception stack frame  Interrupt stack frame</p>
+  </div>
+  <div class="page">
+    <p>Exception Transparency Dispatching kernels exception handlers is tricky because they inspect machine state</p>
+    <p>Registers stolen by instrumentation  Address of instruction that triggers the exception  Handlers need to see original instruction addresses  Linux panics on page faults from non white-listed instructions  Problem is that code cache isnt on the white list  Solution is to translate from code cache to original address</p>
+    <p>Solution for interrupt handlers is similar</p>
+  </div>
+  <div class="page">
+    <p>Interrupt Transparency</p>
+    <p>H = Interrupt Handler I = Instrumentation = Interrupt</p>
+  </div>
+  <div class="page">
+    <p>Interrupt Transparency</p>
+    <p>A</p>
+    <p>H = Interrupt Handler I = Instrumentation = Interrupt</p>
+    <p>Original Code</p>
+  </div>
+  <div class="page">
+    <p>Interrupt Transparency</p>
+    <p>A</p>
+    <p>H = Interrupt Handler I = Instrumentation = Interrupt</p>
+    <p>Original Code</p>
+  </div>
+  <div class="page">
+    <p>Interrupt Transparency</p>
+    <p>IHA</p>
+    <p>H = Interrupt Handler I = Instrumentation = Interrupt</p>
+    <p>Original Code</p>
+  </div>
+  <div class="page">
+    <p>Interrupt Transparency</p>
+    <p>IHA A</p>
+    <p>H = Interrupt Handler I = Instrumentation = Interrupt</p>
+    <p>Original Code</p>
+  </div>
+  <div class="page">
+    <p>Interrupt Transparency</p>
+    <p>IH BA A</p>
+    <p>H = Interrupt Handler I = Instrumentation = Interrupt</p>
+    <p>Original Code</p>
+  </div>
+  <div class="page">
+    <p>Interrupt Transparency</p>
+    <p>Copy A</p>
+    <p>IH BA A</p>
+    <p>H = Interrupt Handler I = Instrumentation = Interrupt</p>
+    <p>Original Code</p>
+    <p>Dispatcher</p>
+  </div>
+  <div class="page">
+    <p>Interrupt Transparency</p>
+    <p>A</p>
+    <p>Copy A</p>
+    <p>IH BA A</p>
+    <p>A</p>
+    <p>H = Interrupt Handler I = Instrumentation = Interrupt</p>
+    <p>Original Code</p>
+    <p>Dispatcher Code Cache</p>
+    <p>Original Addresses</p>
+  </div>
+  <div class="page">
+    <p>Interrupt Transparency</p>
+    <p>A</p>
+    <p>Copy A</p>
+    <p>IH BA A</p>
+    <p>A I</p>
+    <p>H = Interrupt Handler I = Instrumentation = Interrupt</p>
+    <p>Original Code</p>
+    <p>Dispatcher Code Cache</p>
+    <p>Original Addresses</p>
+  </div>
+  <div class="page">
+    <p>Interrupt Transparency</p>
+    <p>A</p>
+    <p>Copy A</p>
+    <p>IH BA A</p>
+    <p>A I</p>
+    <p>H = Interrupt Handler I = Instrumentation = Interrupt</p>
+    <p>Original Code</p>
+    <p>Dispatcher Code Cache</p>
+    <p>Original Addresses</p>
+  </div>
+  <div class="page">
+    <p>Delay interrupts until next code-cache exit</p>
+    <p>Interrupt Transparency</p>
+    <p>A</p>
+    <p>Copy A</p>
+    <p>IH BA A</p>
+    <p>A I</p>
+    <p>H = Interrupt Handler I = Instrumentation = Interrupt</p>
+    <p>Original Code</p>
+    <p>Dispatcher Code Cache</p>
+    <p>Original Addresses</p>
+  </div>
+  <div class="page">
+    <p>Delay interrupts until next code-cache exit</p>
+    <p>Interrupt Transparency</p>
+    <p>A</p>
+    <p>Copy A</p>
+    <p>IH BA A</p>
+    <p>A I</p>
+    <p>H = Interrupt Handler I = Instrumentation = Interrupt</p>
+    <p>Original Code</p>
+    <p>Dispatcher Code Cache</p>
+    <p>Original Addresses</p>
+  </div>
+  <div class="page">
+    <p>Delay interrupts until next code-cache exit</p>
+    <p>Interrupt Transparency</p>
+    <p>A</p>
+    <p>Copy A</p>
+    <p>IH BA A</p>
+    <p>A I A</p>
+    <p>H = Interrupt Handler I = Instrumentation = Interrupt</p>
+    <p>Original Code</p>
+    <p>Dispatcher Code Cache</p>
+    <p>A Original</p>
+    <p>Addresses</p>
+  </div>
+  <div class="page">
+    <p>Delay interrupts until next code-cache exit</p>
+    <p>Interrupt Transparency</p>
+    <p>A</p>
+    <p>Copy A</p>
+    <p>IH BA A</p>
+    <p>A I A</p>
+    <p>H = Interrupt Handler I = Instrumentation = Interrupt</p>
+    <p>Original Code</p>
+    <p>Dispatcher Code Cache</p>
+    <p>A Original</p>
+    <p>Addresses</p>
+  </div>
+  <div class="page">
+    <p>Delay interrupts until next code-cache exit</p>
+    <p>Copy IH</p>
+    <p>Interrupt Transparency</p>
+    <p>A</p>
+    <p>Copy A</p>
+    <p>IH BA A</p>
+    <p>A I A</p>
+    <p>H = Interrupt Handler I = Instrumentation = Interrupt</p>
+    <p>Original Code</p>
+    <p>Dispatcher Code Cache</p>
+    <p>A Original</p>
+    <p>Addresses</p>
+  </div>
+  <div class="page">
+    <p>Delay interrupts until next code-cache exit</p>
+    <p>Copy IH</p>
+    <p>Interrupt Transparency</p>
+    <p>A</p>
+    <p>IHCopy A</p>
+    <p>IH BA A</p>
+    <p>A I A</p>
+    <p>IH</p>
+    <p>H = Interrupt Handler I = Instrumentation = Interrupt</p>
+    <p>Original Code</p>
+    <p>Dispatcher Code Cache</p>
+    <p>A Original</p>
+    <p>Addresses</p>
+  </div>
+  <div class="page">
+    <p>Delay interrupts until next code-cache exit</p>
+    <p>Copy IH</p>
+    <p>Interrupt Transparency</p>
+    <p>A</p>
+    <p>IHCopy A Copy B</p>
+    <p>IH BA A</p>
+    <p>A I A</p>
+    <p>IH</p>
+    <p>H = Interrupt Handler I = Instrumentation = Interrupt</p>
+    <p>Original Code</p>
+    <p>Dispatcher Code Cache</p>
+    <p>A Original</p>
+    <p>Addresses</p>
+  </div>
+  <div class="page">
+    <p>Delay interrupts until next code-cache exit</p>
+    <p>Copy IH</p>
+    <p>Interrupt Transparency</p>
+    <p>A</p>
+    <p>IHCopy A Copy B</p>
+    <p>IH BA A</p>
+    <p>BA I A</p>
+    <p>IH B</p>
+    <p>H = Interrupt Handler I = Instrumentation = Interrupt</p>
+    <p>Original Code</p>
+    <p>Dispatcher Code Cache</p>
+    <p>A Original</p>
+    <p>Addresses</p>
+  </div>
+  <div class="page">
+    <p>Code is not reentrant if it is unsafe to execute before other executions of the same code finish</p>
+    <p>Dispatcher cannot use any non-reentrant OS code, e.g. print, because the non-reentrant code might be currently executing</p>
+    <p>Say, print consists of basic blocks P1, P2</p>
+    <p>P1 has executed from code cache  Dispatcher copies P2  Dispatcher uses print for debugging and invokes P1  print fails because it is non-reentrant</p>
+    <p>Reentrance</p>
+    <p>Copy P2P1 P1</p>
+    <p>DispatcherCode Cache</p>
+  </div>
+  <div class="page">
+    <p>Reentrance Solution Typical solution is to reimplement non-reentrant code using lower-level uninstrumented code</p>
+    <p>e.g., user-level DBI has custom print that makes system calls OS-level framework has no lower-level code</p>
+    <p>Dispatcher must be entirely self sufficient  Implement our own heap</p>
+    <p>Some code too difficult to implement from scratch</p>
+    <p>Detach and reattach framework to use existing OS code  Have custom user program make system calls on our behalf  Framework cannot depend on user programs correctness</p>
+  </div>
+  <div class="page">
+    <p>Our Proposal We chose to port DynamoRIO to a minimal hypervisor because it is</p>
+    <p>Open source  Performance oriented  Mature</p>
+    <p>Applications</p>
+    <p>Transparent fault isolation  Dynamic optimization</p>
+    <p>We will open source our port!</p>
+    <p>What would you do with in-kernel DBI?</p>
+  </div>
+  <div class="page">
+    <p>Backup Slides</p>
+  </div>
+  <div class="page">
+    <p>Existing Hypervisors VMWare</p>
+    <p>Uses a code cache to translate sensitive instructions  Does not have an instrumentation API</p>
+    <p>PinOS</p>
+    <p>Pin DBI + Xen Hypervisor  Does whole-system instrumentation (user + kernel)  Dispatching is much slower for whole-system (50x slowdown)  Delegates I/O to a separate uninstrumented VM</p>
+    <p>Neither is open source</p>
+  </div>
+  <div class="page">
+    <p>Minimal Hypervisor Simpler than a full-fledged hypervisor</p>
+    <p>No multiplexing  Shadow page tables have same address mappings, just more</p>
+    <p>restrictive permissions</p>
+    <p>Dont need to be completely transparent  We can piggy-back on existing OS code, like segment selectors</p>
+    <p>for CPU-private data</p>
+  </div>
+  <div class="page">
+    <p>Design Assumptions Once booted, OS runs exclusively in 64-bit long mode</p>
+    <p>Emulating obsolete x86 modes would be a pain  Confirmed validity on Linux by inspection  We believe it is valid on Windows</p>
+    <p>Can store dispatcher and code cache in pages that are in all page tables at the same virtual addresses</p>
+    <p>Otherwise, we need to steal RAM from the OS at bootup  Provided by Linux  We believe this is provided by Windows</p>
+    <p>Design should work with OS that meets assumptions</p>
+    <p>We are currently targeting Linux</p>
+  </div>
+  <div class="page">
+    <p>Hardware Virtualization Extensions Do not make implementation simpler</p>
+    <p>Removes the need to inspect sensitive instructions  However, we already can inspect sensitive instructions</p>
+    <p>Could make implementation more complex</p>
+    <p>Need to emulate instructions that cause exits  Easier for us to emit fix-up code in the code cache</p>
+    <p>Could improve performance</p>
+    <p>Extended page tables might perform better than shadow  We want to experiment with this</p>
+  </div>
+</Presentation>

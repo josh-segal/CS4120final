@@ -1,0 +1,247 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>Rhea: Automatic Filtering for Unstructured Cloud Storage</p>
+    <p>Christos Gkantsidis, Dimitrios Vytiniotis, Orion Hodson, Dushyanth Narayanan, Florin Dinu, Antony Rowstron</p>
+    <p>Microsoft Research, Cambridge, UK</p>
+  </div>
+  <div class="page">
+    <p>Cluster design for data analytics: [Traditional] Collocate storage &amp; compute</p>
+    <p>Hadoop &amp; MapReduce, Dryad/DryadLinq, Scope, etc</p>
+  </div>
+  <div class="page">
+    <p>Cloud Analytics: Hadoop in the Cloud Separate storage and compute</p>
+  </div>
+  <div class="page">
+    <p>Cloud Analytics: Hadoop in the Cloud Separate storage and compute</p>
+    <p>Bottleneck</p>
+  </div>
+  <div class="page">
+    <p>Problem: Transfer lots of data</p>
+    <p>ComputeStorage Network</p>
+  </div>
+  <div class="page">
+    <p>Problem: Transfer lots of data   even when only a subset is needed</p>
+    <p>ComputeStorage Network</p>
+    <p>A2, ,</p>
+    <p>B1, B2, B3 C2, ,</p>
+    <p>D1, D2</p>
+  </div>
+  <div class="page">
+    <p>Problem: Transfer lots of data   even when only a subset is needed</p>
+    <p>ComputeStorage Network</p>
+  </div>
+  <div class="page">
+    <p>Scenario</p>
+    <p>Apache Hadoop (Map/Reduce)</p>
+    <p>Input data in storage service</p>
+    <p>Hadoop running in compute service</p>
+    <p>Unstructured data:  text, log files, etc</p>
+    <p>Goal</p>
+    <p>Transparently reduce data transfers from storage to compute</p>
+  </div>
+  <div class="page">
+    <p>How to minimize transfers?</p>
+    <p>Strawman: Can we execute mappers on storage nodes?  Intuition: Mappers throw away a lot of data</p>
+    <p>Data reduction not guaranteed</p>
+    <p>Difficult to stop mappers during storage overload</p>
+    <p>Storage nodes have to execute complicated logic (Hadoop system &amp; protocol)</p>
+    <p>Dependencies on runtime environment, libraries, etc</p>
+    <p>Better approach: Filter unnecessary data at storage nodes  Filters need to be opportunistic and transparent</p>
+    <p>i.e. can kill/restart at any time (e.g. during overload)</p>
+    <p>Filters need to be correct i.e. always preserve correctness of computation</p>
+  </div>
+  <div class="page">
+    <p>Challenge: How to filter the data?</p>
+    <p>Recall: data are typically unstructured text</p>
+    <p>No external source of structure/schema</p>
+    <p>Insight:</p>
+    <p>The data analytic job knows structure</p>
+    <p>and what needs to be filtered</p>
+  </div>
+  <div class="page">
+    <p>Idea: static analysis of job bytecode</p>
+    <p>public void map( value )</p>
+    <p>{</p>
+    <p>String[] entries = value.toString().split(\t);</p>
+    <p>String articleName = entries[0];</p>
+    <p>String pointType = entries[1];</p>
+    <p>String geoPoint = entries[2];</p>
+    <p>if (GEO_RSS_URI.equals(pointType)) {</p>
+    <p>StringTokenizer st = new StringTokenizer(geoPoint, &quot; &quot;);</p>
+    <p>String strLat = st.nextToken();</p>
+    <p>String strLong = st.nextToken();</p>
+    <p>double lat = Double.parseDouble(strLat);</p>
+    <p>double lang = Double.parseDouble(strLong);</p>
+    <p>String locationKey =</p>
+    <p>String locationName =</p>
+    <p>geoLocationKey.set(locationKey);</p>
+    <p>geoLocationName.set(locationName);</p>
+    <p>outputCollector.collect(geoLocationKey, geoLocationName);</p>
+    <p>} }</p>
+    <p>Input Value</p>
+    <p>Projection operation</p>
+    <p>3 columns interesting</p>
+    <p>(out of 4 for this job)</p>
+    <p>Selection operation</p>
+    <p>roughly 1/3 of rows are</p>
+    <p>of the interesting type</p>
+    <p>Output operation</p>
+  </div>
+  <div class="page">
+    <p>Rhea</p>
+    <p>Static analysis of Java byte code</p>
+    <p>Extract row (select) &amp; column (project) filters  as executable Java methods</p>
+    <p>column filters can also be C, regular expressions, etc.</p>
+    <p>Filters are conservative:  May accept more data than strictly necessary</p>
+    <p>Filters are opportunistic  kill/restart at any time (e.g. during storage overload)</p>
+    <p>Filters are transparent  no change to Hadoop job 12</p>
+  </div>
+  <div class="page">
+    <p>Rheas Architecture</p>
+    <p>Storage</p>
+    <p>Job</p>
+    <p>Data</p>
+    <p>Job</p>
+    <p>Data</p>
+    <p>Hadoop</p>
+    <p>Cluster</p>
+    <p>Input Job Rhea Filter</p>
+    <p>Extraction</p>
+    <p>Network</p>
+    <p>Filter</p>
+    <p>descriptions</p>
+    <p>Filter</p>
+    <p>Filter</p>
+  </div>
+  <div class="page">
+    <p>Rheas Architecture</p>
+    <p>Storage</p>
+    <p>Job</p>
+    <p>Data</p>
+    <p>Job</p>
+    <p>Data</p>
+    <p>Hadoop</p>
+    <p>Cluster</p>
+    <p>Input Job Rhea Filter</p>
+    <p>Extraction</p>
+    <p>Network</p>
+    <p>Filter</p>
+    <p>descriptions</p>
+    <p>Filter</p>
+    <p>Filter</p>
+  </div>
+  <div class="page">
+    <p>Filters: Identify bits of data that affect output of mapper</p>
+    <p>Row Filters:  Given an input row:</p>
+    <p>Does it lead to output?</p>
+    <p>Row corresponds to one invocation of map</p>
+    <p>Approach: Path Slicing</p>
+    <p>Challenge: Deal with mutable state</p>
+    <p>Column Filters:  Given a row that leads to output:</p>
+    <p>Which substrings of the row affect output?</p>
+    <p>Approach: Abstract interpretation</p>
+    <p>Challenge: Deal with loops 15</p>
+  </div>
+  <div class="page">
+    <p>Row Filter Generation via Path Slicing</p>
+    <p>public void map( value )</p>
+    <p>{</p>
+    <p>String[] entries = value.toString().split(\t);</p>
+    <p>String articleName = entries[0];</p>
+    <p>String pointType = entries[1];</p>
+    <p>String geoPoint = entries[2];</p>
+    <p>if (GEO_RSS_URI.equals(pointType)) {</p>
+    <p>StringTokenizer st = new</p>
+    <p>StringTokenizer(geoPoint, &quot; &quot;);</p>
+    <p>String strLat = st.nextToken();</p>
+    <p>String strLong = st.nextToken();</p>
+    <p>double lat = Double.parseDouble(strLat);</p>
+    <p>double lang = Double.parseDouble(strLong);</p>
+    <p>String locationKey =</p>
+    <p>String locationName =</p>
+    <p>geoLocationKey.set(locationKey);</p>
+    <p>geoLocationName.set(locationName);</p>
+    <p>outputCollector.collect(geoLocationKey,</p>
+    <p>geoLocationName);</p>
+    <p>} }</p>
+    <p>public boolean filter(Text bcvar2) {</p>
+    <p>String[] bcvar5 = bcvar2.toString().split(\t);</p>
+    <p>String bcvar7 = bcvar5[1];</p>
+    <p>boolean irvar0_1 =</p>
+    <p>GEO_RSS_URI.equals(bcvar7);</p>
+    <p>if (irvar0_1 == 1) { return true; }</p>
+    <p>return false;</p>
+    <p>}</p>
+    <p>lead to observable instructions</p>
+    <p>identify all instructions that</p>
+    <p>affect path conditions</p>
+  </div>
+  <div class="page">
+    <p>Challenge: Taming State</p>
+    <p>Map-Reduce program are often NOT pure functions  M/R programmers use state (i.e. objects in heap):   to avoid frequent initializations</p>
+    <p>to pass job parameters</p>
+    <p>to optimize temporary storage (e.g. with dictionaries)</p>
+    <p>Filters cannot rely on mutable state:  Recall: output of filtered data = output of original data</p>
+    <p>Solution: Tag all access to mutable fields as observable (i.e. output) instructions.</p>
+  </div>
+  <div class="page">
+    <p>Column Filter Generation (aka projects)</p>
+    <p>Goal: Identify substrings that affect output</p>
+    <p>Based on abstract interpretation  Captures common patterns for reading fields:</p>
+    <p>e.g. string tokenizers, regular expressions, etc.</p>
+    <p>Guarantees termination by using numerical constraints</p>
+    <p>Important to deal with loops</p>
+    <p>Output:  Tokenization method and separator character</p>
+    <p>List of indices of interesting tokens 18</p>
+    <p>Filter construction</p>
+  </div>
+  <div class="page">
+    <p>Experimental setup</p>
+  </div>
+  <div class="page">
+    <p>Job Selectivity</p>
+  </div>
+  <div class="page">
+    <p>Job Selectivity</p>
+  </div>
+  <div class="page">
+    <p>Measuring runtime benefits</p>
+    <p>We cannot extend Azure Storage or Amazon S3 with filters</p>
+    <p>Instead, we use pre-filtered data and compare with unfiltered data</p>
+    <p>We assume storage with: (a) scalable I/O, and (b) enough processing power for filtering</p>
+  </div>
+  <div class="page">
+    <p>Diversion: Do we have enough processing power?</p>
+    <p>Row &amp; Column filtering in Java: ~100MBytes/sec per core</p>
+    <p>Scales linearly with multiple cores</p>
+    <p>2 cores for filtering enough for all but 1 job</p>
+    <p>Runtime always reduces runtime, even with fewer cores</p>
+    <p>Performance dominated by string input/output, not filter</p>
+    <p>Column filtering in optimized C: 5-17x faster than Java</p>
+  </div>
+  <div class="page">
+    <p>Runtime benefits</p>
+    <p>30-80% reduction in runtime</p>
+    <p>Runtime reductions less than selectivity</p>
+    <p>due to Hadoop overheads</p>
+    <p>N o</p>
+    <p>rm a li</p>
+    <p>z e d</p>
+    <p>r u</p>
+    <p>n ti</p>
+    <p>m e</p>
+  </div>
+  <div class="page">
+    <p>Conclusions</p>
+    <p>Hadoop in the cloud: separation of storage and compute.</p>
+    <p>Rhea minimizes transfers from storage to compute  Uses static analysis on the job bytecode</p>
+    <p>Extracts selection and projection operators from code</p>
+    <p>Generates filters to run in the storage layer</p>
+    <p>Runs transparently to user (and is safe for provider)</p>
+    <p>Potential benefits to the user (time, money) and cloud provider (bandwidth)</p>
+  </div>
+  <div class="page">
+    <p>2013 Microsoft Corporation. All rights reserved.</p>
+  </div>
+</Presentation>

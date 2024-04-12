@@ -1,0 +1,215 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>Bolt: Faster Reconfiguration in Operating Systems</p>
+    <p>Sankaralingam Panneerselvam</p>
+    <p>Michael M. Swift Nam Sung Kim</p>
+    <p>University of Wisconsin, Madison, WI</p>
+    <p>Usenix ATC 2015 1</p>
+  </div>
+  <div class="page">
+    <p>Benefits of Processor Reconfiguration</p>
+    <p>Energy Savings Performance Inflation Power Constraints</p>
+    <p>VCPU 0</p>
+    <p>VCPU 1</p>
+    <p>VCPU 0</p>
+    <p>VCPU 1</p>
+    <p>VCPU 2</p>
+    <p>VM Scaling (e.g. IBM DLPAR) Disaggregated Server</p>
+    <p>Architectures</p>
+  </div>
+  <div class="page">
+    <p>Support for Reconfiguration</p>
+    <p>Linux: Hotplug mechanism  Designed as a  Reliability mechanism to remove faulty cores  Testing mechanism to vary number of cores</p>
+    <p>Uncommon operation  Latency in the order of tens or hundreds of</p>
+    <p>milliseconds</p>
+  </div>
+  <div class="page">
+    <p>Faster Reconfiguration</p>
+    <p>Processors enter/exit sleep state in 10 -100s  Major overhead is contributed by the software</p>
+    <p>Faster reconfiguration can enable high performance and energy efficient systems</p>
+    <p>How to achieve faster reconfiguration? We built Bolt to reconfigure up to 20x faster</p>
+    <p>than Hotplug.</p>
+  </div>
+  <div class="page">
+    <p>Outline</p>
+    <p>Background on Hotplug</p>
+    <p>Design of Bolt</p>
+    <p>Evaluation Results</p>
+  </div>
+  <div class="page">
+    <p>Hotplug Overview</p>
+    <p>OS subsystems (like scheduler, watchdog ) subscribe for CPU reconfiguration events  50 different subscriptions from various kernel</p>
+    <p>subsystems</p>
+    <p>Notifications sent during reconfiguration event (Addition-Online/Removal-Offline)  Thread migration  Watchdog enable/disable</p>
+  </div>
+  <div class="page">
+    <p>CPU Offline</p>
+    <p>CPU_DOWN_PREPARE</p>
+    <p>stop_machine ()</p>
+    <p>CPU_DEAD</p>
+    <p>CPU_POST_DEAD</p>
+    <p>CPU_DYING</p>
+    <p>* CPU is moved to offline state after the DYING notification is sent</p>
+    <p>G lo</p>
+    <p>ba l L</p>
+    <p>o ck</p>
+    <p>Usenix ATC 2015</p>
+    <p>*</p>
+    <p>Run in the context of CPU to be removed</p>
+  </div>
+  <div class="page">
+    <p>CPU Online</p>
+    <p>CPU_UP_PREPARE</p>
+    <p>CPU_ONLINE</p>
+    <p>CPU_STARTING</p>
+    <p>G lo</p>
+    <p>ba l L</p>
+    <p>o ck</p>
+    <p>Usenix ATC 2015</p>
+    <p>* Startup Interrupt is sent to wake up the CPU</p>
+    <p>Run in the context of CPU to be added</p>
+    <p>*</p>
+  </div>
+  <div class="page">
+    <p>What makes Hotplug slow?</p>
+    <p>Assumption: Reconfiguration events are uncommon</p>
+    <p>Three limitations  Synchronous: All work done on critical path  Pessimistic: Clear/Initialize s/w structures  Serial: No reconfiguration of multiple cores</p>
+  </div>
+  <div class="page">
+    <p>Outline</p>
+    <p>Background on Hotplug</p>
+    <p>Design of Bolt</p>
+    <p>Evaluation Results</p>
+  </div>
+  <div class="page">
+    <p>Bolt Overview</p>
+    <p>Change in assumption  Online   Offline state changes are frequent</p>
+    <p>Bolt handles Hotplug limitations  Asynchronous: Defer work from the critical path  Optimistic: Re-use software structures  Parallel: Bulk Interface to reconfigure multiple core</p>
+    <p>at once</p>
+  </div>
+  <div class="page">
+    <p>Bolt</p>
+    <p>Bolt is built on existing Hotplug infrastructure  Retains subscription/notification mechanism</p>
+    <p>Classify subsystems notification handler into  Critical: Need to be executed immediately for</p>
+    <p>correctness (E.g. Migrating threads)  Non-Critical: Immediate action is not necessary</p>
+    <p>(E.g. Freeing a memory structure)</p>
+  </div>
+  <div class="page">
+    <p>Categorization of Hotplug Operations</p>
+    <p>Thread Operations</p>
+    <p>Destroy/ Create</p>
+    <p>Park/ Unpark</p>
+    <p>Hardware management (Microcode update)</p>
+    <p>Software structures cleanup/initialize</p>
+    <p>(per-cpu structures) Global Bitmask</p>
+    <p>Updates</p>
+    <p>State Migration (Threads from runqueue)</p>
+    <p>Re-organization Classify ~50 Hotplug callbacks into one of these</p>
+    <p>categories</p>
+  </div>
+  <div class="page">
+    <p>Critical Operations</p>
+    <p>Handled immediately for correctness</p>
+    <p>Critical operations are handled synchronously</p>
+    <p>Category Examples State Migration threads in runqueue, softirqs in per-cpu queue</p>
+    <p>Hardware Management microcode update, updating MTRR registers</p>
+    <p>Bitmask updates global structures like cpu_online_mask</p>
+    <p>Re-organization scheduler domain structures</p>
+  </div>
+  <div class="page">
+    <p>Non-Critical Operations</p>
+    <p>~30 out of 50 callbacks were identified as noncritical operations</p>
+    <p>Bolt removes them from critical path but retaining the interface</p>
+    <p>Category How handled? Software structures Memory cleanup deferred to a master thread</p>
+    <p>sysfs file access is checked during open() invocation</p>
+    <p>Thread operations Parking/Unparking made asynchronous</p>
+    <p>Thread re-use without destroying them</p>
+  </div>
+  <div class="page">
+    <p>Bulk Interface</p>
+    <p>CPU_DOWN_PREPARE</p>
+    <p>stop_machine ()</p>
+    <p>CPU_DEAD</p>
+    <p>CPU_POST_DEAD</p>
+    <p>CPU_DYING</p>
+    <p>G lo</p>
+    <p>ba l L</p>
+    <p>o ck</p>
+    <p>CPU_DYING</p>
+    <p>Offline</p>
+    <p>cpumask passed to down_prepare, dead and post_dead messages</p>
+    <p>CPU 1 is down</p>
+    <p>CPU 2 is down</p>
+    <p>CPU 1 and 2 are down</p>
+  </div>
+  <div class="page">
+    <p>Bulk Interface</p>
+    <p>CPU_UP_PREPARE</p>
+    <p>CPU_ONLINE</p>
+    <p>CPU_STARTING</p>
+    <p>G lo</p>
+    <p>ba l L</p>
+    <p>o ck</p>
+    <p>CPU_STARTING</p>
+    <p>Online</p>
+    <p>Parallel Execution</p>
+    <p>Aggregation</p>
+    <p>Aggregation</p>
+  </div>
+  <div class="page">
+    <p>Outline</p>
+    <p>Background on Hotplug</p>
+    <p>Design of Bolt</p>
+    <p>Evaluation Results</p>
+  </div>
+  <div class="page">
+    <p>Experimental Platform</p>
+    <p>Two platforms  x86: 4-core Intel i5-2500K (Sandybridge)  ARM: big.LITTLE Exynos 5410 (Odroid</p>
+    <p>development board)</p>
+    <p>Experiments: Latency measured for Hotplug operations  Done in an idle system at the highest processor</p>
+    <p>frequency</p>
+  </div>
+  <div class="page">
+    <p>[CPU Offline] Bolt vs. Hotplug</p>
+    <p>x86 x86 - Bolt Exynos Exynos - Bolt</p>
+    <p>T im</p>
+    <p>e in</p>
+    <p>M ill</p>
+    <p>is ec</p>
+    <p>o n</p>
+    <p>d s</p>
+    <p>DOWN PREPARE STOP MACHINE (DYING) RCU PARK DEAD POST DEAD</p>
+    <p>Usenix ATC 2015</p>
+  </div>
+  <div class="page">
+    <p>[CPU Online] Bolt vs. Hotplug</p>
+    <p>x86 x86 - Bolt Exynos Exynos - Bolt</p>
+    <p>T im</p>
+    <p>e in</p>
+    <p>M ill</p>
+    <p>is ec</p>
+    <p>o n</p>
+    <p>d s</p>
+    <p>UP PREPARE CPU_UP ONLINE</p>
+    <p>Usenix ATC 2015</p>
+  </div>
+  <div class="page">
+    <p>Bulk Interface (x86)</p>
+    <p>Hotplug Bolt - SequenQal Bolt - Bulk Interface</p>
+    <p>Ti m e in M</p>
+    <p>ill is ec on</p>
+    <p>ds</p>
+    <p>Number of cores reconfigured</p>
+  </div>
+  <div class="page">
+    <p>Conclusion</p>
+    <p>Hotplug is currently used as a reconfiguration mechanism</p>
+    <p>Bolt reduces reconfiguration latency by separating critical from non-critical operations</p>
+    <p>Bolts principles can be applied to any reconfiguration mechanism</p>
+  </div>
+  <div class="page">
+    <p>Usenix ATC 2015 24</p>
+    <p>Questions</p>
+  </div>
+</Presentation>

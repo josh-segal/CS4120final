@@ -1,0 +1,367 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>An Effective Hybrid Transactional Memory System with Strong Isolation Guarantees</p>
+    <p>Chi Cao Minh, Martin Trautmann, JaeWoong Chung, Austen McDonald, Nathan Bronson, Jared Casper,</p>
+    <p>Christos Kozyrakis, Kunle Olukotun</p>
+    <p>Computer Systems Laboratory</p>
+    <p>Stanford University</p>
+    <p>http://tcc.stanford.edu</p>
+  </div>
+  <div class="page">
+    <p>Why Hybrid Transactional Memory?</p>
+    <p>Transactional Memory (TM) systems are promising</p>
+    <p>Large atomic blocks simplify parallel programming</p>
+    <p>Speed of fine-grain locks with simplicity of coarse-grain locks</p>
+    <p>TM can be implemented in either hardware or software</p>
+    <p>Hardware TM (HTM) is fast but inflexible &amp; costly</p>
+    <p>Software TM (STM) is flexible but slow</p>
+    <p>Signature-Accelerated TM (SigTM) is a new hybrid TM</p>
+    <p>Uses hardware signatures to accelerate software transactions</p>
+    <p>Fast, flexible, &amp; cost-effective</p>
+    <p>Implements strong isolation of transactional code</p>
+    <p>Correct &amp; predictable execution of software transactions</p>
+  </div>
+  <div class="page">
+    <p>Outline</p>
+    <p>Introduction</p>
+    <p>SigTMPerformance</p>
+    <p>SigTM Strong Isolation</p>
+    <p>Related Work</p>
+    <p>Conclusion</p>
+  </div>
+  <div class="page">
+    <p>ListNode n;</p>
+    <p>atomic {</p>
+    <p>n = head;</p>
+    <p>if (n != null) {</p>
+    <p>head = head.next;</p>
+    <p>}</p>
+    <p>}</p>
+    <p>ListNode n;</p>
+    <p>STMstart();</p>
+    <p>n = STMread(&amp;head);</p>
+    <p>if (n != null) {</p>
+    <p>ListNode t;</p>
+    <p>t = STMread(&amp;head.next);</p>
+    <p>STMwrite(&amp;head, t);</p>
+    <p>}</p>
+    <p>STMcommit();</p>
+    <p>High-level Low-level Compiler</p>
+    <p>What Can We Accelerate?</p>
+    <p>What do these STM functions do?</p>
+  </div>
+  <div class="page">
+    <p>STMstart</p>
+    <p>Constant overhead cost per transaction</p>
+    <p>Expensive only for short transactions</p>
+    <p>STMstart() {</p>
+    <p>checkpoint(); // used to rollback</p>
+    <p>other_initialization();</p>
+    <p>}</p>
+    <p>Called at transaction start  init transaction meta data</p>
+  </div>
+  <div class="page">
+    <p>STMread</p>
+    <p>Building the read-set is expensive</p>
+    <p>Overhead cost per transaction varies</p>
+    <p>Locality of read accesses, size of read-set, transaction length</p>
+    <p>STMread(addr) {</p>
+    <p>if (addr in WriteSet) // get latest value</p>
+    <p>return WriteBuffer.getValue(addr);</p>
+    <p>if (!isVersionValid(addr)) // someone wrote?</p>
+    <p>conflict_handler();</p>
+    <p>ReadSet.insert(addr);</p>
+    <p>return *addr;</p>
+    <p>}</p>
+    <p>Called to read shared data  add to read-set</p>
+  </div>
+  <div class="page">
+    <p>STMwrite</p>
+    <p>STMwrite(addr, val) {</p>
+    <p>WriteBuffer.insert(addr, val);</p>
+    <p>}</p>
+    <p>Overhead cost per transaction varies</p>
+    <p>Locality of write accesses, size of write-set, transaction length</p>
+    <p>Significantly less expensive than STMread (reads writes)</p>
+    <p>Called to write shared data  add to write-set</p>
+  </div>
+  <div class="page">
+    <p>STMcommit</p>
+    <p>Expensive: scan read-set (1x); scan write-set (3x), locks</p>
+    <p>STMcommit() {</p>
+    <p>foreach (addr in WriteSet) // lock write-set if (!lock(addr))</p>
+    <p>conflict_handler();</p>
+    <p>foreach (addr in ReadSet) // validate read-set if (!isVersionValid(addr))</p>
+    <p>conflict_handler();</p>
+    <p>foreach (addr in WriteSet) // commit write-buffer *addr = WriteBuffer.getValue(addr);</p>
+    <p>foreach (addr in WriteSet) // unlock write-set unlock(addr);</p>
+    <p>}</p>
+    <p>Called at transaction end  atomically commit changes</p>
+  </div>
+  <div class="page">
+    <p>How Slow Can STM Be?</p>
+    <p>1.5x - 7x slowdown over sequential</p>
+    <p>Hybrid TM should focus on STMread and STMcommit</p>
+  </div>
+  <div class="page">
+    <p>SigTM</p>
+    <p>SigTM simplifies STM by using simple hardware</p>
+    <p>SWSW Write-set</p>
+    <p>versioning</p>
+    <p>HW (write-set signature)SW (locks)</p>
+    <p>Write-set</p>
+    <p>conflict</p>
+    <p>detection</p>
+    <p>HW (read-set signature)SW (version #) Read-set conflict</p>
+    <p>detection</p>
+    <p>SigTMSTM</p>
+  </div>
+  <div class="page">
+    <p>SigTMHardware</p>
+    <p>SigTM adds a little HW (signatures) to accelerate STM</p>
+    <p>Each HW thread has 2 HW signatures: read-set, write-set</p>
+    <p>No other HW modifications (e.g., no extra cache states)</p>
+    <p>SigTMread and SigTMwrite populate signatures</p>
+    <p>...</p>
+    <p>SigTMread(addr1);</p>
+    <p>...</p>
+    <p>SigTMread(addr2);</p>
+    <p>T im e</p>
+    <p>Read-Set Signature</p>
+    <p>hash(addr1) -&gt; 3, 5</p>
+    <p>hash(addr2) -&gt; 3, 6</p>
+  </div>
+  <div class="page">
+    <p>SigTMHardware (cont)</p>
+    <p>Signatures watch coherence messages</p>
+    <p>SW enables/disables</p>
+    <p>On hit in signature, either:</p>
+    <p>Trigger SW abort handler (conflict detection)</p>
+    <p>NACK remote request (isolation enforcement)</p>
+    <p>Signatures may generate false conflicts</p>
+    <p>Performance but not correctness issue</p>
+    <p>Reduce with longer signatures &amp; better hash functions</p>
+    <p>...</p>
+    <p>*addr1 = val</p>
+    <p>Read-Set Signature</p>
+    <p>hash(addr1) -&gt; 3, 5</p>
+  </div>
+  <div class="page">
+    <p>SigTMstart</p>
+    <p>Read-set signature starts monitoring coherence messages</p>
+    <p>If hit, signature invokes conflict_handler()</p>
+    <p>Continuous validation of read-set</p>
+    <p>SigTMstart() {</p>
+    <p>checkpoint(); // used to rollback</p>
+    <p>other_initialization();</p>
+    <p>enable_read_sig_lookup();</p>
+    <p>}</p>
+  </div>
+  <div class="page">
+    <p>SigTMread</p>
+    <p>SigTMread does not need to:</p>
+    <p>Validate read address  continuous validation by HW signature</p>
+    <p>Build software read-set  just add to read-set signature</p>
+    <p>SigTMread(addr) {</p>
+    <p>if (addr in WriteSet) // get latest value</p>
+    <p>return WriteBuffer.getValue(addr);</p>
+    <p>// No need to validate addr here</p>
+    <p>read_sig_insert(addr);</p>
+    <p>return *addr;</p>
+    <p>}</p>
+  </div>
+  <div class="page">
+    <p>SigTMwrite</p>
+    <p>SigTMwrite populateswrite-set signature</p>
+    <p>Used during SigTMcommit</p>
+    <p>Write-set versioning still in SW</p>
+    <p>SigTMwrite(addr, val) {</p>
+    <p>write_sig_insert(addr);</p>
+    <p>WriteBuffer.insert(addr, val);</p>
+    <p>}</p>
+  </div>
+  <div class="page">
+    <p>SigTMcommit</p>
+    <p>Read-set signature eliminates scan of read-set to validate</p>
+    <p>Write-set signature eliminates locks</p>
+    <p>Two write-set scans instead of three</p>
+    <p>SigTMcommit() {</p>
+    <p>enable_write_sig_lookup();</p>
+    <p>foreach (addr in WriteSet) // remove from... fetch_exclusive(addr); // ...other caches</p>
+    <p>enable_write_sig_nack(); // ensure atomic commit</p>
+    <p>disable_read_sig_lookup();</p>
+    <p>foreach (addr in WriteSet) // commit writebuffer</p>
+    <p>*addr = WriteBuffer.getValue(addr);</p>
+    <p>disable_write_sig_lookup(); }</p>
+  </div>
+  <div class="page">
+    <p>How Much Smaller is the Overhead?</p>
+    <p>Measured dynamic instruction counts</p>
+    <p>R = # words in read-set; W = # words in write-set</p>
+    <p>Measured single-thread performance relative to sequential</p>
+    <p>SigTMSTM</p>
+    <p>Improvement</p>
+    <p>SigTMSTM</p>
+  </div>
+  <div class="page">
+    <p>Experimental Setup</p>
+    <p>Execution-driven simulation to compare: SigTM, STM, HTM</p>
+    <p>STAMP: Stanford Transactional Apps for Multiprocessing</p>
+    <p>4 benchmarks for TM research written in C</p>
+    <p>delaunay: Delaunay mesh generation</p>
+    <p>genome: gene sequencing</p>
+    <p>kmeans: K-means clustering</p>
+    <p>vacation: travel reservation system (similar to SPECjbb2000)</p>
+    <p>Parallelized from sequential code</p>
+    <p>Coarse-grain transactions (intuitive parallel programming)</p>
+    <p>Over 95% of time is spent in transactions</p>
+    <p>STM code is manually optimized (same code for SigTM)</p>
+    <p>HTM code has no instrumentation on reads/writes</p>
+  </div>
+  <div class="page">
+    <p>How Fast is SigTM?</p>
+    <p>SigTM faster than STM but slower than HTM</p>
+    <p>Genome: SigTM30% faster than STM; within 10% of HTM</p>
+    <p>Vacation: SigTM2.8x faster than STM; 2x slower than HTM</p>
+    <p>Many non-redundant read barriers  large performance difference</p>
+  </div>
+  <div class="page">
+    <p>How Much Hardware Does it Cost?</p>
+    <p>Decreased signature size to increase false conflicts</p>
+    <p>Performance sensitive to read-set signature length  1024 bits is recommended</p>
+    <p>Performance insensitive to write-set signature length  128 bits is recommended</p>
+  </div>
+  <div class="page">
+    <p>Outline</p>
+    <p>Introduction</p>
+    <p>SigTMPerformance</p>
+    <p>SigTM Strong Isolation</p>
+    <p>Related Work</p>
+    <p>Conclusion</p>
+  </div>
+  <div class="page">
+    <p>Example Program: Privatization</p>
+    <p>Two acceptable outcomes:</p>
+    <p>T1 commits first; T1 privatizes &amp; uses non-incremented n.val</p>
+    <p>T2 commits first; T1 privatizes &amp; uses incremented n.val</p>
+    <p>Works correctly with lock-based synchronization</p>
+    <p>Race-free program</p>
+    <p>ListNode n;</p>
+    <p>atomic {</p>
+    <p>n = head;</p>
+    <p>if (n != null)</p>
+    <p>head = head.next;</p>
+    <p>}</p>
+    <p>// use n.val many times</p>
+    <p>Thread 1</p>
+    <p>atomic {</p>
+    <p>ListNode n = head;</p>
+    <p>while (n != null) {</p>
+    <p>n.val++;</p>
+    <p>n = n.next;</p>
+    <p>}</p>
+    <p>}</p>
+    <p>Thread 2</p>
+  </div>
+  <div class="page">
+    <p>ListNode n;</p>
+    <p>atomic {</p>
+    <p>n = head;</p>
+    <p>if (n != null)</p>
+    <p>head = head.next;</p>
+    <p>}</p>
+    <p>// use n.val many times</p>
+    <p>Thread 1</p>
+    <p>atomic {</p>
+    <p>ListNode n = head;</p>
+    <p>while (n != null) {</p>
+    <p>n.val++;</p>
+    <p>n = n.next;</p>
+    <p>}</p>
+    <p>}</p>
+    <p>Thread 2</p>
+    <p>Unpredictable Results with STM?</p>
+    <p>All STMs may lead to unexpected results with this code</p>
+    <p>T1 may use both old &amp; new value after privatization</p>
+    <p>Cause: non-transactional accesses are not instrumented</p>
+    <p>Non-Tx writes do not cause Tx to abort</p>
+    <p>Tx commit not isolated with respect to non-TX accesses</p>
+  </div>
+  <div class="page">
+    <p>Strong Isolation</p>
+    <p>Definition: transactions are isolated from non-Tx accesses</p>
+    <p>HTM  inherent strong isolation</p>
+    <p>Non-Tx cause coherence messages</p>
+    <p>Conflict detection mechanism enforces strong isolation</p>
+    <p>STM  supplemented strong isolation</p>
+    <p>Additional barriers needed in non-Tx accesses</p>
+    <p>Some can be optimized but still a source of overhead</p>
+    <p>SigTM  inherent strong isolation</p>
+    <p>Without additional instrumentation or overhead</p>
+  </div>
+  <div class="page">
+    <p>How SigTM Provides Strong Isolation</p>
+    <p>Non-Tx write to read-set?</p>
+    <p>Hits in read-set signature  transaction aborts</p>
+    <p>// T1 // T2</p>
+    <p>atomic { ...</p>
+    <p>t=x; ...</p>
+    <p>... x=10;</p>
+    <p>x=t+1; ...</p>
+    <p>} ...</p>
+    <p>Initially: x=0</p>
+  </div>
+  <div class="page">
+    <p>Outline</p>
+    <p>Introduction</p>
+    <p>SigTM Performance</p>
+    <p>SigTM Strong Isolation</p>
+    <p>Related Work</p>
+    <p>Conclusion</p>
+  </div>
+  <div class="page">
+    <p>SigTM and Other Hybrid TMs</p>
+    <p>Kumar (PPoPP06) and HyTM (ASPLOS06)</p>
+    <p>Require significant cache modifications for HTM</p>
+    <p>Need 2 versions of transaction code</p>
+    <p>HASTM (MICRO06)  Requires cache modifications (expensive for nesting)</p>
+    <p>Cache updates from prefetching / speculation problematic</p>
+    <p>RTM (ISCA07  later today)  Requires significant cache modifications (TMESI)</p>
+    <p>Cache handles common case conflict detection and buffering</p>
+    <p>Poor performance (slower than sequential)</p>
+    <p>None has strong isolation without barriers in non-Tx</p>
+  </div>
+  <div class="page">
+    <p>SigTM and Signature-based HTMs</p>
+    <p>Bulk (ISCA06)</p>
+    <p>First use of signatures for TM</p>
+    <p>Requires additional HW for write versioning</p>
+    <p>LogTM-SE (HPCA07)</p>
+    <p>Additional HW to implement undo log</p>
+    <p>Additional HW to remember recently logged lines</p>
+    <p>Recommended smaller signatures (3264 bits)</p>
+  </div>
+  <div class="page">
+    <p>Conclusions</p>
+    <p>SigTM is a hybrid TM that:</p>
+    <p>Uses minimal additional hardware</p>
+    <p>1K bits for read-set signature; 128 bits for write-set signature</p>
+    <p>No modification to caches</p>
+    <p>Reduces the runtime overhead of SW transactions</p>
+    <p>Eliminates SW read-set, locks, and time stamps</p>
+    <p>Continuous validation of read-set by HW signatures</p>
+    <p>Leads to good performance</p>
+    <p>Outperforms STM by 30%  280%</p>
+    <p>Slowdown compared to HTM is 10%  100%</p>
+    <p>Delivers strong isolation for predictable behavior</p>
+  </div>
+  <div class="page">
+    <p>Questions?</p>
+    <p>STAMP</p>
+    <p>Stanford Transactional Applications for</p>
+    <p>Multiprocessing</p>
+    <p>A new benchmark suite designed for TM research</p>
+    <p>http://stamp.stanford.edu</p>
+  </div>
+</Presentation>

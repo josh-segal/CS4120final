@@ -1,0 +1,271 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>Resilient Distributed Datasets A Fault-Tolerant Abstraction for In-Memory Cluster Computing</p>
+    <p>Matei Zaharia, Mosharaf Chowdhury, Tathagata Das, Ankur Dave, Justin Ma, Murphy McCauley, Michael Franklin, Scott Shenker, Ion Stoica UC Berkeley</p>
+    <p>UC BERKELEY</p>
+  </div>
+  <div class="page">
+    <p>Motivation MapReduce greatly simplified big data analysis on large, unreliable clusters</p>
+    <p>But as soon as it got popular, users wanted more:  More complex, multi-stage applications (e.g. iterative machine learning &amp; graph processing)  More interactive ad-hoc queries</p>
+    <p>Response: specialized frameworks for some of these apps (e.g. Pregel for graph processing)</p>
+  </div>
+  <div class="page">
+    <p>Motivation Complex apps and interactive queries both need one thing that MapReduce lacks:</p>
+    <p>Efficient primitives for data sharing</p>
+    <p>In MapReduce, the only way to share data across jobs is stable storage  slow!</p>
+  </div>
+  <div class="page">
+    <p>Examples</p>
+    <p>iter. 1 iter. 2 . . .</p>
+    <p>Input</p>
+    <p>HDFS read</p>
+    <p>HDFS write</p>
+    <p>HDFS read</p>
+    <p>HDFS write</p>
+    <p>Input</p>
+    <p>query 1</p>
+    <p>query 2</p>
+    <p>query 3</p>
+    <p>result 1</p>
+    <p>result 2</p>
+    <p>result 3</p>
+    <p>. . .</p>
+    <p>HDFS read</p>
+    <p>Slow due to replication and disk I/O, but necessary for fault tolerance</p>
+  </div>
+  <div class="page">
+    <p>iter. 1 iter. 2 . . .</p>
+    <p>Input</p>
+    <p>Goal: In-Memory Data Sharing</p>
+    <p>Input</p>
+    <p>query 1</p>
+    <p>query 2</p>
+    <p>query 3</p>
+    <p>. . .</p>
+    <p>one-time processing</p>
+  </div>
+  <div class="page">
+    <p>Challenge</p>
+    <p>How to design a distributed memory abstraction that is both fault-tolerant and efficient?</p>
+  </div>
+  <div class="page">
+    <p>Challenge Existing storage abstractions have interfaces based on fine-grained updates to mutable state  RAMCloud, databases, distributed mem, Piccolo</p>
+    <p>Requires replicating data or logs across nodes for fault tolerance  Costly for data-intensive apps  10-100x slower than memory write</p>
+  </div>
+  <div class="page">
+    <p>Solution: Resilient Distributed Datasets (RDDs)</p>
+    <p>Restricted form of distributed shared memory  Immutable, partitioned collections of records  Can only be built through coarse-grained deterministic transformations (map, filter, join, )</p>
+    <p>Efficient fault recovery using lineage  Log one operation to apply to many elements  Recompute lost partitions on failure  No cost if nothing fails</p>
+  </div>
+  <div class="page">
+    <p>Input</p>
+    <p>query 1</p>
+    <p>query 2</p>
+    <p>query 3</p>
+    <p>. . .</p>
+    <p>RDD Recovery</p>
+    <p>one-time processing</p>
+    <p>iter. 1 iter. 2 . . .</p>
+    <p>Input</p>
+  </div>
+  <div class="page">
+    <p>Generality of RDDs Despite their restrictions, RDDs can express surprisingly many parallel algorithms  These naturally apply the same operation to many items</p>
+    <p>Unify many current programming models  Data flow models: MapReduce, Dryad, SQL,   Specialized models for iterative apps: BSP (Pregel), iterative MapReduce (Haloop), bulk incremental,</p>
+    <p>Support new apps that these models dont</p>
+  </div>
+  <div class="page">
+    <p>Memory bandwidth</p>
+    <p>Network bandwidth</p>
+    <p>Tradeoff Space</p>
+    <p>Granularity of Updates</p>
+    <p>Write Throughput</p>
+    <p>Fine</p>
+    <p>Coarse</p>
+    <p>Low High</p>
+    <p>K-V stores, databases, RAMCloud</p>
+    <p>Best for batch workloads</p>
+    <p>Best for transactional workloads</p>
+    <p>HDFS RDDs</p>
+  </div>
+  <div class="page">
+    <p>Outline Spark programming interface</p>
+    <p>Implementation</p>
+    <p>Demo</p>
+    <p>How people are using Spark</p>
+  </div>
+  <div class="page">
+    <p>Spark Programming Interface</p>
+    <p>DryadLINQ-like API in the Scala language</p>
+    <p>Usable interactively from Scala interpreter</p>
+    <p>Provides:  Resilient distributed datasets (RDDs)  Operations on RDDs: transformations (build new RDDs), actions (compute and output results)  Control of each RDDs partitioning (layout across nodes) and persistence (storage in RAM, on disk, etc)</p>
+  </div>
+  <div class="page">
+    <p>Example: Log Mining Load error messages from a log into memory, then interactively search for various patterns</p>
+    <p>lines = spark.textFile(hdfs://...)</p>
+    <p>errors = lines.filter(_.startsWith(ERROR))</p>
+    <p>messages = errors.map(_.split(\t)(2))</p>
+    <p>messages.persist()</p>
+    <p>Block 1</p>
+    <p>Block 2</p>
+    <p>Block 3</p>
+    <p>Worker</p>
+    <p>Worker</p>
+    <p>Worker</p>
+    <p>Master</p>
+    <p>messages.filter(_.contains(foo)).count</p>
+    <p>messages.filter(_.contains(bar)).count</p>
+    <p>tasks</p>
+    <p>results</p>
+    <p>Msgs. 1</p>
+    <p>Msgs. 2</p>
+    <p>Msgs. 3</p>
+    <p>Base RDD Transformed RDD</p>
+    <p>Action</p>
+    <p>Result: full-text search of Wikipedia in &lt;1 sec (vs 20 sec for on-disk data) Result: scaled to 1 TB data in 5-7 sec</p>
+    <p>(vs 170 sec for on-disk data)</p>
+  </div>
+  <div class="page">
+    <p>RDDs track the graph of transformations that built them (their lineage) to rebuild lost data</p>
+    <p>E.g.:</p>
+    <p>messages = textFile(...).filter(_.contains(error)) .map(_.split(\t)(2))</p>
+    <p>HadoopRDD</p>
+    <p>path = hdfs://</p>
+    <p>FilteredRDD</p>
+    <p>func = _.contains(...)</p>
+    <p>MappedRDD</p>
+    <p>func = _.split()</p>
+    <p>Fault Recovery</p>
+    <p>HadoopRDD FilteredRDD MappedRDD</p>
+  </div>
+  <div class="page">
+    <p>Fault Recovery Results</p>
+    <p>It er at ri o n t im</p>
+    <p>e (s )</p>
+    <p>Iteration</p>
+    <p>Failure happens</p>
+  </div>
+  <div class="page">
+    <p>Example: PageRank 1. Start each page with a rank of 1 2. On each iteration, update each pages rank to</p>
+    <p>ineighbors ranki / |neighborsi|</p>
+    <p>links = // RDD of (url, neighbors) pairs ranks = // RDD of (url, rank) pairs</p>
+    <p>for (i &lt;- 1 to ITERATIONS) { ranks = links.join(ranks).flatMap { (url, (links, rank)) =&gt; links.map(dest =&gt; (dest, rank/links.size)) }.reduceByKey(_ + _) }</p>
+  </div>
+  <div class="page">
+    <p>Optimizing Placement links &amp; ranks repeatedly joined</p>
+    <p>Can co-partition them (e.g. hash both on URL) to avoid shuffles</p>
+    <p>Can also use app knowledge, e.g., hash on DNS name</p>
+    <p>links = links.partitionBy( new URLPartitioner())</p>
+    <p>reduce</p>
+    <p>Contribs0</p>
+    <p>join</p>
+    <p>join</p>
+    <p>Contribs2</p>
+    <p>Ranks0 (url, rank)</p>
+    <p>Links (url, neighbors)</p>
+    <p>. . .</p>
+    <p>Ranks2</p>
+    <p>reduce</p>
+    <p>Ranks1</p>
+  </div>
+  <div class="page">
+    <p>PageRank Performance</p>
+    <p>T im</p>
+    <p>e p er it er at io n (s</p>
+    <p>)</p>
+    <p>Hadoop</p>
+    <p>Basic Spark</p>
+    <p>Spark + Controlled Partitioning</p>
+  </div>
+  <div class="page">
+    <p>Implementation Runs on Mesos [NSDI 11] to share clusters w/ Hadoop</p>
+    <p>Can read from any Hadoop input source (HDFS, S3, )</p>
+    <p>Spark Hadoop MPI</p>
+    <p>Mesos</p>
+    <p>Node Node Node Node</p>
+    <p>No changes to Scala language or compiler  Reflection + bytecode analysis to correctly ship code</p>
+    <p>www.spark-project.org</p>
+  </div>
+  <div class="page">
+    <p>Programming Models Implemented on Spark</p>
+    <p>RDDs can express many existing parallel models  MapReduce, DryadLINQ  Pregel graph processing [200 LOC]  Iterative MapReduce [200 LOC]  SQL: Hive on Spark (Shark) [in progress]</p>
+    <p>Enables apps to efficiently intermix these models</p>
+    <p>All are based on coarse-grained operations</p>
+  </div>
+  <div class="page">
+    <p>Demo</p>
+  </div>
+  <div class="page">
+    <p>Open Source Community 15 contributors, 5+ companies using Spark, 3+ applications projects at Berkeley</p>
+    <p>User applications:  Data mining 40x faster than Hadoop (Conviva)  Exploratory log analysis (Foursquare)  Traffic prediction via EM (Mobile Millennium)  Twitter spam classification (Monarch)  DNA sequence analysis (SNAP)  . . .</p>
+  </div>
+  <div class="page">
+    <p>Related Work RAMCloud, Piccolo, GraphLab, parallel DBs  Fine-grained writes requiring replication for resilience</p>
+    <p>Pregel, iterative MapReduce  Specialized models; cant run arbitrary / ad-hoc queries</p>
+    <p>DryadLINQ, FlumeJava  Language-integrated distributed dataset API, but cannot share datasets efficiently across queries</p>
+    <p>Nectar [OSDI 10]  Automatic expression caching, but over distributed FS</p>
+    <p>PacMan [NSDI 12]  Memory cache for HDFS, but writes still go to network/disk</p>
+  </div>
+  <div class="page">
+    <p>Conclusion RDDs offer a simple and efficient programming model for a broad range of applications</p>
+    <p>Leverage the coarse-grained nature of many parallel algorithms for low-overhead recovery</p>
+    <p>Try it out at www.spark-project.org</p>
+  </div>
+  <div class="page">
+    <p>Behavior with Insufficient RAM</p>
+    <p>It er at io n t im</p>
+    <p>e (s )</p>
+    <p>Percent of working set in memory</p>
+  </div>
+  <div class="page">
+    <p>Scalability 18</p>
+    <p>It er at io n t im</p>
+    <p>e (s )</p>
+    <p>Number of machines</p>
+    <p>Hadoop HadoopBinMem Spark</p>
+    <p>It er at io n t im</p>
+    <p>e (s )</p>
+    <p>Number of machines</p>
+    <p>Hadoop HadoopBinMem Spark</p>
+    <p>Logistic Regression K-Means</p>
+  </div>
+  <div class="page">
+    <p>Breaking Down the Speedup</p>
+    <p>In-mem HDFS In-mem local file Spark RDD</p>
+    <p>It er at io n t im</p>
+    <p>e (s )</p>
+    <p>Text Input</p>
+    <p>Binary Input</p>
+  </div>
+  <div class="page">
+    <p>Spark Operations</p>
+    <p>Transformations (define a new RDD)</p>
+    <p>map filter</p>
+    <p>sample groupByKey reduceByKey sortByKey</p>
+    <p>flatMap union join</p>
+    <p>cogroup cross</p>
+    <p>mapValues</p>
+    <p>Actions (return a result to driver program)</p>
+    <p>collect reduce count save</p>
+    <p>lookupKey</p>
+  </div>
+  <div class="page">
+    <p>Task Scheduler Dryad-like DAGs</p>
+    <p>Pipelines functions within a stage</p>
+    <p>Locality &amp; data reuse aware</p>
+    <p>Partitioning-aware to avoid shuffles</p>
+    <p>join</p>
+    <p>union</p>
+    <p>groupBy</p>
+    <p>map</p>
+    <p>Stage 3</p>
+    <p>Stage 1</p>
+    <p>Stage 2</p>
+    <p>A: B:</p>
+    <p>C: D:</p>
+    <p>E:</p>
+    <p>F:</p>
+    <p>G:</p>
+    <p>= cached data partition</p>
+  </div>
+</Presentation>

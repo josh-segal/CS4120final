@@ -1,0 +1,527 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<TEI xmlns="http://www.tei-c.org/ns/1.0" 
+xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+xsi:schemaLocation="http://www.tei-c.org/ns/1.0 /Users/atharsefid/Desktop/grobid-0.5.3/grobid-home/schemas/xsd/Grobid.xsd"
+ xmlns:xlink="http://www.w3.org/1999/xlink">
+	<teiHeader xml:lang="en">
+		<encodingDesc>
+			<appInfo>
+				<application version="0.5.3" ident="GROBID" when="2019-03-26T16:39+0000">
+					<ref target="https://github.com/kermitt2/grobid">GROBID - A machine learning software for extracting information from scholarly documents</ref>
+				</application>
+			</appInfo>
+		</encodingDesc>
+		<fileDesc>
+			<titleStmt>
+				<title level="a" type="main">I/O-Efficient Map Overlay and Point Location in Low-Density Subdivisions *</title>
+			</titleStmt>
+			<publicationStmt>
+				<publisher/>
+				<availability status="unknown"><licence/></availability>
+			</publicationStmt>
+			<sourceDesc>
+				<biblStruct>
+					<analytic>
+						<author>
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Mark</forename><surname>De Berg</surname></persName>
+						</author>
+						<author>
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Herman</forename><surname>Haverkort</surname></persName>
+						</author>
+						<author>
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Shripad</forename><surname>Thite</surname></persName>
+						</author>
+						<author>
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Laura</forename><surname>Toma</surname></persName>
+						</author>
+						<title level="a" type="main">I/O-Efficient Map Overlay and Point Location in Low-Density Subdivisions *</title>
+					</analytic>
+					<monogr>
+						<imprint>
+							<date/>
+						</imprint>
+					</monogr>
+				</biblStruct>
+			</sourceDesc>
+		</fileDesc>
+		<profileDesc>
+			<abstract>
+				<p>We present improved and simplified i/o-efficient algorithms for two problems on planar low-density subdivisions, namely map overlay and point location. More precisely, we show how to preprocess a low-density subdivision with n edges in O(sort(n)) i/o&apos;s into a compressed linear quadtree such that one can: (i) compute the overlay of two such preprocessed subdivisions in O(scan(n)) i/o&apos;s, where n is the total number of edges in the two subdivisions, (ii) answer a single point location query in O(log B n) i/o&apos;s and k batched point location queries in O(scan(n) + sort(k)) i/o&apos;s. For the special case where the subdivision is a fat triangulation, we show how to obtain the same bounds with an ordinary (uncompressed) quadtree, and we show how to make the structure fully dynamic using O(log B n) i/o&apos;s per update. Our algorithms and data structures improve on the previous best known bounds for general subdivisions both in the number of i/o&apos;s and storage usage, they are significantly simpler, and several of our algorithms are cache-oblivious.</p>
+			</abstract>
+		</profileDesc>
+	</teiHeader>
+	<text xml:lang="en">
+		<body>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="1">Introduction</head><p>The traditional approach to algorithms design considers each atomic operation to take roughly the same amount of time. Unfortunately this simplifying assumption is invalid when the algorithm operates on data stored on disk: reading data from or writing data to disk can be a factor 100,000 or more slower than doing an operation on data that is already present in main memory. Thus, when the data is stored on disk it is usually much more important to minimize the number of disk accesses, rather than to minimize the CPU computation time.</p><p>This has led to the study of so-called i/o-efficient algorithms, also known as external-memory or out-of-core algorithms. The by now standard way of analyzing i/o-efficient algorithms is with the model introduced by Aggarwal and Vitter <ref type="bibr" target="#b0">[1]</ref>. In this model, a computer has an internal memory of size M and an arbitrarily large disk. The data on disk is stored in blocks of size B, and whenever an algorithm wants to work on data not present in internal memory, the block(s) containing the data are read from disk. The i/o-complexity of an algorithm is the number of i/o's it performsthat is, the number of block transfers between the internal memory and the disk. In this model, scanning-reading a set of n consecutive items from disk-can be done in scan(n) = n/B i/o's, and sorting takes sort(n) = Θ((n/B) log M/B (n/B)) i/o's.</p><p>One of the main application areas for i/o-efficient algorithms has always been the area of geographic information systems (gis), because gis typically work with massive amounts of data and loading all of it into memory is often infeasible. In gis the data for a particular geographic store planar subdivisions has been used by <ref type="bibr">Hjaltason and Samet [19]</ref>. They present algorithms for constructing (or: bulk-loading, as it is often called in gis) the quadtree, for insertions, and for bulk-insertions. Although their experiments indicate their method performs well in practice, it has several disadvantages. First, the i/o-complexity of their algorithms is analysed in terms of various parameters that depend on the data and the algorithm in a way that is not well-understood. In particular, the performance of their algorithms does not seem to be worst-case optimal. Second, the stopping rule for splitting quadtree cells is based on two user-defined parameters (the maximum depth and a so-called splitting threshold), and so the method is not fully automatic.</p><p>Our results. In this paper we show how to overcome these disadvantages for fat triangulations and low-density subdivisions and present improved and simplified algorithms for map overlay and point location in external memory. Our results are based on a quadtree which we define to ensure that (i) each leaf intersects only a constant number of edges of the subdivision, (ii) that we create only O(n) leaves, and (iii) that we can construct the leaves efficiently.</p><p>For fat triangulations our quadtree is defined by recursively splitting the unit square into quadrants until all edges that intersect a cell are incident to a common vertex. We prove that this stopping rule yields a quadtree of linear size. Nevertheless, due to the potentially large depth of the quadtree, it is still difficult or impossible to build the quadtree i/o-efficiently by distributing the edges from the root down into the quadtree while splitting nodes as needed. Fortunately our stopping rule makes a completely different approach possible: we give an algorithm that is simple and elegant-simpler than the algorithm of Hjaltason and Samet <ref type="bibr" target="#b18">[19]</ref>-and uses only O(sort(n)) i/o's.</p><p>For low-density subdivisions we continue splitting until each cell contains only a single boundingbox vertex of any edge. This stopping rule leads to cells with a constant number of edges, but the number of cells cannot be bounded. Therefore we combine the ideas of compressed quadtrees and linear quadtrees to get a linear compressed quadtree, rather than a regular quadtree. We show that with the stopping rule just defined, the compressed quadtree has linear size. We also give a construction algorithm that uses only O(sort(n)) i/o's.</p><p>Once we have proved that these quadtrees have linear size and each leaf region intersects a constant number of edges, our other results come almost for free: overlaying two subdivisions boils down to a simple merge of the ordered lists of quadtree leaves taking O(scan(n)) i/o's, point location can be done in O(log B n) i/o's by searching in the b-tree built on top of the list of quadtree leaves, and performing k batched point location queries can be done in O(scan(n)+sort(k)) i/o's by sorting the points along the space-filling curve and merging the sorted list with the list of quadtree leaves. The results for map overlay apply to pairs of fat triangulations, low-density subdivisions, or low-density sets of line segments, as well as to mixed pairs of maps of these types. The structure for fat triangulations can be made fully dynamic at the cost of O(log B n) i/o's per update.</p><p>An optimal static structure for point location in general planar subdivisions was already given by Goodrich et al. <ref type="bibr" target="#b17">[18]</ref> for the standard i/o-model and by Bender et al. <ref type="bibr" target="#b4">[5]</ref> for the cache-oblivious model. Batched point location can be done with O(sort(n + k)) i/o's in the i/o-model using the algorithm by Arge et al. <ref type="bibr" target="#b2">[3]</ref>. The result on dynamization, however, is new as far as we know: the best known dynamic i/o-efficient point location structures use O(log 2 B n) i/o's per query <ref type="bibr" target="#b1">[2]</ref> in the i/o-model. All our data structures and query algorithms are cache-oblivious. Our construction and update algorithms for triangulations can be made cache-oblivious, except that updates will then take O(log B n + 1 B log 2 n) i/o's. These results constitute the first results for cache-oblivious map overlay, batched point location and dynamic point location.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="2">Fat triangulations</head><p>In this section we describe our solution for fat triangulations. A δ-fat triangulation is a triangulation consisting of δ-fat triangles, that is, triangles all of whose angles are at least δ for some fixed constant δ &gt; 0. We assume that B = Ω(1/δ) and M = Ω(1/δ 3 ). We assume that all triangulations are triangulations of the unit square <ref type="bibr">[0,</ref><ref type="bibr" target="#b0">1]</ref> 2 . (Our algorithms and proofs extend to triangulations of convex regions-we leave the details for the full paper.) In this section we show the following: Theorem 2.1. Let F be a δ-fat triangulation with n edges. Knowing the memory size M and the block size B, we can construct, in O(sort(n/δ 2 )) i/o's, a linear quadtree for F with O(n/δ 2 ) cells such that each cell intersects O(1/δ) triangles and the total number of intersections between cells and triangles is O(n/δ 2 ). With this structure we can perform the following operations:</p><p>(i) Map overlay: Given two δ-fat triangulations with n triangles in total, each stored in such a linear quadtree, we can find all pairs of intersecting triangles in O(scan(n/δ 2 )) i/o's.</p><p>(ii) (Batched) point location: for any query point p we can find the triangle of F that contains p in O(log B (n/δ)) i/o's, and for any set P of k query points we can find for each point p ∈ P the face of</p><formula xml:id="formula_0">F that contains p in O(scan(n/δ 2 ) + sort(k)) i/o's.</formula><p>(iii) Updates: Inserting a vertex, moving a vertex, deleting a vertex, and flipping an edge can all be done in O((log B n)/δ 4 ) i/o's.</p><p>In the cache-oblivious model the same bounds hold, except that updates then take O((log B n + 1 B log 2 n)/δ 4 ) i/o's.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="2.1">The quadtree subdivision for fat triangulations</head><p>A quadtree is a hierarchical subdivision of the unit square into quadrants, where the subdivision is defined by a criterion to decide what quadrants are subdivided further, and what quadrants are leaves of the hierarchy. A canonical square is any square that can be obtained by recursively splitting the unit square into quadrants. For a canonical square σ, let mom(σ) denote its parent, that is, the canonical square that contains σ and has twice its width. The leaves of the quadtree form the quadtree subdivision; that is, a quadtree subdivision for a set of objects in the unit square is a subdivision into disjoint canonical squares (quadtree cells), such that each cell obeys the stopping rule while its parent does not. The stopping rule we use is as follows:</p><p>Stopping rule for fat triangulations: Stop splitting when all edges intersecting the cell σ under consideration are incident to a common vertex.</p><p>Note that the stopping rule includes the case were σ is not intersected by any edges. To prove that the stopping rule gives a linear number of cells, we use the following lemma, which is a special case of known results on fatness.</p><p>Lemma 2.2. Let 0 &lt; β ≤ 1 be a constant, and let R be a region in the plane. Then R is intersected by</p><formula xml:id="formula_1">O(1/β 2 ) quadtree cells σ such that diam(σ) ≥ β · diam(R).</formula><p>Now we are ready to prove bounds on the complexity of the quadtree subdivision.</p><p>Lemma 2.3. Let F be a δ-fat triangulation of the unit square with n edges. Then the stopping rule defined above leads to a quadtree subdivision with O(n/δ 2 ) cells, such that each cell is intersected by at most 2π/δ triangles, and the total number of triangle-cell intersections is O(n/δ 2 ).</p><p>Proof: Since the degree of each vertex in F is at most 2π/δ, the stopping rule implies that each cell is intersected by at most that many triangles. Below we bound the number of triangle-cell intersections, from which the bound on the number of cells follows immediately.</p><p>For a vertex v of F, let d v be the closest distance to an edge opposite to v, that is, an edge of a triangle incident to v that is not incident to v itself. Let D v be the disk centered at v and of radius r v := d v /2. Using the fact that the minimum angle in any triangle is δ, we can show that for any edge e incident to v we have r v ≥ (sin δ)|e|/2 π/δ+1 , where |e| is the length of e.</p><p>Let σ be a square in the quadtree subdivision. We will charge each intersection of a cell-triangle pair (σ, ) either to a vertex or an edge of F, as follows.</p><p>If σ intersects some disk D v , we charge (σ, ) to v. (If it intersects more disks, we take an arbitrary one and charge (σ, ) to the vertex defining that disk.) Since mom(σ) cannot be completely contained in the union of the triangles incident to v-otherwise mom(σ) would not have been split by our stopping rule-we have diam(mom(σ)) ≥ r v . Hence, diam(σ) ≥ r v /2. From Lemma 2.2 we now know that v is charged by intersections with O(1) cells. Since each cell intersects at most 2π/δ triangles, the total number of cell-triangle intersections charged in this way is O(n/δ).</p><formula xml:id="formula_2">v 1 v 2 v 3 R 1 R 2 σ p 0 p 1 Now assume σ does not intersect any disk D v .</formula><p>If σ does not intersect any edge, we charge (σ, ) to the edge e of that is closest to σ, breaking ties arbitrarily. If σ intersects one or more edges, we charge (σ, ) to an edge e of that intersects σ-thus charging at most two such pairs (σ, ) to e for any fixed σ. From at least one of the two triangles incident to e the square mom(σ) intersects an edge different from e. Let v 1 , v 2 be the vertices of e, and let v 3 be the third vertex of this triangle . Consider the Voronoi diagram of the edges of inside . Because σ is charged to e, it must intersect the Voronoi cell V(e) of e.</p><p>We partition V(e) into a number of regions, and assign (σ, ) to one of these regions, as follows. Extend the bisector at v 3 (which separates</p><formula xml:id="formula_3">V(v 1 v 3 ) from V(v 2 v 3 )) into V(e), thus splitting V(e)</formula><p>into two regions. At least one of these regions intersects σ-in the figure this region is shown in grey. We partition this region, R, into subregions R 1 , R 2 , . . . , R m as follows. Let p 0 be the Voronoi vertex inside . Let p 1 be the midpoint of v 1 p 0 . Region R 1 is obtained by drawing a segment from p 1 orthogonal to v 1 p 0 into R. Region R 2 is obtained by splitting the remainder of R by a segment from the midpoint of v 1 p 1 and orthogonal to v 1 p 0 , etc. This process is repeated until the remaining region is completely contained in D v -see the figure.</p><p>Using a packing argument and the fact that all angles in are at least δ, we can now show that there are O(1/δ) regions per edge e, that each region gets assigned O(1/δ) different cells, and that for each such cell, at most two cell-triangle intersections are charged to e. Thus there are O(n/δ 2 ) cell-triangle intersections in total.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="2.2">Storing the quadtree subdivision and the triangulation</head><p>We will store the quadtree subdivision defined above as a so-called linear quadtree <ref type="bibr" target="#b16">[17]</ref>. To this end, we define an ordering on the leaf cells of the quadtree subdivision. The ordering is based on a space-filling curve defined recursively by the order in which it visits the quadrants of a canonical square. We will use the z-order space-filling curve for this, which visits the quadrants in the order bottom left, top left, bottom right, top right, and within each quadrant, the z-order curve visits its subquadrants recursively in the same order. Since the intersection of every canonical square with this curve is a contiguous section of the curve, this yields a well-defined ordering of the leaf cells of the quadtree subdivision. We call the resulting order the z-order.</p><p>The z-order curve not only orders the leaf cells of the quadtree subdivision, but it also provides an ordering for any two points in the unit square-namely the z-order of any two disjoint canonical squares containing the points. (We assume that canonical squares are closed at the bottom and the left side, and open at the top and the right side.) The z-order of two points can be determined as follows. For a point p = (p x , p y ) in [0, 1 2 , define its z-index Z(p) to be the value in the range [0, 1 obtained by interleaving the bits of the fractional parts of p x and p y , starting with the first bit of p x . The value Z(p) is sometimes called the Morton block index of p. The z-order of two points is now the same as the order of their z-indices <ref type="bibr" target="#b18">[19]</ref>. The z-indices of all points in a canonical square σ form a subinterval [z 1 , z 2 of [0, 1, where z 1 is the z-index of the bottom left corner of σ. Note that any subdivision of the unit square [0, 1 2 into k leaf cells of a quadtree corresponds directly to a subdivision of the unit interval [0, 1 of z-indices into k subintervals.</p><p>A simple (but novel) way of storing a triangulation in a linear quadtree is now obtained by storing all cell-triangle intersections in a b-tree <ref type="bibr" target="#b8">[9]</ref>: each cell-triangle intersection (σ, ) of a cell σ corresponding to the z-index interval [z 1 , z 2 is represented by storing triangle with key z 1 . With this way of storing the linear quadtree, the leaf cells of the quadtree are stored implicitly: each pair of consecutive different keys z 1 and z 2 constitutes the z-index interval of a quadtree leaf cell. To obtain a cache-oblivious solution, we can use a cache-oblivious b-tree <ref type="bibr" target="#b4">[5,</ref><ref type="bibr" target="#b5">6,</ref><ref type="bibr" target="#b6">7]</ref>.</p><p>In the remainder we will sometimes need to compute or compare z-indices. Whether this takes constant time depends on the operations allowed by the model of computation. In any case, since we care mainly about i/o-efficiency, such computations do not effect the analysis of our algorithms.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="2.3">Building the quadtree I/O-efficiently</head><p>The natural algorithm to build a quadtree would take a set of triangles and a canonical square (initially all triangles and the unit square) as input, check if the condition of the stopping rule is satisfied, and if not, distribute the triangles among the four children and subdivide the children recursively. Unfortunately, this algorithm takes O(n 2 ) time and O(n 2 /B) i/o's, as the quadtree may have height O(n). Below we describe a faster algorithm that computes the leaf cells that result with our stopping rule directly, using local computations instead of a top-down approach.</p><p>For any vertex v of the given triangulation F, let star (v) be the star of v in F; namely, it is the set of triangles of F that have v as a vertex. Recall that a canonical square is any square that can be obtained by recursively subdividing the unit square into quadrants. For a set S of triangles inside the unit square, we say that a canonical square of σ is active in S if it lies completely inside S and all edges from S that intersect σ are incident to a common vertex, while mom(σ) intersects multiple edges of S that are not all incident to a common vertex. Thus the cells of the quadtree subdivision we wish to compute for F are exactly the active canonical squares in F.</p><p>Lemma 2.4. Let = (u, v, w) be a triangle of F and σ a canonical square that intersects . Then σ is active in F if and only if σ is active in star (u), star (v) or star (w).</p><p>Proof: Consider the canonical cell τ = mom(σ). Let γ u denote the boundary of star (u). The curve γ u is a simple closed polygonal curve.</p><p>If σ is active in star (u) then there exist three edges of star (u) that intersect τ and are not all incident to the same vertex. Since σ is completely contained inside star (u), it is separated from any edges of F outside star (u) by γ u . Hence σ is active in F. The same argument implies that if σ is active in star (v) or in star (w), then it is active in F.</p><p>As for the other direction, suppose σ is active in F and, without loss of generality, assume that all edges that intersect σ are incident to u. We distinguish three cases: τ intersects at least two, one, or zero edges incident to u.</p><p>If τ intersects at least two edges incident to u, then τ must also intersect a third edge that is not incident to u; in particular it intersects an edge of γ u . The square τ thus intersects three edges of star (u) that are not all incident to a common vertex, and its child σ is active in star (u).</p><p>If τ intersects only one edge incident to u, then, without loss of generality, let (u, v) be this edge. If τ intersects another edge incident to v, we apply the argument for the first case to v and conclude that σ is active in star (v). Otherwise τ is fully contained inside the union of the two triangles incident to (u, v). But then σ cannot be active for F. This is a contradiction.</p><p>Finally, if τ does not intersect any edges incident to u, then σ does not intersect any edges at all and lies completely inside . Furthermore, τ intersects (v, w). We now apply the arguments given above with u and v changing roles, and find that σ is active in star (v) or star (w).</p><p>On the basis of the above lemma, we can construct the linear quadtree as follows:</p><p>1. Compute an adjacency list for each vertex.</p><p>2. Scan the adjacency lists for all vertices: for each vertex u load its adjacency list in memory and compute the active cells of star (u), with for each cell σ the triangles that intersect σ. Output each triangle with the key z 1 of the z-index interval [z 1 , z 2 that corresponds to σ. 3. Sort the triangles by key, removing duplicates. 4. Finally, build a (cache-oblivious) b-tree on the list of triangles with their keys.</p><p>Lemma 2.5. The quadtree described above for a δ-fat triangulation with n edges can be constructed with O(sort(n/δ 2 )) i/o's. (Proof straightforward from the previous Lemmas) Eliminating superfluous cells. The i/o-complexity of the construction and the storage requirements in practice can be reduced with an easy optimization: we merge all active cells that lie properly inside triangles with their successors or predecessors in the z-order. In fact, in step 2 of the algorithm, we will not even output such cells. Instead we only output triangle-key pairs for triangle-cell intersections such that an edge of the triangle intersects the cell. We sort these triangle-key pairs, and then scan them. Whenever two consecutive triangles have different keys z 1 and z 2 , we identify the most significant bit that differs between them. Let z be the lowest z-index in [z 1 , z 2 ] for which this bit has value 1. For each triangle stored with key z 2 , we now replace its key by z. Since the interval [z 1 , z of the z-order curve covers a connected area in the plane, all cells in the range [z 1 , z that do not intersect any edge must be completely contained in a triangle that already intersects the cell that starts with z-index z 1 . Similarly, [z, z 2 ] and the cell that starts with z 2 together cover a connected area in the plane, so the triangles that intersect it must have been stored with key z 2 already. Hence no more triangles need to be stored as a result of merging cells.</p><p>Updates. We support the following operations: inserting a vertex, moving a vertex, deleting a vertex, and flipping an edge. By Lemma 2.4, all leaf cells that intersect a triangle = (u, v, w) can be computed from the local quadtrees of star (u), star (v) and star (w). Since the size of star (u), star (v) and star (w) is O(1/δ), by Lemma 2.3 the total number of cells that intersect is O(1/δ 3 ). Since each of the supported operations changes only O(1/δ) triangles, we can compute the structure of the quadtree locally in the area of the update, and determine what the changes entail for the data stored on the disk. All changes can thus be made in O((log B n)/δ 4 ) i/o's when a normal b-tree is used, and in O((log B n + 1 B log 2 n)/δ 4 ) i/o's when a cache-oblivious b-tree is used [5, 6, 7].</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="2.4">Overlaying maps and point location</head><p>Lemma 2.6. The linear quadtree for δ-fat triangulations as described above supports map overlay in O(scan(n/δ 2 )) i/o's, and point location in O(log B (n/δ)) i/o's, where n is the number of points in the triangulation. Batched point location for k points takes O(scan(n/δ 2 ) + sort(k)) i/o's.</p><p>Proof: Each triangulation's quadtree, or rather, subdivision of the z-order curve, is stored on disk as a sorted list of z-indices with triangles. To overlay the two triangulations, we will scan the two quadtrees simultaneously in z-order, at any point keeping in memory the triangles stored with the last key read from the first list and those stored with the last key read from the second list.</p><p>Starting from the beginning of the lists, we repeat the following until both lists have been read completely: we read the next key from the list with the smallest unread key, we load all triangles stored with that key into memory, and we compute the intersections with the triangles in memory that were read from the other list. The input has size O(n/δ 2 ). The output consists of O(n/δ) intersections since a δ-fat triangulation has density O(1/δ) <ref type="bibr" target="#b12">[13]</ref>, which implies the claim.</p><p>To perform point location with a point p, we compute the z-index Z(p) of p and search the b-tree for the triangles with the highest keys less than or equal to Z(p). To do batched point location, we sort the set P of query points by z-index, and scan the leaves of the b-tree and P in parallel (similar to the overlay operation as described above).</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3">Low-density subdivisions</head><p>In this section we describe our solution for storing planar low-density subdivisions. For a planar object o, let size(o) denote the radius of the smallest enclosing disk of o. The density of a set S of objects in the plane is the smallest number λ such that the following holds: any disk D is intersected by at most λ objects o ∈ S such that diam(o) ≥ diam(D) <ref type="bibr" target="#b12">[13]</ref>. We say that a planar subdivision F has density λ if its edge set has density λ. In other words, any disk D is intersected by at most λ edges whose length is at least the diameter of D. We assume that B = Ω(λ), and that the input lies in the unit square <ref type="bibr">[0,</ref><ref type="bibr" target="#b0">1]</ref> 2 . In this section we will prove the following result. The data structure, the overlay algorithm and the query algorithms are cache-oblivious.</p><p>Any set of disjoint δ-fat triangles in the plane has density O(1/δ) <ref type="bibr" target="#b12">[13]</ref>. Thus the results of this section can be used for δ-fat triangulations. However, the solution from the previous section is simpler and dynamic.</p><p>Below we explain our data structure, and how to construct it. The query algorithms are the same as described in the previous section.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.1">The compressed quadtree subdivision for low-density maps</head><p>Let F be a subdivision of the unit square with n edges and of density λ. In general it is impossible to construct a standard quadtree on F consisting of a linear number of cells that are each intersected by a constant number of edges. Indeed, in a general subdivision of the unit square there can be many vertices arbitrarily close together, even if the subdivision has constant density. To overcome this problem we shall use a so-called compressed quadtree.</p><p>Let G be the set of vertices of the axis-parallel bounding boxes of the edges of F. This set has a nice property:</p><p>Lemma 3.2 ( <ref type="bibr" target="#b10">[11]</ref>). Any square σ that does not contain any bounding-box vertex of an object in a set S with density λ, intersects O(λ) objects from S.</p><p>We now construct a quadtree for F with the following stopping rule.</p><p>Stopping rule for low-density subdivisions: Stop splitting when the cell σ under consideration contains at most one point from G.</p><p>Consider the quadtree that we get from this stopping rule. Its cells intersect O(λ) edges, but the number of cells cannot be bounded. Hence, we compress the quadtree <ref type="bibr" target="#b19">[20]</ref>, by building it as follows. We recursively subdivide each canonical square σ that contains more than one point from G into five regions. Let σ be the smallest canonical square that contains all points of σ ∩ G. The first region is the donut σ \ σ . The remaining four regions are the four quadrants of σ . Note that the first region does not contain any points of G, so it is never subdivided further. When σ = σ, the first region is skipped; when σ is smaller than σ, we call σ \ σ a proper donut.</p><p>Lemma 3.3. Let F be a subdivision of the unit square with n edges and of density λ. Then a compressed quadtree subdivision based on the stopping rule defined above has O(n) cells, and each cell is intersected by at most O(λ) edges.</p><p>Proof: Note that each internal node of the compressed quadtree has points from G in at least two of its subtrees, hence the total number of nodes is O(|G|) = O(n).</p><p>If a cell σ is a square, it contains at most one guarding point of G. Hence σ can be covered by four (not necessarily disjoint) squares that lie completely in σ and do not have points from G in their interior. By Lemma 3.2, we conclude that σ is intersected by at most O(λ) edges.</p><p>If σ is a proper donut, it is empty of guard points. Moreover, it can be covered by six squares that do not contain any points of G in their interior, and hence only O(λ) edges intersect it.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.2">Storing the compressed quadtree subdivision and the low-density map</head><p>We store the cell-edge intersections of the compressed quadtree subdivision in a list sorted by the z-order of the cells, indexed by a (cache-oblivious) b-tree. The only difference with the previous section is that we now have to deal with donuts as well as square cells. Recall that a canonical square (a square that can be obtained from the unit square by a recursive partitioning into quadrants) corresponds to an interval on the z-order curve. For a donut this is not true. However, a donut corresponds to at most two such intervals, because a donut is the set-theoretic difference of two canonical squares. Thus the solution of the previous section can be applied if we represent each donut by two intervals [z 1 , z 2 and [z 3 , z 4 ; edges intersecting the first part of the donut are stored with key z 1 and edges intersecting the second part are stored with key z 3 . As described in Section 2.3, we merge cells that do not intersect any edge with their immediate successors or predecessors in the z-order. We call the resulting structure-the b-tree on the cell-edge intersections whose keys imply a compressed quadtree subdivision-a linear compressed quadtree. Map overlay and point location are done in exactly the same way as with the linear quadtree described earlier.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.3">Building the compressed quadtree I/O-efficiently</head><p>We construct the leaves of the compressed quadtree, or rather, the corresponding subdivision of the z-order curve, as follows. We sort G into z-order, and scan the sorted points. For each pair of consecutive points, say u and v, we construct their lowest common ancestor lca(u, v) by examining the longest common prefix of the bit strings representing z(u) and z(v). We output the five z-indices that bound and separate the z-order intervals of the four children of lca(u, v). To complete the subdivision of the z-order curve, we sort the output into a list L by z-order, removing duplicates.</p><p>Lemma 3.4. The above algorithm generates a subdivision of the z-order curve that corresponds to a compressed quadtree on G in O(sort(n)) i/o's.</p><p>Proof: The definition of the compressed quadtree implies that a canonical square σ is subdivided into its four quadrants if and only if it contains at least two points that lie in different quadrants of σ. If such a pair exists, at least one such pair (u, v) appears as a pair of consecutive points in the zorder, since the z-order curve visits all points in σ consecutively. The above algorithm generates the boundaries of the four quadrants of σ when the pair (u, v) is encountered. Furthermore, whenever the above algorithm generates the boundaries of the four quadrants of a cell σ, there is a pair (u, v) that has σ as their lowest common ancestor, and therefore lie in different quadrants of σ.</p><p>It remains to check that the boundaries of donut cells are generated correctly. The z-indices that define the outer square of a donut σ \ τ appear when a pair of points is processed that consists of a point in the hole σ and a point in a sibling of σ. The z-indices that define the hole σ appear when a pair of points is processed that lie in different quadrants of the inner square.</p><p>Having constructed the compressed quadtree subdivision, we now distribute the edges in F to the faces of the quadtree subdivision, or rather, to the corresponding sections of the z-order curve.</p><p>To do so, we first build a b-tree on the subdivision of the z-order curve as computed above. We then load the (roughly) M/B nodes of the b-tree, that reside log B (M/B) levels below the root, in memory. Note that each of these nodes covers a certain section of the z-order curve, and together they form a subdivision of the z-index interval covered by the root. We assign an output stream to each of these nodes, and reserve a buffer of one block in memory for each of them. We now read the edges from the input one by one, and distribute each edge to the output streams of the nodes whose section of the z-order curve is intersected by the edge. Note that each edge may be copied to several streams. Once all edges have been read, we distribute the edges in each node's stream recursively into the subtree rooted at that node.</p><p>After distributing all edges recursively to the leaves, we collect all edge-cell intersections, ordered by the z-indices of the cells, and put a new b-tree on top of them. Each cell σ without any intersecting edges is merged with the cells that precede or follow it in the z-order, up to a cell that stores an edge of the face of F that contains σ (see Section 2.3 for an explanation).</p><p>Lemma 3.5. The compressed quadtree as defined above for a subdivision of density λ with n edges can be constructed with O(sort(λn)) i/o's. (Proof straightforward from the above)</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="4">Conclusions</head><p>We described how one can efficiently store and overlay planar maps in the i/o-model of computation. Our algorithms work for planar maps that are fat triangulations or have low density. The solution for triangulations is based on quadtrees, is considerably simpler than previous solutions, and supports even dynamic maintenance of the planar maps under updates. The second construction, for low density planar maps, is based on compressed quadtrees and is somewhat more complicated; however our analysis gives a better dependency on the parameter that describes the input. Unfortunately it is not clear if the construction algorithm can be made cache-oblivious and if the structure can be made to support updates. Both constructions use linear space, improving on the previous space bound of O(n log M/B n) of Arge et al. <ref type="bibr" target="#b2">[3]</ref>. Which of our two structures would give the most compact data structure for triangulations in practice remains to be seen. The first approach's dependency on the fatness may be better than it seems (perhaps an analysis in terms of average fatness is possible), while the second approach may introduce many guards (a triangulation of n vertices has roughly 3n edges and thus roughly 6n extra bounding box vertices as guards).</p><p>Our data structures can be used for range searching queries. In general this would not be very efficient, but we believe it is possible to achieve good bounds for approximate range searching <ref type="bibr" target="#b3">[4]</ref>. However, the data structure for low-density subdivisions as presented in this paper does not give good bounds immediately, and needs to be subjected to some post-processing for this purpose. We are currently working out the details.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>A The full proof of Lemma 2.3</head><p>Proof: Since the degree of each vertex in F is at most 2π/δ, the stopping rule immediately implies that each cell is intersected by at most that many triangles. In the remainder of the proof we bound the number of triangle-cell intersections, from which the bound on the number of cells follows immediately.</p><p>For a vertex v of F, let d v be the closest distance to an edge opposite to v, that is, an edge of a triangle incident to v that is not incident to v itself. Let D v be the disk centered at v and of radius r v := d v /2. Since the minimum angle in any triangle is δ, we know that d v is at least s v sin δ where s v is the length of the shortest edge incident to v.</p><p>We now bound the length ratio of the edges around v. Let φ 1 , φ 2 , ..., φ k be the angles between the edges around v when going around v from the shortest edge to the longest edge incident to v-in clockwise or counterclockwise order such that k i=1 φ i ≤ π. Using the sine rule and the fact that the minimum angle in any triangle is δ, we find that the ratio between lengths of the edges that make angle φ i is at most:</p><formula xml:id="formula_4">max χ∈[δ,π−δ−φ i ] sin(π − φ i − χ)/ sin χ = max χ∈[δ,π−δ−φ i ] sin φ i / tan χ + cos φ i = sin φ i / tan δ + cos φ i .</formula><p>The maximum ratio of the length of any two edges around v is now:</p><formula xml:id="formula_5">max φ 1 ,...,φ k Π k i=1 (sin φ j / tan δ + cos φ j ) = max φ≥δ (sin φ/ tan δ + cos φ) π/φ ≤ (2 cos δ) π/δ &lt; 2 π/δ .</formula><p>Hence, for any edge e incident to v we have</p><formula xml:id="formula_6">r v = d v 2 ≥ s v sin δ 2 ≥ sin δ 2 π/δ+1 · |e|,</formula><p>where |e| denotes the length of e. Let σ be a square in the quadtree subdivision. We will charge each intersection of a cell-triangle pair (σ, ) either to a vertex or an edge of F, as follows.</p><p>If σ intersects some disk D v , we charge (σ, ) to v. (If it intersects more disks, we take an arbitrary one and charge (σ, ) to the vertex defining that disk.) Since mom(σ) cannot be completely contained in the union of the triangles incident to v-otherwise mom(σ) would not have been split by our stopping rule-we have diam(mom(σ)) ≥ r v . Hence, diam(σ) ≥ r v /2. From Lemma 2.2 we now know that v is charged by intersections with O(1) cells in this manner. Since each cell intersects at most 2π/δ triangles, the total number of cell-triangle intersections charged in this way is O(n/δ). Now assume σ does not intersect any disk D v . If σ does not intersect any edge, we charge (σ, ) to the edge e of that is closest to σ, breaking ties arbitrarily. If σ intersects one or more edges, we charge (σ, ) to an edge e of that intersects σ-thus charging at most two such pairs (σ, ) to e for any fixed σ. From at least one of the two triangles incident to e, the square mom(σ) must intersect an edge different from e. Let v 1 , v 2 be the two vertices of e, and let v 3 be the third vertex of this triangle . Consider the Voronoi diagram of the edges of , inside . Because σ is charged to e, it must intersect the Voronoi cell V(e) of e.</p><p>We partition V(e) into a number of regions, and assign (σ, ) to one of these regions, as follows. Extend the bisector at v 3 (which separates V(v 1 v 3 ) from V(v 2 v 3 )) into V(e), thus splitting V(e) into two regions. At least one of these regions intersects σ-in <ref type="figure" target="#fig_1">Fig. 1</ref> this region is shown in grey. We partition this region, R, into subregions R 1 , R 2 , . . . , R m as follows. Let p 0 be the Voronoi vertex inside . Let p 1 be the midpoint of v 1 p 0 . Region R 1 is obtained by drawing a segment from p 1 orthogonal to v 1 p 0 into R. Region R 2 is obtained by splitting the remainder of R by a segment from the midpoint of v 1 p 1 and orthogonal to v 1 p 0 , etc. This process is repeated until the remaining region is completely contained in D v -see <ref type="figure" target="#fig_1">Fig. 1</ref>. We assign (σ, ) to the largest subregion R i (the one with smallest index) that it intersects. In the remainder of this proof, let us define the length of v 1 p 0 as the unit distance 1. Consider the region R i . The point p i has distance (1/2) i to v i and the edge p i p i−1 has length (1/2) i . Let δ 1 be the angle ∠p 0 v 1 v 2 , which is equal to ∠v 3 v 1 p 0 . The distance of any point in R i to any edge of is at least (1/2) i sin δ 1 , which is thus a lower bound on diam(mom(σ)). Hence, diam(σ) ≥ (1/2) i+1 sin(δ 1 )</p><p>Now consider the region R * i obtained by taking the Minkowski sum of R i with a disk of radius (1/2) i+1 sin(δ 1 ). We have: area(R * i ) &lt; (1/2) <ref type="bibr">2i</ref> (1 + sin δ 1 ) · (2 tan δ 1 + sin δ 1 ).</p><p>Since σ intersects R i and has width at least (1/2) i+1 sin(δ 1 )/ √ 2, while any square of that width that intersects R i lies completely inside R * i , we have:</p><formula xml:id="formula_7">area(σ ∩ R * i ) ≥ (1/2) 2i+3 sin 2 δ 1 .</formula><p>Note that δ/2 ≤ δ 1 ≤ π/2 − δ, and thus sin δ 1 &gt; sin δ 1 cos δ 1 ≥ 1 2 sin δ and cos δ 1 ≥ sin δ. Hence, R i gets assigned at most area(R * i )/ area(σ ∩ R * i ) = O(1/ sin δ) = O(1/δ) cells. Since there are O(1/δ) regions R i , e gets assigned O(1/δ 2 ) different cells, and for each cell, at most two cell-triangle intersections are charged to e. Thus there are O(n/δ 2 ) cell-triangle intersections in total.</p></div><figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_0"><head></head><label></label><figDesc>Thus all cells with z-indices in [z 1 , z are merged with each other, and all cells with z-values in [z, z 2 ] are merged with each other.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_1"><head>Figure 1 :</head><label>1</label><figDesc>Figure 1: Illustration for the proof of Lemma 2.3.</figDesc></figure>
+		</body>
+		<back>
+
+			<div type="acknowledgement">
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>Acknowledgement</head><p>The authors thank Sariel Har-Peled for his extensive contribution.</p></div>
+			</div>
+
+			<div type="references">
+
+				<listBibl>
+
+<biblStruct xml:id="b0">
+	<analytic>
+		<title level="a" type="main">The input/output complexity of sorting and related problems</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Aggarwal</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><forename type="middle">S</forename><surname>Vitter</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Commun. ACM</title>
+		<imprint>
+			<biblScope unit="volume">31</biblScope>
+			<biblScope unit="page" from="1116" to="1127" />
+			<date type="published" when="1988" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b1">
+	<analytic>
+		<title level="a" type="main">I/O-efficient dynamic planar point location</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">L</forename><surname>Arge</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Vahrenhold</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. 16th Annu. ACM Symp</title>
+		<meeting>16th Annu. ACM Symp</meeting>
+		<imprint>
+			<date type="published" when="2000" />
+			<biblScope unit="page" from="191" to="200" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b2">
+	<analytic>
+		<title level="a" type="main">External-memory algorithms for processing line segments in geographic information systems</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">L</forename><surname>Arge</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><forename type="middle">E</forename><surname>Vengroff</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><forename type="middle">S</forename><surname>Vitter</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. 3th Annu. Eur. Symp. Algorithms</title>
+		<meeting>3th Annu. Eur. Symp. Algorithms</meeting>
+		<imprint>
+			<date type="published" when="1995" />
+			<biblScope unit="page" from="295" to="310" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b3">
+	<analytic>
+		<title level="a" type="main">Approximate range searching</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Arya</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Mount</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Comput. Geom. Theory Appl</title>
+		<imprint>
+			<biblScope unit="volume">17</biblScope>
+			<biblScope unit="page" from="135" to="152" />
+			<date type="published" when="2000" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b4">
+	<analytic>
+		<title level="a" type="main">Exponential structures for efficient cache-oblivious algorithms</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Bender</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Cole</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Raman</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. 29th Internat. Colloq. Automata Lang. Prog., volume 2380 of LNCS</title>
+		<meeting>29th Internat. Colloq. Automata Lang. Prog., volume 2380 of LNCS<address><addrLine>Berlin</addrLine></address></meeting>
+		<imprint>
+			<date type="published" when="2002" />
+			<biblScope unit="page" from="195" to="207" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b5">
+	<analytic>
+		<title level="a" type="main">Cache-oblivious B-trees</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><forename type="middle">A</forename><surname>Bender</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">E</forename><forename type="middle">D</forename><surname>Demaine</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Farach-Colton</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. 41th Annu</title>
+		<meeting>41th Annu</meeting>
+		<imprint>
+			<date type="published" when="2000" />
+			<biblScope unit="page" from="339" to="409" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b6">
+	<analytic>
+		<title level="a" type="main">Cache oblivious search trees via binary trees of small height</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">G</forename><forename type="middle">S</forename><surname>Brodal</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Fagerberg</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Jacob</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. 13th ACM-SIAM Symp. Discrete Algorithms</title>
+		<meeting>13th ACM-SIAM Symp. Discrete Algorithms</meeting>
+		<imprint>
+			<date type="published" when="2002" />
+			<biblScope unit="page" from="39" to="48" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b7">
+	<analytic>
+		<title level="a" type="main">Externalmemory graph algorithms</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Y.-J</forename><surname>Chiang</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><forename type="middle">T</forename><surname>Goodrich</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">E</forename><forename type="middle">F</forename><surname>Grove</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Tamassia</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><forename type="middle">E</forename><surname>Vengroff</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><forename type="middle">S</forename><surname>Vitter</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. 6th ACM-SIAM Symp. Discrete Algorithms</title>
+		<meeting>6th ACM-SIAM Symp. Discrete Algorithms</meeting>
+		<imprint>
+			<date type="published" when="1995" />
+			<biblScope unit="page" from="139" to="149" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b8">
+	<monogr>
+		<title level="m" type="main">Introduction to Algorithms</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">T</forename><forename type="middle">H</forename><surname>Cormen</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><forename type="middle">E</forename><surname>Leiserson</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><forename type="middle">L</forename><surname>Rivest</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Stein</surname></persName>
+		</author>
+		<imprint>
+			<date type="published" when="2001" />
+			<publisher>MIT Press</publisher>
+			<pubPlace>McGraw-Hill, Cambridge, Mass</pubPlace>
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b9">
+	<analytic>
+		<title level="a" type="main">Randomized external-memory algorithms for some geometric problems</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Crauser</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>Ferragina</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">K</forename><surname>Mehlhorn</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">U</forename><surname>Meyer</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">E</forename><surname>Ramos</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Comput. Geom. Theory Appl</title>
+		<imprint>
+			<biblScope unit="volume">11</biblScope>
+			<biblScope unit="issue">3</biblScope>
+			<biblScope unit="page" from="305" to="337" />
+			<date type="published" when="2001-06" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b10">
+	<analytic>
+		<title level="a" type="main">Linear size binary space partitions for uncluttered scenes</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Berg</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Algorithmica</title>
+		<imprint>
+			<biblScope unit="volume">28</biblScope>
+			<biblScope unit="page" from="353" to="366" />
+			<date type="published" when="2000" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b11">
+	<analytic>
+		<title level="a" type="main">Improved bounds on the union complexity of fat objects</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Berg</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. 25th Conf. Found. Soft. Tech. Theoret. Comput. Sci</title>
+		<meeting>25th Conf. Found. Soft. Tech. Theoret. Comput. Sci</meeting>
+		<imprint>
+			<date type="published" when="2005" />
+			<biblScope unit="page" from="116" to="127" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b12">
+	<analytic>
+		<title level="a" type="main">Realistic input models for geometric algorithms</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Berg</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><forename type="middle">J</forename><surname>Katz</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><forename type="middle">V</forename><surname>Stappen</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Vleugels</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Algorithmica</title>
+		<imprint>
+			<biblScope unit="volume">34</biblScope>
+			<biblScope unit="page" from="81" to="97" />
+			<date type="published" when="2002" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b13">
+	<monogr>
+				<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Berg</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Van Kreveld</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><forename type="middle">H</forename><surname>Overmars</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">O</forename><surname>Schwarzkopf</surname></persName>
+		</author>
+		<title level="m">Computational Geometry: Algorithms and Applications</title>
+		<imprint>
+			<publisher>Springer-Verlag</publisher>
+			<date type="published" when="2000" />
+		</imprint>
+	</monogr>
+	<note>2nd edition</note>
+</biblStruct>
+
+<biblStruct xml:id="b14">
+	<analytic>
+		<title level="a" type="main">Overlaying simply connected planar subdivisions in linear time</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">U</forename><surname>Finke</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">K</forename><surname>Hinrichs</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. 11th Annu. ACM Symp</title>
+		<meeting>11th Annu. ACM Symp</meeting>
+		<imprint>
+			<date type="published" when="1995" />
+			<biblScope unit="page" from="119" to="126" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b15">
+	<analytic>
+		<title level="a" type="main">Cache-oblivious algorithms</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Frigo</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><forename type="middle">E</forename><surname>Leiserson</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">H</forename><surname>Prokop</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Ramachandran</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. 40th Annu</title>
+		<meeting>40th Annu</meeting>
+		<imprint>
+			<date type="published" when="1999" />
+			<biblScope unit="page" from="285" to="298" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b16">
+	<analytic>
+		<title level="a" type="main">An effective way to represent quadtrees</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">I</forename><surname>Gargantini</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Commun. ACM</title>
+		<imprint>
+			<biblScope unit="volume">25</biblScope>
+			<biblScope unit="issue">12</biblScope>
+			<biblScope unit="page" from="905" to="910" />
+			<date type="published" when="1982" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b17">
+	<analytic>
+		<title level="a" type="main">External-memory computational geometry</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><forename type="middle">T</forename><surname>Goodrich</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J.-J</forename><surname>Tsay</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><forename type="middle">E</forename><surname>Vengroff</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><forename type="middle">S</forename><surname>Vitter</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. 34th Annu</title>
+		<meeting>34th Annu</meeting>
+		<imprint>
+			<date type="published" when="1993" />
+			<biblScope unit="page" from="714" to="723" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b18">
+	<analytic>
+		<title level="a" type="main">Speeding up construction of pmr quadtree-based spatial indexes</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">G</forename><forename type="middle">R</forename><surname>Hjaltason</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">H</forename><surname>Samet</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">VLDB Journal</title>
+		<imprint>
+			<biblScope unit="volume">11</biblScope>
+			<biblScope unit="page" from="190" to="137" />
+			<date type="published" when="2002" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b19">
+	<monogr>
+				<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">H</forename><surname>Samet</surname></persName>
+		</author>
+		<title level="m">Spatial Data Structures: Quadtrees, Octrees, and Other Hierarchical Methods</title>
+		<meeting><address><addrLine>Reading, MA</addrLine></address></meeting>
+		<imprint>
+			<publisher>AddisonWesley</publisher>
+			<date type="published" when="1989" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+				</listBibl>
+			</div>
+		</back>
+	</text>
+</TEI>

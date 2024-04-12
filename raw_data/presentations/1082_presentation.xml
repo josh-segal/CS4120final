@@ -1,0 +1,358 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>TxFS: Leveraging File-System Crash Consistency to Provide ACID</p>
+    <p>Transactions</p>
+    <p>Yige Hu, Zhiting Zhu, Ian Neal, Youngjin Kwon, Tianyu Chen, Vijay Chidambaram, Emmett Witchel The University of Texas at Austin</p>
+  </div>
+  <div class="page">
+    <p>Applications need crash consistency</p>
+    <p>Crash</p>
+    <p>Systems may fail in the middle of operations due to power loss</p>
+    <p>or kernel bugs</p>
+    <p>Crash consistency ensures that the application can recover to a</p>
+    <p>correct state after a crash</p>
+    <p>Applications store persistent state across multiple files and</p>
+    <p>abstractions</p>
+    <p>Example: email attachment file and its path name stored in a</p>
+    <p>SQLite database file become inconsistent on a crash</p>
+    <p>No POSIX mechanism to atomically update multiple files</p>
+  </div>
+  <div class="page">
+    <p>Efficient crash consistency is hard</p>
+    <p>Applications build on file-system primitives to ensure crash</p>
+    <p>consistency</p>
+    <p>Unfortunately, POSIX only provides the sync-family system</p>
+    <p>calls, e.g., fsync()</p>
+    <p>fsync() forces dirty data associated with the file to become</p>
+    <p>durable before the call returns</p>
+    <p>fsync() is an expensive call</p>
+    <p>As a result, applications dont use it as much as they should</p>
+    <p>This results in complex, error-prone applications [OSDI 14]</p>
+  </div>
+  <div class="page">
+    <p>Example: Android mail client</p>
+    <p>The Android mail client receives an email with attachment</p>
+    <p>Stores attachment as a regular file</p>
+    <p>File name of attachment stored in SQLite</p>
+    <p>Stores email text in SQLite</p>
+    <p>SQLiteRaw files</p>
+    <p>/dir1/attachment</p>
+    <p>Rollback log</p>
+    <p>REC 2</p>
+    <p>/dir1/attachment</p>
+    <p>REC1 COMMIT</p>
+    <p>/dir2/log</p>
+    <p>Database file</p>
+  </div>
+  <div class="page">
+    <p>The Android mail client receives an email with attachment</p>
+    <p>Stores attachment as a regular file</p>
+    <p>File name of attachment stored in SQLite</p>
+    <p>Stores email text in SQLite</p>
+    <p>Example: Android mail client</p>
+    <p>SQLiteRaw files</p>
+    <p>/dir1/attachment</p>
+    <p>Database file</p>
+    <p>Doing this safely requires 6 fsyncs!</p>
+    <p>Rollback log</p>
+    <p>File creation/deletion needs fsync on parent directory</p>
+    <p>/dir1/attachment</p>
+    <p>REC 2</p>
+    <p>REC 1 COMMIT</p>
+    <p>/dir2/log</p>
+  </div>
+  <div class="page">
+    <p>System support for transactions</p>
+    <p>POSIX lacks an efficient atomic update to multiple files</p>
+    <p>E.g., the attachment file and the two database-related files</p>
+    <p>Sync and redundant writes lead to poor performance.</p>
+    <p>The file system should provide transactional services!</p>
+  </div>
+  <div class="page">
+    <p>Didnt transactional file systems fail?</p>
+    <p>Complex implementation  Transactional OS: QuickSilver [TOCS 88], TxOS [SOSP 09] (10k LOC)</p>
+    <p>In-kernel transactional file systems: Valor [FAST 09]</p>
+    <p>Hardware dependency  CFS [ATC 15], MARS [SOSP 13], TxFLash [OSDI 08], Isotope [FAST 16]</p>
+    <p>Performance overhead  Valor [FAST 09] (35% overhead).</p>
+    <p>Hard to use  Windows NTFS (TxF), released 2006 (deprecated 2012)</p>
+  </div>
+  <div class="page">
+    <p>TxFS: Texas Transactional File System</p>
+    <p>Reuse file-system journal for atomicity, consistency, durability</p>
+    <p>Well-tested code, reduces implementation complexity</p>
+    <p>Develop techniques to isolate transactions</p>
+    <p>Customize techniques to kernel-level data structures</p>
+    <p>Simple API - one syscall to begin/end/abort a transaction  Once TX begins, all file-system operations included in transaction</p>
+    <p>Data safe on crash</p>
+    <p>High performanceEasy to implement</p>
+    <p>TxFS</p>
+  </div>
+  <div class="page">
+    <p>Outline</p>
+    <p>Using the file-system journal for A, C, and D</p>
+    <p>Implementing isolation</p>
+    <p>Avoid false conflicts on global data structures</p>
+    <p>Customize conflict detection for kernel data structures</p>
+    <p>Using transactions to implement file-system optimizations</p>
+    <p>Evaluating TxFS</p>
+  </div>
+  <div class="page">
+    <p>Atomicity, consistency and durability</p>
+    <p>File systems already have a log that TxFS can reuse</p>
+    <p>E.g., ext4 journal is a write-ahead log (JBD2 layer)</p>
+    <p>On-disk journal</p>
+    <p>Transaction written to journal for atomic and persistent updates</p>
+    <p>JB D</p>
+    <p>In-memory file system transaction</p>
+  </div>
+  <div class="page">
+    <p>Decreased complexity: use the file systems crash consistency</p>
+    <p>mechanism to create transactions</p>
+    <p>Atomicity, consistency and durability</p>
+    <p>TX local state</p>
+    <p>Local T X</p>
+    <p>Local</p>
+    <p>Local transaction</p>
+    <p>On-disk journal</p>
+    <p>JB D</p>
+    <p>Global</p>
+    <p>In-memory file system transaction</p>
+  </div>
+  <div class="page">
+    <p>Outline</p>
+    <p>Using the file-system journal for A, C and D</p>
+    <p>Implementing isolation</p>
+    <p>Avoid false conflicts on global data structures</p>
+    <p>Customize conflict detection for kernel data structures</p>
+    <p>Using transactions to implement file-system optimizations</p>
+    <p>Evaluating TxFS</p>
+  </div>
+  <div class="page">
+    <p>Isolation with performance</p>
+    <p>Isolation - concurrent transactions act as if serially executed</p>
+    <p>At the level of repeatable reads</p>
+    <p>Transaction-private copies</p>
+    <p>In-progress writes are local to a kernel thread</p>
+    <p>Detect conflicts</p>
+    <p>Efficiently specialized to kernel data structure</p>
+    <p>Maintain high performance</p>
+    <p>Fine-grained page locks</p>
+    <p>Avoid false conflicts</p>
+    <p>TX1 TX2</p>
+  </div>
+  <div class="page">
+    <p>Challenge of isolation: Concurrency and performance</p>
+    <p>Concurrent creation of the same file name is a conflict</p>
+    <p>Writes to global data structures (e.g. bitmaps) should proceed</p>
+    <p>Process 1</p>
+    <p>TX1 start</p>
+    <p>TX1 commit</p>
+    <p>create fileA</p>
+    <p>Process 2</p>
+    <p>TX2 start</p>
+    <p>TX2 commit</p>
+    <p>create fileA</p>
+    <p>Allowed Conflicttime</p>
+    <p>Process 3</p>
+    <p>TX3 start</p>
+    <p>TX3 commit</p>
+    <p>create fileB</p>
+    <p>Allowed</p>
+  </div>
+  <div class="page">
+    <p>Avoid false conflicts on global data structures</p>
+    <p>Two classes of file system functions</p>
+    <p>Operations that modify locally visible state</p>
+    <p>- Executed immediately on private data structure copies</p>
+    <p>Operations that modify global state</p>
+    <p>- Delayed until commit point</p>
+    <p>inodes, dentries, data pages.</p>
+    <p>Block bitmap, Inode bitmap, Super block inode list, Parent directory.</p>
+    <p>Immediate, on local state</p>
+    <p>Delayed</p>
+  </div>
+  <div class="page">
+    <p>Customize isolation to each data structure</p>
+    <p>Data pages</p>
+    <p>Unified API within file system code</p>
+    <p>Easy to differentiate read/write access</p>
+    <p>Copy-on-write &amp; eager conflict detection</p>
+    <p>inodes and directory entries (dentries)</p>
+    <p>Accessed haphazardly within file system code</p>
+    <p>Hard to differentiate read/write access</p>
+    <p>Copy-on-read &amp; lazy conflict detection (at commit time)</p>
+  </div>
+  <div class="page">
+    <p>Copy-on-write</p>
+    <p>Eager conflict detection  Enables early abort</p>
+    <p>Higher scalability</p>
+    <p>Fine-grained page locks</p>
+    <p>Page isolation</p>
+    <p>directory entry</p>
+    <p>inode</p>
+    <p>pagepagepage</p>
+    <p>radix tree</p>
+    <p>Process 1 Process 2</p>
+    <p>Concurrent writes</p>
+    <p>local copies</p>
+    <p>Conflict Process 3</p>
+  </div>
+  <div class="page">
+    <p>Inode &amp; dentry isolation</p>
+    <p>directory entry</p>
+    <p>inode</p>
+    <p>Process 1 Process 2</p>
+    <p>Conflict</p>
+    <p>Last modified at t = 2</p>
+    <p>local copies</p>
+    <p>Copy-on-read</p>
+    <p>Lazy conflict detection  Timestamp-based conflict</p>
+    <p>resolution</p>
+    <p>Necessary due to kernels</p>
+    <p>haphazard updates</p>
+    <p>Inode read and copied at t = 3</p>
+    <p>Allowed</p>
+    <p>Inode read and copied at t = 1</p>
+  </div>
+  <div class="page">
+    <p>Local, in-memory</p>
+    <p>Example: file creation</p>
+    <p>file create</p>
+    <p>directory entry</p>
+    <p>inode</p>
+    <p>Local dentry table</p>
+  </div>
+  <div class="page">
+    <p>Local, in-memory</p>
+    <p>Example: file creation</p>
+    <p>file create</p>
+    <p>directory entry</p>
+    <p>inode</p>
+    <p>Local dentry table</p>
+    <p>Local, in-memory</p>
+    <p>directory entry</p>
+    <p>inode</p>
+    <p>Local dentry table</p>
+    <p>write</p>
+    <p>page</p>
+    <p>radix tree</p>
+    <p>Insert pages</p>
+  </div>
+  <div class="page">
+    <p>Local, in-memory</p>
+    <p>Example: file creation</p>
+    <p>file create</p>
+    <p>directory entry</p>
+    <p>inode</p>
+    <p>Local dentry table</p>
+    <p>Local, in-memory</p>
+    <p>directory entry</p>
+    <p>inode</p>
+    <p>Local dentry table</p>
+    <p>write</p>
+    <p>page</p>
+    <p>radix tree</p>
+    <p>transaction commit</p>
+    <p>Global directory entry</p>
+    <p>inode Global dentry table</p>
+    <p>page</p>
+    <p>radix tree</p>
+    <p>Global inode bitmap</p>
+    <p>Global block bitmap</p>
+    <p>Insert pages</p>
+    <p>Turn local state into global</p>
+  </div>
+  <div class="page">
+    <p>Modify the Android mail application to use TxFS transactions.</p>
+    <p>TxFS API: Cross-abstraction transactions</p>
+    <p>DB fileAttachment Rollback log</p>
+    <p>SQLiteRaw files</p>
+    <p>Use TxFS transaction</p>
+    <p>fs_tx_end()</p>
+    <p>fs_tx_begin()</p>
+    <p>DB fileAttachment</p>
+    <p>SQLiteRaw files</p>
+  </div>
+  <div class="page">
+    <p>Outline</p>
+    <p>Using the file-system journal for A, C and D</p>
+    <p>Implementing isolation</p>
+    <p>Avoid false conflicts on global data structures</p>
+    <p>Customize conflict detection for kernel data structures</p>
+    <p>Using transactions to implement file-system optimizations</p>
+    <p>Evaluating TxFS</p>
+  </div>
+  <div class="page">
+    <p>Transactions as a foundation for other optimizations</p>
+    <p>Transactions present batched work to file system</p>
+    <p>Group commit</p>
+    <p>Eliminate temporary durable files</p>
+    <p>Transactions allow fine-grained control of durability</p>
+    <p>Separate ordering from durability (osync [SOSP 13])</p>
+    <p>File .swp</p>
+    <p>TxFS transaction</p>
+    <p>Equivalent to File In-memory operations on .swp file</p>
+    <p>TxFS transaction</p>
+    <p>Example: Eliminate temporary durable files in Vim</p>
+  </div>
+  <div class="page">
+    <p>Implementation</p>
+    <p>Linux kernel version 3.18.22</p>
+    <p>Lines of code for implementation</p>
+    <p>Part Lines of code</p>
+    <p>TxFS internal bookkeeping 1,300</p>
+    <p>Virtual file system (VFS) 1,600</p>
+    <p>Journal (JBD2) 900</p>
+    <p>Ext4 1,200</p>
+    <p>Total 5,200</p>
+    <p>Reusable code</p>
+  </div>
+  <div class="page">
+    <p>Evaluation: configuration</p>
+    <p>Software  OS: Ubuntu 16.04 LTS (Linux kernel 3.18.22)</p>
+    <p>Hardware  4 core Intel Xeon E3-1220 CPU, 32 GB memory  Storage: Samsung 850 (250 GB) SSD</p>
+    <p>Experiment TxFS benefit Speedup</p>
+    <p>Single-threaded SQLite Less IO &amp; sync, batching 1.31x</p>
+    <p>TPC-C Less IO &amp; sync, batching 1.61x</p>
+    <p>Android Mail Cross abstraction 2.31x</p>
+    <p>Git Crash consistency 1.00x</p>
+  </div>
+  <div class="page">
+    <p>Microbenchmark: Android mail client</p>
+    <p>Eliminating logging IO</p>
+    <p>/* Write attachment */ open(/dir/attachment) write(/dir/attachment) fsync(/dir/attachment) fsync(/dir/) /* Update database */ open(/dir/journal) write(/dir/journal) fsync(/dir/journal) fsync(/dir/) write(/dir/db) fsync(/dir/db) unlink(/dir/journal) fsync(/dir/)</p>
+    <p>fs_tx_begin() /* Write attachment */ open(/dir/attachment) write(/dir/attachment) fsync(/dir/attachment) fsync(/dir/) /* Update database */ open(/dir/journal) write(/dir/journal) fsync(/dir/journal) fsync(/dir/) write(/dir/db) fsync(/dir/db) unlink(/dir/journal) fsync(/dir/) fs_tx_end()</p>
+    <p>fs_tx_begin()</p>
+    <p>/* Write attachment */ open(/dir/attachment) write(/dir/attachment)</p>
+    <p>/* Update database */ write(/dir/db)</p>
+    <p>fs_tx_end()</p>
+    <p>Wrap with transaction: 20% throughput increase</p>
+    <p>Manual rewrite: 55% throughput increase</p>
+  </div>
+  <div class="page">
+    <p>Git - consistency w/o overhead</p>
+    <p>On a crash, git is vulnerable to garbage files and corruption</p>
+    <p>Currently, no fsync() to order operations (for high performance)</p>
+    <p>Possible loss of working tree, not recoverable with git-fsck</p>
+    <p>TxFS transactions make Git fast and safe</p>
+    <p>No garbage files nor data corruption on crash</p>
+    <p>No observable performance overhead</p>
+    <p>Workload running in a VM: initialize a Git repository; git-add 20,000 empty files; crash at different vulnerable points</p>
+  </div>
+  <div class="page">
+    <p>Evaluation: single-threaded SQLite</p>
+    <p>Write-ahead log</p>
+  </div>
+  <div class="page">
+    <p>TxFS Summary</p>
+    <p>Persistent data is structured; tough to make crash consistent</p>
+    <p>Transactions make applications simpler, more efficient</p>
+    <p>They enable optimizations that reduce IO and system calls</p>
+    <p>File-system journal makes implementing transactions easier</p>
+    <p>Source code: https://github.com/ut-osa/txfs</p>
+    <p>Data safe on crash</p>
+    <p>Easy to implement</p>
+    <p>High performance</p>
+  </div>
+</Presentation>

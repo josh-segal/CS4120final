@@ -1,0 +1,174 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>HotRestore: A Fast Restore System for Virtual Machine Cluster</p>
+    <p>Lei Cui, Jianxin Li, Tianyu Wo, Bo Li, Renyu Yang, Yingjie Cao and Jinpeng Huai</p>
+    <p>ACT lab, Beihang University</p>
+  </div>
+  <div class="page">
+    <p>Outline  Background  Problems  Solution &amp; Implementation  Experimental Results  Conclusions</p>
+  </div>
+  <div class="page">
+    <p>request Cloud</p>
+    <p>VM ClusterEnd users</p>
+    <p>Background  Virtual Machine Cluster</p>
+    <p>Key computing paradigm in cloud  Powerful capacity, isolation, scalability  Scientific computing, distributed database, web service, etc</p>
+  </div>
+  <div class="page">
+    <p>Background  Failures become common nowadays</p>
+    <p>Ten thousands of commodity devices</p>
+    <p>Snapshot &amp; restore  Save the running state, and restore the system from the</p>
+    <p>immediate state upon failures  One VM failure leads to the restoration of the whole VMC</p>
+    <p>Annual failure rate Reference</p>
+    <p>Computer node 20~60% per processor J. Physics07</p>
+    <p>Storage node 2%~4%, some 3.9%~8.3% OSDI10</p>
+    <p>Network node 1.1%~11.4% SIGCOMM11</p>
+  </div>
+  <div class="page">
+    <p>Background  Failures become common nowadays</p>
+    <p>Ten thousands of commodity devices</p>
+    <p>Snapshot &amp; restore  Save the running state, and restore the system from the</p>
+    <p>immediate state upon failures  One VM failure leads to the restoration of the whole VMC</p>
+    <p>VMC restoration occurs frequently to survive from the failures</p>
+    <p>Annual failure rate Reference</p>
+    <p>Computer node 20~60% per processor J. Physics07</p>
+    <p>Storage node 2%~4%, some 3.9%~8.3% OSDI10</p>
+    <p>Network node 1.1%~11.4% SIGCOMM11</p>
+  </div>
+  <div class="page">
+    <p>Outline  Background  Problems  Solution &amp; Implementation  Experimental Results  Conclusions</p>
+  </div>
+  <div class="page">
+    <p>Problems  Single VM restoration</p>
+    <p>Retrieve the entire memory state, may be dozens of GBs  Long latency to resume the VM, minutes</p>
+    <p>Cluster restoration  Latencies of VMs are various</p>
+    <p>Heterogeneity, varieties of workloads  Network interruption</p>
+    <p>TCP backoff.</p>
+    <p>vm1 cannot communicate vm2 since vm2 is restoring</p>
+  </div>
+  <div class="page">
+    <p>Problems  Experimental result</p>
+    <p>12 2G memory VMs. Distcc to compile the Linux kernel 2.6.32-5  VM6 is Distcc client, TCP-backoff of VM6 and VM7 is 19.6s  Distcc would not work until VM6 starts</p>
+  </div>
+  <div class="page">
+    <p>Problems  Experimental result</p>
+    <p>12 2G memory VMs. Distcc to compile the Linux kernel 2.6.32-5  VM6 is Distcc client, TCP-backoff of VM6 and VM7 is 19.6s  Distcc would not work until VM6 starts</p>
+    <p>Reduce the restoration latency of a single VM</p>
+  </div>
+  <div class="page">
+    <p>Problems  Experimental result</p>
+    <p>12 2G memory VMs. Distcc to compile the Linux kernel 2.6.32-5  VM6 is Distcc client, TCP-backoff of VM6 and VM7 is 19.6s  Distcc would not work until VM6 starts</p>
+    <p>Reduce the restoration latency of a single VM</p>
+    <p>Minimize the discrepancy of restoration latencies between communicating VMs</p>
+  </div>
+  <div class="page">
+    <p>Outline  Background  Problems  Solution &amp; Implementation  Experimental Results  Conclusions</p>
+  </div>
+  <div class="page">
+    <p>Motivation  VM re-execute instructions from the checkpoint state after</p>
+    <p>rollback-recovery  The touched pages during checkpoint would be touched again  The prior touched pages would be touched preferentially</p>
+    <p>Memory access locality  The touched pages take a little fraction of the entire memory state.</p>
+    <p>Working set  Trace memory operation during checkpointing  Treat touched pages as working set candidates  Load working set rather than the entire memory</p>
+    <p>Solution - Elastic working set</p>
+  </div>
+  <div class="page">
+    <p>How to trace  Post-copy based snapshot</p>
+    <p>Set read/write protection flag of ptes  Copy-on-write  Record-on-access</p>
+    <p>First access first load (FAFL) queue</p>
+    <p>Elastic  Scale up/down  Working set size change on demand</p>
+    <p>Solution - Elastic working set</p>
+  </div>
+  <div class="page">
+    <p>Restore line  Arrange the start order of VMs  Basic idea:</p>
+    <p>If the receiver starts before the sender, then network interruption disappears.  Communication-induced causality</p>
+    <p>Solution  Restore line</p>
+    <p>Restore dependency graph  If A sends a packet to B, then A-&gt;B,</p>
+    <p>and B should start before A.  Dependency is transitive</p>
+    <p>A-&gt;B, B-&gt;C, then A-&gt;C  Ring is allowed</p>
+    <p>Calculation of restore line  If A-&gt;B, B starts first  If A, B are in a ring, they start simultaneously  Orphan node start freely</p>
+  </div>
+  <div class="page">
+    <p>Inconsistency  Order of restore line, and order of working set sizes</p>
+    <p>A-&gt;B in restore line, but A starts before B since WSSa &lt; WSSb.</p>
+    <p>Solution  WSS revision</p>
+    <p>Revision  S={S1, S2, , Sn} is the previous WSS, W={Wi,j|VMi-&gt;VMj}, S* is the</p>
+    <p>revised WSS.  Goals</p>
+    <p>Causality in the restore line  Minimum modification</p>
+    <p>Edge: packets cnt Node: the WSS</p>
+  </div>
+  <div class="page">
+    <p>Implementation details  QEMU/KVM platform</p>
+    <p>VMM layer, no modification of guest OS  TCP and UDP packets to build RDG</p>
+    <p>Intercept packets during checkpoint  Src and dst are the VMs within the VMC</p>
+    <p>Intercept and replay the packets  Make the communication after restoration be</p>
+    <p>deterministic</p>
+  </div>
+  <div class="page">
+    <p>Outline  Background  Problems  Solution &amp; Implementation  Experimental Results  Conclusions</p>
+  </div>
+  <div class="page">
+    <p>Experimental results  Working set evaluation</p>
+    <p>VM Setup: 2GB RAM, 1 vcpu, 1Gb nic.  Hit rate: FAFL performs best  Size: 93.8% reduction by native approach in QEMU/KVM</p>
+    <p>Table 2. Size of loaded data upon restoration (MB)</p>
+    <p>Workloads FAFL LRU CLOCK</p>
+    <p>Gzip 0.806 0.768 0. 883</p>
+    <p>MySQL 0.947 0.655 0.912 Mummer 0.931 0.835 0.812 Pi 0.628 0.562 0.589</p>
+    <p>MPlayer 0.890 0.825 0.862</p>
+    <p>Workloads HotRestore Native</p>
+    <p>Gzip 61 1052</p>
+    <p>MySQL 42 1284 Mummer 347 1635 Pi 1.5 736</p>
+    <p>MPlayer 37 1367</p>
+    <p>Table 1. Hit rate under various workloads</p>
+  </div>
+  <div class="page">
+    <p>Experimental results  Network interruption (Backoff duration)</p>
+    <p>Setup: 8 VMs, 2GB RAM  Distcc: client/server  Elasticsearch: de-centralized</p>
+    <p>Results:  Latency is reduced, backoff is eliminated under Distcc  Backoff is serious under Elasticsearch, HotRestore reduces the duration to sub-seconds</p>
+  </div>
+  <div class="page">
+    <p>Experimental results  Application Performance</p>
+    <p>Setup:  8 VMs, 2GB RAM  Elasticsearch, ten client query blogs concurrently</p>
+    <p>Results:  With HotRestore, Elasticsearch server regains the full capacity immediately, while it</p>
+    <p>requires about 6 seconds with Working Set Restore.</p>
+  </div>
+  <div class="page">
+    <p>Outline  Background  Problems  Solution &amp; Implementation  Experimental Results  Conclusions</p>
+  </div>
+  <div class="page">
+    <p>Conclusions  HotRestore</p>
+    <p>Elastic working set  Reduce restoration latency</p>
+    <p>RDG based restore line  Minimize the discrepancy of restoration latencies on the basis of causality.</p>
+    <p>Experimental results  Single VM restoration latency, a few seconds  16 VMs, TCP-backoff duration &lt; 1s  The VMC resume within a few seconds rather than minutes.</p>
+    <p>Future work  Evaluate HotRestore on SMP VMs  Profile the overall performance when multiple snapshots and one</p>
+    <p>restoration are conducted.</p>
+  </div>
+  <div class="page">
+    <p>Q&amp;A</p>
+  </div>
+  <div class="page">
+    <p>Experimental results  Working set scalability</p>
+    <p>Setup: Compilation, trace page faults after restoration in 100ms interval.  WSS: 18327 pages  Results: scale up will trigger less page faults, but the amount is little</p>
+    <p>compared to the benefit of less restoration latency</p>
+    <p>Loaded page 9163 12829 18327 36654</p>
+    <p>Page faults 5690 3539 2046 958</p>
+  </div>
+  <div class="page">
+    <p>Experimental results  Network interruption (Backoff duration)</p>
+    <p>Setup: 8, 12, 16 VMs, 2GB RAM, Elasticsearch  Results:</p>
+    <p>Native restore incurs dozens of seconds backoff duration  Working set restore incurs 2.66 seconds, but the maximum duration reaches 10 seconds.  HotRestore reduces the average duration to 0.07 seconds, even the maximum is 0.14</p>
+    <p>seconds.</p>
+  </div>
+  <div class="page">
+    <p>Experimental results  Performance overhead</p>
+    <p>Setup: VM: 2G RAM  Results:</p>
+    <p>Increase on snapshot duration is less, e.g., 1.14 seconds on average</p>
+    <p>Workloads Baseline HotRestore</p>
+    <p>Compilation 85.3 86.6</p>
+    <p>Gzip 79.5 81.1</p>
+    <p>Pi 54.2 54.4</p>
+    <p>Mplayer 72.5 74.2</p>
+    <p>MySQL 77.3 78.2</p>
+    <p>Table 1. Snapshot duration</p>
+  </div>
+  <div class="page"/>
+</Presentation>

@@ -1,0 +1,611 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<TEI xmlns="http://www.tei-c.org/ns/1.0" 
+xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+xsi:schemaLocation="http://www.tei-c.org/ns/1.0 /Users/atharsefid/Desktop/grobid-0.5.3/grobid-home/schemas/xsd/Grobid.xsd"
+ xmlns:xlink="http://www.w3.org/1999/xlink">
+	<teiHeader xml:lang="en">
+		<encodingDesc>
+			<appInfo>
+				<application version="0.5.3" ident="GROBID" when="2019-03-26T16:26+0000">
+					<ref target="https://github.com/kermitt2/grobid">GROBID - A machine learning software for extracting information from scholarly documents</ref>
+				</application>
+			</appInfo>
+		</encodingDesc>
+		<fileDesc>
+			<titleStmt>
+				<title level="a" type="main">Exploring Content Models for Multi-Document Summarization</title>
+			</titleStmt>
+			<publicationStmt>
+				<publisher/>
+				<availability status="unknown"><licence/></availability>
+			</publicationStmt>
+			<sourceDesc>
+				<biblStruct>
+					<analytic>
+						<author>
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Aria</forename><surname>Haghighi</surname></persName>
+							<email>aria42@cs.berkeley.edu</email>
+							<affiliation key="aff0">
+								<orgName type="institution">UC Berkeley</orgName>
+								<address>
+									<country>CS Division</country>
+								</address>
+							</affiliation>
+						</author>
+						<author>
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Lucy</forename><surname>Vanderwende</surname></persName>
+							<email>lucy.vanderwende@microsoft.com</email>
+							<affiliation key="aff1">
+								<orgName type="institution">Microsoft Research</orgName>
+							</affiliation>
+						</author>
+						<title level="a" type="main">Exploring Content Models for Multi-Document Summarization</title>
+					</analytic>
+					<monogr>
+						<imprint>
+							<date/>
+						</imprint>
+					</monogr>
+				</biblStruct>
+			</sourceDesc>
+		</fileDesc>
+		<profileDesc>
+			<abstract>
+				<p>We present an exploration of generative prob-abilistic models for multi-document summa-rization. Beginning with a simple word frequency based model (Nenkova and Vander-wende, 2005), we construct a sequence of models each injecting more structure into the representation of document set content and exhibiting ROUGE gains along the way. Our final model, HIERSUM, utilizes a hierarchical LDA-style model (Blei et al., 2004) to represent content specificity as a hierarchy of topic vocabulary distributions. At the task of producing generic DUC-style summaries, HIERSUM yields state-of-the-art ROUGE performance and in pairwise user evaluation strongly outperforms Toutanova et al. (2007)&apos;s state-of-the-art discriminative system. We also explore HIERSUM&apos;s capacity to produce multiple &apos;topical summaries&apos; in order to facilitate content discovery and navigation.</p>
+			</abstract>
+		</profileDesc>
+	</teiHeader>
+	<text xml:lang="en">
+		<body>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="1">Introduction</head><p>Over the past several years, there has been much interest in the task of multi-document summarization. In the common Document Understanding Conference (DUC) formulation of the task, a system takes as input a document set as well as a short description of desired summary focus and outputs a word length limited summary. <ref type="bibr">1</ref> To avoid the problem of generating cogent sentences, many systems opt for an extractive approach, selecting sentences from the document set which best reflect its core content. <ref type="bibr">2</ref> There are several approaches to modeling document content: simple word frequency-based methods <ref type="bibr" target="#b13">(Luhn, 1958;</ref><ref type="bibr" target="#b17">Nenkova and Vanderwende, 2005</ref>), graph-based approaches <ref type="bibr" target="#b18">(Radev, 2004;</ref><ref type="bibr" target="#b22">Wan and Yang, 2006</ref>), as well as more linguistically motivated techniques <ref type="bibr" target="#b15">(Mckeown et al., 1999;</ref><ref type="bibr" target="#b9">Leskovec et al., 2005;</ref><ref type="bibr" target="#b7">Harabagiu et al., 2007)</ref>. Another strand of work ( <ref type="bibr" target="#b0">Barzilay and Lee, 2004;</ref><ref type="bibr" target="#b4">Daumé III and Marcu, 2006;</ref><ref type="bibr" target="#b5">Eisenstein and Barzilay, 2008)</ref>, has explored the use of structured probabilistic topic models to represent document content. However, little has been done to directly compare the benefit of complex content models to simpler surface ones for generic multi-document summarization.</p><p>In this work we examine a series of content models for multi-document summarization and argue that LDA-style probabilistic topic models ( <ref type="bibr" target="#b1">Blei et al., 2003)</ref> can offer state-of-the-art summarization quality as measured by automatic metrics (see section 5.1) and manual user evaluation (see section 5.2). We also contend that they provide convenient building blocks for adding more structure to a summarization model. In particular, we utilize a variation of the hierarchical LDA topic model ( <ref type="bibr" target="#b2">Blei et al., 2004</ref>) to discover multiple specific 'subtopics' within a document set. The resulting model, HIERSUM (see section 3.4), can produce general summaries as well as summaries for any of the learned sub-topics.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="2">Experimental Setup</head><p>The task we will consider is extractive multidocument summarization. In this task we assume a document collection D consisting of documents D 1 , . . . , D n describing the same (or closely related) narrative <ref type="bibr" target="#b8">(Lapata, 2003).</ref> set of events. Our task will be to propose a summary S consisting of sentences in D totaling at most L words. <ref type="bibr">3</ref> Here as in much extractive summarization, we will view each sentence as a bag-of-words or more generally a bag-of-ngrams (see section 5.1). The most prevalent example of this data setting is document clusters found on news aggregator sites.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="2.1">Automated Evaluation</head><p>For model development we will utilize the DUC 2006 evaluation set 4 consisting of 50 document sets each with 25 documents; final evaluation will utilize the DUC 2007 evaluation set (section 5).</p><p>Automated evaluation will utilize the standard DUC evaluation metric ROUGE <ref type="bibr" target="#b12">(Lin, 2004</ref>) which represents recall over various n-grams statistics from a system-generated summary against a set of humangenerated peer summaries. <ref type="bibr">5</ref> We compute ROUGE scores with and without stop words removed from peer and proposed summaries. In particular, we utilize R-1 (recall against unigrams), R-2 (recall against bigrams), and R-SU4 (recall against skip-4 bigrams) <ref type="bibr">6</ref> . We present R-2 without stop words in the running text, but full development results are presented in table 1. Official DUC scoring utilizes the jackknife procedure and assesses significance using bootstrapping resampling <ref type="bibr" target="#b12">(Lin, 2004</ref>). In addition to presenting automated results, we also present a user evaluation in section 5.2.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3">Summarization Models</head><p>We present a progression of models for multidocument summarization. Inference details are given in section 4.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.1">SumBasic</head><p>The SUMBASIC algorithm, introduced in Nenkova and <ref type="bibr" target="#b17">Vanderwende (2005)</ref>, is a simple effective procedure for multi-document extractive summarization. Its design is motivated by the observation that the relative frequency of a non-stop word in a document set is a good predictor of a word appearing in a human summary. In SUMBASIC, each sentence S is assigned a score reflecting how many highfrequency words it contains,</p><formula xml:id="formula_0">Score(S) = w∈S 1 |S| P D (w)<label>(1)</label></formula><p>where P D (·) initially reflects the observed unigram probabilities obtained from the document collection D. A summary S is progressively built by adding the highest scoring sentence according to <ref type="bibr">(1)</ref>. <ref type="bibr">7</ref> In order to discourage redundancy, the words in the selected sentence are updated</p><formula xml:id="formula_1">P new D (w) ∝ P old D (w) 2 .</formula><p>Sentences are selected in this manner until the summary word limit has been reached.</p><p>Despite its simplicity, SUMBASIC yields 5.3 R-2 without stop words on DUC 2006 (see <ref type="table">table 1</ref>). 8 By comparison, the highest-performing ROUGE system at the DUC 2006 evaluation, SUMFOCUS, was built on top of SUMBASIC and yielded a 6.0, which is not a statistically significant improvement (Vanderwende et al., 2007). <ref type="bibr">9</ref> Intuitively, SUMBASIC is trying to select a summary which has sentences where most words have high likelihood under the document set unigram distribution. One conceptual problem with this objective is that it inherently favors repetition of frequent non-stop words despite the 'squaring' update. Ideally, a summarization criterion should be more recall oriented, penalizing summaries which omit moderately frequent document set words and quickly diminishing the reward for repeated use of word.</p><p>Another more subtle shortcoming is the use of the raw empirical unigram distribution to represent content significance. For instance, there is no distinction between a word which occurs many times in the same document or the same number of times across several documents. Intuitively, the latter word is more indicative of significant document set content.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.2">KLSum</head><p>The KLSUM algorithm introduces a criterion for selecting a summary S given document collection D, where P S is the empirical unigram distribution of the candidate summary S and KL(P Q) represents the Kullback-Lieber (KL) divergence given by w P (w) log P (w) Q(w) . 10 This quantity represents the divergence between the true distribution P (here the document set unigram distribution) and the approximating distribution Q (the summary distribution). This criterion casts summarization as finding a set of summary sentences which closely match the document set unigram distribution. <ref type="bibr" target="#b11">Lin et al. (2006)</ref> propose a related criterion for robust summarization evaluation, but to our knowledge this criteria has been unexplored in summarization systems. We address optimizing equation (2) as well as summary sentence ordering in section 4. KLSUM yields 6.0 R-2 without stop words, beating SUMBASIC but not with statistical significance. It is worth noting however that KLSUM's performance matches SUMFOCUS ( , the highest R-2 performing system at DUC 2006.</p><formula xml:id="formula_2">S * = min S:words(S)≤L KL(P D P S ) (2) φ B Z W φ C φ D ψ t Document</formula></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.3">TopicSum</head><p>As mentioned in section 3.2, the raw unigram distribution P D (·) may not best reflect the content of D for the purpose of summary extraction. We propose TOPICSUM, which uses a simple LDA-like topic model ( <ref type="bibr" target="#b1">Blei et al., 2003</ref>) similar to <ref type="bibr" target="#b4">Daumé III and Marcu (2006)</ref> to estimate a content distribu- <ref type="bibr">10</ref> In order to ensure finite values of KL-divergence we smoothe P S (·) so that it has a small amount of mass on all document set words.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>System</head><p>ROUGE -stop ROUGE all R-1 R-2 R-SU4 R-1 R-2 R-SU4 <ref type="bibr">SUMBASIC</ref>  tion for summary extraction. <ref type="bibr">11</ref> We extract summary sentences as before using the KLSUM criterion (see equation <ref type="formula">(2)</ref>), plugging in a learned content distribution in place of the raw unigram distribution. First, we describe our topic model (see <ref type="figure" target="#fig_0">figure 1</ref>) which generates a collection of document sets. We assume a fixed vocabulary V : <ref type="bibr">12</ref> </p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="1.">Draw a background vocabulary distribution φ B</head><p>from DIRICHLET(V ,λ B ) shared across document collections 13 representing the background distribution over vocabulary words. This distribution is meant to flexibly model stop words which do not contribute content. We will refer to this topic as BACKGROUND.  Our intent is that φ C represents the core content of a document set. Intuitively, φ C does not include words which are common amongst several document collections (modeled with the BACKGROUND topic), or words which don't appear across many documents (modeled with the DOCSPE-CIFIC topic). Also, because topics are tied together at the sentence level, words which frequently occur with other content words are more likely to be considered content words.</p><formula xml:id="formula_3">φ C2 φ C3 Document Set φ C 0 φ C K φ C 1 Z S φ D Document Sentence Word Z W ψ T ψ G ......... φ B (a) Content Distributions (b) HIERSUM Graphical Model</formula><p>We ran our topic model over the DUC 2006 document collections and estimated the distribution φ C (·) for each document set. 15 Then we extracted <ref type="bibr">14</ref> The different pseudo-counts reflect the intuition that most of the words in a document come from the BACKGROUND and DOCSPECIFIC topics. <ref type="bibr">15</ref> While possible to obtain the predictive posterior CONa summary using the <ref type="bibr">KLSUM</ref>   </p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.4">HIERSUM</head><p>Previous sections have treated the content of a document set as a single (perhaps learned) unigram distribution. However, as <ref type="bibr" target="#b0">Barzilay and Lee (2004)</ref> observe, the content of document collections is highly structured, consisting of several topical themes, each with its own vocabulary and ordering preferences. For concreteness consider the DUC 2006 document collection describing the opening of Star Wars: Episode 1 (see <ref type="figure" target="#fig_2">figure 2</ref>(a)). While there are words which indicate the general content of this document collection (e.g. star, wars), there are several sub-stories with their own specific vocabulary. For instance, several documents in this collection spend a paragraph or two talking about the financial aspect of the film's opening and use a specific vocabulary there (e.g. $, million, record). A user may be interested in general content of a document collection or, depending on his or her interests, one or more of the sub-stories. We choose to adapt our topic modeling approach to allow modeling this aspect of document set content.</p><p>Rather than drawing a single CONTENT distribution φ C for a document collection, we now draw a general content distribution φ C 0 from DIRICH-LET(V ,λ G ) as well as specific content distributions φ C i for i = 1, . . . , K each from DIRICH-LET(V ,λ S ). <ref type="bibr">18</ref> Our intent is that φ C 0 represents the <ref type="bibr">18</ref> We choose K=3 in our experiments, but one could flexibly general content of the document collection and each φ C i represents specific sub-stories.</p><p>As with When BACKGROUND or DOCSPECIFIC topics are chosen, the model works exactly as in TOPICSUM. However when the CONTENT topic is drawn, we must decide whether to emit a general content word (from φ C 0 ) or from one of the specific content distributions (from one of φ C i for i = 1, . . . , K). The generative story of TOPICSUM is altered as follows in this case:</p><p>• General or Specific? We must first decide whether to use a general or specific content word. Each sentence draws a binomial distribution ψ G determining whether a CONTENT word in the sentence will be drawn from the general or a specific topic distribution. Reflecting the intuition that the earlier sentences in a document 19 describe the general content of a story, we bias ψ G to be drawn from BETA(5,2), preferring general content words, and every later sentence from BETA(1,2). 20</p><p>• What Specific Topic? If ψ G decides we are choose K as <ref type="bibr" target="#b2">Blei et al. (2004)</ref> does. <ref type="bibr">19</ref> In our experiments, the first 5 sentences.</p><p>emitting a topic specific content word, we must decide which of φ C 1 , . . . , φ C K to use. In order to ensure tight lexical cohesion amongst the specific topics, we assume that each sentence draws a single specific topic Z S used for every specific content word in that sentence. Reflecting intuition that adjacent sentences are likely to share specific content vocabulary, we utilize a 'sticky' HMM as in <ref type="bibr" target="#b0">Barzilay and Lee (2004)</ref> over the each sentences' Z S . Concretely, Z S for the first sentence in a document is drawn uniformly from 1, . . . , K, and each subsequent sentence's Z S will be identical to the previous sentence with probability σ, and with probability 1 − σ we select a successor topic from a learned transition distribution amongst 1, . . . , K. 21</p><p>Our intent is that the general content distribution φ C 0 now prefers words which not only appear in many documents, but also words which appear consistently throughout a document rather than being concentrated in a small number of sentences. Each specific content distribution φ C i is meant to model topics which are used in several documents but tend to be used in concentrated locations.</p><p>HIERSUM can be used to extract several kinds of summaries. It can extract a general summary by plugging φ C 0 into the KLSUM criterion. It can also produce topical summaries for the learned specific topics by extracting a summary over each φ C i distribution; this might be appropriate for a user who wants to know more about a particular substory. While we found the general content distribution (from φ C 0 ) to produce the best single summary, we experimented with utilizing topical summaries for other summarization tasks (see section 6.1). The resulting system, HIERSUM yielded 6.4 R-2 without stop words. While not a statistically significant improvement in ROUGE over TOPICSUM, we found the summaries to be noticeably improved.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="4">Inference and Model Details</head><p>Since globally optimizing the KLSUM criterion in equation (equation <ref type="formula">(2)</ref>) is exponential in the total number of sentences in a document collection, we <ref type="bibr">21</ref> We choose σ = 0.75 in our experiments.</p><p>opted instead for a simple approximation where sentences are greedily added to a summary so long as they decrease KL-divergence. We attempted more complex inference procedures such as <ref type="bibr" target="#b14">McDonald (2007)</ref>, but these attempts only yielded negligible performance gains. All summary sentence ordering was determined as follows: each sentence in the proposed summary was assigned a number in <ref type="bibr">[0,</ref><ref type="bibr">1]</ref> reflecting its relative sentence position in its source document, and sorted by this quantity.</p><p>All topic models utilize Gibbs sampling for inference <ref type="bibr" target="#b6">(Griffiths, 2002;</ref><ref type="bibr" target="#b2">Blei et al., 2004</ref>). In general for concentration parameters, the more specific a distribution is meant to be, the smaller its concentration parameter. Accordingly for TOPICSUM, λ G = λ D = 1 and λ C = 0.1. For HIERSUM we used λ G = 0.1 and λ S = 0.01. These parameters were minimally tuned (without reference to ROUGE results) in order to ensure that all topic distribution behaved as intended.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="5">Formal Experiments</head><p>We present formal experiments on the DUC 2007 data main summarization task, proposing a general summary of at most 250 words 22 which will be evaluated automatically and manually in order to simulate as much as possible the DUC evaluation environment. <ref type="bibr">23</ref> DUC 2007 consists of 45 document sets, each consisting of 25 documents and 4 human reference summaries.</p><p>We primarily evaluate the HIERSUM model, extracting a single summary from the general content distribution using the KLSUM criterion (see section 3.2). Although the differences in ROUGE between HIERSUM and TOPICSUM were minimal, we found HIERSUM summary quality to be stronger.</p><p>In order to provide a reference for ROUGE and manual evaluation results, we compare against PYTHY, a state-of-the-art supervised sentence extraction summarization system. PYTHY uses humangenerated summaries in order to train a sentence ranking system which discriminatively maximizes System ROUGE w/o stop ROUGE w/ stop R-1 R-2 R-SU4 R-1 R-2 R-SU4 <ref type="bibr">HIERSUM</ref>   As PYTHY utilizes a sentence simplification component, which we do not, we also compare against PYTHY without sentence simplification.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="5.1">ROUGE Evaluation</head><p>ROUGE results comparing variants of HIERSUM and PYTHY are given in table 3. The HIERSUM system as described in section 3.4 yields 7.3 R-2 without stop words, falling significantly short of the 8.7 that PYTHY without simplification yields. Note that R-2 is a measure of bigram recall and HIERSUM does not represent bigrams whereas PYTHY includes several bigram and higher order n-gram statistics. In order to put HIERSUM and PYTHY on equalfooting with respect to R-2, we instead ran HIER-SUM with each sentence consisting of a bag of bigrams instead of unigrams. <ref type="bibr">24</ref> All the details of the model remain the same. Once a general content distribution over bigrams has been determined by hierarchical topic modeling, the KLSUM criterion is used as before to extract a summary. This system, labeled HIERSUM bigram in table 3, yields 9.3 R-2 without stop words, significantly outperforming HIERSUM unigram. This model outperforms PYTHY with and without sentence simplification, but not with statistical significance. We conclude that both PYTHY variants and HIERSUM bigram are comparable with respect to ROUGE performance. <ref type="bibr">24</ref> Note that by doing topic modeling in this way over bigrams, our model becomes degenerate as it can generate inconsistent bags of bigrams. Future work may look at topic models over n-grams as suggested by <ref type="bibr" target="#b23">Wang et al. (2007</ref>  </p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="5.2">Manual Evaluation</head><p>In order to obtain a more accurate measure of summary quality, we performed a simple user study. For each document set in the DUC 2007 collection, a user was given a reference summary, a PYTHY summary, and a HIERSUM summary; 25 note that the original documents in the set were not provided to the user, only a reference summary. For this experiment we use the bigram variant of HIERSUM and compare it to PYTHY without simplification so both systems have the same set of possible output summaries. The reference summary for each document set was selected according to highest R-2 without stop words against the remaining peer summaries. Users were presented with 4 questions drawn from the DUC manual evaluation guidelines: <ref type="bibr">26</ref> (1) Overall quality: Which summary was better overall? (2) Non-Redundancy: Which summary was less redundant? (3) Coherence: Which summary was more coherent? (4) Focus: Which summary was more <ref type="figure">Figure 3</ref>: Using HIERSUM to organize content of document set into topics (see section 6.1). The sidebar gives key phrases salient in each of the specific content topics in HIERSUM (see section 3.4). When a topic is clicked in the right sidebar, the main frame displays an extractive 'topical summary' with links into document set articles. Ideally, a user could use this interface to quickly find content in a document collection that matches their interest. focused in its content, not conveying irrelevant details? The study had 16 users and each was asked to compare five summary pairs, although some did fewer. A total of 69 preferences were solicited. Document collections presented to users were randomly selected from those evaluated fewest.</p><p>As seen in table 5.2, HIERSUM outperforms PYTHY under all questions. All results are statistically significant as judged by a simple pairwise t-test with 95% confidence. It is safe to conclude that users in this study strongly preferred the HIER-SUM summaries over the PYTHY summaries.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="6">Discussion</head><p>While it is difficult to qualitatively compare one summarization system over another, we can broadly characterize HIERSUM summaries compared to some of the other systems discussed. For example output from HIERSUM and PYTHY see table 2. On the whole, HIERSUM summaries appear to be significantly less redundant than PYTHY and moderately less redundant than SUMBASIC. The reason for this might be that PYTHY is discriminatively trained to maximize ROUGE which does not directly penalize redundancy. Another tendency is for HIERSUM to select longer sentences typically chosen from an early sentence in a document. As discussed in section 3.4, HIERSUM is biased to consider early sentences in documents have a higher proportion of general content words and so this tendency is to be expected.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="6.1">Content Navigation</head><p>A common concern in multi-document summarization is that without any indication of user interest or intent providing a single satisfactory summary to a user may not be feasible. While many variants of the general summarization task have been proposed which utilize such information ( <ref type="bibr" target="#b16">Nastase, 2008)</ref>, this presupposes that a user knows enough of the content of a document collection in order to propose a query.</p><p>As <ref type="bibr" target="#b10">Leuski et al. (2003)</ref> and <ref type="bibr" target="#b3">Branavan et al. (2007)</ref> suggest, a document summarization system should facilitate content discovery and yield summaries relevant to a user's interests. We may use HIERSUM in order to facilitate content discovery via presenting a user with salient words or phrases from the specific content topics parametrized by φ C 1 , . . . , φ C K (for an example see <ref type="figure">figure 3</ref>). While these topics are not adaptive to user interest, they typically reflect lexically coherent vocabularies.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>Conclusion</head><p>In this paper we have presented an exploration of content models for multi-document summarization and demonstrated that the use of structured topic models can benefit summarization quality as measured by automatic and manual metrics.</p></div><figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_0"><head>Figure 1 :</head><label>1</label><figDesc>Figure 1: Graphical model depiction of TOPIC-SUM model (see section 3.3). Note that many hyperparameter dependencies are omitted for compactness.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_1"><head>{ star: 0 .</head><label>0</label><figDesc>21, wars: 0.15, phantom: 0.10, ... } General Content Topic φ C1 { $: 0.39, million: 0.15, record: 0.8, ... } Specific Content Topic "Financial" φ C1 { toys: 0.22, spend: 0.18, sell: 0.10, ... } { fans: 0.16, line: 0.12, film: 0.09, ... } Specific Content Topic "Merchandise" Specific Content Topic "Fans"</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_2"><head>Figure 2 :</head><label>2</label><figDesc>Figure 2: (a): Examples of general versus specific content distributions utilized by HIERSUM (see section 3.4). The general content distribution φ C0 will be used throughout a document collection and represents core concepts in a story. The specific content distributions represent topical 'sub-stories' with vocabulary tightly clustered together but consistently used across documents. Quoted names of specific topics are given manually to facilitate interpretation. (b) Graphical model depiction of the HIERSUM model (see section 3.4). Similar to the TOPICSUM model (see section 3.3) except for adding complexity in the content hierarchy as well as sentence-specific prior distributions between general and specific content topics (early sentences should have more general content words). Several dependencies are missing from this depiction; crucially, each sentence's specific topic Z S depends on the last sentence's Z S .</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_2" validated="false"><head>Table 2 :</head><label>2</label><figDesc>unigrams appearing in the reference summary and their counts in the PYTHY and HIERSUM summaries. Note that many content words in the reference summary absent from PYTHY's proposal are present in HIERSUM's.</figDesc><table>Example summarization output for systems compared in section 5.2. (a), (b), and (c) represent the first two 
+sentences output from PYTHY, HIERSUM, and reference summary respectively. In (d), we present the most frequent 
+non-stop </table></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_5" validated="false"><head>Table 3 :</head><label>3</label><figDesc></figDesc><table>Formal ROUGE experiment results on DUC 2007 document set collection (see section 5.1). While HIER-
+SUM unigram underperforms both PYTHY systems in statistical significance (for R-2 and RU-4 with and without stop 
+words), HIERSUM bigram's performance is comparable and statistically no worse. 
+
+ROUGE scores. PYTHY uses several features to 
+rank sentences including several variations of the 
+SUMBASIC score (see section 3.1). At DUC 2007, 
+PYTHY was ranked first overall in automatic ROUGE 
+evaluation and fifth in manual content judgments. 
+</table></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_6" validated="false"><head>) .</head><label>.</label><figDesc></figDesc><table>Question 
+
+PYTHY HIERSUM 
+
+Overall 
+20 
+49 
+Non-Redundancy 
+21 
+48 
+Coherence 
+15 
+54 
+Focus 
+28 
+41 
+
+</table></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_7" validated="false"><head>Table 4 :</head><label>4</label><figDesc></figDesc><table>Results of manual user evaluation (see sec-
+tion 5.2). 15 participants expressed 69 pairwise prefer-
+ences between HIERSUM and PYTHY. For all attributes, 
+HIERSUM outperforms PYTHY; all results are statisti-
+cally significant as determined by pairwise t-test. 
+
+</table></figure>
+
+			<note place="foot" n="1"> In this work, we ignore the summary focus. Here, the word topic will refer to elements of our statistical model rather than summary focus. 2 Note that sentence extraction does not solve the problem of selecting and ordering summary sentences to form a coherent</note>
+
+			<note place="foot" n="3"> For DUC summarization tasks, L is typically 250. 4 http://www-nlpir.nist.gov/projects/duc/data.html 5 All words from peer and proposed summaries are lowercased and stemmed. 6 Bigrams formed by skipping at most two words.</note>
+
+			<note place="foot" n="7"> Note that sentence order is determined by the order in which sentences are selected according to (1). 8 This result is presented as 0.053 with the official ROUGE scorer (Lin, 2004). Results here are scaled by 1,000. 9 To be fair obtaining statistical significance in ROUGE scores is quite difficult.</note>
+
+			<note place="foot" n="2">. For each document set D, we draw a content distribution φ C from DIRICHLET(V ,λ C ) representing the significant content of D that we wish to summarize. We will refer to this topic as CONTENT. 3. For each document D in D, we draw a document-specific vocabulary distribution φ D from DIRICHLET(V ,λ D ) representing words which are local to a single document, but do not appear across several documents. We will refer to this topic as DOCSPECIFIC. 11 A topic model is a probabilistic generative process that generates a collection of documents using a mixture of topic vocabulary distributions (Steyvers and Griffiths, 2007). Note this usage of topic is unrelated to the summary focus given for document collections; this information is ignored by our models. 12 In contrast to previous models, stop words are not removed in pre-processing. 13 DIRICHLET(V ,λ) represents the symmetric Dirichlet prior distribution over V each with a pseudo-count of λ. Concrete pseudo-count values will be given in section 4.</note>
+
+			<note place="foot" n="20"> BETA(a,b) represents the beta prior over binomial random variables with a and b being pseudo-counts for the first and second outcomes respectively.</note>
+
+			<note place="foot" n="22"> Since the ROUGE evaluation metric is recall-oriented, it is always advantageous -with respect to ROUGE -to use all 250 words. 23 Although the DUC 2007 main summarization task provides an indication of user intent through topic focus queries, we ignore this aspect of the data.</note>
+
+			<note place="foot" n="25"> The system identifier was of course not visible to the user. The order of automatic summaries was determined randomly. 26 http://www-nlpir.nist.gov/projects/duc/duc2007/qualityquestions.txt</note>
+		</body>
+		<back>
+
+			<div type="acknowledgement">
+			</div>
+
+			<div type="references">
+
+				<listBibl>
+
+<biblStruct xml:id="b0">
+	<analytic>
+		<title level="a" type="main">Catching the drift: Probabilistic content models, with applications to generation and summarization</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Regina</forename><surname>Barzilay</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Lillian</forename><surname>Lee</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">HLT-NAACL</title>
+		<imprint>
+			<date type="published" when="2004" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b1">
+	<monogr>
+		<title/>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">David</forename><forename type="middle">M</forename><surname>Blei</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Andrew</forename><forename type="middle">Y</forename><surname>Ng</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Michael</forename><forename type="middle">I</forename><surname>Jordan</surname></persName>
+		</author>
+		<imprint>
+			<date type="published" when="2003" />
+		</imprint>
+	</monogr>
+	<note>Latent dirichlet allocation. JMLR</note>
+</biblStruct>
+
+<biblStruct xml:id="b2">
+	<analytic>
+		<title level="a" type="main">Hierarchical topic models and the nested chinese restaurant process</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">David</forename><forename type="middle">M</forename><surname>Blei</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Thomas</forename><forename type="middle">L</forename><surname>Griffiths</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Michael</forename><forename type="middle">I</forename><surname>Jordan</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Joshua</forename><forename type="middle">B</forename><surname>Tenenbaum</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">NIPS</title>
+		<imprint>
+			<date type="published" when="2004" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b3">
+	<analytic>
+		<title level="a" type="main">Generating a table-of-contents</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><forename type="middle">R K</forename><surname>Branavan</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Pawan</forename><surname>Deshpande</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Regina</forename><surname>Barzilay</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">ACL</title>
+		<imprint>
+			<date type="published" when="2007" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b4">
+	<analytic>
+		<title level="a" type="main">Bayesian queryfocused summarization</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Hal</forename><surname>Daumé</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Iii</forename></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Daniel</forename><surname>Marcu</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the Conference of the Association for Computational Linguistics (ACL)</title>
+		<meeting>the Conference of the Association for Computational Linguistics (ACL)</meeting>
+		<imprint>
+			<date type="published" when="2006" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b5">
+	<analytic>
+		<title level="a" type="main">Bayesian unsupervised topic segmentation</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Jacob</forename><surname>Eisenstein</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Regina</forename><surname>Barzilay</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">EMNLP-SIGDAT</title>
+		<imprint>
+			<date type="published" when="2008" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b6">
+	<monogr>
+		<title level="m" type="main">Gibbs sampling in the generative model of latent dirichlet allocation</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Thomas</forename><surname>Griffiths</surname></persName>
+		</author>
+		<imprint>
+			<date type="published" when="2002" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b7">
+	<analytic>
+		<title level="a" type="main">Satisfying information needs with multidocument summaries</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Sanda</forename><surname>Harabagiu</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Andrew</forename><surname>Hickl</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Finley</forename><surname>Lacatusu</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Inf. Process. Manage</title>
+		<imprint>
+			<biblScope unit="issue">6</biblScope>
+			<biblScope unit="page">43</biblScope>
+			<date type="published" when="2007" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b8">
+	<analytic>
+		<title level="a" type="main">Probabilistic text structuring: Experiments with sentence ordering</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Mirella</forename><surname>Lapata</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">ACL</title>
+		<imprint>
+			<date type="published" when="2003" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b9">
+	<analytic>
+		<title level="a" type="main">Impact of linguistic analysis on the semantic graph coverage and learning of document extracts</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Jurij</forename><surname>Leskovec</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Natasa</forename><surname>Milic-Frayling</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Marko</forename><surname>Grobelnik</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">AAAI 05</title>
+		<imprint>
+			<date type="published" when="2005" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b10">
+	<analytic>
+		<title level="a" type="main">ineats: Interactive multi-document summarization</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Anton</forename><surname>Leuski</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Chin-Yew</forename><surname>Lin</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Eduard</forename><surname>Hovy</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">ACL</title>
+		<imprint>
+			<date type="published" when="2003" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b11">
+	<analytic>
+		<title level="a" type="main">An information-theoretic approach to automatic evaluation of summaries</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Chin-Yew</forename><surname>Lin</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Guihong</forename><surname>Cao</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Jianfeng</forename><surname>Gao</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Jian-Yun</forename><surname>Nie</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">HLT-NAACL</title>
+		<imprint>
+			<date type="published" when="2006" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b12">
+	<analytic>
+		<title level="a" type="main">Rouge: A package for automatic evaluation of summaries</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Chin-Yew</forename><surname>Lin</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. ACL workshop on Text Summarization Branches Out</title>
+		<meeting>ACL workshop on Text Summarization Branches Out</meeting>
+		<imprint>
+			<date type="published" when="2004" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b13">
+	<analytic>
+		<title level="a" type="main">The automatic creation of literature abstracts</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">H</forename><forename type="middle">P</forename><surname>Luhn</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">IBM Journal</title>
+		<imprint>
+			<date type="published" when="1958" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b14">
+	<monogr>
+		<title level="m" type="main">A study of global inference algorithms in multi-document summarization</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Ryan</forename><surname>Mcdonald</surname></persName>
+		</author>
+		<imprint>
+			<date type="published" when="2007" />
+		</imprint>
+	</monogr>
+	<note>In ECIR</note>
+</biblStruct>
+
+<biblStruct xml:id="b15">
+	<analytic>
+		<title level="a" type="main">Towards multidocument summarization by reformulation: Progress and prospects</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Kathleen</forename><forename type="middle">R</forename><surname>Mckeown</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Judith</forename><forename type="middle">L</forename><surname>Klavans</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Vasileios</forename><surname>Hatzivassiloglou</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Regina</forename><surname>Barzilay</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Eleazar</forename><surname>Eskin</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of AAAI-99</title>
+		<meeting>AAAI-99</meeting>
+		<imprint>
+			<date type="published" when="1999" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b16">
+	<analytic>
+		<title level="a" type="main">Topic-driven multi-document summarization with encyclopedic knowledge and spreading activation</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Vivi</forename><surname>Nastase</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the 2008 Conference on Empirical Methods in Natural Language Processing</title>
+		<meeting>the 2008 Conference on Empirical Methods in Natural Language Processing</meeting>
+		<imprint>
+			<date type="published" when="2008" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b17">
+	<monogr>
+		<title level="m" type="main">The impact of frequency on summarization</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Nenkova</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">L</forename><surname>Vanderwende</surname></persName>
+		</author>
+		<imprint>
+			<date type="published" when="2005" />
+			<pubPlace>Microsoft Research</pubPlace>
+		</imprint>
+	</monogr>
+<note type="report_type">Technical report</note>
+</biblStruct>
+
+<biblStruct xml:id="b18">
+	<analytic>
+		<title level="a" type="main">Lexrank: graph-based centrality as salience in text summarization</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Dragomir</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><surname>Radev</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Journal of Artificial Intelligence Research</title>
+		<imprint>
+			<date type="published" when="2004" />
+			<publisher>JAIR</publisher>
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b19">
+	<monogr>
+		<title/>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Steyvers</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">T</forename><surname>Griffiths</surname></persName>
+		</author>
+		<imprint>
+			<date type="published" when="2007" />
+			<publisher>Probabilistic Topic Models</publisher>
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b20">
+	<analytic>
+		<title level="a" type="main">The pythy summarization system: Microsoft research at duc</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Kristina</forename><surname>Toutanova</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Chris</forename><surname>Brockett</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Michael Gamon Jagadeesh</forename><surname>Jagarlamudi</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Hisami</forename><surname>Suzuki</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Lucy</forename><surname>Vanderwende</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">DUC</title>
+		<imprint>
+			<date type="published" when="2007" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b21">
+	<monogr>
+		<title level="m" type="main">Beyond sumbasic: Task-focused summarization with sentence simplification and lexical expansion</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Lucy</forename><surname>Vanderwende</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Hisami</forename><surname>Suzuki</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Chris</forename><surname>Brockett</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Ani</forename><surname>Nenkova</surname></persName>
+		</author>
+		<imprint>
+			<date type="published" when="2007" />
+			<biblScope unit="volume">43</biblScope>
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b22">
+	<analytic>
+		<title level="a" type="main">Improved affinity graph based multi-document summarization</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Xiaojun</forename><surname>Wan</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Jianwu</forename><surname>Yang</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">HLT-NAACL</title>
+		<imprint>
+			<date type="published" when="2006" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b23">
+	<analytic>
+		<title level="a" type="main">Topical n-grams: Phrase and topic discovery, with an application to information retrieval</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Xuerui</forename><surname>Wang</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Andrew</forename><surname>Mccallum</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Xing</forename><surname>Wei</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">ICDM</title>
+		<imprint>
+			<date type="published" when="2007" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+				</listBibl>
+			</div>
+		</back>
+	</text>
+</TEI>

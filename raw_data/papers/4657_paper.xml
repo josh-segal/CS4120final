@@ -1,0 +1,1167 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<TEI xmlns="http://www.tei-c.org/ns/1.0" 
+xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+xsi:schemaLocation="http://www.tei-c.org/ns/1.0 /Users/atharsefid/Desktop/grobid-0.5.3/grobid-home/schemas/xsd/Grobid.xsd"
+ xmlns:xlink="http://www.w3.org/1999/xlink">
+	<teiHeader xml:lang="en">
+		<encodingDesc>
+			<appInfo>
+				<application version="0.5.3" ident="GROBID" when="2019-03-26T16:56+0000">
+					<ref target="https://github.com/kermitt2/grobid">GROBID - A machine learning software for extracting information from scholarly documents</ref>
+				</application>
+			</appInfo>
+		</encodingDesc>
+		<fileDesc>
+			<titleStmt>
+				<title level="a" type="main">Tuning Schema Matching Software using Synthetic Scenarios</title>
+			</titleStmt>
+			<publicationStmt>
+				<publisher/>
+				<availability status="unknown"><licence/></availability>
+				<date type="published" when="2005">2005</date>
+			</publicationStmt>
+			<sourceDesc>
+				<biblStruct>
+					<analytic>
+						<author role="corresp">
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Mayssam</forename><surname>Sayyadian</surname></persName>
+							<email>sayyadia@cs.uiuc.edu</email>
+							<affiliation key="aff0">
+								<orgName type="institution" key="instit1">University of Illinois</orgName>
+								<orgName type="institution" key="instit2">The MITRE Corporation</orgName>
+							</affiliation>
+						</author>
+						<author>
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Yoonkyong</forename><surname>Lee</surname></persName>
+							<affiliation key="aff0">
+								<orgName type="institution" key="instit1">University of Illinois</orgName>
+								<orgName type="institution" key="instit2">The MITRE Corporation</orgName>
+							</affiliation>
+						</author>
+						<author>
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Anhai</forename><surname>Doan</surname></persName>
+							<affiliation key="aff0">
+								<orgName type="institution" key="instit1">University of Illinois</orgName>
+								<orgName type="institution" key="instit2">The MITRE Corporation</orgName>
+							</affiliation>
+						</author>
+						<author>
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Arnon</forename><forename type="middle">S</forename><surname>Rosenthal</surname></persName>
+							<affiliation key="aff0">
+								<orgName type="institution" key="instit1">University of Illinois</orgName>
+								<orgName type="institution" key="instit2">The MITRE Corporation</orgName>
+							</affiliation>
+						</author>
+						<title level="a" type="main">Tuning Schema Matching Software using Synthetic Scenarios</title>
+					</analytic>
+					<monogr>
+						<title level="m">Proceedings of the 31st VLDB Conference</title>
+						<meeting>the 31st VLDB Conference <address><addrLine>Trondheim, Norway</addrLine></address>
+						</meeting>
+						<imprint>
+							<date type="published" when="2005">2005</date>
+						</imprint>
+					</monogr>
+				</biblStruct>
+			</sourceDesc>
+		</fileDesc>
+		<profileDesc>
+			<abstract>
+				<p>Most recent schema matching systems assemble multiple components, each employing a particular matching technique. The domain user must then tune the system: select the right component to be executed and correctly adjust their numerous &quot;knobs&quot; (e.g., thresholds , formula coefficients). Tuning is skill-and time-intensive, but (as we show) without it the matching accuracy is significantly inferior. We describe eTuner, an approach to automatically tune schema matching systems. Given a schema S, we match S against synthetic schemas, for which the ground truth mapping is known, and find a tuning that demonstra-bly improves the performance of matching S against real schemas. To efficiently search the huge space of tuning configurations, eTuner works sequentially, starting with tuning the lowest level components. To increase the applicability of eTuner, we develop methods to tune a broad range of matching components. While the tuning process is completely automatic , eTuner can also exploit user assistance (whenever available) to further improve the tuning quality. We employed eTuner to tune four recently developed matching systems on several real-world domains. eTuner produced tuned matching systems that achieve higher accuracy than using the systems with currently possible tuning methods, at virtually no cost to the domain user.</p>
+			</abstract>
+		</profileDesc>
+	</teiHeader>
+	<text xml:lang="en">
+		<body>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="1">Introduction</head><p>Schema matching finds semantic correspondences called matches between the schemas of disparate data sources.</p><p>Example matches include "location = address" and "name = concat(first-name,lastname)". Application that manipulates data across different schemas often must establish such semantic matches, to ensure interoperability. Prime examples of such applications arise in numerous contexts, including data warehousing, scientific collaboration, ecommerce, bioinformatics, and data integration on the World-Wide Web <ref type="bibr" target="#b36">[37]</ref>.</p><p>Manually finding the matches is labor intensive, thus numerous automatic matching techniques have been developed (see <ref type="bibr" target="#b36">[37,</ref><ref type="bibr" target="#b34">35,</ref><ref type="bibr" target="#b4">5,</ref><ref type="bibr" target="#b20">21]</ref> for recent surveys). Each individual matching technique has its own strength and weakness <ref type="bibr" target="#b36">[37]</ref>. Hence, increasingly, matching tools are being assembled from multiple components, each employing a particular matching technique <ref type="bibr" target="#b36">[37,</ref><ref type="bibr" target="#b20">21]</ref>.</p><p>The multi-component nature is powerful in that it makes matching systems highly extensible and (with sufficient skills) customizable to a particular application domain <ref type="bibr" target="#b7">[8,</ref><ref type="bibr" target="#b37">38]</ref>. However, it places a serious burden on the domain user: given a particular matching situation, how to select the right matching components to execute, and how to adjust the multiple "knobs" (e.g., threshold, coefficients, weights, etc.) of the components? Without tuning, matching systems often fail to exploit domain characteristics, and produces inferior accuracy. Indeed, in Section 6 we show that the untuned versions of several off-the-shelf matching systems achieve only 14-62% accuracy (in F-1 score) on four real-world domains.</p><p>High matching accuracy is crucial in many applications, so tuning will be quite valuable. To see this, consider two scenarios. First, consider data exchange between automated applications, e.g., in a supply chain. People do check correctness of each data value transmitted, so erroneous matches will cause serious real world mistakes. Thus, when building such applications, people check and edit output matches of the automated system, or use a system such as Clio <ref type="bibr" target="#b40">[41]</ref>  to elaborate matches into semantic mappings (e.g., in form of SQL queries <ref type="bibr" target="#b40">[41]</ref> which specify exact relationships between elements of different schemas) <ref type="bibr" target="#b38">[39]</ref>.</p><p>Here, improving the accuracy of the automated match phase can significantly reduce peoples' workload, and also the likelihood that they overlook or introduce mistakes.</p><p>Second, large-scale data integration, peer-to-peer, and distributed IR systems (e.g., on the Web <ref type="bibr" target="#b0">[1]</ref>) often involve tens or hundreds of sources, thus thousands or tens of thousands of semantic matches across the sources or metadata tags. At this scale, humans cannot review all semantic matches associated with all sources. Instead, the systems are likely to employ the automated match results, and return the apparent best answers for human review. Here, each improvement in matching accuracy directly improves the result the user receives.</p><p>While valuable, tuning is also very difficult, due to the large number of knobs involved, the wide variety of matching techniques employed (e.g., database, machine learning, IR, information theory, etc.), and the complex interaction among the components. Writing a "user manual" for tuning seems nearly impossible. For example, tuning a matching component that employs learning techniques often involves selecting the right set of features <ref type="bibr" target="#b15">[16]</ref> (Section 6.2), a task that is difficult even for learning experts <ref type="bibr" target="#b15">[16]</ref>. Further, since we rarely know the ground truth for matches, it is not clear how to compare the quality of knob configurations.</p><p>For all above reasons, matching systems are still tuned manually, largely by trial and error -a time consuming, frustrating, and error prone process. Consequently, developing efficient techniques for tuning seems an excellent way to improve matching systems to a point where they are attractive in practice.</p><p>In this paper we describe eTuner, an approach to automatically tune schema matching systems. In developing eTuner, we address the following challenges:</p><p>Define the Tuning Problem: Our first challenge is to develop an appropriate model for matching systems, over which we can define a tuning problem. To this end, we view a matching system as a combination of matching components. <ref type="figure" target="#fig_0">Figure 1</ref>.a shows a matching system which has (n + 2) components: n matchers, one combiner, and one selector (Section 3 describes these components in detail).</p><p>To the user (and eTuner) the components are blackboxes, with "exposed knobs" whose values can be adjusted. For example, a knob allows the user to set a threshold α such that two schema attributes are declared matched if their similarity score exceeds α.</p><p>Other knobs allow the user to assign reliability weights to the component matching techniques. Yet another knob controls how many times a component should run. In addition, given a library of components, the user also has the freedom to select which components to be used, and where in the matching system.</p><p>Given the above knobs, many possible tuning problems can be defined. As a first step, in this paper we consider the following: given a schema S, how to tune a matching system M so that it achieves high accuracy when we subsequently apply it to match S with other schemas. This is a very common problem that arises in many settings, including data warehousing and integration <ref type="bibr" target="#b36">[37,</ref><ref type="bibr" target="#b18">19]</ref>.</p><p>Synthesizing Workload with Known Ground Truth: Tuning system M amounts to searching for the "best" knob configuration for matches to S. The quality of a knob configuration of M is defined as an aggregate accuracy of the matching system, when applied with that configuration. Accuracy metrics exist (e.g., precision, recall, and combinations thereof <ref type="bibr" target="#b16">[17]</ref>). How can they be evaluated? How can we find a corpus of match problems where ground truth (i.e., "true" matches) are known? This is clearly a major challenge for any effort on tuning matching systems.</p><p>To address this challenge, our key idea is to employ a set of synthetic matching scenarios involving S, for which we already know the correct matches, to evaluate knob configurations. Specifically, we apply a set of common transformation rules to the schema and data of S, in essence randomly "perturbing" it to generate a collection of synthetic schemas S 1 , S 2 , . . . , S n . For example, we can apply the rule "abbreviating a name to the first three letters" to change the name EMPLOY-EES of the table in <ref type="figure" target="#fig_0">Figure 1</ref>.b) to EMP, and the rule "replacing ,000 with K" to the column salary of this table. We note that these rules are created only once, independent of any schema S.</p><p>Since we generated schemas S 1 , S 2 , . . . , S n from S, clearly we can infer the correct semantic matches between these schemas and S. Hence, the collection of schema pairs {(S, S 1 ), (S, S 2 ), . . . , (S, S n )}, together with the correct matches, form a synthetic matching workload, over which the average accuracy of any knob configuration can be computed. We then use this accuracy as the estimated accuracy of the configuration over matching scenarios involving S.</p><p>While the above step of generating the synthetic workload (and indeed the entire tuning process) is completely automatic, eTuner can also exploit user assistance, whenever available. Specifically, it can ask the user to do some simple preprocessing of schema S, then exploit the preprocessing to generate an even better synthetic workload.</p><p>Search: The space of knob configurations is often huge, making exhaustive search impractical. Hence we implement a sequential, greedy approach, denoted staged tuning. Consider the matching system M in <ref type="figure" target="#fig_0">Figure 1</ref>.a. Here, we first tune each of the matchers 1 . . . n in isolation, then tune the combination of the combiner and the matchers, assuming the knobs of the matchers have been set. Finally, we tune the entire matching system, assuming that the knobs of the combiner and matchers have been set. We describe in detail how to tune different types of knobs in Section 5.</p><p>In summary, we make the following contributions:</p><p>• Establish that it is feasible to tune a matching system, automatically.</p><p>• To enable estimating the quality of a matching system's result (with a given knob configuration), we synthesize matching problems for which ground truth is known. For potential applications beyond the tuning context, see Section 7.</p><p>• Establish that staged tuning is a workable optimization technique. The solution can also leverage human assistance to further increase tuning quality.</p><p>• Extensive experiments over four real-world domains with four matching systems. The results show that eTuner achieves higher accuracy than the alternative (manual and semi-automatic) methods, at virtually no cost to the domain user. The paper is organized as follows. The next section discusses related work. Section 3 defines the problem of tuning matching systems. Sections 4-5 describe the eTuner approach in detail. Section 6 presents experimental results, and Section 7 concludes.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="2">Related Work</head><p>Schema matching has received increasing attention over the past two decades (e.g, <ref type="bibr" target="#b36">[37,</ref><ref type="bibr" target="#b34">35,</ref><ref type="bibr" target="#b4">5,</ref><ref type="bibr" target="#b3">4,</ref><ref type="bibr" target="#b20">21]</ref>). A wealth of matching techniques has been developed, employing hand-crafted rules and heuristics (e.g., <ref type="bibr" target="#b30">[31,</ref><ref type="bibr" target="#b35">36,</ref><ref type="bibr" target="#b10">11,</ref><ref type="bibr" target="#b5">6,</ref><ref type="bibr" target="#b31">32,</ref><ref type="bibr" target="#b27">28,</ref><ref type="bibr" target="#b29">30]</ref>), machine learning <ref type="bibr" target="#b25">[26,</ref><ref type="bibr" target="#b6">7,</ref><ref type="bibr" target="#b18">19,</ref><ref type="bibr" target="#b14">15,</ref><ref type="bibr" target="#b21">22,</ref><ref type="bibr" target="#b32">33,</ref><ref type="bibr" target="#b26">27]</ref>, IR <ref type="bibr" target="#b13">[14]</ref>, information theory <ref type="bibr" target="#b24">[25]</ref>, clustering <ref type="bibr" target="#b39">[40,</ref><ref type="bibr" target="#b27">28,</ref><ref type="bibr" target="#b26">27]</ref>, and statistics <ref type="bibr" target="#b23">[24,</ref><ref type="bibr" target="#b26">27]</ref>.</p><p>Many of the developed techniques are synergistic <ref type="bibr" target="#b36">[37,</ref><ref type="bibr" target="#b20">21]</ref>. As a result, the focus is shifting away from monolithic (stovepipe) matching systems, toward creating robust and widely useful matching components, and a plug-and-play framework for them. Many recent works <ref type="bibr" target="#b7">[8,</ref><ref type="bibr" target="#b17">18,</ref><ref type="bibr" target="#b18">19,</ref><ref type="bibr" target="#b21">22,</ref><ref type="bibr" target="#b37">38,</ref><ref type="bibr" target="#b14">15,</ref><ref type="bibr" target="#b26">27,</ref><ref type="bibr" target="#b19">20]</ref> have used a multi-component matching architecture, where each component employs a particular matching technique and the final predictions combine the predictions of the components. A recent work using this approach <ref type="bibr" target="#b7">[8]</ref> aims at an industrial-strength schema matching system, while <ref type="bibr" target="#b37">[38]</ref> examines its scalability to very large XML schemas.</p><p>A next logical direction is to make the frameworks easy to customize for a particular set of matching tasks. Our work aims at automating the customization.</p><p>Several recent works exploit previously matched schema pairs to improve matching accuracy (e.g., <ref type="bibr" target="#b17">[18,</ref><ref type="bibr" target="#b18">19,</ref><ref type="bibr" target="#b26">27,</ref><ref type="bibr" target="#b6">7]</ref>). Such prior match results, whenever available, can play the role of the "ground-truth" workload and thus can be used for tuning as well. However, tuning data obtained this way is often costly, ad hoc, and limited. In contrast, synthetic matching scenarios can be obtained freely, is often more comprehensive, and can be tailored to a particular matching situation. In Section 6.5 we show that tuning on synthetic scenarios outperforms tuning on previous matching results, but can exploit such results whenever available to further improve tuning quality.</p><p>Finally, our work can be seen as part of the trend toward self-tuning databases, to reduce the high total cost of ownership <ref type="bibr" target="#b1">[2,</ref><ref type="bibr" target="#b12">13,</ref><ref type="bibr" target="#b11">12]</ref>.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3">The Match Tuning Problem</head><p>We describe our model of a matching system, then use the model to define the match tuning problem. The vast majority of current schema matching systems consider only 1-1 matches, such as contact-info = phone <ref type="bibr" target="#b36">[37]</ref>. Hence, in this paper we focus on the problem of tuning such systems, leaving those that finds complex matches (e.g., address = concat(city, state) <ref type="bibr" target="#b14">[15]</ref>) as future work. We handle only relational schemas, but the ideas we offer here carry over to other data representations (e.g., XML schemas).</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.1">Modeling 1-1 Matching Systems</head><p>We define an 1-1 matching system M to be a triple (L, G, K), where L is a library of matching components, G is a directed graph that specifies the flow of execution among the components of M, and K is a collection of control variables (henceforth knobs) that the user (or a tuning system such as eTuner) can set. (A component description includes K c , the set of knobs available for that component.) In what follow we elaborate on the above concepts, using the LSD system in Figures 2.a-c as a running example. LSD is a learningbased multi-component matching system, and is described in detail in <ref type="bibr" target="#b18">[19]</ref>.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.1.1">Library of Matching Components</head><p>Such a library contains the following four types of components, variants of which have often been proposed in the literature <ref type="bibr" target="#b36">[37,</ref><ref type="bibr" target="#b20">21]</ref>:</p><p>• Matcher (schemas → similarity matrix): A matcher takes two schemas S and T and outputs a similarity matrix, which assigns to each attribute pair s i of S and t j of T a similarity score between 0 and 1. Library L in <ref type="figure" target="#fig_1">Figure 2</ref>.a has five matchers. The first two compare the names of two attributes (using q-gram and TF/IDF techniques, respectively) to compute their similarity score <ref type="bibr" target="#b17">[18,</ref><ref type="bibr" target="#b18">19]</ref>. The remaining three matchers exploit data instances <ref type="bibr" target="#b18">[19]</ref>.  • Combiner (matrix × . . . × matrix → matrix): A combiner merges multiple similarity matrices into a single one. Combiners can take the average, minimum, maximum, or a weighted sum of the similarity scores ( <ref type="figure" target="#fig_1">Figure 2</ref>.a) <ref type="bibr" target="#b17">[18,</ref><ref type="bibr" target="#b21">22,</ref><ref type="bibr" target="#b18">19]</ref>. More complex types of combiner include decision tree <ref type="bibr" target="#b21">[22]</ref>, and elaborate (often hand-crafted) scripts <ref type="bibr" target="#b7">[8]</ref>.</p><p>• Constraint Enforcer (matrix × constraints → matrix): Such an enforcer exploits pre-specified domain constraints or heuristics to transform a similarity matrix (often coming from a combiner) into another one that better reflects the true similarities. Library L in <ref type="figure" target="#fig_1">Figure 2</ref>.a has a single constraint enforcer, which exploits integrity constraint such as "lot-area cannot be smaller than house-area" <ref type="bibr" target="#b18">[19]</ref>.</p><p>• Match Selector (matrix → matches): This component selects matches from a given similarity matrix. The simplest selection strategy is thresholding: all pairs of attributes with similarity score exceeding a given threshold are returned as matches <ref type="bibr" target="#b17">[18]</ref>. More complex strategies include formulating the selection as an optimization problem over a weighted bipartite graph <ref type="bibr" target="#b29">[30]</ref>  <ref type="figure" target="#fig_1">(Figure 2</ref>.a).</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.1.2">Execution Graph</head><p>This is a directed graph whose nodes specify the components of M and whose edges specify the flow of execution among the components. The graph has multiple levels, and must be well-formed in that (a) the lowest-level components must be matchers that take as input the schemas to be matched, (b) the highestlevel component must be a match selector that outputs matches, and (c) all components must get their input. In the following we describe the execution graphs of four matching systems that we experimented with in Section 6.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>LSD:</head><p>The execution graph of LSD <ref type="bibr" target="#b18">[19]</ref> is shown in <ref type="figure" target="#fig_1">Figure 2</ref>.b and has four levels. It states that LSD first applies the n matchers, then combines their output similarity matrices using a combiner. Next, LSD applies a constraint enforcer, followed finally by a match selector. (We omit displaying domain constraints as an input to the enforcer, to avoid clutter.)</p><p>COMA &amp; SimFlood: <ref type="figure" target="#fig_0">Figure 1</ref>.a shows the execution graph of the COMA system <ref type="bibr" target="#b17">[18]</ref>, which was the first to clearly articulate and embody the multicomponent architecture. <ref type="figure" target="#fig_1">Figure 2</ref>.d shows the execution graph of the SimFlood matching system <ref type="bibr" target="#b29">[30]</ref>. SimFlood employs a single matcher (a name matcher <ref type="bibr" target="#b29">[30]</ref>), then iteratively applies a constraint enforcer. The enforcer exploits the heuristic "two attributes are likely to match if their neighbors (as defined by the schema structure) match" in a sophisticated manner to improve the similarity scores. Finally, SimFlood applies a match selector (called filter in <ref type="bibr" target="#b29">[30]</ref>).</p><p>LSD-SF: We can combine LSD and SimFlood to build a system called LSD-SF, whose execution graph is shown in <ref type="figure" target="#fig_1">Figure 2</ref>.e. Here, the LSD system (without the match selector) is treated as another matcher, and is combined with the name matcher of SimFlood, before the constraint enforcer of SimFlood.</p><p>User Interaction: Current matching systems usually offer two execution modes: automatic and interactive <ref type="bibr" target="#b17">[18,</ref><ref type="bibr" target="#b18">19,</ref><ref type="bibr" target="#b36">37]</ref>. The first mode is as described above: the system takes two schemas, runs without any user intervention, and produces matches. In the second mode users can provide feedback during execution, and the system can selectively rerun certain components, based on the feedback (e.g., see <ref type="bibr" target="#b17">[18,</ref><ref type="bibr" target="#b18">19]</ref>). Since our current focus is on automating the entire tuning process (allowing optional user feedback only in creating the synthetic workload, but not during the staged tuning, see Section 4.2), we leave the problem of tuning for the interactive mode as future work. Put another way, we tune to optimize the matching provided when user interaction begins.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.1.3">Tuning Knobs</head><p>Knobs of the Components: Matching components are treated as black boxes, but we assume that each of them has a set of knobs that are "exposed" and can be adjusted. Each knob is either (I) unordered discrete, (II) ordered discrete or continuous, or (III) set valued.</p><p>For example, <ref type="figure" target="#fig_1">Figure 2</ref>.c shows a decision tree matcher that has four knobs.</p><p>The first knob, characteristics-of-attr, is set-valued. The matcher has defined a broad set of salient characteristics of schema attributes, such as the type of attribute (integer, string, etc.), the min, max, average value of the attribute , and so on (see <ref type="bibr" target="#b25">[26,</ref><ref type="bibr" target="#b21">22]</ref> for more examples). The user (or eTuner) must assign to this knob a subset of these characteristics, so that the matcher can use the selected characteristics to compare attributes. If no subset is assigned, then a default one is used. In learning terminology, this is known as feature selection, a well-known and difficult problem <ref type="bibr" target="#b15">[16]</ref>.</p><p>The second knob, split-measure, is unordered discrete (with values "information gain" or "gini index"), and so is the third knob, post-prune? (with values "yes" or "no"). The last knob, size-of-validation-set, is ordered discrete (e.g., 40 or 100). These knobs allow the user to control several decisions made by the matcher during the training process. Knobs of the Execution Graph: For each node of the execution graph, we assume the user (or eTuner) can plug in one of the several components from the library. Consider for example node Matcher 1 of the execution graph in <ref type="figure" target="#fig_1">Figure 2</ref>.b. The system M may specify that this node can be assigned either the qgram name matcher or TF/IDF name matcher from the library <ref type="figure" target="#fig_1">(Figure 2</ref>.a).</p><p>Consequently, each node of an execution graph can be viewed as a unordered discrete knob. Note that it is conceptually possible to define "data flow" knobs, e.g., to change the topology of the execution graph. However, most current matching systems (with the possible exception of <ref type="bibr" target="#b7">[8]</ref>) do not provide such flexibility, and it is not examined here.</p><p>Finally, we note that the model described above covers a broad range of current matching systems, including LSD, COMA, and SimFlood, as discussed earlier, but also AutoMatch, Autoplex, GLUE, PromptDiff <ref type="bibr" target="#b6">[7,</ref><ref type="bibr" target="#b19">20,</ref><ref type="bibr" target="#b33">34]</ref> and those in <ref type="bibr" target="#b21">[22,</ref><ref type="bibr" target="#b26">27,</ref><ref type="bibr" target="#b32">33]</ref>, and Protoplasm, an industrial-strength matching system under development at Microsoft Research <ref type="bibr" target="#b7">[8]</ref>.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.2">Tuning of Matching Systems</head><p>We are now in a position to define the general tuning problem. Given • matching system M = (L, G, K), as defined above;</p><p>• workload W consisting of schema pairs (S 1 , T 1 ), (S 2 , T 2 ), ..., (S n , T n ) (often the range of schemas will be described qualitatively, e.g., "future schemas to be integrated with our warehouse"); and • utility function U defined over the process of matching a schema pair using a matching system; U can take into account performance factors such as matching accuracy, execution time, etc; the match tuning problem is to find a combination of knob values (called a knob configuration) k * that maximizes the average utility over all schema pairs in the workload. Formally, let M(k) be the matching system M using the knob configuration k, and let K be the space of all knob configurations, as defined by M, then  where U(M(k); (S i , T i )) is the utility of applying M(k) to the schema pair (S i , T i ).</p><formula xml:id="formula_0">k * = argmax k∈K [ n 񮽙 i=1 U(M(k); (S i , T i ))]/n<label>(1)</label></formula><p>Problem Definition: In this paper we restrict the general problem. First, we use just one utility function U accuracy, a combination of precision and recall formalized in Section 6. The rationale for using this measure appear in <ref type="bibr" target="#b16">[17,</ref><ref type="bibr" target="#b36">37,</ref><ref type="bibr" target="#b26">27]</ref>. Second, we tune M for the workload of matching a single schema S with all future schemas T i . This scenario arises in numerous contexts, including data integration and warehousing <ref type="bibr" target="#b18">[19,</ref><ref type="bibr" target="#b36">37]</ref>. In the next two sections we describe the eTuner solution to this problem.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="4">The eTuner Approach</head><p>The eTuner architecture (see <ref type="figure" target="#fig_2">Figure 3</ref>) consists of two main modules: workload generator and staged tuner. Given a schema S, the workload generator applies a set of transformation rules to generate a synthetic workload. The staged tuner then tunes a matching system M using the synthetic workload and tuning procedures stored in an eTuner repository. The tuned system M can now be applied to match schema S with any subsequent schema. It is important to note that the transformation rules and the tuning procedures are created only once, independently of any application domain, when implementing eTuner. While the tuning process is completely automatic, eTuner can also exploit user assistance to generate an even higher quality synthetic workload. Specifically, the user can "augment" schema S with information on the relationships among attributes (see the dotted arrows in <ref type="figure" target="#fig_2">Figure 3</ref>).</p><p>The rest of this section describes the workload generator, in both automatic and user-assisted modes, while the next section describes the staged tuner.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="4.1">Automatic Workload Creation</head><p>Given a schema S and a parameter n, the workload generator proceeds in three steps. (1) It uses S to create two schemas U and V , which are identical to S but are associated with different data tuples. (2) It perturbs V to generate n schemas V 1 , V 2 , . . . , V n . <ref type="formula">(3)</ref> For each schema V i , i ∈ <ref type="bibr">[1, n]</ref>, it traces the derivation process to create the set of correct semantic matches Ω i between U and V i , then outputs the set of triples</p><formula xml:id="formula_1">{(U, V i , Ω i )} n i=1</formula><p>as the synthetic workload. We now describe the three steps in detail.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>Input:</head><p>schema S, data tuples D, transformation functions T, workload size n Output: synthetic workload W (n schema pairs and their correct matches) Let T t , T c , T n , T v , T f be table-, column-, name-, value-and format-transformation rules in repository T 1. Split schema S into U, V 1.  <ref type="figure">Figure 4</ref>: High-level description of the workload generator.</p><formula xml:id="formula_2">1. Let U = S and V = S 1.2. Create data set D u , D v such that D u ∩ D v = ∅, D u ∪ D v = D, |D u | = |D v | 2. Generate n schemas V 1 , V 2 , … V n from V 2.1. Let V i = V 2</formula><formula xml:id="formula_3">Ω i = ∅ 3.2. Foreach column c in V i do Foreach column c ' in V do if c is generated from c ' then add (c, c ' ) to Ω i 4. Return W = {(U, V 1 , Ω 1 ), (U, V 2 , Ω 2 ), … (U, V n , Ω n )}</formula></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>4.1.1</head><p>Create Schemas U and V from Schema S The workload generator begins by creating two schemas U and V which are identical to S. Next, it partitions data tuples D associated with S (if any) into two equal, but disjoint sets D u and D v , then assign them to U and V , respectively. This is to ensure that once V has been perturbed into V i , we can pair U and V i to form a matching scenario where the schemas do not share any data tuple. Using schemas that share data tuples would make matching easier <ref type="bibr" target="#b14">[15,</ref><ref type="bibr" target="#b8">9]</ref> and thus may significantly bias the tuning process.</p><p>The above step is illustrated in <ref type="figure" target="#fig_3">Figure 5</ref>.a, which shows a schema S with three tables. The schemas V and U generated from S also have three tables with identical structures. However, table 3 of S, which we show in detail as table EMPLOYEES in <ref type="figure" target="#fig_3">Figure 5</ref>.a, has in effect being partitioned into two halves. Its first two tuples go to the corresponding table of schema V , while the remaining two tuples go to schema U . We experimented, and found that the above simple strategy of randomizing, then halving tuples in each table worked as well as more complex strategies.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>4.1.2</head><p>Create Schemas V1, . . . , Vn by Perturbing V To create a schema, say, V 1 , the workload generator perturbs schema V in several steps, using a set of prespecified, domain-independent rules stored in eTuner.</p><p>• Perturbing Number of Tables: The generator randomly selects a perturb-number-of-tables rule to apply to the tables of schema V . This is repeated up to α t times (currently set to two in our experiments). eTuner currently has two such rules. The first one randomly selects two joinable tables, and merges them based on a join path to create a new table. The second rule randomly selects and splits a table into two (that can be joined to recover the original table).</p><p>As an example, after applying the rules, schema V at the top of <ref type="figure" target="#fig_3">Figure 5</ref>.a, which has three tables 1, 2, 3, has been transformed into schema V 1 , which has only two tables 12 and 3. The tables 1 and 2 of V have been merged into table 12 of V 1 .</p><p>• Perturbing the Structure of Each <ref type="table">Table:</ref> For each table of schema V 1 , the generator now perturbs its structure. It randomly selects column-transformation rules to apply to the columns of the table, up to α c times (currently set to four). eTuner has three such rules. The first one merges two columns. Currently, two columns can be merged only if (a) they are neighboring columns, and (b) they share a prefix or suffix (e.g., first-name and last-name). The second rule randomly removes a column from the table. The third rule swaps two columns.</p><p>Continuing with our example, in <ref type="figure" target="#fig_3">Figure 5</ref>.b, for table EMPLOYEES, column first is dropped and two columns last and id are swapped.</p><p>• Perturbing <ref type="table">Table and</ref> Column Names: In the next step, the name of each table and its columns in schema V 1 are perturbed. eTuner has implemented a set of rules that capture common name transformations <ref type="bibr" target="#b27">[28,</ref><ref type="bibr" target="#b14">15,</ref><ref type="bibr" target="#b36">37]</ref>. Examples include abbreviation to the first three or four characters, dropping all vowels, replacing the name with a synonym (currently obtained from Merriam-Webster's online thesaurus), and dropping prefixes (e.g., changing ACTIVE-EMPS to EMPS). Rules that perturb a column name also consider adding a perturbed version of the table name as prefix, or borrowing prefixes from neighboring columns. We also add a rule that changes a column name into a random sequence of characters, to model cases where column names are not intelligible to anyone other than the data creator. For each name, the rules are called up to α n times (currently set to two).</p><p>In <ref type="figure" target="#fig_3">Figure 5</ref>.b, the name of table EMPLOYEES has been abbreviated to EMPS (the first three letters plus "S" for plurality). The name of column last has been added the new table name as a prefix, to become emplast. Finally, the name of column salary($) has been replaced with the synonym wage.</p><p>• Perturbing Data: In the final step, the generator perturbs the data of each table column in V 1 , by perturbing the format, then values of the data. eTuner has a set of rules that capture common transformation of data formats (and is extensible to adding more rules). Examples include "dropping or adding $ sign", "changing dates from 12/4 to Dec 4",etc. For each column, the generator applies such rules up to α d times (currently set to two).</p><p>Once the format of a column c has been perturbed, the generator perturbs the data values. If the values are numeric (e.g., price, age, etc), then they are assumed to have been generated from a normal distribution with mean µ c and variance σ c 2 . Thus, the generator estimates µ c and σ c 2 from current data values in column c. It then randomly decides whether to perturb the mean and variance by a random amount in  If the values are textual (e.g., house description), then the generator randomly adds or remove text tokens. More detail can be found in the full paper.</p><p>For example, consider column wage of Table EMPS in <ref type="figure" target="#fig_3">Figure 5</ref>.b (the rightmost table). Its format has been perturbed so that the signs "$" and "," are dropped, and its values have been changed, so that "40,000$" is now "45200".</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="4.1.3">Create Semantic Matches between Vi and U</head><p>In the final step, the generator retraces the perturbation history to create correct semantic matches between V 1 and U . Briefly, if attribute a of V 1 is derived from attributes b 1 , . . . , b k of schema V , then (since schemas U and V are identical) we create a = b 1 , . . . , a = b n as correct matches between V 1 and U . <ref type="figure" target="#fig_3">Figure 5</ref>.c lists the correct matches between table EMPS of V 1 and table EMPLOYEES of U . As another example, suppose attributes first-name and last-name of V are merged to create attribute name of V 1 , then the generator derives the matches name = first-name and name = last-name.</p><p>Let Ω i be the set of derived semantic matches between V i and U . The workload generator then returns the set of triples {(U, V i , Ω i )} n i=1 as the synthetic workload on which to tune matching system M.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="4.2">User-Assisted Workload Creation</head><p>The generator can exploit user assistance whenever available, to build a better workload, which in turn improves tuning performance.</p><p>To illustrate the benefits of user assistance, suppose each employee can be contacted via two phone numbers, phone-1 and phone-2 (as attributes of schema U ). Suppose while generating schema V 1 attribute phone-1 is renamed emp-phone and phone-2 is dropped. Then the generator will declare the match emp-phone = phone-1 correct (between V 1 and U ), but will not recognize emp-phone = phone-2 as also correct (since empphone is not derived from phone-2, see Section 4.1.3). This is counter-intuitive, since both numbers are the employee's phone numbers. Furthermore, it will force the tuning algorithm to look for "artificial" ways to distinguish the two phone numbers, thereby overfitting the tuning process.</p><p>To address this issue, we say a group of attributes G = {a i1 , . . . , a in } of schema S are match-equivalent if and only if whenever a match b = a ij , 1 ≤ j ≤ n is judged correct, then all other matches b = a ik , 1 ≤ k ≤ n, k 񮽙 = j, are also judged correct. In the above example, phone-1 and phone-2 are match equivalent. We ask the user to identify match equivalent attributes of schema S. The generator then refines the set of correct semantic matches, so that if G = {a i1 , . . . , a in } is match equivalent, and</p><formula xml:id="formula_4">b = a ij , 1 ≤ j ≤ n is correct, then b = a ik , 1 ≤ k ≤ n, k 񮽙 = j are also correct.</formula><p>The user does not have to specify all matchequivalent attribute groups, only as much as he/she can afford. Further, such grouping is a relatively lowlevel effort, since it involves examining only schema S, and judging if attributes are semantically close enough to be deemed match equivalent. Such attributes are often neighbors of one another, facilitating the examination. Section 6 shows that such user assistance can significantly improve the tuning performance. The user can also assist in many other ways, e.g., by suggesting domain-specific perturbation rules; but such possibilities are outside the scope of this paper.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="5">Tuning with the Synthetic Workload</head><p>We now describe how to tune a M with a synthetic workload W as created in the previous section.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="5.1">Staged Tuning</head><p>Our goal is to find a knob configuration of M that maximizes the average accuracy over W. The configuration space is usually huge, making exhaustive search impractical.</p><p>Consequently, we propose a staged, greedy tuning approach. Assume the execution graph of M has k levels. We first tune each match component at the bottom, k-th level in isolation. Next, we tune subsystems that consist of components at the (k − 1)th and k-th levels. While tuning such subsystems, we assume the components at the k-th level have been tuned, so their knob values are fixed, and we only need to tune knobs at level (k − 1)th. If there is a loop of m components, then the loop is treated as a single component when being considered for addition to a subsystem. This staged tuning repeats until we have reached the first level and hence have tuned the entire system.</p><p>Consider for example tuning the LSD system in <ref type="figure" target="#fig_1">Fig- ure 2</ref>.b. We first tune each of the matchers 1 . . . n. Next, we tune the subsystem consisting of the combiner and the matchers, but assuming that the matchers have been tuned. Then we tune the subsystem consisting of the constraint enforcer, combiner, and matchers, assuming that the combiner and matchers have been tuned, and so on. Suppose the execution graph has k levels, m nodes per level, and each node can be assigned one of the n components in the library. Assume each component has p knobs, and each knob has q values. Then staged tuning examines only a total of k × (m × (n × p × q)) out of (n × p × q) k×m knob configurations, a drastic reduction. Section 6 shows that while not guaranteeing to find the optimal knob configuration, staged tuning still outperforms currently possible tuning methods.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="5.2">Tuning Subsystems of M</head><p>We now describe in detail how to tune a subsystem S of the original matching system M. First, if S does not produce matches as output (e.g., producing similarity matrix instead), we add the match selector of M as the top component of S. This is to enable the evaluation of S's accuracy on the synthetic workload.</p><p>We then tune the knobs of S as follows. Recall from Section 3.1.3 that there are three types of knobs: (I) unordered discrete, (II) ordered discrete or continuous, and (III) set valued. Type-I knobs usually have few values (e.g., "yes"/"no"), while Type-II knobs usually have a large number of values. Hence, we first convert each type-II knob into a type-I knob, by selecting q equally-spaced values (currently set to six). For example, for value range <ref type="bibr">[0,</ref><ref type="bibr" target="#b0">1]</ref>, we select 0, 0.2, etc., for value range <ref type="bibr">[0,</ref><ref type="bibr">500]</ref>, we select 0, 100, 200, etc.</p><p>We now only have type-I and type-III knobs. In fact, in practice we often have just one type-III (setvalued) knob: selecting features for a matcher (e.g., <ref type="bibr" target="#b21">[22,</ref><ref type="bibr" target="#b18">19]</ref>). Hence, we assume that there is just one type-III knob for subsystem S, which handles feature selection. In the next step, we form the Cartesian space of all type-I knobs. This space is usually small, since each type-I knob has few values, and S does not have many knobs (due to the staged tuning assumption). For each knob setting in this Cartesian space, we can then tune for the lone type-III knob, as described in detailed in Section 5.3 below, then select the setting with the highest accuracy.</p><p>At this moment, we have selected a value for all type-I and type-III knobs of S. Recall that some type-I knobs are actually converted from type-II ones, which are ordered discrete or continuous. We can now focus on these type-II knobs, and perform hill climbing to obtain a potentially better knob configuration.   example, a weighted sum combiner has n knobs that specify matcher weights <ref type="bibr" target="#b18">[19]</ref>. They can be tuned using linear or logistic regression (over the synthetic workload) <ref type="bibr" target="#b18">[19]</ref>. However, such tuning often requires that all other knobs of S have been set (otherwise S cannot be run). For this reason, in Step 1 we run the tuning process as described earlier, to obtain reasonable values for the knobs of S. Then in Step 2 we run procedures to tune interrelated knobs (if any, these procedures are stored in eTuner). If this tuning results in a better knob configuration, then we take it; otherwise we use the knob configuration found in Step 1.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="5.3">Tuning to Select Features</head><p>We now describe how to tune the type-III knob that selects features for subsystem S. Without loss of generality, assume S is a matcher.</p><p>Recall from Section 3.1.3 that a matcher often transforms each schema attribute into a feature vector, then uses the vectors to compare attributes. In eTuner we have enumerated a set of features judged to be salient characteristics of schema attributes, based on our matching experience and the literature (e.g., <ref type="bibr" target="#b25">[26,</ref><ref type="bibr" target="#b17">18,</ref><ref type="bibr" target="#b29">30,</ref><ref type="bibr" target="#b21">22,</ref><ref type="bibr" target="#b6">7,</ref><ref type="bibr" target="#b27">28,</ref><ref type="bibr" target="#b18">19,</ref><ref type="bibr" target="#b19">20]</ref>). <ref type="figure" target="#fig_4">Figure 6</ref> shows 16 sample features. The goal of tuning is then to select from the set F of all enumerated features a subset F * that best assist the matching process.</p><p>The simplest solution to find F * is to enumerate all subsets of F , run S with each of the subsets over the synthetic workload, then select the subset with the highest matching accuracy. This solution is clearly impractical. Hence, we consider a well-known selection method called wrapper <ref type="bibr" target="#b15">[16]</ref>, which starts with a set of features (e.g., the empty set), then considers adding or deleting a single feature. The possible changes to the feature set are evaluated by running S over the synthetic workload, and the best change is made. Then a new set of changes is considered. However, even this To reduce the runtime complexity, given the feature set F , we first apply another selection method called Relief-F (described in detail in <ref type="bibr" target="#b15">[16]</ref>) to select a small subset F 񮽙 . Relief-F detects relevant features well, and runs very fast, as it examines only the synthetic workload, not running any matching algorithm <ref type="bibr" target="#b15">[16]</ref>. We then apply the above greedy wrapper algorithm to the much smaller set F 񮽙 to select the final set of features F * .</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>Selecting Features for Text-Based Matchers:</head><p>Features as described above are commonly used by learning methods such as decision tree, neural network <ref type="bibr" target="#b25">[26,</ref><ref type="bibr" target="#b21">22,</ref><ref type="bibr" target="#b18">19,</ref><ref type="bibr" target="#b19">20]</ref> and also by many rule-based methods (e.g., <ref type="bibr" target="#b17">[18,</ref><ref type="bibr" target="#b27">28,</ref><ref type="bibr" target="#b29">30]</ref>). However, many learning-based (e.g., Naive Bayes, SVM) as well as IR-based matching methods (e.g., <ref type="bibr" target="#b13">[14,</ref><ref type="bibr" target="#b18">19]</ref>) view data instances as text fragments, and as such operate on a different space of features. We now consider generating such feature spaces and the associated feature selection problem.</p><p>We can treat each distinct word, number, or special characters in the data instances as a feature. Thus, the address 201 Goodwin ave. Urbana, IL 61801 is represented with eight features: four words, two numbers, and two special characters "," and ".". However, for zip codes, specific values such as "61801" are not important; what we really need (to match attributes accurately) is knowing that they are 5-digit numbers. Hence, we should consider abstracted features, such as 5-digits, in addition to word-level features. <ref type="figure" target="#fig_5">Figure 7</ref> shows a sample taxonomy of features over text for eTuner (adapted from <ref type="bibr" target="#b9">[10]</ref>). A line cutting across this taxonomy represents a selected feature set. Consider for example the thick line in the figure. It states that all numbers are abstracted into 1-digit, 2-digits, etc, all words can be treated as features, and so on. Given this, the above address is now represented as the set {3-digits, Goodwin, ave, delimiters,Urbana, delimiters, IL, 5-digits}. To find the best feature set, we employ a method similar to the wrapper method described earlier, starting from the feature set at the bottom of the taxonomy.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="6">Empirical Evaluation</head><p>We now present experimental results over four realworld domains and four matching systems, to demonstrate the need for tuning and the utility of eTuner.</p><p>Domains: We obtained publicly available schemas in four domains. The schemas have been used in recent schema matching experiments <ref type="bibr" target="#b18">[19,</ref><ref type="bibr" target="#b14">15,</ref><ref type="bibr" target="#b26">27]</ref>. The domains have varying numbers of schemas (2-10) and diverse schema sizes (10-50 attributes per schema, see <ref type="figure">Figure 8</ref>.a). Real Estate lists houses for sale. Courses contains time schedules for several universities. Inventory describes business product inventories, and Product stores product descriptions of groceries.</p><p>Matching Systems: <ref type="figure">Figure 8</ref>.b summarizes the four matching systems in our experiments. We began by obtaining three multi-component systems that were proposed recently. The LSD system was originally developed by one of us <ref type="bibr" target="#b18">[19]</ref> to match XML DTDs. We adapted it to relations. The SimFlood system <ref type="bibr" target="#b29">[30]</ref> was downloaded from the Web. The COMA system was described in <ref type="bibr" target="#b17">[18]</ref>. Since we did not have access to COMA, we implemented a version of it called iCOMA. The iCOMA library includes all components described in <ref type="bibr" target="#b17">[18]</ref>, except the hybrid and reuse matchers. We also added the decision tree matcher to the library, to exploit data. Finally, we combined LSD and SimFlood (as described in Section 3), to obtain LSD-SF, the fourth matching system. <ref type="figure">Figure 8</ref>.b shows that the systems have 4-18 components, with 7-25 knobs (the full paper will give a complete description).</p><p>Experimental Methodology: For each domain, we randomly selected a schema to be the source schema S. Next we applied the above four matching systems (tuned in several ways, as described below) to match S and the remaining schemas in the domain (treated as future target schemas). This was repeated four times except for Product, which contains only 2 sources. We then report the average accuracy per domain. For eTuner, we set the size of the synthetic workload at 30, and the number of tuples per schema table at 50.</p><p>Performance Measure: Following recent schema matching practice <ref type="bibr" target="#b17">[18,</ref><ref type="bibr" target="#b16">17,</ref><ref type="bibr" target="#b29">30,</ref><ref type="bibr" target="#b26">27,</ref><ref type="bibr" target="#b36">37]</ref>, we use the F 1 score to evaluate matching accuracy. Given a set of candidate matches for S and T , we have F 1 = (2P R)/(P + R), where precision P is the percentage of candidate matches that are correct, and recall R is the fraction of all correct matches discovered. The goal of tuning is to find the knob configuration that maximizes F 1 score.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="6.1">The Need for Tuning</head><p>We begin by demonstrating the need for tuning, using of 16 groups: one for each pair of system and domain, separated by dotted vertical lines on the figures.</p><p>We first applied the matching systems "as is" to the domains, and reported the accuracy as the first bar in each group. For instance, for LSD and Real Estate (the first group of <ref type="figure">Figure 9</ref>.a), the first bar is 33%. The "as is" accuracy is 14-62% across all 16 cases, demonstrating that "off-the-shelf" matching systems are quite brittle.</p><p>Next, we did our best to tune each system independently of any domain, in effect imitating a vendor tuning a system before release. (We found graduate student volunteers not suitable for this task, suggesting that administrators will also have difficulty tuning. See below for details). We examined literature about each matching system, leveraged our knowledge of machine learning and schema matching, and tweaked the systems on pairs of schemas not otherwise used in the experiments. The second bar in each group reports the accuracy of applying the tuned systems, scattered in the range 19-78% across all 16 cases. This accuracy suggests that tuning matching systems once and for all does not work well, implying the need for more context dependent settings.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="6.2">"Quick and Dirty" Tuning</head><p>Next, we examined the following. Whenever we need to match two schemas S and T , does it seem possible to provide a simple interactive tuning wizard? Perhaps one might carry out "quick and dirty" tuning, by just tweaking a few knobs, examining the output of the matching system, then adjusting the knobs again? If this works, then there is no compelling need for automated tuning.</p><p>We asked a few graduate students to perform such tuning on six pairs of schemas, and found two major problems. First, it turned out to be very difficult to explain the matching systems in sufficient details so that the volunteers feel they can tune effectively. Consider for example the decision tree matcher described in Section 3.1.3. We found that the tuned version of this matcher improves accuracy significantly, so tuning it is necessary. However, it was very difficult to explain the meaning of its knobs (see Section 3.1.3) to a volunteer who lacked knowledge of machine learning. Second, even after much explanation, we found that we could perform "quick and dirty" tuning better than volunteers. Similar difficulties arose when we asked volunteers to tune systems in a domain independent manner (as described earlier).</p><p>Thus, we carried out tuning ourselves, allotting one hour per matching task. The measured accuracy over the six matching tasks is 21-65%, suggesting that "quick and dirty" tuning is not robust. The key difficulty was that despite our expertise, we still were unable to predict the effects of tuning certain (combinations of) knobs. Lacking the ground truth matches (during the tuning process), we were also unable to estimate the quality of each knob configuration with high accuracy.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="6.3">Domain-&amp; Source-Dependent Tuning</head><p>Next, we examined if it is possible to tune just once per domain, or once per a source S (before matching S with future schemas).</p><p>We tuned each matching system for each domain, in a manner similar to domain-independent tuning, but taking into account the characteristics of the domain sources. (For example, if a domain has many textual attributes, then we assigned more weight to the Naive Bayes text classifier <ref type="bibr" target="#b18">[19]</ref>.) The third bar in each group <ref type="figure">(Figures 9.a-d)</ref> shows accuracy 19-78%.</p><p>We then explored source-dependent tuning. Given a source S, we assume that we already know matches between S and two other sources S 1 − S 2 in the same domain. We used staged tuning of eTuner over these known matches to obtain a tuned version of the matching system. Next, we manually tweaked the system, trying to further improve its accuracy over matching S with S 1 − S 2 . The fourth bar in each group <ref type="figure">(Fig- ures 9</ref>.a-d) shows accuracy 22-81%.</p><p>The results show that source-dependent (most labor consuming) tuning beats domain-dependent tuning (less labor consuming, as carried out only once per domain) by 1-7%, which in turns beats domainindependent tuning (least costly) by 0-6%. </p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="6.4">Tuning with eTuner</head><p>The fifth bar (second bar from the right) of each group <ref type="figure">(Figures 9.a-d</ref>) then shows the accuracy of matching systems tuned automatically with eTuner. The results show accuracy 23-82% across all 16 groups. eTuner is better than source-dependent tuning (the best tuning method so far) in 14 out of 16 cases, by 1-15%, and is slightly worse in 2 cases, by 2%. The cost of using eTuner consists mainly of "hooking" it up with the knobs of a matching system, and would presumably be born by vendors and amortized over all uses.</p><p>The above analysis demonstrates the promise of eTuner over previous tuning alternatives. Zooming into the experiments shows that tuning improves all levels of matching systems. For example, the accuracy of matchers improves by 6% and of combiner by 13% for LSD.</p><p>User-Assisted Tuning: The last bar of each group <ref type="figure">(Figures 9.a-d)</ref> shows the accuracy of eTuner with userassisted workload creation (Section 4.2), with users being volunteer graduate students. The results show accuracy 38-79% across all 16 groups, improving 1-14% over automatic tuning (except in three cases there is no improvement, and one case of decreased accuracy by 1%). The results show the benefits of user assistance in tuning.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="6.5">Sensitivity Analysis</head><p>Synthetic Workload: <ref type="figure" target="#fig_0">Figure 10</ref>.a shows the accuracies of automatic eTuner, as we vary the size (i.e., number of schemas generated) of the synthetic workload. The accuracies are for LSD over Real Estate and Inventory, though we observed similar trends in other cases. As the workload size increases, the number of schema/data perturbation rules that it captures increases. This improves accuracy. After size 25-30, however, accuracy starts decreasing. This is because at this point, all perturbation rules have been captured in the workload. As the workload's size increases, its "distance" from real workloads increases, and so tuning overfits the matching system. Thus, for the current set of perturbation rules (as detailed in Section 4.1), we set the optimal workload size at 30. The results also show no abrupt degradation of accuracy, thus demonstrating that the tuning performance is robust for small changes in the workload size.</p><p>Adding Perturbation Rules to Matching Systems: It is interesting to note that even if a schema matching system captures all perturbation templates of eTuner, it still does not necessarily do well, due to the difficulty of "reverse engineering". For example, the iMAP complex matching system <ref type="bibr" target="#b14">[15]</ref> contains a far richer set of perturbation rules than eTuner. Nevertheless, its accuracy on 1-1 matching (as reported in <ref type="bibr" target="#b14">[15]</ref> on a different domain) is only 62-71%.</p><p>Exploiting Prior Match Results: <ref type="figure" target="#fig_0">Figure 10</ref>.b shows the accuracy of LSD over Inventory, as we replaced 0%, 22%, etc. of the synthetic workload with real schema pairs that have been matched in the same domain. The results show that exploiting previously matched schema pairs indeed improves the quality of the synthetic workload, thereby matching accuracy. This is important because such prior match results are sometimes available <ref type="bibr" target="#b18">[19,</ref><ref type="bibr" target="#b17">18]</ref>. However, while such match results can complement the synthetic matching scenarios, exploiting them alone does not work as well, as we demonstrated with source-dependent tuning described in Section 6.3.</p><p>Runtime Complexity: Our unoptimized version of eTuner took under 30 minutes to tune a schema S, spending the vast majority of time in the staged tuning step. We expect that tuning matching systems will often be carried out offline, e.g., overnight, or as a background task. In general, the scalability of tuning techniques such as eTuner will benefit from scaling techniques developed for matching very large schemas <ref type="bibr" target="#b37">[38]</ref> as well as optimization within the tuning module, such as reusing results across matching steps and more efficient, specialized procedures for knob tuning.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="7">Conclusion and Future Work</head><p>We have demonstrated that tuning is important for fully realizing the potentials of multi-component matching systems. Current tuning methods are ad hoc, labor intensive, or brittle. Hence, we have developed eTuner, an approach to automatically tune schema matching systems. Given a schema S and a matching system M, our key idea is to synthesize a collection of matching scenarios involving S, for which we already know the ground-truth matches, and then use the collection to tune system M. This way, tuning can be automated, and can be tailored to the particular schema S. We evaluated eTuner on four matching systems over four real-world domains. The results show that matching systems tuned with eTuner achieve higher accuracy than with current tuning methods, at little cost to the user.</p><p>For future work, we are exploring better search methods, and more extensive evaluation of eTuner. The current work also hints at some possible resemblances between match tuning and query optimization: given problem (query answering vs. schema matching) and a set of operators (e.g., hash join, index join vs. matchers, combiners), how to quickly assemble an execution tree that performs optimally in some sense (time vs. accuracy). It might be interesting to further explore this connection. We also consider applying the above idea of using synthetic input/output pairs to make a system robust to other contexts. We have successfully adapted it to mapping maintenance <ref type="bibr" target="#b28">[29]</ref>, and are adapting it to record linkage systems (e.g., <ref type="bibr" target="#b22">[23,</ref><ref type="bibr" target="#b2">3]</ref>).</p></div><figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_0"><head>Figure 1 :</head><label>1</label><figDesc>Figure 1: An example of multi-component matching systems. to elaborate matches into semantic mappings (e.g., in form of SQL queries [41] which specify exact relationships between elements of different schemas) [39]. Here, improving the accuracy of the automated match phase can significantly reduce peoples' workload, and also the likelihood that they overlook or introduce mistakes. Second, large-scale data integration, peer-to-peer, and distributed IR systems (e.g., on the Web [1]) often involve tens or hundreds of sources, thus thousands or tens of thousands of semantic matches across the sources or metadata tags. At this scale, humans cannot review all semantic matches associated with all sources. Instead, the systems are likely to employ the automated match results, and return the apparent best answers for human review. Here, each improvement in matching accuracy directly improves the result the user receives. While valuable, tuning is also very difficult, due to the large number of knobs involved, the wide variety of matching techniques employed (e.g., database, machine learning, IR, information theory, etc.), and the complex interaction among the components. Writing a "user manual" for tuning seems nearly impossible. For example, tuning a matching component that employs learning techniques often involves selecting the right set of features [16] (Section 6.2), a task that is difficult even for learning experts [16]. Further, since we rarely know the ground truth for matches, it is not clear how to compare the quality of knob configurations. For all above reasons, matching systems are still tuned manually, largely by trial and error -a time consuming, frustrating, and error prone process. Consequently, developing efficient techniques for tuning seems an excellent way to improve matching systems to a point where they are attractive in practice. In this paper we describe eTuner, an approach to automatically tune schema matching systems. In developing eTuner, we address the following challenges:</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_1"><head>Figure 2 :</head><label>2</label><figDesc>Figure 2: The LSD (a-c), SimFlood (b), and LSD-SF (c) systems. • Combiner (matrix × . . . × matrix → matrix): A combiner merges multiple similarity matrices into a single one. Combiners can take the average, minimum, maximum, or a weighted sum of the similarity scores (Figure 2.a) [18, 22, 19]. More complex types of combiner include decision tree [22], and elaborate (often hand-crafted) scripts [8].</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_2"><head>Figure 3 :</head><label>3</label><figDesc>Figure 3: The eTuner architecture.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_3"><head>EMPS.emp-last = EMPLOYEES.last EMPS.id = EMPLOYEES.id EMPS.wage = EMPLOYEES.salary($)Figure 5 :</head><label>5</label><figDesc>Figure 5: Perturbing schema S to generate two schemas U and V 1 and the correct matches between them. the range +/-[10,100]%. Let the new mean and variance be µ 񮽙 c and variance σ 񮽙 c 2 . Then each value x is now generated according to the above normal distribution. If the values are textual (e.g., house description), then the generator randomly adds or remove text tokens. More detail can be found in the full paper. For example, consider column wage of Table EMPS in Figure 5.b (the rightmost table). Its format has been perturbed so that the signs "$" and "," are dropped, and its values have been changed, so that "40,000$" is now "45200".</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_4"><head>Figure 6 :</head><label>6</label><figDesc>Figure 6: Sample features that eTuner uses in selecting a best set of features for the schema attributes.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_5"><head>Figure 7 :</head><label>7</label><figDesc>Figure 7: An example taxonomy for the Naive Bayes matcher.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_6"><head></head><label></label><figDesc>Figure 8: (a) Real world domains and (b) matching systems for our experiments greedy algorithm is too expensive. Even just for 20 features, it would run S over the synthetic workload 210 times. To reduce the runtime complexity, given the feature set F , we first apply another selection method called Relief-F (described in detail in [16]) to select a small subset F 񮽙 . Relief-F detects relevant features well, and runs very fast, as it examines only the synthetic workload, not running any matching algorithm [16]. We then apply the above greedy wrapper algorithm to the much smaller set F 񮽙 to select the final set of features F * .</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_7"><head>Figures 9 .Figure 9 :</head><label>99</label><figDesc>Figure 9: Matching accuracy for (a) LSD, (b) iCOMA, (c) SimFlood, and (d) LSD-SF.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_8"><head>Figure 10 :</head><label>10</label><figDesc>Figure 10: Changes in the matching accuracy with respect to (a) size of the synthetic workload, and (b) the number of prior matched schema pairs in the workload.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_2" validated="false"><head>. 2 . Perturb number of tables in V i using rules in T t 2.3. Perturb the structure of each table in V i using rules in T c 2.4. Foreach name n k in schema V i do change n k using rules in T n 2.5. Foreach column c j in V i do Let d cj = data associated with c j in D v Let σ cj 2 = variance(d cj ) and µ cj = mean(d cj ) Perturb σ cj 2 and µ cj using rules in T v Generate |d cj | data values using a Gaussian distribution generator with perturbed σ cj 2 and µ cj Perturb format of each generated data value using rules in T f 3. Foreach (U, V i ) do generate its correct match set Ω i 3.1. Let</head><label>2</label><figDesc></figDesc><table></table></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_3" validated="false"><head>EMPLOYEES U EMPS 2 1 id 59328 Brown</head><label></label><figDesc></figDesc><table>Perturb # of tables 
+
+60,000 $ 
+Brown 
+Mike 
+2 
+
+40,000 $ 
+Laup 
+Bill 
+1 
+
+salary ($) 
+last 
+first 
+id 
+
+Schema S 
+
+45200 
+Laup 
+
+wage 
+emp-last 
+
+V 
+V 1 
+
+1 
+2 
+3 
+
+1 
+2 
+3 
+
+70,000 $ 
+Bond 
+Roy 
+4 
+
+30,000 $ 
+Ann 
+Jean 
+3 
+
+60,000 $ 
+Brown 
+Mike 
+2 
+
+40,000 $ 
+Laup 
+Bill 
+1 
+
+salary ($) 
+last 
+first 
+id 
+
+EMPLOYEES 
+
+70,000$ 
+Bond 
+Roy 
+4 
+
+30,000$ 
+Ann 
+Jean 
+3 
+
+salary ($) 
+last 
+first 
+id 
+
+EMPLOYEES 
+
+1 
+2 
+3 
+
+3 
+12 
+
+3 
+12 
+
+Perturb the structure of 
+each table 
+
+3 
+12 
+
+2 
+
+1 
+
+id 
+
+60,000$ 
+Brown 
+
+40,000$ 
+Laup 
+
+salary($) 
+last 
+
+EMPLOYEES 
+
+3 
+12 
+
+Perturb column 
+and table names 
+
+Perturb data tuples 
+in each table 
+
+EMPS 
+
+2 
+
+1 
+
+id 
+
+60,000$ 
+Brown 
+
+40,000$ 
+Laup 
+
+</table></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_4" validated="false"><head>For Min/nbMin Minimum length/non-blanks of character attributes Minimum value of numeric attributes IsNumeric If numeric, YES; else NO Feature Descriptions</head><label></label><figDesc>Tuning Interrelated Knobs: We may know of fast procedures to tune a set of interrelated knobs.</figDesc><table># of 
+Number of the " " symbol 
+# of $ 
+Number of the "$" symbol 
+# of token 
+Number of tokens 
+# of digit 
+Number of digits 
+Type 
+Type of attributes 
+
+Max/nbMax 
+
+Maximum length/non-blanks of character attributes 
+Maximum value of numeric attributes 
+
+Avg/nbAvg 
+
+Average length/non-blanks of character attributes 
+Average value of numeric attributes 
+
+CV/nbCV 
+
+CV of length/non-blanks of character attributes 
+CV of numeric attributes 
+
+SD/nbSD 
+
+SD of length/non-blanks of character attributes 
+SD of numeric attributes 
+
+@ 
+@ 
+
+</table></figure>
+		</body>
+		<back>
+
+			<div type="acknowledgement">
+			</div>
+
+			<div type="references">
+
+				<listBibl>
+
+<biblStruct xml:id="b0">
+	<analytic>
+		<title level="a" type="main">Special issue on peer to peer data management</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Karl</forename><surname>Aberer</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">SIGMOD Record</title>
+		<imprint>
+			<biblScope unit="volume">32</biblScope>
+			<biblScope unit="issue">3</biblScope>
+			<date type="published" when="2003-09" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b1">
+	<analytic>
+		<title level="a" type="main">Arunprasad P. Marathe, Vivek R. Narasayya, and Manoj Syamala. Database tuning advisor for microsoft sql server</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Sanjay</forename><surname>Agrawal</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Surajit</forename><surname>Chaudhuri</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Lubor</forename><surname>Kollr</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">VLDB</title>
+		<imprint>
+			<date type="published" when="2004" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b2">
+	<analytic>
+		<title level="a" type="main">Informationtheoretic tools for mining database structure from large data sets</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>Andritsos</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><forename type="middle">J</forename><surname>Miller</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>Tsaparas</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of SIGMOD</title>
+		<meeting>of SIGMOD</meeting>
+		<imprint>
+			<date type="published" when="2004" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b3">
+	<analytic>
+		<title level="a" type="main">Semantic heterogeneity resolution in federated databases by metadata implantation and stepwise evolution</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Goksel</forename><surname>Aslan</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Dennis</forename><surname>Mcleod</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">VLDB Journal</title>
+		<imprint>
+			<biblScope unit="volume">8</biblScope>
+			<biblScope unit="issue">2</biblScope>
+			<biblScope unit="page" from="120" to="132" />
+			<date type="published" when="1999" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b4">
+	<analytic>
+		<title level="a" type="main">A comparative analysis of methodologies for database schema integration</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Batini</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Lenzerini</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><forename type="middle">B</forename><surname>Navathe</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">ACM Computing Survey</title>
+		<imprint>
+			<biblScope unit="volume">18</biblScope>
+			<biblScope unit="issue">4</biblScope>
+			<biblScope unit="page" from="323" to="364" />
+			<date type="published" when="1986" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b5">
+	<analytic>
+		<title level="a" type="main">Semantic integration of heterogeneous information sources</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Bergamaschi</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Castano</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Vincini</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Beneventano</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Data and Knowledge Engineering</title>
+		<imprint>
+			<biblScope unit="volume">36</biblScope>
+			<biblScope unit="issue">3</biblScope>
+			<biblScope unit="page" from="215" to="249" />
+			<date type="published" when="2001" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b6">
+	<analytic>
+		<title level="a" type="main">Database schema matching using machine learning with feature selection</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Berlin</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Motro</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">CAiSE</title>
+		<imprint>
+			<date type="published" when="2002" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b7">
+	<monogr>
+		<title level="m" type="main">Industrial-strength schema matching. SIGMOD Record, Special Issue in Semantic Integration</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><forename type="middle">A</forename><surname>Bernstein</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Melnik</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Petropoulos</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Quix</surname></persName>
+		</author>
+		<imprint>
+			<date type="published" when="2004-12" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b8">
+	<analytic>
+		<title level="a" type="main">Schema matching using duplicates</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Alexander</forename><surname>Bilke</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Felix</forename><surname>Naumann</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of ICDE-05</title>
+		<meeting>of ICDE-05</meeting>
+		<imprint/>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b9">
+	<analytic>
+		<title level="a" type="main">Automatic text segmentation for extracting structured records</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">V</forename><surname>Borkar</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">K</forename><surname>Deshmukh</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Sarawagi</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of SIGMOD-01</title>
+		<meeting>of SIGMOD-01</meeting>
+		<imprint/>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b10">
+	<analytic>
+		<title level="a" type="main">A schema analysis and reconciliation tool environment</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Castano</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">V</forename><surname>De Antonellis</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">IDEAS</title>
+		<imprint>
+			<date type="published" when="1999" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b11">
+	<analytic>
+		<title level="a" type="main">Self-managing technology in database management systems (tutorial)</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Chaudhuri</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">B</forename><surname>Dageville</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">G</forename><surname>Lohman</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of VLDB-04</title>
+		<meeting>of VLDB-04</meeting>
+		<imprint/>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b12">
+	<analytic>
+		<title level="a" type="main">Rethinking database system architecture: Towards a self-tuning riscstyle database system</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Surajit</forename><surname>Chaudhuri</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Gerhard</forename><surname>Weikum</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">VLDB</title>
+		<imprint>
+			<date type="published" when="2000" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b13">
+	<analytic>
+		<title level="a" type="main">Experience with a combined approach to attribute-matching across heterogeneous databases</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Clifton</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">E</forename><surname>Housman</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Rosenthal</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of the IFIP Working Conference on Data Semantics</title>
+		<meeting>of the IFIP Working Conference on Data Semantics</meeting>
+		<imprint>
+			<date type="published" when="1997" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b14">
+	<analytic>
+		<title level="a" type="main">Domingos. iMAP: Discovering complex matches between database schemas</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Dhamankar</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Y</forename><surname>Lee</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Doan</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Halevy</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of SIGMOD</title>
+		<meeting>of SIGMOD</meeting>
+		<imprint>
+			<date type="published" when="2004" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b15">
+	<monogr>
+		<title level="m" type="main">Machine learning research: Four current directions. AI Magazine</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">T</forename><forename type="middle">G</forename><surname>Dietterich</surname></persName>
+		</author>
+		<imprint>
+			<date type="published" when="1997" />
+			<biblScope unit="volume">18</biblScope>
+			<biblScope unit="page" from="97" to="136" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b16">
+	<analytic>
+		<title level="a" type="main">Comparison of schema matching evaluations</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">H</forename><surname>Do</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Melnik</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">E</forename><surname>Rahm</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of the 2nd Int. Workshop on Web Databases</title>
+		<meeting>of the 2nd Int. Workshop on Web Databases</meeting>
+		<imprint>
+			<publisher>German Informatics Society</publisher>
+			<date type="published" when="2002" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b17">
+	<analytic>
+		<title level="a" type="main">Coma: A system for flexible combination of schema matching approaches</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">H</forename><surname>Do</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">E</forename><surname>Rahm</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">VLDB</title>
+		<imprint>
+			<date type="published" when="2002" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b18">
+	<analytic>
+		<title level="a" type="main">Reconciling schemas of disparate data sources: A machine learning approach</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Doan</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>Domingos</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Halevy</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the ACM SIGMOD Conference</title>
+		<meeting>the ACM SIGMOD Conference</meeting>
+		<imprint>
+			<date type="published" when="2001" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b19">
+	<analytic>
+		<title level="a" type="main">Learning to map ontologies on the semantic web</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Doan</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Madhavan</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>Domingos</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Halevy</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of the World-Wide Web Conference</title>
+		<meeting>of the World-Wide Web Conference</meeting>
+		<imprint>
+			<publisher>WWW-02</publisher>
+			<date type="published" when="2002" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b20">
+	<analytic>
+		<title level="a" type="main">Introduction to the special issue on semantic integration</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Doan</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">N</forename><surname>Noy</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Halevy</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">SIGMOD Record</title>
+		<imprint>
+			<biblScope unit="volume">33</biblScope>
+			<biblScope unit="issue">4</biblScope>
+			<biblScope unit="page" from="11" to="13" />
+			<date type="published" when="2004" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b21">
+	<analytic>
+		<title level="a" type="main">Multifaceted exploitation of metadata for attribute match discovery in information integration</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Embley</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Jackman</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">L</forename><surname>Xu</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of the WIIW-01</title>
+		<meeting>of the WIIW-01</meeting>
+		<imprint>
+			<date type="published" when="2001" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b22">
+	<analytic>
+		<title level="a" type="main">Robust identification of fuzzy duplicates</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Venkatesh</forename><surname>Ganti</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Surajit</forename><surname>Chaudhuri</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Rajeev</forename><surname>Motwani</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">ICDE</title>
+		<imprint>
+			<date type="published" when="2005" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b23">
+	<analytic>
+		<title level="a" type="main">Statistical schema matching across web query interfaces</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">B</forename><surname>He</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">K</forename></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C.-C</forename><surname>Chang</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of SIGMOD-03</title>
+		<meeting>of SIGMOD-03</meeting>
+		<imprint>
+			<date type="published" when="2003" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b24">
+	<analytic>
+		<title level="a" type="main">On schema matching with opaque column names and data values</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Kang</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Naughton</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">SIGMOD</title>
+		<imprint>
+			<date type="published" when="2003" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b25">
+	<monogr>
+		<title level="m" type="main">Database integration using neural network: implementation and experience. Knowledge and Information Systems</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">W</forename><surname>Li</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Clifton</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Liu</surname></persName>
+		</author>
+		<imprint>
+			<date type="published" when="2000" />
+			<biblScope unit="volume">2</biblScope>
+			<biblScope unit="page" from="73" to="96" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b26">
+	<analytic>
+		<title level="a" type="main">Corpus-based schema matching</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Madhavan</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>Bernstein</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Doan</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Halevy</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of ICDE-05</title>
+		<meeting>of ICDE-05</meeting>
+		<imprint/>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b27">
+	<analytic>
+		<title level="a" type="main">Generic schema matching with cupid</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Madhavan</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><forename type="middle">A</forename><surname>Bernstein</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">E</forename><surname>Rahm</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of VLDB-01</title>
+		<meeting>of VLDB-01</meeting>
+		<imprint/>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b28">
+	<analytic>
+		<title level="a" type="main">Mapping maintenance for data integration systems</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Mccann</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">B</forename><surname>Alshebli</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Q</forename><surname>Le</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">H</forename><surname>Nguyen</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">L</forename><surname>Vu</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Doan</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of VLDB-05</title>
+		<meeting>of VLDB-05</meeting>
+		<imprint/>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b29">
+	<analytic>
+		<title level="a" type="main">Similarity flooding: a versatile graph matching algorithm</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Melnik</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">H</forename><surname>Molina-Garcia</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">E</forename><surname>Rahm</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of ICDE-02</title>
+		<meeting>of ICDE-02</meeting>
+		<imprint/>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b30">
+	<analytic>
+		<title level="a" type="main">Using schema matching to simplify heterogeneous data translation</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">T</forename><surname>Milo</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Zohar</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of VLDB-98</title>
+		<meeting>of VLDB-98</meeting>
+		<imprint/>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b31">
+	<analytic>
+		<title level="a" type="main">Semi-automatic integration of knowledge sources</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>Mitra</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">G</forename><surname>Wiederhold</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Jannink</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of Fusion-1999</title>
+		<meeting>of Fusion-1999</meeting>
+		<imprint/>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b32">
+	<analytic>
+		<title level="a" type="main">Attribute classification using feature analysis</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">F</forename><surname>Neumann</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><forename type="middle">T</forename><surname>Ho</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">X</forename><surname>Tian</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">L</forename><surname>Haas</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">N</forename><surname>Meggido</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the Int. Conf. on Data Engineering (ICDE)</title>
+		<meeting>the Int. Conf. on Data Engineering (ICDE)</meeting>
+		<imprint>
+			<date type="published" when="2002" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b33">
+	<analytic>
+		<title level="a" type="main">PROMPT: Algorithm and tool for automated ontology merging and alignment</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">N</forename><forename type="middle">F</forename><surname>Noy</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><forename type="middle">A</forename><surname>Musen</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of the National Conference on Artificial Intelligence</title>
+		<meeting>of the National Conference on Artificial Intelligence</meeting>
+		<imprint>
+			<date type="published" when="2000" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b34">
+	<analytic>
+		<title level="a" type="main">Special issue on semantic interoperability in global information systems</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Ouksel</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><forename type="middle">P</forename><surname>Seth</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">SIGMOD Record</title>
+		<imprint>
+			<biblScope unit="volume">28</biblScope>
+			<biblScope unit="issue">1</biblScope>
+			<date type="published" when="1999" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b35">
+	<analytic>
+		<title level="a" type="main">Semi-automatic, semantic discovery of properties from database schemes</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">L</forename><surname>Palopoli</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Sacca</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Ursino</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of IDEAS-98</title>
+		<meeting>of IDEAS-98</meeting>
+		<imprint>
+			<biblScope unit="page" from="244" to="253" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b36">
+	<analytic>
+		<title level="a" type="main">On matching schemas automatically</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">E</forename><surname>Rahm</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><forename type="middle">A</forename><surname>Bernstein</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">VLDB Journal</title>
+		<imprint>
+			<biblScope unit="volume">10</biblScope>
+			<biblScope unit="issue">4</biblScope>
+			<date type="published" when="2001" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b37">
+	<monogr>
+		<title level="m" type="main">Matching large XML schemas. SIGMOD Record, Special Issue in Semantic Integration</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">E</forename><surname>Rahm</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">H</forename><surname>Do</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Massmann</surname></persName>
+		</author>
+		<imprint>
+			<date type="published" when="2004-12" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b38">
+	<analytic>
+		<title level="a" type="main">The impact of xml in databases and data sharing</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">L</forename><surname>Seligman</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Rosenthal</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">IEEE Computer</title>
+		<imprint>
+			<date type="published" when="2001" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b39">
+	<analytic>
+		<title level="a" type="main">An interactive clustering-based approach to integrating source query interfaces on the Deep Web</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">W</forename><surname>Wu</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Yu</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Doan</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">W</forename><surname>Meng</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. of SIGMOD</title>
+		<meeting>of SIGMOD</meeting>
+		<imprint>
+			<date type="published" when="2004" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b40">
+	<analytic>
+		<title level="a" type="main">Data driven understanding and refinement of schema mappings</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">L</forename><forename type="middle">L</forename><surname>Yan</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><forename type="middle">J</forename><surname>Miller</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">L</forename><forename type="middle">M</forename><surname>Haas</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Fagin</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the ACM SIGMOD</title>
+		<meeting>the ACM SIGMOD</meeting>
+		<imprint>
+			<date type="published" when="2001" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+				</listBibl>
+			</div>
+		</back>
+	</text>
+</TEI>

@@ -1,0 +1,517 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<TEI xmlns="http://www.tei-c.org/ns/1.0" 
+xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+xsi:schemaLocation="http://www.tei-c.org/ns/1.0 /Users/atharsefid/Desktop/grobid-0.5.3/grobid-home/schemas/xsd/Grobid.xsd"
+ xmlns:xlink="http://www.w3.org/1999/xlink">
+	<teiHeader xml:lang="en">
+		<encodingDesc>
+			<appInfo>
+				<application version="0.5.3" ident="GROBID" when="2019-03-26T16:41+0000">
+					<ref target="https://github.com/kermitt2/grobid">GROBID - A machine learning software for extracting information from scholarly documents</ref>
+				</application>
+			</appInfo>
+		</encodingDesc>
+		<fileDesc>
+			<titleStmt>
+				<title level="a" type="main">Dynamic Time-Variant Connection Management for PGAS Models on InfiniBand</title>
+			</titleStmt>
+			<publicationStmt>
+				<publisher/>
+				<availability status="unknown"><licence/></availability>
+			</publicationStmt>
+			<sourceDesc>
+				<biblStruct>
+					<analytic>
+						<author>
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Abhinav</forename><surname>Vishnu</surname></persName>
+							<email>abhinav.vishnu@pnl.gov</email>
+							<affiliation key="aff0">
+								<orgName type="laboratory">‡ Mathematics and Computer Science Division Argonne National Laboratory, Argonne</orgName>
+								<orgName type="institution">Pacific Northwest National Laboratory</orgName>
+								<address>
+									<postCode>99352, 60439</postCode>
+									<settlement>Richland</settlement>
+									<region>WA, IL</region>
+								</address>
+							</affiliation>
+						</author>
+						<author>
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Manoj</forename><surname>Krishnan</surname></persName>
+							<affiliation key="aff0">
+								<orgName type="laboratory">‡ Mathematics and Computer Science Division Argonne National Laboratory, Argonne</orgName>
+								<orgName type="institution">Pacific Northwest National Laboratory</orgName>
+								<address>
+									<postCode>99352, 60439</postCode>
+									<settlement>Richland</settlement>
+									<region>WA, IL</region>
+								</address>
+							</affiliation>
+						</author>
+						<author>
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Pavan</forename><surname>Balaji</surname></persName>
+							<email>balaji@mcs.anl.gov</email>
+							<affiliation key="aff0">
+								<orgName type="laboratory">‡ Mathematics and Computer Science Division Argonne National Laboratory, Argonne</orgName>
+								<orgName type="institution">Pacific Northwest National Laboratory</orgName>
+								<address>
+									<postCode>99352, 60439</postCode>
+									<settlement>Richland</settlement>
+									<region>WA, IL</region>
+								</address>
+							</affiliation>
+						</author>
+						<title level="a" type="main">Dynamic Time-Variant Connection Management for PGAS Models on InfiniBand</title>
+					</analytic>
+					<monogr>
+						<imprint>
+							<date/>
+						</imprint>
+					</monogr>
+				</biblStruct>
+			</sourceDesc>
+		</fileDesc>
+		<profileDesc>
+			<abstract>
+				<p>InfiniBand (IB) has established itself as a promising network infrastructure for high-end cluster computing systems as evidenced by its usage in the Top500 supercomputers today. While the IB standard describes multiple communication models (including reliable-connection (RC), and unreliable datagram (UD)), most of its promising features such as remote direct memory access (RDMA), hardware atomics and network fault tolerance are only available for the RC model which requires connections between communicating process pairs. In the past, several researchers have proposed on-demand connection management techniques that establish connections when there is a need to communicate with another process. While such techniques work well for algorithms and applications that only communicate with a small set of processes in their lifetime , there exists a broad set of applications that do not follow this trend. For example, applications that perform dynamic load balancing and adaptive work stealing have a small set of communicating neighbors at any given time, but over time the total number of neighbors can be very high; in some cases, equal to the entire system size. In this paper, we present a dynamic time-variant connection management approach that establishes connections on-demand like previous approaches, but further intelligently tears down some of the unused connections as well. While connection tear-down itself is relevant for any programming model, different models have different complexities. In this paper, we study the Global Arrays (GA) PGAS model for two reasons: (1) the simple one-sided communication primitives provided by GA and other PGAS models ensure that connection requests are always initiated by the origin process without explicit synchronization with the target process-this makes connection tear-down simpler to handle; and (2) GA supports applications in several domains such as computational chemistry (NWChem) and computational biology (ScalaBLAST) that demonstrate this behavior making it an obvious first target for the proposed enhancements. We evaluate our proposed approach using NWChem computational chemistry application using up to 6144 processes, and show that our approach can significantly reduce the memory requirements of the communication library while maintaining its performance.</p>
+			</abstract>
+		</profileDesc>
+	</teiHeader>
+	<text xml:lang="en">
+		<body>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>I. INTRODUCTION</head><p>Amongst many network interconnects that integrate into cluster computing systems today, InfiniBand (IB) <ref type="bibr" target="#b0">[1]</ref> has established itself as a promising interconnection technology. As reflected in the TOP500 <ref type="bibr" target="#b1">[2]</ref> rankings, IB has been observing wide acceptance due to its high performance and open standard, with 28% of the systems using IB as their interconnect. Even though the IB standard describes multiple communication models (including reliable-connection (RC), and unreliable datagram (UD)), most of its promising features (RDMA, hardware atomics, network fault tolerance) are only available for the RC model which requires connections between communicating process pairs. This is a scalability concern as each connection can consume up to 44KBytes <ref type="bibr" target="#b2">[3]</ref> of memory, resulting in hundreds of megabytes of connection memory footprint on large scale systems.</p><p>To address this problem, on-demand connection management mechanisms have been proposed with the message passing interface (MPI) model <ref type="bibr" target="#b3">[4]</ref>, <ref type="bibr" target="#b2">[3]</ref>, <ref type="bibr" target="#b4">[5]</ref>, <ref type="bibr" target="#b5">[6]</ref>, <ref type="bibr" target="#b6">[7]</ref> as well as partitioned global address space (PGAS) models such as Global Arrays (GA) <ref type="bibr" target="#b7">[8]</ref>, <ref type="bibr" target="#b8">[9]</ref>. The proposed techniques improve the memory footprint of a communication library by establishing connections only when there is a need to communicate, and not before. While such techniques work well for algorithms and applications that only communicate with a small set of processes in their life-time, there exists a broad set of applications that do not follow this trend. For example, applications that perform dynamic load balancing and adaptive work stealing <ref type="bibr" target="#b9">[10]</ref> have a small set of communicating neighbors at any given time, but over time the total number of neighbors can be very high; in some cases, equal to the entire system size.</p><p>In this paper, we present a dynamic time-variant connection management approach that establishes connections on-demand like previous approaches, but further intelligently tears down some of the unused connections as well. While connection tear-down itself is relevant for any programming model, different models have different complexities. For example, programming models such as MPI provide a number of communication features including both two-sided and onesided communication. In such models, since either of the two end processes in the connection can initiate communication, a process cannot tear-down a connection without coordinating with the remotely connected process; this can be cumbersome and expensive. On the other hand, PGAS models such as Global Arrays (GA) <ref type="bibr" target="#b7">[8]</ref> provide a simpler communication model where a single process initiates communication in a one-sided manner (either a get/read or a put/write). Each node uses a separate thread known as the data server that contributes a part of the memory on the node to the "global address space". Processes can only get data from or put data into this global address space exposed by the data server (either over the network or through shared memory); direct process-to-process communication is not provided by this model. This restricted model ensures that connection requests are always initiated by the origin process without explicit synchronization with the target process-this makes connection tear-down simpler to handle.</p><p>Therefore, in this paper, we study the Global Arrays (GA) PGAS model for two reasons: (1) the simplicity of the model makes dynamic connection tear-down more natural to achieve; and (2) GA supports several applications that demonstrate this behavior making it an obvious first target for the proposed enhancements. We evaluate our proposed approach with NWChem <ref type="bibr" target="#b10">[11]</ref> computational chemistry application using up to 6144 processes, and show that our approach can significantly reduce the memory requirements of the communication library while maintaining its performance. We refer to our approach as Advanced Connection Tear-down Schemes (ACTS) on InfiniBand.</p><p>The rest of the paper is organized as follows. In section II, we present the related work. In section III, we present the background of our work. In section IV, we present the design of ACTS, discussing the challenges presented by the PGAS models. In section V, we present the performance evaluation of ACTS using NWChem <ref type="bibr" target="#b10">[11]</ref>, comparing it to the state of the art implementation, ARMCI-ODCM <ref type="bibr" target="#b8">[9]</ref>. We conclude and present our future directions in section VI. We begin with the description of the background work.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>II. RELATED WORK</head><p>Multiple approaches have been proposed for on-demand connection management with InfiniBand for MPI <ref type="bibr" target="#b11">[12]</ref>, <ref type="bibr" target="#b3">[4]</ref>, <ref type="bibr" target="#b2">[3]</ref>, <ref type="bibr" target="#b4">[5]</ref>, <ref type="bibr" target="#b5">[6]</ref>, <ref type="bibr" target="#b6">[7]</ref>. Recently, mechanisms for on-demand connection management have been presented with PGAS models using Global Arrays <ref type="bibr" target="#b8">[9]</ref>.</p><p>Koop et al., proposed designs using multiple transport semantics with InfiniBand <ref type="bibr" target="#b0">[1]</ref>. Using unreliable datagram connection-less transport semantics with InfiniBand, Koop et al., has proposed designs for copy based approaches <ref type="bibr" target="#b2">[3]</ref>. Copy based approaches are applicable for MPI, since it has implicit synchronization. Using zero-copy based approaches with InfiniBand, Koop et al. also proposed using zero copy based mechanism provided by InfiniBand, since the unreliable datagram transport semantics do not support RDMA <ref type="bibr" target="#b4">[5]</ref>. Koop et al. have also presented multi-transport InfiniBand semantics using unreliable datagram and reliable connection transport semantics <ref type="bibr" target="#b5">[6]</ref>. Recently, work related to extended reliable connection semantics has also been proposed. Using this transport, multiple processes on the same node can share the data transfer queue, allowing memory requirements to increase corresponding to the number of nodes, rather than the number of processes <ref type="bibr" target="#b6">[7]</ref>. Recently, we have also proposed methods for on-demand connection for Global Arrays <ref type="bibr" target="#b8">[9]</ref>. However, none of the previously proposed approaches handle adaptive teardown of connections, which we propose and evaluate in this paper using ACTS.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>III. BACKGROUND</head></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>A. InfiniBand Transport Semantics</head><p>In this section, we present a brief introduction to the InfiniBand transport semantics. We specifically focus on the reliable connection transport semantics. Reliable connection is the most popular transport semantics for designing runtime communication system over InfiniBand <ref type="bibr" target="#b2">[3]</ref>. A variety of features including RDMA, Automatic Path Migration <ref type="bibr" target="#b12">[13]</ref> and hardware atomics are available with this semantics, which are not available with Unreliable Datagram(UD) -the other popular transport semantics provided by InfiniBand. RC provides exactly one, in-order data delivery to the destination and exactonce notification of the data delivery to the initiator, making it an attractive choice to design communication runtime systems for MPI and PGAS models. <ref type="figure">Figure 1</ref>  ARMCI is a communication runtime system which provides a general-purpose, efficient, and widely portable remote memory access (RMA) operations (one-sided communication) optimized for contiguous and non-contiguous (strided, scatter/gather, I/O vector) data transfers. ARMCI also provides a set of atomic and mutual exclusion operations. ARMCI leverages the low level network primitives provided by modern networks and multi-core systems. It is supported on clusters (InfiniBand, Ethernet) and high-end systems (IBM BGs, Cray XTs, Cray XE6).</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>C. Connection Structure with ARMCI over InfiniBand</head><p>In ARMCI, a process with lowest rank in a node is called master and other processes on the node are called clients. The master process creates a thread -data server, which performs one-sided operations on behalf of clients on other nodes such as (put, get, lock, accumulate), which may not be efficiently implemented using memory semantics like RDMA. Master process on a node is treated as a client by data server(s) of another node(s).</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>Client Data Server Master Process</head></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>Fig. 2. Connection Establishment Pattern in ARMCI</head><p>A client establishes connection(s) to data server(s) on another node; there are no client-client connections. Each chunk of a Global Array is allocated by the master process, created as a shared memory segment, and registered with the network (if necessary). This allows each client on a node to read and write to the chunk directly. It also allows clients on other nodes to read/write directly from/to the chunk. Hence, it is necessary only to establish connections with the data server on a node, which has access to the chunk, since it is a thread of the master process. <ref type="figure">Figure 2</ref> shows a typical connection management scenario with ARMCI.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>IV. OVERALL DESIGN</head><p>In this section, we present the overall design of ACTS. We begin with a description of the existing connection management approach with ARMCI over IB. Without loss of generality, we have used terms QP and connection interchangeably for the rest of the section.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>A. Existing Connection Management with ARMCI over IB</head><p>The ARMCI-ODCM <ref type="bibr" target="#b8">[9]</ref> uses the following connection management protocol, with an assumption that connection to the corresponding data server does not exist:  <ref type="figure" target="#fig_0">Figure 3</ref> shows the connection establishment protocol. The multiple phases of connection establishment are overlapped, by incurring an addition cost of Connection req message. As presented in our previous work, the overlap protocol reduces the overall connection establishment time significantly <ref type="bibr" target="#b8">[9]</ref>. The overlap protocol has potential for high impact for ACTS, since it reduces the overall time for connection establishment significantly.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>B. ACTS Design</head><p>In this section, we present multiple aspects of ACTS -approaches to select a victim connection and tear-down protocols for one-sided communication. We also discuss cross-cutting issues not addressed by ACTS.</p><p>1) Selecting Victim Connection: The micro-architecture literature has proposed a wide variety of approaches for selecting a victim cache line/page <ref type="bibr" target="#b13">[14]</ref>. The primary objective is to provide best temporal and spatial locality for cache lines, while keeping the cost of searching for victim cache line minimal.</p><p>Considering the list of active connections as a cache, the objective for ACTS is to provide best temporal locality for a connection, while minimizing the cost of searching for a victim connection. We leverage the Least Recently Used (LRU) <ref type="bibr" target="#b13">[14]</ref> connection tear-down method for selecting the victim connection. LRU tear-down method provides equal priority to the connections ordered in terms of access patterns -useful for the class of applications exhibiting quite irregular structure. Applications using dynamic load balancing and work stealing <ref type="bibr" target="#b10">[11]</ref>, and design of application kernels using task pools <ref type="bibr" target="#b9">[10]</ref> exhibit this pattern.</p><p>However, these applications and benchmarks may exhibit a regularity in communicating to a small subset of processes The usage of collective communication primitives (scatter/broadcast/reduce for data partitioning/result collection), requesting an information typically held by a single/small collection of processes (like counters/locks), work stealing algorithm(s) which use topology information to prefer topologically closer partners, adds to this regularity. To handle this, we use a multi-queue LRU method, where queues are ordered by number of times a connection has been teared down. A victim connection is chosen from the tail of the queue with the least number of teared down connections. This approach is referred to as LRU-M for rest of the paper.</p><p>2) Low Overhead Tear-down Protocols with Overlap: PGAS models such as GA <ref type="bibr" target="#b7">[8]</ref> provide a simple one-sided communication model, where a single process/thread initiates data transfer -making decision for connection creation/teardown completely one-sided. Efficient tear-down protocol for two-sided message passing with MPI would require implicit synchronization. The one-sided tear-down protocol is explained here:</p><p>• If the connection exists, proceed with the data transfer • If the connection does not exist and the overall number of connections are less than connection threshold max conn, proceed with ARMCI-ODCM <ref type="bibr" target="#b8">[9]</ref>, else • proceed with the following protocol:</p><p>-select a victim connection (using LRU or LRU-M) -ensure all the pending data transfers have been initiated -Initiate a flush message, to ensure the completion of outstanding data transfer operations -Initiate a tear-down message, wait for the acknowledgment and proceed with ARMCI-ODCM [9] The completion of pending data transfers is initiated by using Waitproc primitive provided by ARMCI <ref type="bibr" target="#b14">[15]</ref>. It has similar semantics as MPI Waitall -allowing the reuse of posted buffers after completion. The flush message ensures that all the data transfers have been completed in the target memory (through the data server and RDMA). Fence primitive provided by ARMCI is used to achieve this purpose. <ref type="figure" target="#fig_1">Figure 4</ref> shows the ACTS tear-down protocol in detail. The line corresponding to Waitproc and flush are dotted, since they may be a no-op, if they have been explicitly executed by application/global arrays layer (using ARMCI Waitproc and ARMCI Fence, respectively). The request for tear-down is initiated using the UD based transport designed for ARMCI-ODCM <ref type="bibr" target="#b8">[9]</ref>. The reliability is handled in a similar way, as presented in ARMCI-ODCM.</p><p>The process initiated the tear-down immediately after sending the tear-down request to the data server. Since tear-down takes in order of hundreds of micro-seconds, while the teardown request message takes a couple of seconds, significant overlap is achieved in the tear-down protocol.</p><p>Other approaches for tear-down protocol include initiating local tear-down by a process, as soon as max conn threshold is needed. This approach would require more connections to be teared-down and created again, since following synchronization primitives (such as fence used frequently by applications) would re-create the connections, incurring significant overhead. Hence, we do not consider this approach for implementation.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>C. Discussion</head><p>Impact of eXtended Reliable Connection (XRC): Koop et al., have presented MPI designs using advanced transport semantics such as XRC over InfiniBand <ref type="bibr" target="#b2">[3]</ref>, <ref type="bibr" target="#b5">[6]</ref>. The proposed approaches allow a process to share connections to target processes co-located on a destination node. The overall connection memory footprint scales with number of nodes, rather than the number of cores.</p><p>Unlike MPI, ARMCI connection structure is asymmetric, as presented in the section III. A process creates a connection only with the data server on a target node. The processes may achieve any benefit by using XRC. However, the data server may use XRC for the processes on a remote node. The current ACTS design does not handle XRC based transport semantics,; it may be extended using the following approach. In the new protocol, when a data server receives the tear-down request, it checks the number of established connections with co-located processes on the remote node. The data server decrements the reference count, and destroys the connection, when the reference count is zero. We propose to implement this design as a part of our future work.</p><p>Limitation: Initiation of Connection Tear-down: The current ACTS design allows processes to request connection tear-down. A data server may not initiate a request, since a process may send a message to the data server, while the connection request has been initiated. We propose to handle this as a part of our future work.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>V. PERFORMANCE EVALUATION OF ACTS</head><p>In this section, we present a performance evaluation of NWChem <ref type="bibr" target="#b10">[11]</ref> using ACTS, comparing its performance to ARMCI-ODCM <ref type="bibr" target="#b8">[9]</ref> -the default implementation of ARMCI <ref type="bibr" target="#b14">[15]</ref>. We also define max conn -a threshold to define the maximum number of connections a process is allowed to create. The evaluation is performed with multiple victim selection methods (LRU and LRU-M). We begin with a description of Experimental Testbed.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>A. Experimental Testbed</head><p>Chinook <ref type="bibr" target="#b15">[16]</ref> is a 160 TFlops system that consists of 2310 HP DL185 nodes with dual socket, 64-bit, Quad-core AMD 2.2 GHz Barcelona Processors. Each node has 32 Gbytes of memory and 365 Gbytes of local disk space. Communication between the nodes is performed using InfiniBand with Voltaire <ref type="bibr" target="#b16">[17]</ref> Switches and Mellanox <ref type="bibr" target="#b17">[18]</ref> Adapters.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>B. Performance Evaluation with NWChem</head><p>NWChem is a high performance computational chemistry software package <ref type="bibr" target="#b10">[11]</ref>, designed and developed at Environmental and Molecular Science Laboratory at Pacific Northwest National Lab. The package implements a variety of lower to higher order methods for computational chemistry from density functional theory to computationally expensive methods like coupled clustered computation. It has been scaled on highend systems achieving 1.3 Pflops on 220K cores on Cray Jaguar at Oak Ridge National Lab <ref type="bibr" target="#b18">[19]</ref>.</p><p>In previous work, it has been established that ARMCI-ODCM does not exhibit any overhead in comparison to the completely connected model <ref type="bibr" target="#b8">[9]</ref>. Hence, ARMCI-ODCM is used as the reference point for performance comparison with ACTS. The horizontal axis on each of the performance graphs shows the connection management method. For ACTS, each of the bar is a 2-tuple: (max conn, (LRU/LRU-M)). The max connections are varied from 4 -128 and number of processes are varied from 2048 -6144. Due to large memory requirements of NWChem <ref type="bibr" target="#b10">[11]</ref>, four processes per node are used. <ref type="figure">Figure 5</ref> shows the performance of ARMCI-ODCM and ACTS with multiple parameters using NWChem and pentane input deck on 2048 processes. The ARMCI-ODCM implementation takes 131s. The max conn parameter is varied from 128-4. The overall execution time varies from 128s-142s with the variation. Using 128 as max conn, the overall tear-down time is .11 seconds for LRU, while it is .09 seconds for LRU-M. Similarly for max conn value as 32, the overall tear-down overhead is .704 s and .621 seconds for LRU and LRU-M, respectively. The reduction in max conn increases the overall overhead of tear-down significantly, due to increase in the number of connections being teared-down. However, the overall degradation varies from 2%-7% (calculated by subtracting the time of ACTS implementation from ARMCI-ODCM). ACTS provides significant reduction in connection memory utilization. In our experimental evaluation, we have observed that all connections are created during the execution of this input deck (results not shown due to lack of space). Hence, with max conn as 128, a 4-fold reduction in connection memory is achieved with 2% degradation in performance. Similarly for max conn as 32 and 4, a 16-fold and 128-fold improvement in connection memory is observed with a degradation of 5% and 7% in performance. While the irregular nature of execution makes it difficult to model the communication pattern, these results provide guidelines for selecting a reasonable value of max conn without incurring significant loss in performance. <ref type="figure">Figure 6</ref> shows the performance evaluation for 4096 processes. The execution time for ARMCI-ODCM is 83s. The overall execution time for various ACTS configuration varies from 82.4 to 88 seconds. The maximum number of created connections vary from 93 to 121. Hence, for 128 as max conn, we do not observe any connection tear-downs. For 32, the difference between LRU and LRU-M is .55 s and .49s respectively. For 4, the difference between LRU and LRU-M is 1.61s and 1.44s, respectively. As observed for 2048 processes, LRU-M outperforms LRU. The overall connection memory benefits achieved vary from 3-4 fold, with a performance degradation of up to 7%. Hence, significant connection memory benefits are still achievable with marginal performance degradation. <ref type="figure">Figure 7</ref> shows the performance evaluation with 6144 processes. ARMCI-ODCM presents the overall execution time to 78s. Varying the max conn parameter from 128-4, the overall execution time varies from 79-84s. The observed performance degradation is up to 7%. The maximum number of created connections vary from 91-117. Hence, 128 max conn does not observe any tear-down of connections. The overall connection memory benefits achieved are similar to 4096 processes, as observed in the previous chart. The break time is .55s and .49s for LRU, LRU-M with 32 as max conn, respectively. With 4 as max conn, these values are 1.61 and 1.44s, respectively. <ref type="figure" target="#fig_2">Figure 8</ref> shows the performance evaluation the siosi7 input deck for 4096 processes. The execution time for ARMCI-ODCM is 240s. For ACTS based approaches, the overall execution time varies from 243-246s. While no connection tear-down are observed for 128, the overall connection teardown overhead is negligible in comparison to the overall execution time.</p><p>From the performance evaluation presented above, there are multiple important conclusions:</p><p>• ACTS is able to reduce the overall memory consumption significantly, with a negligible/insignificant performance penalty. For extreme values of max conn, the overall overhead is up to 7%. The results presented in this section may be used by an application scientist as a guideline for the overall connection memory given to ARMCI.</p><p>• LRU-M victim selection method results in lesser or equivalent overhead in comparison to the legacy LRU method. Providing higher priority to processes, which have been teared down more often than the others, the LRU-M method is able to capture the partial regularity, which exists in the application.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>VI. CONCLUSIONS AND FUTURE WORK</head><p>In this paper, we have presented a dynamic time-variant connection management approach that establishes connections on-demand like previous approaches, but further intelligently tears down some of the unused connections as well. While connection tear-down itself is relevant for any programming model, different models have different complexities. In this paper, we have studied the Global Arrays (GA) PGAS model for two reasons: (1) the simple one-sided communication primitives provided by GA and other PGAS models ensure that connection requests are always initiated by the origin process without explicit synchronization with the target processthis makes connection tear-down simpler to handle; and (2) GA supports applications in several domains such as computational chemistry (NWChem) and computational biology (ScalaBLAST) that demonstrate this behavior making it an obvious first target for the proposed enhancements. We have evaluated our proposed approach using NWChem computational chemistry application using up to 6144 processes, and concluded that our approach can significantly reduce the memory requirements of the communication library while maintaining its performance.</p><p>We continue to address the limitations of ACTS -handling multi-sided initiation tear-down requests and using eXtended Reliable Connection. We plan to address these limitations in future work and evaluate the extended approaches with NWChem and upcoming applications such as STOMP and others.</p></div><figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_0"><head>•Fig. 3 .</head><label>3</label><figDesc>Fig. 3. ARMCI-ODCM:Connection Establishment Protocol [9]</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_1"><head>Fig. 4 .</head><label>4</label><figDesc>Fig. 4. ACTS Tear-down Protocol</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_2"><head>Fig. 8 .</head><label>8</label><figDesc>Fig. 5. NWChem-2048 Processes, Pentane Input Deck</figDesc></figure>
+		</body>
+		<back>
+			<div type="references">
+
+				<listBibl>
+
+<biblStruct xml:id="b0">
+	<monogr>
+		<title level="m" type="main">InfiniBand Architecture Specification, Release 1.2</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><surname>Infiniband Trade Association</surname></persName>
+		</author>
+		<imprint>
+			<date type="published" when="2004-10" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b1">
+	<analytic>
+		<title/>
+		<ptr target="http://www.top500.org" />
+	</analytic>
+	<monogr>
+		<title level="j">TOP 500 Supercomputer Sites</title>
+		<imprint/>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b2">
+	<analytic>
+		<title level="a" type="main">High Performance MPI Design Using Unreliable Datagram for Ultra-Scale InfiniBand Clusters</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><forename type="middle">J</forename><surname>Koop</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Sur</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Q</forename><surname>Gao</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><forename type="middle">K</forename><surname>Panda</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">International Conference on Supercomputing</title>
+		<imprint>
+			<date type="published" when="2007" />
+			<biblScope unit="page" from="180" to="189" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b3">
+	<analytic>
+		<title level="a" type="main">Adaptive Connection Management for Scalable MPI over InfiniBand</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">W</forename><surname>Yu</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Q</forename><surname>Gao</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><forename type="middle">K</forename><surname>Panda</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">International Parallel and Distributed Processing Symposium</title>
+		<imprint>
+			<date type="published" when="2006" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b4">
+	<analytic>
+		<title level="a" type="main">Zero-copy Protocol for MPI Using Infiniband Unreliable Datagram</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><forename type="middle">J</forename><surname>Koop</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Sur</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><forename type="middle">K</forename><surname>Panda</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">International Conference on Cluster Computing</title>
+		<imprint>
+			<date type="published" when="2007" />
+			<biblScope unit="page" from="179" to="186" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b5">
+	<analytic>
+		<title level="a" type="main">MVAPICH-Aptus: Scalable High-performance Multi-Transport MPI over InfiniBand</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><forename type="middle">J</forename><surname>Koop</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">T</forename><surname>Jones</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><forename type="middle">K</forename><surname>Panda</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">International Parallel and Distributed Processing Symposium</title>
+		<imprint>
+			<date type="published" when="2008" />
+			<biblScope unit="page" from="1" to="12" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b6">
+	<analytic>
+		<title level="a" type="main">Scalable MPI design over InfiniBand using eXtended Reliable Connection</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><forename type="middle">J</forename><surname>Koop</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><forename type="middle">K</forename><surname>Sridhar</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><forename type="middle">K</forename><surname>Panda</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">International Conference on Cluster Computing</title>
+		<imprint>
+			<date type="published" when="2008" />
+			<biblScope unit="page" from="203" to="212" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b7">
+	<monogr>
+		<title level="m" type="main">Global Arrays: A Portable &quot;Shared-Memory&quot; Programming Model for Distributed Memory Computers</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Nieplocha</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><forename type="middle">J</forename><surname>Harrison</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><forename type="middle">J</forename><surname>Littlefield</surname></persName>
+		</author>
+		<editor>SuperComputing</editor>
+		<imprint>
+			<date type="published" when="1994" />
+			<biblScope unit="page" from="340" to="349" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b8">
+	<analytic>
+		<title level="a" type="main">Efficient On-demand Connection Management Protocols with PGAS Models over InfiniBand</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Vishnu</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Krishnan</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">International Conference on Cluster, Cloud and Grid Computing</title>
+		<imprint>
+			<date type="published" when="2010" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b9">
+	<analytic>
+		<title level="a" type="main">Scalable Work Stealing</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Dinan</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><forename type="middle">B</forename><surname>Larkins</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>Sadayappan</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Krishnamoorthy</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Nieplocha</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the Conference on High Performance Computing Networking, Storage and Analysis</title>
+		<meeting>the Conference on High Performance Computing Networking, Storage and Analysis<address><addrLine>New York, NY, USA</addrLine></address></meeting>
+		<imprint>
+			<publisher>ACM</publisher>
+			<date type="published" when="2009" />
+			<biblScope unit="page" from="1" to="11" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b10">
+	<analytic>
+		<title level="a" type="main">High Performance Computational Chemistry: An Overview of NWChem, A Distributed Parallel Application</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><forename type="middle">A</forename><surname>Kendall</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">E</forename><surname>Aprà</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><forename type="middle">E</forename><surname>Bernholdt</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">E</forename><forename type="middle">J</forename><surname>Bylaska</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Dupuis</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">G</forename><forename type="middle">I</forename><surname>Fann</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><forename type="middle">J</forename><surname>Harrison</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Ju</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><forename type="middle">A</forename><surname>Nichols</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Nieplocha</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">T</forename><forename type="middle">P</forename><surname>Straatsma</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">T</forename><forename type="middle">L</forename><surname>Windus</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><forename type="middle">T</forename><surname>Wong</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Computer Physics Communications</title>
+		<imprint>
+			<biblScope unit="volume">128</biblScope>
+			<biblScope unit="issue">1-2</biblScope>
+			<biblScope unit="page" from="260" to="283" />
+			<date type="published" when="2000-06" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b11">
+	<analytic>
+		<title level="a" type="main">Impact of On-Demand Connection Management in MPI over VIA</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Wu</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Liu</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>Wyckoff</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><forename type="middle">K</forename><surname>Panda</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">International Conference on Cluster Computing</title>
+		<imprint>
+			<date type="published" when="2002" />
+			<biblScope unit="page" from="152" to="159" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b12">
+	<analytic>
+		<title level="a" type="main">Automatic Path Migration over InfiniBand: Early Experiences</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Vishnu</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Mamidala</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Narravula</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><forename type="middle">K</forename><surname>Panda</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of Third International Workshop on System Management Techniques, Processes, and Services, held in conjunction with IPDPS&apos;07</title>
+		<meeting>Third International Workshop on System Management Techniques, Processes, and Services, held in conjunction with IPDPS&apos;07</meeting>
+		<imprint>
+			<date type="published" when="2007-03" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b13">
+	<analytic>
+		<title level="a" type="main">Principles of Optimal Page Replacement</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Aho</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>Denning</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Ullman</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Journal of the ACM</title>
+		<imprint>
+			<biblScope unit="volume">1</biblScope>
+			<biblScope unit="page" from="80" to="93" />
+			<date type="published" when="1971" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b14">
+	<analytic>
+		<title level="a" type="main">ARMCI: A Portable Remote Memory Copy Library for Distributed Array Libraries and Compiler Run-Time Systems</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Nieplocha</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">B</forename><surname>Carpenter</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Lecture Notes in Computer Science</title>
+		<imprint>
+			<publisher>Springer-Verlag</publisher>
+			<date type="published" when="1999" />
+			<biblScope unit="page" from="533" to="546" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b15">
+	<analytic>
+		<title/>
+		<ptr target="http://emsl.pnl.gov" />
+	</analytic>
+	<monogr>
+		<title level="j">Chinook SuperComputer, Environmental Molecular Science Lab, PNNL</title>
+		<imprint/>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b16">
+	<monogr>
+		<title level="m" type="main">Voltaire Technologies</title>
+		<ptr target="http://www.voltaire.com/" />
+		<imprint/>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b17">
+	<monogr>
+		<title level="m" type="main">Mellanox Technologies</title>
+		<ptr target="http://www.mellanox.com/" />
+		<imprint/>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b18">
+	<analytic>
+		<title level="a" type="main">Liquid Water: Obtaining The Right Answer For The Right Reasons</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">E</forename><surname>Aprà</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><forename type="middle">P</forename><surname>Rendell</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><forename type="middle">J</forename><surname>Harrison</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">V</forename><surname>Tipparaju</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">W</forename><forename type="middle">A</forename></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><forename type="middle">S</forename><surname>Xantheas</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proceedings of the Conference on High Performance Computing Networking, Storage and Analysis</title>
+		<meeting>the Conference on High Performance Computing Networking, Storage and Analysis</meeting>
+		<imprint>
+			<date type="published" when="2009" />
+			<biblScope unit="page" from="1" to="7" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+				</listBibl>
+			</div>
+		</back>
+	</text>
+</TEI>

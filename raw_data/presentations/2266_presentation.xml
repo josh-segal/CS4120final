@@ -1,0 +1,170 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>Say Goodbye to Off-heap Caches! On-heap Caches Using Memory-Mapped I/O</p>
+    <p>Iacovos G. Kolokasis1, Anastasios Papagiannis1, Foivos Zakkak2, Polyvios Pratikakis1, and Angelos Bilas1</p>
+  </div>
+  <div class="page">
+    <p>Outline</p>
+    <p>Motivation</p>
+    <p>TeraCache design for multiple heaps with different properties  How we reduce GC time?</p>
+    <p>How we grow TeraCache over a device?</p>
+    <p>Evaluation</p>
+    <p>Conclusions</p>
+  </div>
+  <div class="page">
+    <p>Increasing Memory Demands!</p>
+    <p>Big data systems cache large intermediate results in-memory  Speed-up iterative workloads</p>
+    <p>Analytics datasets grow at a high rate</p>
+    <p>[Source: www.seagate.com | Seagate]</p>
+    <p>Today ~50ZB</p>
+    <p>By 2025 ~175ZB</p>
+    <p>Big data systems request TBs of memory per server</p>
+  </div>
+  <div class="page">
+    <p>Spark: Caching Impacts Performance</p>
+    <p>Jobs cache intermediate data in memory</p>
+    <p>Subsequent jobs reuse cached data</p>
+    <p>Caching reduces execution time by orders of magnitude</p>
+    <p>Naively, caching data needs large heaps which implies a lot of DRAM</p>
+  </div>
+  <div class="page">
+    <p>Caching Beyond Physical DRAM</p>
+    <p>DRAM capacity scaling reaches its limit [Mutlu-IMW 2013]</p>
+    <p>DRAM scales to GB / DIMM</p>
+    <p>DRAM capacity is limited by DIMM slots / servers</p>
+    <p>NVMe SSDs scale to TBs / PCIe slot at lower cost</p>
+    <p>Already Today: Spark uses off-heap store on fast devices</p>
+  </div>
+  <div class="page">
+    <p>Between a Rock and a Hard Place! GC vs Serialization Overhead</p>
+    <p>Execution Memory Storage Memory (on-heap cache)</p>
+    <p>Pros Cons</p>
+    <p>On-heap Cache</p>
+    <p>No Serialization High GC</p>
+    <p>Off-heap Cache</p>
+    <p>Low GC High Serialization</p>
+    <p>Merge the benefits from both worlds!</p>
+    <p>Executor Memory</p>
+    <p>Executor Memory</p>
+    <p>Execution Memory Storage Memory</p>
+    <p>(on-heap cache) (off-heap cache)</p>
+    <p>Disk</p>
+    <p>serialize/deserialize</p>
+  </div>
+  <div class="page">
+    <p>Outline</p>
+    <p>Motivation</p>
+    <p>TeraCache design for multiple heaps with different properties</p>
+    <p>How we reduce GC time?</p>
+    <p>How we grow TeraCache over a device?</p>
+    <p>Evaluation</p>
+    <p>Conclusions</p>
+  </div>
+  <div class="page">
+    <p>Different Heaps for Different Object Types</p>
+    <p>Analytics computations generate mainly two types of objects  Short-lived, (runtime managed)  Long-lived, similar life-time, (application managed)</p>
+    <p>JVM-heap on DRAM which is garbage collected  Locate short-lived objects  For computation usage (task memory usage)</p>
+    <p>TeraCache-heap which is never garbage collected  Contains group of similar life-span objects (e.g., cached data)  Grow over a storage device (no serialization)</p>
+  </div>
+  <div class="page">
+    <p>Split Executor Memory In Two Heaps</p>
+    <p>Execution Memory</p>
+    <p>Storage Memory</p>
+    <p>JVM-heap (GC) TeraCache (non-GC)</p>
+    <p>region0 regionN. . .</p>
+    <p>Executor Memory  JVM-heap (GC)</p>
+    <p>TeraCache (non-GC)</p>
+    <p>Organize TeraCache in regions  Bulk free: Similar life-time objects into the same region</p>
+    <p>Dynamic size</p>
+    <p>Tera-heapJVM-heap</p>
+    <p>We make the JVM aware of cached data  Spark notifies JVM  Finds the transitive closure of the object  Move and migrate object into a region</p>
+  </div>
+  <div class="page">
+    <p>We Preserve JAVA Memory Safety</p>
+    <p>TeraCache-heap (no GC) Old GenNew Gen Region Region Region</p>
+    <p>JVM-heap (GC)</p>
+    <p>Avoid pointer corruption between objects in two heaps</p>
+    <p>No backward pointers: TeraCache  JVM-heap  Stop GC to reclaim objects used by TeraCache objects  Move transitive closure of the object</p>
+  </div>
+  <div class="page">
+    <p>We Preserve JAVA Memory Safety</p>
+    <p>TeraCache-heap (no GC) Old GenNew Gen Region Region Region</p>
+    <p>JVM-heap (GC)</p>
+    <p>Avoid pointer corruption between objects in two heaps</p>
+    <p>No backward pointers: TeraCache  JVM-heap  Stop GC to reclaim objects used by TeraCache objects  Move transitive closure of the object</p>
+    <p>Allow forward pointers: JVM-heap  TeraCache  But stop GC to traverse TeraCache</p>
+    <p>Allow internal pointers: TeraCacheTeraCache</p>
+  </div>
+  <div class="page">
+    <p>Outline</p>
+    <p>Motivation</p>
+    <p>TeraCache design for multiple heaps with different properties</p>
+    <p>How we reduce GC time?</p>
+    <p>How we grow TeraCache over a device?</p>
+    <p>Evaluation</p>
+    <p>Conclusions</p>
+  </div>
+  <div class="page">
+    <p>Dividing DRAM Between Heaps</p>
+    <p>Executor Memory</p>
+    <p>JVM</p>
+    <p>DRAM</p>
+    <p>Execution Memory</p>
+    <p>DR1 DR2</p>
+    <p>Storage Memory</p>
+    <p>JVM-eap TeraCache Heap</p>
+    <p>NVMe SSD</p>
+    <p>mmap() How to deal with DRAM resources?</p>
+    <p>Iterative Jobs  reuse cache data  need large DR2 size  Shuffle Jobs  short-lived data  need large DR1 size</p>
+  </div>
+  <div class="page">
+    <p>Deal With DRAM Resources For Multi-Heaps</p>
+    <p>KM-jobs produce more short-lived data  More minor GCs/s more space for DR1</p>
+    <p>We propose dynamic resizing of DR1, DR2  Based on page fault rate in MMIO</p>
+    <p>Based on Minor GCs</p>
+    <p>LR-jobs reuse large size of cached data  More page faults/s more space for DR2</p>
+  </div>
+  <div class="page">
+    <p>Outline</p>
+    <p>Motivation</p>
+    <p>TeraCache design for multiple heaps with different properties</p>
+    <p>How we reduce GC time?</p>
+    <p>How we grow TeraCache over a device?</p>
+    <p>Evaluation</p>
+    <p>Conclusions</p>
+  </div>
+  <div class="page">
+    <p>Prototype Implementation</p>
+    <p>We implement an early prototype of TeraCache based on ParallelGC  Place New generation on DRAM</p>
+    <p>Place Old generation on the fast storage device</p>
+    <p>Explicitly disable GC on Old generation</p>
+    <p>Evaluate  GC overhead</p>
+    <p>Serialization overhead</p>
+    <p>Not support for reclamation of cached RDDs and dynamic resizing</p>
+  </div>
+  <div class="page">
+    <p>Preliminary Evaluation</p>
+    <p>TC improves performance up to 37% LR (on average 25%)</p>
+    <p>TC improves performance up to 2x compared to Linux swap (LR)</p>
+    <p>TC improves GC up to 50% LGR (on average 46%)</p>
+  </div>
+  <div class="page">
+    <p>Conclusions</p>
+    <p>TeraCache: A JVM/Spark co-design  Able to support very large heaps</p>
+    <p>Reduces GC time using two heaps</p>
+    <p>Eliminates serialization-deserialization</p>
+    <p>Dynamic sharing of DRAM resources across heaps</p>
+    <p>Improves Spark ML workloads performance by 25% on average</p>
+    <p>Applicable to other analytics runtimes</p>
+  </div>
+  <div class="page">
+    <p>Contact</p>
+    <p>Iacovos G. Kolokasis</p>
+    <p>kolokasis@ics.forth.gr</p>
+    <p>www.csd.uoc.gr/~kolokasis</p>
+    <p>Institute of Computer Science (ICS)</p>
+    <p>Foundation of Research and Technology (FORTH) - Hellas</p>
+    <p>Department of Computer Science, University of Crete</p>
+  </div>
+</Presentation>

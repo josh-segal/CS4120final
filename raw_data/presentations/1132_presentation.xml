@@ -1,0 +1,622 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>Solar: Towards a Shared-Everything Database on Distributed Log-Structured Storage</p>
+    <p>Tao Zhu, Zhuoyue Zhao, Feifei Li, Weining Qian, Aoying Zhou, Dong Xie, Ryan Stutsman, Haining Li, Huiqi Hu</p>
+  </div>
+  <div class="page">
+    <p>Background</p>
+    <p>Single-Node In-Memory DBMS  High xact processing performance  Limited scalability</p>
+    <p>Shared-everything DBMS  Scalable storage and xact via fast inter-node</p>
+    <p>communication  Expensive network infrastructure</p>
+    <p>Shared-nothing DBMS  Scale out via horizontal partitioning  Poor performance w/ distributed xact</p>
+    <p>Data</p>
+    <p>D1 D2 D3 D4</p>
+    <p>D1 D2</p>
+    <p>D3 D4</p>
+  </div>
+  <div class="page">
+    <p>Architecture</p>
+    <p>Design considerations  General workloads w/ distributed transactions  Storage scalability  Commodity machines</p>
+    <p>Goal: high performance OLTP DBMS w/o assumption on workloads or hardware</p>
+  </div>
+  <div class="page">
+    <p>Architecture</p>
+    <p>Overview  Several S-nodes (storage &amp; snapshot read)  A T-node (transaction validation/commit &amp; delta read)  Several P-units (business logic processing)</p>
+    <p>Storage Layer Transaction Layer</p>
+    <p>Processing Layer</p>
+    <p>T-node</p>
+    <p>S-nodeS-node S-node</p>
+    <p>P-unit P-unit P-unit</p>
+  </div>
+  <div class="page">
+    <p>Architecture</p>
+    <p>S-nodes  Distributed storage engine  Role: storing a consistent database snapshot (SSTable)  Feature: supporting scalable data storage</p>
+    <p>Tablet 1 id price quantity 1 1.0 10 2 2.0 20 3 3.0 30</p>
+    <p>Tablet 2 id price quantity 4 4.0 40 5 5.0 50 6 6.0 60</p>
+    <p>T-node</p>
+    <p>S-nodeS-node S-node</p>
+    <p>P-unit P-unit P-unit</p>
+  </div>
+  <div class="page">
+    <p>Architecture</p>
+    <p>T-node  In-memory transaction engine  Role: managing newly committed data since the last snapshot (Memtable)  Feature: servicing performant transaction writes</p>
+    <p>S-nodeS-node S-node</p>
+    <p>P-unit P-unit P-unit</p>
+    <p>Tablet 1 id price quantity 1 1.0 10 2 2.0 20 3 3.0 30</p>
+    <p>Tablet 2 id price quantity 4 4.0 40 5 5.0 50 6 6.0 60</p>
+  </div>
+  <div class="page">
+    <p>Architecture</p>
+    <p>P-units  Distributed query processing engine  Role: SQL, stored procedure, query processing, remote data access  Feature: scalable computation power</p>
+    <p>T-node</p>
+    <p>S-nodeS-node S-node</p>
+    <p>P-unit P-unit P-unit</p>
+    <p>Tablet 1 id price quantity 1 1.0 10 2 2.0 20 3 3.0 30</p>
+    <p>Tablet 2 id price quantity 4 4.0 40 5 5.0 50 6 6.0 60</p>
+  </div>
+  <div class="page">
+    <p>LSM-Tree style storage</p>
+    <p>SSTable  A consistent snapshot  Data partitioned into tablets (ranges over tables)</p>
+    <p>Tablets replicated over S-nodes</p>
+    <p>Memtable  Newly committed data  Stored in memory on T-node  Multi-version storage  Replicated to backup T-nodes</p>
+    <p>Tablet 1 id price quantity 1 1.0 10 2 2.0 20 3 3.0 30</p>
+    <p>Tablet 2 id price quantity 4 4.0 40 5 5.0 50 6 6.0 60</p>
+    <p>Item Table id price quantity 1 1.0 5 2 2.0 20 3 3.0 15 4 4.0 40 5 5.0 50 6 6.0 60</p>
+    <p>S-node</p>
+    <p>T-node</p>
+  </div>
+  <div class="page">
+    <p>Transaction Processing</p>
+    <p>Start a transaction  Read a record  Process the SQL  Write a record  Commit</p>
+    <p>P-unit</p>
+    <p>T-nodeS-node</p>
+    <p>UPDATE Item SET quantity = quantity - 15 WHERE id = 3;</p>
+    <p>Tablet 1 id price quantity 1 1.0 10 2 2.0 20 3 3.0 30</p>
+    <p>Buffer id quantity 3 15</p>
+    <p>Item(id=1, quantity=30) NULL</p>
+    <p>request response</p>
+    <p>startcommit</p>
+  </div>
+  <div class="page">
+    <p>Data Compaction</p>
+    <p>T-node</p>
+    <p>S-nodeS-node S-node</p>
+    <p>P-unit P-unit P-unit</p>
+    <p>All data are firstly written into the T-node  Data compaction moves committed data into S-nodes</p>
+    <p>Does not block on-going and future transactions</p>
+  </div>
+  <div class="page">
+    <p>Concurrency Control</p>
+    <p>Use MVOCC to support Snapshot Isolation (SI)  Prevent lost update anomaly</p>
+    <p>Data structures on the T-node  A timestamp counter(MVCC)  Row-level latch (OCC)</p>
+    <p>Snapshot Acquisition  Transaction Validation</p>
+    <p>key=1 wts=4 col1=5</p>
+    <p>key=2 wts=3 col2=5</p>
+    <p>wts=2 col1=2</p>
+    <p>Counter:5 Txn tx read-timestamp:  = 5</p>
+    <p>Write(key=1, col1 = 3)</p>
+  </div>
+  <div class="page">
+    <p>Recovery</p>
+    <p>Write ahead log  Generate redo log entries  Group commit</p>
+    <p>T-node recovery  Replay redo log entries  The replay position is determined by the last finished data compaction</p>
+    <p>S-nodes do not lose data  P-units do not store data</p>
+    <p>Memtable</p>
+    <p>S-nodes</p>
+    <p>T-node SSTable Tablet1</p>
+    <p>Tablet2 Tablet3</p>
+    <p>Redo log replay position</p>
+  </div>
+  <div class="page">
+    <p>Data Compaction</p>
+    <p>Data compaction (DC) starts when the T-node runs out of memory  New Memtable ' to accept transactions after DC initiation  Memtable ( is frozen and merged into SSTable</p>
+    <p>timeline</p>
+    <p>initiate</p>
+    <p>Memtable ( Memtable '</p>
+    <p>SSTable 'SSTable (</p>
+    <p>start endget )*</p>
+  </div>
+  <div class="page">
+    <p>Transaction and CC during Data Compaction</p>
+    <p>Goal: minimize blocking of transaction processing</p>
+    <p>timeline</p>
+    <p>initiate</p>
+    <p>Memtable ( Memtable '</p>
+    <p>SSTable 'SSTable (</p>
+    <p>start end</p>
+    <p>+</p>
+    <p>get )*</p>
+    <p>rw/validate</p>
+    <p>,</p>
+    <p>ro/validate rw/validate</p>
+    <p>Wait for</p>
+    <p>rw/validate</p>
+  </div>
+  <div class="page">
+    <p>Remote Data Access Optimization</p>
+    <p>Shared-Everything architecture  Latency bounded by remote data access between</p>
+    <p>n P-unit and T-node n P-unit and S-node</p>
+    <p>Reducing remote data access cost n =&gt; more concurrent transactions n =&gt; higher throughput</p>
+  </div>
+  <div class="page">
+    <p>Local SSTable Cache</p>
+    <p>Build SSTable Cache on P-unit  SSTable is immutable  P-unit examines its local cache before communicating with S-nodes</p>
+    <p>P-unit</p>
+    <p>Thread1 Thread2 Threadn</p>
+    <p>LRU Row Cache</p>
+    <p>S-nodes</p>
+  </div>
+  <div class="page">
+    <p>Asynchronous Bit Array</p>
+    <p>Empty reads on the T-node  The T-node stores a small part of data  Reading non-existing data items results in useless empty reads</p>
+    <p>Tablet 1 id price quantity 1 1.0 10 2 2.0 20 3 3.0 30</p>
+    <p>Tablet 2 id price quantity 4 4.0 40 5 5.0 50 6 6.0 60</p>
+    <p>Read (id = 1, price = ?)</p>
+    <p>S-node</p>
+    <p>S-node</p>
+    <p>T-node</p>
+    <p>NULL</p>
+    <p>price = 1.0 price = 1.0</p>
+    <p>Empty read</p>
+  </div>
+  <div class="page">
+    <p>Any data in the T-node price quantity</p>
+    <p>Tablet 1 Tablet 2</p>
+    <p>Asynchronous Bit Array</p>
+    <p>Asynchronous Bit Array  Encode whether any row in Tablet  has its column  modified  Periodically synchronized to P-units</p>
+    <p>n False positive =&gt; empty read (corrected after the first access) n False negative =&gt; validating empty reads and retry</p>
+    <p>Tablet 1 id price quantity 1 1.0 10 2 2.0 20 3 3.0 30</p>
+    <p>Tablet 2 id price quantity 4 4.0 40 5 5.0 50 6 6.0 60</p>
+    <p>S-node</p>
+    <p>S-node</p>
+  </div>
+  <div class="page">
+    <p>Transaction Compilation</p>
+    <p>Model a transaction as a directed acyclic graph  Move reads to start if possible</p>
+    <p>Memtable Read (Item, r1) Memtable Read (Cust, r2)</p>
+    <p>Buffer Write (Cust, r2, balance = v_balance)</p>
+    <p>v_balance -= v_price</p>
+    <p>v_price = r1.pricev_balance = r2.balance</p>
+    <p>SSTable Read (Item, r1) SSTable Read (Cust, r2)</p>
+    <p>Memtable Read (Item, r1)</p>
+    <p>Memtable Read (Cust, r2)</p>
+    <p>SSTable Read (Item, r1)</p>
+    <p>SSTable Read (Cust, r2)</p>
+    <p>v_balance = r2.balance</p>
+    <p>v_price = r1.price</p>
+    <p>v_balance -= v_price</p>
+    <p>Buffer Write (Cust, r2, balance = v_balance)</p>
+    <p>Commit</p>
+    <p>Start</p>
+  </div>
+  <div class="page">
+    <p>Transaction Compilation</p>
+    <p>Group T-node access</p>
+    <p>Memtable Read (Item, r1) Memtable Read (Cust, r2)</p>
+    <p>Buffer Write (Cust, r2, balance = v_balance)</p>
+    <p>v_balance -= v_price</p>
+    <p>v_price = r1.pricev_balance = r2.balance</p>
+    <p>SSTable Read (Item, r1) SSTable Read (Cust, r2)</p>
+    <p>Memtable Read (Item, r1)</p>
+    <p>Memtable Read (Cust, r2)</p>
+    <p>SSTable Read (Item, r1)</p>
+    <p>SSTable Read (Cust, r2)</p>
+    <p>v_balance = r2.balance</p>
+    <p>v_price = r1.price</p>
+    <p>v_balance -= v_price</p>
+    <p>Buffer Write (Cust, r2, balance = v_balance)</p>
+    <p>Memtable Read (Item, r1) Memtable Read (Cust, r2)</p>
+    <p>Start</p>
+    <p>Commit 20</p>
+  </div>
+  <div class="page">
+    <p>Transaction Compilation</p>
+    <p>Pre-execute S-node access</p>
+    <p>Memtable Read (Item, r1) Memtable Read (Cust, r2)</p>
+    <p>Buffer Write (Cust, r2, balance = v_balance)</p>
+    <p>v_balance -= v_price</p>
+    <p>v_price = r1.pricev_balance = r2.balance</p>
+    <p>SSTable Read (Item, r1) SSTable Read (Cust, r2) SSTable Read (Item, r1)</p>
+    <p>SSTable Read (Cust, r2)</p>
+    <p>v_balance = r2.balance</p>
+    <p>v_price = r1.price</p>
+    <p>v_balance -= v_price</p>
+    <p>Buffer Write (Cust, r2, balance = v_balance)</p>
+    <p>Memtable Read (Item, r1) Memtable Read (Cust, r2)</p>
+    <p>Start</p>
+    <p>Commit 21</p>
+  </div>
+  <div class="page">
+    <p>Experiment</p>
+    <p>Setting  CPU: 2.4G Hz 16-Core Memory: 64GB 10 servers Connected by 1 Gigabits Network</p>
+    <p>Benchmark: TPC-C  Systems</p>
+    <p>Workload: TPC-C  MySQL Cluster  VoltDB  Tell</p>
+    <p>Scalability Cross-Partition Transactions 22</p>
+  </div>
+  <div class="page">
+    <p>Experiment</p>
+    <p>Data compaction</p>
+    <p>Remote data access optimization</p>
+    <p>System recovery</p>
+  </div>
+  <div class="page">
+    <p>Summary</p>
+    <p>Solar  A shared-everything OLTP DBMS on Commodity hardware</p>
+    <p>n High performance transaction processing n Scalable data storage capacity</p>
+    <p>Several novel optimization to improve performance  Empirical evaluation shows great performance and scalability</p>
+  </div>
+  <div class="page">
+    <p>Transaction Compilation</p>
+    <p>Group T-node access  Normal execution issues T-node access one-by-one  Try to batch multiple T-node communications together</p>
+    <p>S-nodes P-unit T-node</p>
+    <p>local process</p>
+    <p>start read(r1.delta)</p>
+    <p>read(r1.static)</p>
+    <p>commit</p>
+    <p>read(r2.delta)</p>
+    <p>read(r2.static)</p>
+    <p>local process</p>
+    <p>S-nodes P-unit T-node</p>
+    <p>local process</p>
+    <p>read(r1.static)</p>
+    <p>commit</p>
+    <p>read(r2.static)</p>
+    <p>local process</p>
+    <p>start read(r1.delta) read(r2.delta)</p>
+  </div>
+  <div class="page">
+    <p>Transaction Compilation</p>
+    <p>Pre-execute S-node access  Normal execution issues S-node access after transaction is started  Try to pre-execute S-node reads</p>
+    <p>S-nodes P-unit T-node</p>
+    <p>local process</p>
+    <p>read(r1.static)</p>
+    <p>commit</p>
+    <p>read(r2.static)</p>
+    <p>local process</p>
+    <p>start read(r1.delta) read(r2.delta)</p>
+    <p>S-nodes P-unit T-node</p>
+    <p>local process</p>
+    <p>read(r1.static)</p>
+    <p>commit</p>
+    <p>read(r2.static)</p>
+    <p>local process</p>
+    <p>start read(r1.delta) read(r2.delta)</p>
+  </div>
+  <div class="page">
+    <p>Architecture</p>
+    <p>Design considerations  A shared-everything architecture</p>
+    <p>n 2-Layer LSM-Tree style storage n Decouple computation from storage</p>
+    <p>High performance in-memory transaction processing n MVOCC, combining the OCC and the MVCC n A non-blocking data compaction algorithm</p>
+    <p>Fine-grained remote data access n Data cache n Asynchronous bit array n Transaction compilation</p>
+    <p>Goal: high performance OLTP DBMS without assuming a partitionable workload or advanced hardwares</p>
+  </div>
+  <div class="page">
+    <p>Architecture</p>
+    <p>T-node</p>
+    <p>S-node</p>
+    <p>S-node</p>
+    <p>S-node</p>
+    <p>P-unit</p>
+    <p>P-unit</p>
+    <p>P-unit</p>
+    <p>Overview</p>
+  </div>
+  <div class="page">
+    <p>Architecture</p>
+    <p>T-node</p>
+    <p>S-node</p>
+    <p>S-node</p>
+    <p>S-node</p>
+    <p>P-unit</p>
+    <p>P-unit</p>
+    <p>P-unit</p>
+    <p>Write Request</p>
+    <p>Write Request</p>
+    <p>Write Request</p>
+    <p>Log-Structured write</p>
+  </div>
+  <div class="page">
+    <p>Architecture</p>
+    <p>T-node</p>
+    <p>S-node</p>
+    <p>S-node</p>
+    <p>S-node</p>
+    <p>P-unit</p>
+    <p>P-unit</p>
+    <p>P-unit</p>
+    <p>Data Compaction</p>
+    <p>Log-Structured write</p>
+  </div>
+  <div class="page">
+    <p>Architecture</p>
+    <p>S-nodes  Distributed storage engine  Role: storing a consistent database snapshot (SSTable)  Feature: supporting scalable data storage</p>
+    <p>S-node S-node</p>
+    <p>S-node</p>
+    <p>TabletTabletTablet TabletTabletTabletTabletTabletTablet</p>
+    <p>Disk-based storage 31</p>
+  </div>
+  <div class="page">
+    <p>Architecture</p>
+    <p>T-node  In-memory transaction engine  Role: managing the rest recently committed data (Memtable)  Feature: providing performant transactional writes</p>
+    <p>S-node S-node</p>
+    <p>S-node</p>
+    <p>TabletTabletTablet TabletTabletTabletTabletTabletTablet</p>
+    <p>Disk-based storage</p>
+    <p>compaction</p>
+    <p>T-node ( Replica ) T-node ( Replica )</p>
+    <p>T-node</p>
+    <p>Indexes Txn LogBit Array 1 0 0 0 1 0 0 1 1 0</p>
+    <p>...</p>
+    <p>In-memory storage 32</p>
+  </div>
+  <div class="page">
+    <p>Architecture</p>
+    <p>P-units  Distributed query processing engine  Role: SQL, stored procedure, query processing, remote data access  Feature: providing scalable computation power</p>
+    <p>S-node S-node</p>
+    <p>S-node</p>
+    <p>TabletTabletTablet TabletTabletTabletTabletTabletTablet</p>
+    <p>Disk-based storage</p>
+    <p>compaction</p>
+    <p>T-node ( Replica ) T-node ( Replica )</p>
+    <p>T-node</p>
+    <p>Indexes Txn LogBit Array 1 0 0 0 1 0 0 1 1 0</p>
+    <p>...</p>
+    <p>In-memory storage</p>
+    <p>records recordsmutations</p>
+    <p>P-node Application Logic</p>
+    <p>Storage Interface</p>
+    <p>Bit Array Cache</p>
+    <p>Compiler Executor</p>
+    <p>P-node Application Logic</p>
+    <p>Storage Interface</p>
+    <p>Bit Array Cache</p>
+    <p>Compiler Executor</p>
+    <p>P-node Application Logic</p>
+    <p>Storage Interface</p>
+    <p>Bit Array Cache</p>
+    <p>Compiler Executor</p>
+  </div>
+  <div class="page">
+    <p>LSM-Tree style storage</p>
+    <p>SSTable  A consistent snapshot  Partitioned into tablets  Replicated over S-nodes</p>
+    <p>Memtable  Newly committed data  In-memory stored in the T-node  Multiple version storage  Replicated to backup T-nodes</p>
+    <p>Tablet 1 id price quantity 1 1.0 10 2 2.0 20 3 3.0 30</p>
+    <p>Tablet 2 id price quantity 4 4.0 40 5 5.0 50 6 6.0 60</p>
+    <p>Item Table id price quantity 1 1.0 5 2 2.0 20 3 3.0 15 4 4.0 40 5 5.0 50 6 6.0 60</p>
+    <p>S-node</p>
+    <p>T-node</p>
+  </div>
+  <div class="page">
+    <p>Read &amp; Writes</p>
+    <p>Read  read and merge versions from both T-node and one of S-node</p>
+    <p>Write  directly write into the T-node</p>
+    <p>S-node T-node</p>
+    <p>P-unit</p>
+    <p>Static version</p>
+    <p>Delta version</p>
+    <p>S-node T-node</p>
+    <p>P-unit</p>
+    <p>Delta version</p>
+  </div>
+  <div class="page">
+    <p>Transaction Processing</p>
+    <p>P-unit execute transactions  Start a transaction  Fetch records from remote  Execute user-defined logics  Buffer data writes  Commit the transaction</p>
+    <p>S-nodes P-unit T-node</p>
+    <p>merge(r)</p>
+    <p>process other SQLs</p>
+    <p>start read(r.delta)</p>
+    <p>read(r.static)</p>
+    <p>r.new = expr(r) buffer(r.new)</p>
+    <p>commit</p>
+  </div>
+  <div class="page">
+    <p>Background</p>
+    <p>Single-Node In-Memory DBMS  Hekaton, HyPer  Features</p>
+    <p>n No disk I/O during transaction processing (In-memory storage) n Transaction compilation n Lightweight concurrency control (OCC, MVCC, determinism) n Simplified write-ahead logging n Very high performance transaction processing</p>
+    <p>Limitations n Database size should be smaller than memory capacity</p>
+  </div>
+  <div class="page">
+    <p>Background</p>
+    <p>Shared-Nothing DBMS  VoltDB/HStore, Spanner  Features</p>
+    <p>n Use horizontal partition n Reply on two phase commit n Scalable transaction processing and storage</p>
+    <p>Limitations n Partitionable workload n Low percentage of distributed transactions</p>
+  </div>
+  <div class="page">
+    <p>Background</p>
+    <p>Shared-Everything DBMS  Oracle RAC, Tell  Features</p>
+    <p>n Share data/cache among nodes n Rely on fast inter-node communication n Scalable transaction processing and storage</p>
+    <p>Limitations n Require advanced network infrastructure</p>
+    <p>n InfiniBand switch with 43TB/s, 216 ports costs about $60,000</p>
+  </div>
+  <div class="page">
+    <p>Transaction Compilation</p>
+    <p>Memtable Read (Item, r1)</p>
+    <p>Memtable Read (Cust, r2)</p>
+    <p>Buffer Write (Cust, r2, balance = v_balance)</p>
+    <p>v_balance -= v_price</p>
+    <p>v_price = r1.price</p>
+    <p>v_balance = r2.balance</p>
+    <p>SSTable Read (Item, r1)</p>
+    <p>SSTable Read (Cust, r2)</p>
+    <p>Start</p>
+    <p>Commit</p>
+    <p>Many remote data access between start and commit  Group reads to reduce read latency</p>
+    <p>v_price = Read (Item, id = 1, price);</p>
+    <p>v_balance = Read (Cust, id = 5, balance);</p>
+  </div>
+  <div class="page">
+    <p>Transaction Compilation</p>
+    <p>Reorder ops w/o data dependency does not change semantics</p>
+    <p>Memtable Read (Item, r1)</p>
+    <p>v_price = r1.price</p>
+    <p>SSTable Read (Item, r1)</p>
+    <p>Read Item Price</p>
+    <p>Memtable Read (Cust, r2)</p>
+    <p>v_balance = r2.balance</p>
+    <p>SSTable Read (Cust, r2)</p>
+    <p>Read Customer Balance</p>
+    <p>Memtable Read (Item, r1)</p>
+    <p>v_price = r1.price</p>
+    <p>SSTable Read (Item, r1)</p>
+    <p>Read Item Price</p>
+    <p>Memtable Read (Cust, r2)</p>
+    <p>v_balance = r2.balance</p>
+    <p>SSTable Read (Cust, r2)</p>
+    <p>Read Customer Balance</p>
+  </div>
+  <div class="page">
+    <p>Transaction Compilation</p>
+    <p>Only ops w/ data dependencies cannot be reordered  Use the same variable, and one is write (identify by variable name)  Use the same record, and one is write (identify by table name)</p>
+    <p>Memtable Read (Item, r1)</p>
+    <p>v_price = r1.price</p>
+    <p>SSTable Read (Item, r1)</p>
+    <p>Read Item Price</p>
+    <p>Calculate the New Balance</p>
+    <p>v_balance -= v_price</p>
+    <p>Memtable Read (Cust, r2)</p>
+    <p>v_balance = r2.balance</p>
+    <p>SSTable Read (Cust, r2)</p>
+    <p>Read Customer Balance</p>
+    <p>Update Customer Balance</p>
+    <p>Buffer Write (Cust, r2, balance = v_balance)</p>
+  </div>
+  <div class="page">
+    <p>Data Access During Compaction</p>
+    <p>MemTable Read: always read the new MemTable '  SSTable Read</p>
+    <p>Merged data ( 1): read from '  Merging data ( 2): read from ( and the frozen Memtable (</p>
+    <p>Read s1 Read m1</p>
+    <p>Frozen Memtable (m0) Active Memtable (m1)</p>
+    <p>Tablet 2 (s0)</p>
+    <p>Tablet 1 (s0) Tablet 1 (s1)</p>
+    <p>Tablet 2 (s1)</p>
+    <p>Merged</p>
+    <p>Merging</p>
+  </div>
+  <div class="page">
+    <p>Snapshot Isolation During Data Compaction</p>
+    <p>Classify transactions into three types:  Type 1: start validation before the compaction is initialized</p>
+    <p>n validate on (, write on (  Type 2: start validation after the compaction is initialized</p>
+    <p>n validate on ( and ', write on '  Type 3: starts processing after the compaction is started</p>
+    <p>n validate on ', write on '</p>
+    <p>Memtable ( Memtable '</p>
+    <p>initiate</p>
+    <p>timeline</p>
+    <p>' starts validation</p>
+    <p>start</p>
+    <p>8 starts validation</p>
+    <p>9 starts processing</p>
+    <p>end 44</p>
+  </div>
+  <div class="page">
+    <p>Recovery during Data Compaction (DC)</p>
+    <p>Compaction start log entry (CSLE)  Persist when the DC is started  Acts as a border of redo log entries</p>
+    <p>Compaction end log entry (CELE)  Persist when the DC is ended  Save the position of the CSLE of the DC</p>
+    <p>Recovery procedure  Read CELE to find the position of CSLE  Replay the redo log from CSLE  At first, replay data into (  Once CSLE is encountered, repay data into '</p>
+  </div>
+  <div class="page">
+    <p>Any data in the T-node price quantity</p>
+    <p>Tablet 1 Tablet 2</p>
+    <p>Asynchronous Bit Array</p>
+    <p>Synchronization &amp; usage  Periodically synchronized to P-units  A P-unit check its local copy to filter useless T-node access</p>
+    <p>P-unit</p>
+    <p>A copy of bit array</p>
+    <p>synchronization</p>
+    <p>Read (id = 1, price = ?)</p>
+  </div>
+  <div class="page">
+    <p>Any data in the T-node price quantity</p>
+    <p>Tablet 1 Tablet 2</p>
+    <p>Asynchronous Bit Array</p>
+    <p>Synchronization &amp; usage  Periodically synchronized to P-units  A P-unit check its local copy to filter useless T-node access</p>
+    <p>P-unit</p>
+    <p>A copy of bit array</p>
+    <p>Read (id = 3, quantity = ?)</p>
+  </div>
+  <div class="page">
+    <p>Any data in the T-node price quantity</p>
+    <p>Tablet 1 Tablet 2</p>
+    <p>Asynchronous Bit Array</p>
+    <p>False positive  (+,,) does not exist on the T-node, but the bit array says yes</p>
+    <p>n An empty read  Reason: bit array maintained at tablet granularity</p>
+    <p>P-unit</p>
+    <p>A copy of bit array</p>
+    <p>Read (id = 2, quantity = ?)</p>
+    <p>NULL</p>
+    <p>Tablet 1 id quantity 1 10 2 20 3 30 48</p>
+  </div>
+  <div class="page">
+    <p>Any data in the T-node price quantity</p>
+    <p>Tablet 1 Tablet 2</p>
+    <p>Asynchronous Bit Array</p>
+    <p>False negative  A bit array copy may fall behind the latest version  (+,,) exists on the T-node, but the bit array says no  Transaction re-check all potential empty reads in the validation phase</p>
+    <p>P-unit</p>
+    <p>A copy of bit array</p>
+    <p>Read (id = 2, quantity = ?)</p>
+    <p>Validation</p>
+    <p>Aborted &amp; Retry</p>
+  </div>
+  <div class="page">
+    <p>Data Compaction</p>
+    <p>Initiate  Create a new Memtable  Freeze the current Memtable  Handling ongoing transactions</p>
+    <p>n Case 1: validation starts before the compaction is initiated n + and , are allowed to write data into (</p>
+    <p>n Case 2: validation starts after the compaction is initiated n - will write data into ' after the data compaction is started</p>
+    <p>Memtable ( Memtable '</p>
+    <p>initiate</p>
+    <p>+ starts validation</p>
+    <p>timeline</p>
+    <p>, starts validation</p>
+    <p>- starts validation</p>
+  </div>
+  <div class="page">
+    <p>Data Compaction</p>
+    <p>Start  Get compaction timestamp )* after + and , abort or obtain commit TS</p>
+    <p>n - starts validation only after )* is obtained  Start data compaction after + and , finish abort/commit</p>
+    <p>n Create a new SSTable by merging the old one and the frozen Memtable</p>
+    <p>Memtable ( Memtable '</p>
+    <p>initiate</p>
+    <p>+ starts validation</p>
+    <p>timeline</p>
+    <p>, starts validation</p>
+    <p>SSTable 'SSTable (</p>
+    <p>+, , abort or obtain commit TS</p>
+    <p>startobtain )*</p>
+    <p>+, , finish abort/commit</p>
+    <p>- starts validation</p>
+  </div>
+  <div class="page">
+    <p>Data Compaction</p>
+    <p>End  Wait until the ' is fully created  Release the old Memtable and SSTable</p>
+    <p>Memtable ( Memtable '</p>
+    <p>initiate</p>
+    <p>timeline</p>
+    <p>SSTable 'SSTable (</p>
+    <p>endstart 52</p>
+  </div>
+  <div class="page">
+    <p>Concurrency Control</p>
+    <p>Data structures on the T-node  A timestamp counter(MVCC)  Row-level latch (OCC)</p>
+    <p>Start  Acquire read-timestamp</p>
+    <p>Process  Read latest version specified by</p>
+    <p>key=1 wts=4 col1=5</p>
+    <p>key=2 wts=3 col2=5</p>
+    <p>wts=2 col1=2</p>
+    <p>Counter:5 Txn tx read-timestamp:  = 5</p>
+  </div>
+  <div class="page">
+    <p>Concurrency Control</p>
+    <p>Commit  Acquire latches for records in the write set  Verify there is no newer version  Acquire write timestamp   Write and release latches</p>
+    <p>key=1 wts=4 col1=5</p>
+    <p>key=2 wts=3 col2=5</p>
+    <p>wts=2 col1=2</p>
+    <p>Counter:5 Txn tx</p>
+    <p>read-timestamp:  = 5</p>
+    <p>Counter:6</p>
+    <p>write-timestamp:  = 6 key=1</p>
+    <p>wts=6 col1=2</p>
+    <p>key=2 wts=6 col2=2</p>
+    <p>wts=3 col1=5</p>
+    <p>wts=4 col1=5</p>
+    <p>wts=2 col1=2</p>
+  </div>
+</Presentation>

@@ -1,0 +1,785 @@
+<?xml version="1.0" ?>
+<Presentation>
+  <div class="page">
+    <p>Improving Index Performance through Prefetching</p>
+    <p>Shimin Chen, Phillip B. Gibbons and Todd C. Mowry</p>
+    <p>School of Computer Science Carnegie Mellon University</p>
+    <p>Information Sciences Research Center Bell Laboratories</p>
+  </div>
+  <div class="page">
+    <p>Improving Index Performance through Prefetching - 2 - Chen, Gibbons &amp; Mowry</p>
+    <p>Databases and the Memory Hierarchy</p>
+    <p>Traditional Focus:  buffer pool management (DRAM as a cache for disk)</p>
+    <p>Important Focus Today:  processor cache performance (SRAM as a cache for DRAM)</p>
+    <p>e.g., [Ailamaki et al, VLDB 99], etc.</p>
+    <p>Disk</p>
+    <p>Main MemoryCPU L2/L3 Cache</p>
+    <p>Larger, slower, cheaper</p>
+    <p>L1 Cache</p>
+  </div>
+  <div class="page">
+    <p>Improving Index Performance through Prefetching - 3 - Chen, Gibbons &amp; Mowry</p>
+    <p>Index Structures</p>
+    <p>Used extensively in databases to accelerate performance  selections, joins, etc.</p>
+    <p>Common Implementation: B+-Trees</p>
+    <p>Leaf Nodes</p>
+    <p>Non-Leaf Nodes</p>
+  </div>
+  <div class="page">
+    <p>Improving Index Performance through Prefetching - 4 - Chen, Gibbons &amp; Mowry</p>
+    <p>B+-Tree Indices: Common Access Patterns</p>
+    <p>Search:  locate a single tuple</p>
+    <p>Range Scan:  locate a collection of</p>
+    <p>tuples within a range</p>
+  </div>
+  <div class="page">
+    <p>Improving Index Performance through Prefetching - 5 - Chen, Gibbons &amp; Mowry</p>
+    <p>Cache Performance of B+-Tree Indices</p>
+    <p>A main memory B+-Tree containing 10M keys:  Search: 100K random searches  Scan: 100 range scans of 1M keys, starting at random keys</p>
+    <p>Detailed simulations based on Compaq ES40 system</p>
+    <p>Most of execution time is wasted on data cache misses  65% for searches, 84% for range scans</p>
+    <p>Data Cache Stalls Other Stalls Busy Time</p>
+  </div>
+  <div class="page">
+    <p>Improving Index Performance through Prefetching - 6 - Chen, Gibbons &amp; Mowry</p>
+    <p>B+-Trees: Optimizing Search for Cache vs. Disk  To minimize the number of data transfers (I/O or cache</p>
+    <p>misses):</p>
+    <p>Optimal Node Width = Natural Data Transfer Size  for disk: disk page size (~8 Kbytes)  for cache: cache line size (~64 bytes)</p>
+    <p>Much narrower nodes and higher trees  Search performance more sensitive</p>
+    <p>to changes in branching factors</p>
+    <p>Optimized for disk</p>
+    <p>Optimized for cache</p>
+  </div>
+  <div class="page">
+    <p>Improving Index Performance through Prefetching - 7 - Chen, Gibbons &amp; Mowry</p>
+    <p>Previous Work: Cache-Sensitive B+-Trees Rao and Ross [SIGMOD 2000]</p>
+    <p>Key insight:</p>
+    <p>nearly all child ptrs can be eliminated by restricting data layout  double the branching factor of cache-line-sized non-leaf</p>
+    <p>nodes B+-Trees CSB+-Trees</p>
+    <p>K1 K2</p>
+    <p>K3 K4 K5 K6 K7 K8</p>
+    <p>K1 K3K2 K4</p>
+    <p>K1 K3K2 K4 K1 K3K2 K4 K1 K3K2 K4 K1 K3K2 K4 K1 K3K2 K4</p>
+  </div>
+  <div class="page">
+    <p>Improving Index Performance through Prefetching - 8 - Chen, Gibbons &amp; Mowry</p>
+    <p>Impact of CSB+-Trees on Search Performance</p>
+    <p>Search is 15% faster due to reduction in height of tree</p>
+    <p>However:  update performance is worse [Rao &amp; Ross, SIGMOD 00]  range scan performance does not improve</p>
+    <p>There is still significant room for improvement</p>
+    <p>Data Cache Stalls Other Stalls Busy Time</p>
+    <p>B+-Tree CSB+-Tree</p>
+  </div>
+  <div class="page">
+    <p>Improving Index Performance through Prefetching - 9 - Chen, Gibbons &amp; Mowry</p>
+    <p>Latency Tolerance in Modern Memory Hierarchies</p>
+    <p>Main MemoryCPU L2/L3 CacheL1</p>
+    <p>Cache</p>
+    <p>pref 0(r2) pref 4(r7) pref 0(r3) pref 8(r9)</p>
+    <p>Modern processors overlap multiple simultaneous cache misses  e.g., Compaq ES40 supports 8 off-chip misses per processor</p>
+    <p>Prefetch instructions allow software to fully exploit the parallelism</p>
+    <p>What dictates performance:  NOT simply the number of cache misses  but rather the amount of exposed miss latency</p>
+  </div>
+  <div class="page">
+    <p>Improving Index Performance through Prefetching - 10 - Chen, Gibbons &amp; Mowry</p>
+    <p>Our Approach</p>
+    <p>New Proposal: Prefetching B+-Trees (pB+-Trees)  use prefetching to reduce the amount of exposed miss</p>
+    <p>latency</p>
+    <p>Key Challenge:  data dependences caused by chasing pointers</p>
+    <p>Benefits:  significant performance gains for:</p>
+    <p>searches  range scans  updates (!)</p>
+    <p>complementary to CSB+-Trees</p>
+  </div>
+  <div class="page">
+    <p>Improving Index Performance through Prefetching - 11 - Chen, Gibbons &amp; Mowry</p>
+    <p>Overview</p>
+    <p>Prefetching Searches</p>
+    <p>Prefetching Range Scans</p>
+    <p>Experimental Results</p>
+    <p>Conclusions</p>
+  </div>
+  <div class="page">
+    <p>Improving Index Performance through Prefetching - 12 - Chen, Gibbons &amp; Mowry</p>
+    <p>Example: Search where Node Width = 1 Line</p>
+    <p>Cache miss</p>
+    <p>We suffer one full cache miss at each level of the tree.</p>
+  </div>
+  <div class="page">
+    <p>Improving Index Performance through Prefetching - 13 - Chen, Gibbons &amp; Mowry</p>
+    <p>Same Example where Node Width = 2 Lines</p>
+    <p>Cache miss</p>
+    <p>Cache miss</p>
+    <p>Additional misses per node dominate reduction in # of levels.</p>
+  </div>
+  <div class="page">
+    <p>Improving Index Performance through Prefetching - 14 - Chen, Gibbons &amp; Mowry</p>
+    <p>How Things Change with Prefetching</p>
+    <p>Cache miss</p>
+    <p>Cache miss</p>
+    <p># of misses  exposed miss latency</p>
+    <p>fetch all lines within a node in parallel</p>
+    <p>Cache miss</p>
+    <p>Time (cycles)</p>
+  </div>
+  <div class="page">
+    <p>Improving Index Performance through Prefetching - 15 - Chen, Gibbons &amp; Mowry</p>
+    <p>pB+-Trees: Using Prefetching to Improve Search</p>
+    <p>Basic Idea:  make nodes wider than the natural data transfer size</p>
+    <p>e.g., 8 cache lines wide  prefetch all lines of a node before searching in the node</p>
+    <p>Improved Search Performance:  Larger branching factors, shallower trees  Cost to access every node only increased slightly</p>
+    <p>Reduced Space Overhead:  primarily due to fewer non-leaf nodes</p>
+    <p>Update Performance: ???</p>
+  </div>
+  <div class="page">
+    <p>Improving Index Performance through Prefetching - 16 - Chen, Gibbons &amp; Mowry</p>
+    <p>Overview</p>
+    <p>Prefetching Searches</p>
+    <p>Prefetching Range Scans</p>
+    <p>Experimental Results</p>
+    <p>Conclusions</p>
+  </div>
+  <div class="page">
+    <p>Improving Index Performance through Prefetching - 17 - Chen, Gibbons &amp; Mowry</p>
+    <p>Range Scan Cache Behavior: Normal B+-Trees</p>
+    <p>Steps in Range Scan:  search for the starting leaf node  traverse the leaves until end is found</p>
+    <p>Cache miss</p>
+    <p>We suffer a full cache miss for each leaf node!</p>
+  </div>
+  <div class="page">
+    <p>Improving Index Performance through Prefetching - 18 - Chen, Gibbons &amp; Mowry</p>
+    <p>If Prefetching Wider Nodes</p>
+    <p>e.g., node width = 2 lines</p>
+    <p>Cache miss</p>
+    <p>Cache miss</p>
+    <p>Exposed miss latency is reduced by up to a factor of node width.</p>
+    <p>A definite improvement, but can we still do better?</p>
+  </div>
+  <div class="page">
+    <p>Improving Index Performance through Prefetching - 19 - Chen, Gibbons &amp; Mowry</p>
+    <p>The Ideal Case</p>
+    <p>Overlap misses until  all latency is hidden, or  run out of bandwidth</p>
+    <p>How can we achieve this? 0</p>
+    <p>Time(cycles)</p>
+    <p>Cache miss</p>
+    <p>Cache miss</p>
+    <p>Cache miss</p>
+  </div>
+  <div class="page">
+    <p>Improving Index Performance through Prefetching - 20 - Chen, Gibbons &amp; Mowry</p>
+    <p>The Pointer Chasing Problem</p>
+    <p>Currently visiting Want to prefetch</p>
+    <p>If prefetching through pointer chasing,</p>
+    <p>still experience the full latency at each node</p>
+    <p>Directl y prefetc h</p>
+    <p>Ideal case</p>
+  </div>
+  <div class="page">
+    <p>Improving Index Performance through Prefetching - 21 - Chen, Gibbons &amp; Mowry</p>
+    <p>Our Solution: Jump Pointer Arrays</p>
+    <p>Put leaf addresses in an</p>
+    <p>array</p>
+    <p>Directly prefetch by using the jump pointers</p>
+    <p>Back pointers needed to initialize prefetching</p>
+  </div>
+  <div class="page">
+    <p>Improving Index Performance through Prefetching - 22 - Chen, Gibbons &amp; Mowry</p>
+    <p>Our Solution: Jump Pointer Arrays</p>
+    <p>Cache miss</p>
+  </div>
+  <div class="page">
+    <p>Improving Index Performance through Prefetching - 23 - Chen, Gibbons &amp; Mowry</p>
+    <p>External Jump Pointer Arrays: Efficient Updates</p>
+    <p>Impact of an insertion is limited to its chunk</p>
+    <p>Deletions leave empty slots</p>
+    <p>Actively interleave empty slots during bulkload and chunk splits</p>
+    <p>Back pointer to position in jump-pointer array is now a hint  points to correct chunk  but may require local search within chunk to init prefetching</p>
+    <p>hints chunked linked-list</p>
+  </div>
+  <div class="page">
+    <p>Improving Index Performance through Prefetching - 24 - Chen, Gibbons &amp; Mowry</p>
+    <p>Alternative Design: Internal Jump-Pointer Arrays</p>
+    <p>B+-Trees already contain structures that point to the leaf nodes</p>
+    <p>bottom non-leaf nodes</p>
+    <p>the parents of the leaf nodes ( bottom non-leaf nodes)</p>
+    <p>By linking them together, we can use them as a jump-pointer array</p>
+    <p>Tradeoff:  no need for back-pointers, and simpler to maintain  consumes less space, though external array overhead is &lt;1%  but less flexible, chunk size is fixed by B+-Tree structure</p>
+  </div>
+  <div class="page">
+    <p>Improving Index Performance through Prefetching - 25 - Chen, Gibbons &amp; Mowry</p>
+    <p>Overview</p>
+    <p>Prefetching Searches</p>
+    <p>Prefetching Range Scans</p>
+    <p>Experimental Results  search performance  range scan performance  update performance</p>
+    <p>Conclusions</p>
+  </div>
+  <div class="page">
+    <p>Improving Index Performance through Prefetching - 26 - Chen, Gibbons &amp; Mowry</p>
+    <p>Experimental Framework</p>
+    <p>Results are for a main-memory database environment  (we are extending this work to disk-based environments)</p>
+    <p>Executables:  we added prefetch instructions to C source code by hand  used gcc to generate optimized MIPS executables with</p>
+    <p>prefetch instructions</p>
+    <p>Performance Measurement:  detailed, cycle-by-cycle simulations</p>
+    <p>Machine Model:  based on Compaq ES40 system, with slightly updated</p>
+    <p>parameters</p>
+  </div>
+  <div class="page">
+    <p>Improving Index Performance through Prefetching - 27 - Chen, Gibbons &amp; Mowry</p>
+    <p>Simulation Parameters</p>
+    <p>Pipeline Parameters</p>
+    <p>Clock Rate 1 GHz</p>
+    <p>Issue Width 4 insts/cycle</p>
+    <p>Functional Units 2 Int, 2 FP, 2 Mem, 1</p>
+    <p>Branch</p>
+    <p>Reorder Buffer Size 64 insts</p>
+    <p>Integer Multiply/Divide 12/76 cycles</p>
+    <p>All Other Integer 1 cycle</p>
+    <p>FP Divide/Square Root 15/20 cycles</p>
+    <p>All Other FP 2 cycles</p>
+    <p>Branch Prediction Scheme</p>
+    <p>gshare</p>
+    <p>Memory Parameters</p>
+    <p>Line Size 64 bytes</p>
+    <p>Primary Data Cache 64 KB, 2-way set assoc.</p>
+    <p>Primary Instruction Cache</p>
+    <p>Miss Handlers 32 for data, 2 for inst</p>
+    <p>Unified Secondary Cache</p>
+    <p>Primary-to-Secondary Miss Latency</p>
+    <p>Primary-to-Memory Miss Latency</p>
+    <p>Main Memory Bandwidth</p>
+    <p>Models all the gory details, including memory system contention</p>
+  </div>
+  <div class="page">
+    <p>Improving Index Performance through Prefetching - 28 - Chen, Gibbons &amp; Mowry</p>
+    <p>Index Search Performance</p>
+    <p># of tupleIDs in the trees</p>
+    <p>ti m</p>
+    <p>e (M</p>
+    <p>c yc</p>
+    <p>le s)</p>
+    <p>B+tree CSB+ p2B+tree p4B+tree</p>
+    <p>p16B+tree p8B+tree</p>
+    <p>p8CSB+</p>
+    <p>pB+-Trees achieve 27-47% speedup vs. B+-Trees, 14-34% vs. CSB+Trees  optimal node width is 8 cache lines</p>
+    <p>pB+-Trees and CSB+-Trees are complementary: p8CSB+-Trees are best</p>
+  </div>
+  <div class="page">
+    <p>Improving Index Performance through Prefetching - 29 - Chen, Gibbons &amp; Mowry</p>
+    <p>Same Search Experiments with Cold Caches</p>
+    <p>Large discrete steps within each curve</p>
+    <p>What is happening here?</p>
+    <p># of tupleIDs in trees</p>
+    <p>tim e</p>
+    <p>( M</p>
+    <p>c yc</p>
+    <p>le s)</p>
+    <p>B+tree CSB+ p2B+tree p4B+tree p8B+tree p16B+tree p8CSB+</p>
+  </div>
+  <div class="page">
+    <p>Improving Index Performance through Prefetching - 30 - Chen, Gibbons &amp; Mowry</p>
+    <p>Analysis of Cold Cache Search Behavior</p>
+    <p>Height of the tree dominates performance  effect is blurred in warm cache case</p>
+    <p>If the same height, the smaller the node size the better</p>
+    <p># of tupleIDs in trees</p>
+    <p>ti m</p>
+    <p>e (M</p>
+    <p>c yc</p>
+    <p>le s)</p>
+    <p>B+tree CSB+ p2B+tree p4B+tree p8B+tree p16B+tree p8CSB+</p>
+    <p>Tree Type</p>
+    <p>Number of Keys</p>
+    <p>B+ 5 6 6 7 7 8 8</p>
+    <p>CSB+ 4 5 5 5 6 6 7</p>
+    <p>p2B+ 4 4 5 5 6 6 6</p>
+    <p>p4B+ 3 3 4 4 4 5 5</p>
+    <p>p8B+ 3 3 3 4 4 4 4</p>
+    <p>p16B+ 2 3 3 3 3 4 4</p>
+    <p>p8CSB +</p>
+    <p># of Levels in the Trees</p>
+  </div>
+  <div class="page">
+    <p>Improving Index Performance through Prefetching - 31 - Chen, Gibbons &amp; Mowry</p>
+    <p>Overview</p>
+    <p>Prefetching Searches</p>
+    <p>Prefetching Range Scans</p>
+    <p>Experimental Results  search performance  range scan performance  update performance</p>
+    <p>Conclusions</p>
+  </div>
+  <div class="page">
+    <p>Improving Index Performance through Prefetching - 32 - Chen, Gibbons &amp; Mowry</p>
+    <p>Index Range Scan Performance</p>
+    <p>Scans of 1K-1M keys: 6.5-8.7 speedup over B+-Trees  factor of 3.5-3.7 from prefetching wider nodes  additional factor of ~2 from jump-pointer arrays</p>
+    <p>log scale</p>
+    <p># of tupleIDs scanned through in a single call</p>
+    <p>ti m</p>
+    <p>e (C</p>
+    <p>yc le</p>
+    <p>s) B+tree p8B+tree</p>
+    <p>p8iB+tree p8eB+tree</p>
+  </div>
+  <div class="page">
+    <p>Improving Index Performance through Prefetching - 33 - Chen, Gibbons &amp; Mowry</p>
+    <p>Index Range Scan Performance</p>
+    <p>Small scans (&lt;1K keys): overshooting cost is noticeable  exploit only if scan is expected to be large (e.g., search for end)</p>
+    <p># of tupleIDs scanned through in a single call</p>
+    <p>ti m</p>
+    <p>e (C</p>
+    <p>yc le</p>
+    <p>s) B+tree p8B+tree p8eB+tree p8iB+tree</p>
+    <p>log scale</p>
+  </div>
+  <div class="page">
+    <p>Improving Index Performance through Prefetching - 34 - Chen, Gibbons &amp; Mowry</p>
+    <p>Overview</p>
+    <p>Prefetching Searches</p>
+    <p>Prefetching Range Scans</p>
+    <p>Experimental Results  search performance  range scan performance  update performance</p>
+    <p>Conclusions</p>
+  </div>
+  <div class="page">
+    <p>Improving Index Performance through Prefetching - 35 - Chen, Gibbons &amp; Mowry</p>
+    <p>Update Performance</p>
+    <p>pB+-Trees achieve at least a 1.24 speedup in all cases</p>
+    <p>Why?</p>
+    <p>ti m</p>
+    <p>e (M</p>
+    <p>c yc</p>
+    <p>le s)</p>
+    <p>Insertions Deletions</p>
+    <p>B+tree p8B+tree p8eB+tree p8iB+tree</p>
+  </div>
+  <div class="page">
+    <p>Improving Index Performance through Prefetching - 36 - Chen, Gibbons &amp; Mowry</p>
+    <p>Update Performance</p>
+    <p>Reason #1: faster search times</p>
+    <p>Reason #2: less frequent node splits with wider nodes</p>
+    <p>ti m</p>
+    <p>e (M</p>
+    <p>c yc</p>
+    <p>le s)</p>
+    <p>Insertions Deletions</p>
+    <p>B+tree p8B+tree p8eB+tree p8iB+tree</p>
+  </div>
+  <div class="page">
+    <p>Improving Index Performance through Prefetching - 37 - Chen, Gibbons &amp; Mowry</p>
+    <p>pB+-Trees: Other Results</p>
+    <p>Similar results for:  varying bulkload factors of trees  large segmented range scans  mature trees  varying jump-pointer array parameters:</p>
+    <p>prefetch distance  chunk size</p>
+    <p>Optimal node width:  increases as memory bandwidth increases</p>
+    <p>(matches the width predicted by our model in the paper)</p>
+  </div>
+  <div class="page">
+    <p>Improving Index Performance through Prefetching - 38 - Chen, Gibbons &amp; Mowry</p>
+    <p>Cache Performance Revisited</p>
+    <p>Search: eliminated 45% of original data cache stalls 1.47 speedup</p>
+    <p>Scan: eliminated 97% of original data cache stalls 8-fold speedup</p>
+    <p>Data Cache Stalls Other Stalls Busy Time</p>
+  </div>
+  <div class="page">
+    <p>Improving Index Performance through Prefetching - 39 - Chen, Gibbons &amp; Mowry</p>
+    <p>Conclusions</p>
+    <p>Impact of Prefetching B+-Trees on performance:</p>
+    <p>Search: 1.27-1.55 speedup over B+-Trees  wider nodes reduce height of tree, # of expensive misses  outperform and are complementary to CSB+-Trees</p>
+    <p>Updates: 1.24-1.52 speedup over B+-Trees  faster search and less frequent node splits  in contrast with significant slowdowns for CSB+-Trees</p>
+    <p>Range Scan: 6.5-8.7 speedup over B+-Trees  wider nodes: factor of ~3.5 speedup  jump-pointer arrays: additional factor of ~2 speedup</p>
+    <p>Prefetching B+-Trees also reduce space overhead.</p>
+    <p>These benefits are likely to increase with future memory systems.</p>
+    <p>Applicable to other levels of the memory hierarchy (e.g., disks).</p>
+  </div>
+  <div class="page">
+    <p>Improving Index Performance through Prefetching - 40 - Chen, Gibbons &amp; Mowry</p>
+    <p>Backup Slides</p>
+  </div>
+  <div class="page">
+    <p>Improving Index Performance through Prefetching - 41 - Chen, Gibbons &amp; Mowry</p>
+    <p>Revisiting the Optimal Node Width for Searches</p>
+    <p>Total cache misses for a search is minimized when: w = 1</p>
+    <p>w = # of cache lines per node m = # of child pointers per one-cache-line wide node N = # of tupleIDs in index</p>
+    <p>1log</p>
+    <p>wm N</p>
+    <p>w wmTotal cache misses</p>
+    <p>Misses per level # of levels in tree</p>
+  </div>
+  <div class="page">
+    <p>Improving Index Performance through Prefetching - 42 - Chen, Gibbons &amp; Mowry</p>
+    <p>Scheduling Prefetches Early Enough</p>
+    <p>ni ni+1 ni+2 ni+3ni+2 ni+3</p>
+    <p>currently visiting</p>
+    <p>ni</p>
+    <p>want to prefetch</p>
+    <p>ni+3</p>
+    <p>p = &amp;n0; while(p) { work(p-&gt;data); p = p-&gt;next; }</p>
+    <p>P</p>
+    <p>Loading a node</p>
+    <p>L</p>
+    <p>Work( )</p>
+    <p>W</p>
+    <p>Our Goal: fully hide latency</p>
+    <p>thus achieving fastest possible computation rate of 1/W</p>
+    <p>e.g., if L=3W, we must prefetch 3 nodes ahead to achieve this.</p>
+  </div>
+  <div class="page">
+    <p>Improving Index Performance through Prefetching - 43 - Chen, Gibbons &amp; Mowry</p>
+    <p>Performance without Prefetching</p>
+    <p>ni</p>
+    <p>ni+1</p>
+    <p>ni+2</p>
+    <p>ni+3</p>
+    <p>Time</p>
+    <p>Li Wi</p>
+    <p>Li+1 Wi+1</p>
+    <p>Li+2 Wi+2</p>
+    <p>Li+3 Wi+3</p>
+    <p>while(p) { work(p-&gt;data); p = p-&gt;next;</p>
+    <p>}</p>
+    <p>Li</p>
+    <p>Wi</p>
+    <p>loading nkwork(nk)</p>
+    <p>Computation rate = 1/ (L+W)</p>
+  </div>
+  <div class="page">
+    <p>Improving Index Performance through Prefetching - 44 - Chen, Gibbons &amp; Mowry</p>
+    <p>Prefetching One Node Ahead</p>
+    <p>ni</p>
+    <p>ni+1</p>
+    <p>ni+2</p>
+    <p>ni+3</p>
+    <p>Li Wi</p>
+    <p>Li+1 Wi+1</p>
+    <p>Li+2 Wi+2</p>
+    <p>Li+3 Wi+3</p>
+    <p>Computation is overlapped with memory accesses.</p>
+    <p>computation rate = 1/L</p>
+    <p>Li</p>
+    <p>Wi</p>
+    <p>loading nkwork(nk)</p>
+    <p>data dependence</p>
+    <p>visitin g</p>
+    <p>ni</p>
+    <p>prefetch ni+1 pf(p-&gt;next)</p>
+    <p>while(p) { pf(p-&gt;next);</p>
+    <p>work(p-&gt;data); p = p-&gt;next;</p>
+    <p>}</p>
+    <p>Time</p>
+  </div>
+  <div class="page">
+    <p>Improving Index Performance through Prefetching - 45 - Chen, Gibbons &amp; Mowry</p>
+    <p>Prefetching Three Nodes Ahead</p>
+    <p>ni</p>
+    <p>ni+1</p>
+    <p>ni+2</p>
+    <p>ni+3</p>
+    <p>Li Wi</p>
+    <p>Wi+1</p>
+    <p>Wi+2</p>
+    <p>Wi+3</p>
+    <p>Computation rate does not improve (still = 1/L)!</p>
+    <p>visiting ni</p>
+    <p>prefetch ni+3</p>
+    <p>pf(p-&gt;next-&gt;next-&gt;next)</p>
+    <p>Li+1</p>
+    <p>Li+2</p>
+    <p>Li+3</p>
+    <p>L</p>
+    <p>Pointer-Chasing Problem: [Luk &amp; Mowry, ASPLOS 96]  any scheme which follows the pointer chain is limited to a rate of 1/L</p>
+    <p>Time while(p) {</p>
+    <p>pf(p-&gt;next-&gt;next-&gt;next); work(p-&gt;data); p = p-&gt;next;</p>
+    <p>}</p>
+    <p>Li</p>
+    <p>Wi</p>
+    <p>loading nkwork(nk)</p>
+    <p>data dependence</p>
+  </div>
+  <div class="page">
+    <p>Improving Index Performance through Prefetching - 46 - Chen, Gibbons &amp; Mowry</p>
+    <p>Our Goal: Fully Hide Latency</p>
+    <p>ni</p>
+    <p>ni+1</p>
+    <p>ni+2</p>
+    <p>ni+3</p>
+    <p>Li Wi</p>
+    <p>Li+1 Wi+1</p>
+    <p>Li+2 Wi+2</p>
+    <p>Li+3 Wi+3</p>
+    <p>Achieves the fastest possible computation rate of 1/W.</p>
+    <p>visiting ni</p>
+    <p>prefetch ni+1 pf(&amp;ni+3)</p>
+    <p>Time</p>
+    <p>Li</p>
+    <p>Wi</p>
+    <p>loading nkwork(nk)</p>
+    <p>data dependence</p>
+    <p>while(p) { pf(&amp;ni+3);</p>
+    <p>work(p-&gt;data); p = p-&gt;next;</p>
+    <p>}</p>
+  </div>
+  <div class="page">
+    <p>Improving Index Performance through Prefetching - 47 - Chen, Gibbons &amp; Mowry</p>
+    <p>Challenges in Supporting Efficient Updates</p>
+    <p>jump-pointer array</p>
+    <p>back pointer s</p>
+    <p>Conceptual view of jump-pointer array:</p>
+    <p>What if we really implemented it this way?</p>
+    <p>Insertion: could incur significant overheads  copying data within the array to create a new hole  updating back-pointers</p>
+    <p>Deletion: ok; just leave a hole</p>
+  </div>
+  <div class="page">
+    <p>Improving Index Performance through Prefetching - 48 - Chen, Gibbons &amp; Mowry</p>
+    <p>Summary: Why We Expect Updates to Perform Well</p>
+    <p>Insertions:  only a small number of jump pointers move</p>
+    <p>between insertion point and nearest hole in the chunk  normally only update the hint pointer for the inserted node</p>
+    <p>which does not require any significant overhead  significant overheads only occur on chunk splits, which are rare</p>
+    <p>Deletions:  no data is moved (just leave an empty hole)  no need to update any hints</p>
+    <p>In general, the jump-pointer array requires little concurrency control.</p>
+  </div>
+  <div class="page">
+    <p>Improving Index Performance through Prefetching - 49 - Chen, Gibbons &amp; Mowry</p>
+    <p>B+-Trees Modeled and their Notations</p>
+    <p>B+-Trees: regular B+-Trees</p>
+    <p>CSB+-Trees: cache-sensitive B+-Trees [Rao &amp; Ross, SIGMOD 2000]</p>
+    <p>pwB+-Trees: prefetching B+-Trees with node size = w cache lines and no jump-pointer arrays</p>
+    <p>we consider w = 2, 4, 8, and 16</p>
+    <p>p8B+-Trees: prefetching B+-Trees with node size = 8 cache lines and external jump-pointer arrays</p>
+    <p>p8B+-Trees: prefetching B+-Trees with node size = 8 cache lines and internal jump-pointer arrays</p>
+    <p>p8CSB+-Trees: prefetching cache-sensitive B+-Trees with node size = 8 cache lines (and no jump-pointer arrays)</p>
+    <p>(Gory implementation details are in the paper.)</p>
+    <p>e</p>
+    <p>i</p>
+  </div>
+  <div class="page">
+    <p>Improving Index Performance through Prefetching - 50 - Chen, Gibbons &amp; Mowry</p>
+    <p>Searches with Varying Bulkload Factors</p>
+    <p>Similar trends with smaller bulkload factors as when 100% full</p>
+    <p>Performance of pB+-Trees is somewhat less sensitive to bulkload factor</p>
+    <p>ti m</p>
+    <p>e (M</p>
+    <p>c yc</p>
+    <p>le s)</p>
+    <p>B+tree CSB+ p2B+tree p4B+tree</p>
+    <p>p16B+tree p8CSB+</p>
+    <p>p8B+tree</p>
+    <p>ti m</p>
+    <p>e (M</p>
+    <p>c yc</p>
+    <p>le s)</p>
+    <p>cold cacheswarm caches</p>
+  </div>
+  <div class="page">
+    <p>Improving Index Performance through Prefetching - 51 - Chen, Gibbons &amp; Mowry</p>
+    <p>Range Scans with Varying Bulkload Factors</p>
+    <p>Prefetching B+-Trees offer:  larger speedups with smaller bulkload factors (more nodes to fetch)  less sensitivity of performance to bulkload factor</p>
+    <p>percentage of entries used in leaf nodes</p>
+    <p>ti m</p>
+    <p>e (C</p>
+    <p>yc le</p>
+    <p>s)</p>
+    <p>B+tree p8B+tree p8eB+tree p8iB+tree</p>
+  </div>
+  <div class="page">
+    <p>Improving Index Performance through Prefetching - 52 - Chen, Gibbons &amp; Mowry</p>
+    <p>Large Segmented Range Scans</p>
+    <p>1M keys, scanned in 1000-key segments</p>
+    <p>Similar performance gains as unsegmented scans</p>
+    <p>percentage of entries used in leaf nodes</p>
+    <p>tim e</p>
+    <p>( C</p>
+    <p>yc le</p>
+    <p>s)</p>
+    <p>B+tree p8B+tree p8eB+tree p8iB+tree</p>
+  </div>
+  <div class="page">
+    <p>Improving Index Performance through Prefetching - 53 - Chen, Gibbons &amp; Mowry</p>
+    <p>Insertions with Cold Caches</p>
+    <p>tim e</p>
+    <p>( M</p>
+    <p>c yc</p>
+    <p>le s)</p>
+    <p>B+tree p8B+tree p8eB+tree p8iB+tree</p>
+  </div>
+  <div class="page">
+    <p>Improving Index Performance through Prefetching - 54 - Chen, Gibbons &amp; Mowry</p>
+    <p>Deletions with Cold Caches</p>
+    <p>tim e</p>
+    <p>(M c</p>
+    <p>yc le</p>
+    <p>s)</p>
+    <p>B+tree p8B+tree p8eB+tree p8iB+tree</p>
+  </div>
+  <div class="page">
+    <p>Improving Index Performance through Prefetching - 55 - Chen, Gibbons &amp; Mowry</p>
+    <p>in se</p>
+    <p>rt io</p>
+    <p>n s</p>
+    <p>w ith</p>
+    <p>n o</p>
+    <p>d e</p>
+    <p>s p</p>
+    <p>lit s B+tree p8B+tree</p>
+    <p>p8eB+tree p8iB+tree</p>
+    <p>Analysis of Nodes Splits upon Insertions</p>
+    <p>Far fewer node splits</p>
+    <p>Bulkload Factor = 60-90% Bulkload Factor = 100%</p>
+    <p>At least 2 splits</p>
+    <p>One split No splits</p>
+    <p>Fewer node splits</p>
+    <p>Fewer non-leaf node splits</p>
+  </div>
+  <div class="page">
+    <p>Improving Index Performance through Prefetching - 56 - Chen, Gibbons &amp; Mowry</p>
+    <p>Mature Trees: Searches (Warm Caches)</p>
+    <p>tim e</p>
+    <p>( M</p>
+    <p>c yc</p>
+    <p>le s)</p>
+    <p>B+tree p8B+tree p8eB+tree p8iB+tree</p>
+  </div>
+  <div class="page">
+    <p>Improving Index Performance through Prefetching - 57 - Chen, Gibbons &amp; Mowry</p>
+    <p>Mature Trees: Insertions (Warm Caches)</p>
+    <p>tim e</p>
+    <p>(M c</p>
+    <p>yc le</p>
+    <p>s)</p>
+    <p>B+tree p8B+tree p8eB+tree p8iB+tree</p>
+    <p>CSB+-Tree could be 25% worse than B+-Tree under the same mature tree experiments (on diff h/w configuration)</p>
+    <p>pB+-Trees are significantly faster than B+-Tree</p>
+  </div>
+  <div class="page">
+    <p>Improving Index Performance through Prefetching - 58 - Chen, Gibbons &amp; Mowry</p>
+    <p>Mature Trees: Deletions (Warm Caches)</p>
+    <p>tim e</p>
+    <p>( M</p>
+    <p>c yc</p>
+    <p>le s)</p>
+    <p>B+tree p8B+tree p8eB+tree p8iB+tree</p>
+  </div>
+  <div class="page">
+    <p>Improving Index Performance through Prefetching - 59 - Chen, Gibbons &amp; Mowry</p>
+    <p>Mature Trees: Searches (Cold Caches)</p>
+    <p>tim e</p>
+    <p>( M</p>
+    <p>c yc</p>
+    <p>le s)</p>
+    <p>B+tree p8B+tree p8eB+tree p8iB+tree</p>
+  </div>
+  <div class="page">
+    <p>Improving Index Performance through Prefetching - 60 - Chen, Gibbons &amp; Mowry</p>
+    <p>Mature Trees: Insertions (Cold Caches)</p>
+    <p>tim e</p>
+    <p>( M</p>
+    <p>c yc</p>
+    <p>le s)</p>
+    <p>B+tree p8B+tree p8eB+tree p8iB+tree</p>
+  </div>
+  <div class="page">
+    <p>Improving Index Performance through Prefetching - 61 - Chen, Gibbons &amp; Mowry</p>
+    <p>Mature Trees: Deletions (Cold Caches)</p>
+    <p>tim e</p>
+    <p>( M</p>
+    <p>c yc</p>
+    <p>le s)</p>
+    <p>B+tree p8B+tree p8eB+tree p8iB+tree</p>
+  </div>
+  <div class="page">
+    <p>Improving Index Performance through Prefetching - 62 - Chen, Gibbons &amp; Mowry</p>
+    <p>Mature Trees: Large Segmented Range Scans</p>
+    <p>B+tree p8B+ p8eB+ p8iB+ 0</p>
+  </div>
+  <div class="page">
+    <p>Improving Index Performance through Prefetching - 63 - Chen, Gibbons &amp; Mowry</p>
+    <p>Search varying memory bandwidth (warm cache)</p>
+    <p>n o</p>
+    <p>rm al</p>
+    <p>iz e</p>
+    <p>d e</p>
+    <p>xe cu</p>
+    <p>tio n</p>
+    <p>t im</p>
+    <p>e</p>
+    <p>p2B+tree p4B+tree p8B+tree p16B+tree p19B+tree</p>
+    <p>Even when pessimistic (B=5), p8B+-Tree still achieve significant speedups: 1.2 for warm cache</p>
+  </div>
+  <div class="page">
+    <p>Improving Index Performance through Prefetching - 64 - Chen, Gibbons &amp; Mowry</p>
+    <p>Search varying memory bandwidth (cold cache)</p>
+    <p>n o</p>
+    <p>rm a</p>
+    <p>liz e</p>
+    <p>d e</p>
+    <p>xe cu</p>
+    <p>tio n</p>
+    <p>t im</p>
+    <p>e</p>
+    <p>p2B+tree p4B+tree p8B+tree p16B+tree p19B+tree</p>
+    <p>Even when B=5, 1.3 speedup for cold cache</p>
+    <p>The optimal value for w increases when B gets larger</p>
+  </div>
+  <div class="page">
+    <p>Improving Index Performance through Prefetching - 65 - Chen, Gibbons &amp; Mowry</p>
+    <p>Scan varying prefetching distance (P8eB+-Tree)</p>
+    <p>entries scanned through in a single call</p>
+    <p>tim e</p>
+    <p>( C</p>
+    <p>yc le</p>
+    <p>s)</p>
+    <p>k=2 k=3 k=4 k=8 k=16 k=32</p>
+    <p>not sensitive to moderate increases in the prefetching distance</p>
+    <p>Though overshooting cost shows up when #entries to scan is small</p>
+  </div>
+  <div class="page">
+    <p>Improving Index Performance through Prefetching - 66 - Chen, Gibbons &amp; Mowry</p>
+    <p>Scan varying chunk size (P8eB+-Tree)</p>
+    <p>entries scanned through in a single call</p>
+    <p>tim e</p>
+    <p>( C</p>
+    <p>yc le</p>
+    <p>s)</p>
+    <p>c=2 c=4 c=8 c=16 c=32</p>
+    <p>Not sensitive to varying chunk size</p>
+  </div>
+  <div class="page">
+    <p>Improving Index Performance through Prefetching - 67 - Chen, Gibbons &amp; Mowry</p>
+    <p>Table 1 Terminology</p>
+    <p>Variable Definition</p>
+    <p>w # of cache lines in an index node</p>
+    <p>m # of child pointers in a one-line-wide node</p>
+    <p>N # of &lt;key, tupleID&gt; pairs in an index</p>
+    <p>d # of child pointers in non-leaf node (= w  m)</p>
+    <p>T1 Full latency of a cache miss</p>
+    <p>Tnext Latency of an additional pipelined cache miss</p>
+    <p>B Normalized memory bandwidth (B = T1/Tnext)</p>
+    <p>K # of nodes to prefetch ahead</p>
+    <p>C #of cache lines in jump-pointer array chunk</p>
+    <p>pwB+-Tree Plain pB+-Tree with w-line-wide nodes</p>
+    <p>pwB+-Tree pwB+-Tree with external jump-pointer arrays</p>
+    <p>pwB+-Tree pwB+-Tree with internal jump-pointer arrays</p>
+    <p>e</p>
+    <p>i</p>
+  </div>
+  <div class="page">
+    <p>Improving Index Performance through Prefetching - 68 - Chen, Gibbons &amp; Mowry</p>
+    <p>Search w/ &amp; w/o Jump-Pointer Arrays: Cold Cache</p>
+    <p>entries in leaf nodes</p>
+    <p>e (</p>
+    <p>M c</p>
+    <p>yc le</p>
+    <p>s)</p>
+    <p>p8B+tree p8eB+tree p8iB+tree</p>
+    <p>different # of levels in tree</p>
+  </div>
+  <div class="page">
+    <p>Improving Index Performance through Prefetching - 69 - Chen, Gibbons &amp; Mowry</p>
+    <p>Cache Performance Revisited</p>
+    <p>Search: eliminated 45% of original data cache stalls 1.47 speedup</p>
+    <p>Scan: eliminated 97% of original data cache stalls 8-fold speedup</p>
+    <p>Data Cache Stalls Other Stalls Busy Time</p>
+  </div>
+  <div class="page">
+    <p>Improving Index Performance through Prefetching - 70 - Chen, Gibbons &amp; Mowry</p>
+    <p>Can We Do Even Better on Searches?</p>
+    <p>Hiding latency across levels is difficult given:  data dependence through the child pointer  the relatively large branching factor of tree nodes  equal likelihood of following any child</p>
+    <p>assuming uniformly distributed random search keys</p>
+    <p>What if we prefetch a nodes children in parallel with accessing it?  duality between this and creating wider nodes  BUT, this approach has the following relative disadvantages:</p>
+    <p>storage overhead for the child (or grandchild) pointers  size of node can only grow by multiples of the branching</p>
+    <p>factor</p>
+  </div>
+</Presentation>

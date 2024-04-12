@@ -1,0 +1,666 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<TEI xmlns="http://www.tei-c.org/ns/1.0" 
+xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+xsi:schemaLocation="http://www.tei-c.org/ns/1.0 /Users/atharsefid/Desktop/grobid-0.5.3/grobid-home/schemas/xsd/Grobid.xsd"
+ xmlns:xlink="http://www.w3.org/1999/xlink">
+	<teiHeader xml:lang="en">
+		<encodingDesc>
+			<appInfo>
+				<application version="0.5.3" ident="GROBID" when="2019-03-26T16:47+0000">
+					<ref target="https://github.com/kermitt2/grobid">GROBID - A machine learning software for extracting information from scholarly documents</ref>
+				</application>
+			</appInfo>
+		</encodingDesc>
+		<fileDesc>
+			<titleStmt>
+				<title level="a" type="main">Profiling Network Performance for Multi-Tier Data Center Applications</title>
+			</titleStmt>
+			<publicationStmt>
+				<publisher/>
+				<availability status="unknown"><licence/></availability>
+			</publicationStmt>
+			<sourceDesc>
+				<biblStruct>
+					<analytic>
+						<author>
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Minlan</forename><surname>Yu</surname></persName>
+							<affiliation key="aff0">
+								<orgName type="institution">Princeton University † Microsoft</orgName>
+							</affiliation>
+						</author>
+						<author>
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Albert</forename><surname>Greenberg</surname></persName>
+							<affiliation key="aff0">
+								<orgName type="institution">Princeton University † Microsoft</orgName>
+							</affiliation>
+						</author>
+						<author>
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Dave</forename><surname>Maltz</surname></persName>
+							<affiliation key="aff0">
+								<orgName type="institution">Princeton University † Microsoft</orgName>
+							</affiliation>
+						</author>
+						<author>
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Jennifer</forename><surname>Rexford</surname></persName>
+							<affiliation key="aff0">
+								<orgName type="institution">Princeton University † Microsoft</orgName>
+							</affiliation>
+						</author>
+						<author>
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Lihua</forename><surname>Yuan</surname></persName>
+							<affiliation key="aff0">
+								<orgName type="institution">Princeton University † Microsoft</orgName>
+							</affiliation>
+						</author>
+						<author>
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Srikanth</forename><surname>Kandula</surname></persName>
+							<affiliation key="aff0">
+								<orgName type="institution">Princeton University † Microsoft</orgName>
+							</affiliation>
+						</author>
+						<author>
+							<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Changhoon</forename><surname>Kim</surname></persName>
+							<affiliation key="aff0">
+								<orgName type="institution">Princeton University † Microsoft</orgName>
+							</affiliation>
+						</author>
+						<title level="a" type="main">Profiling Network Performance for Multi-Tier Data Center Applications</title>
+					</analytic>
+					<monogr>
+						<imprint>
+							<date/>
+						</imprint>
+					</monogr>
+				</biblStruct>
+			</sourceDesc>
+		</fileDesc>
+		<profileDesc>
+			<abstract>
+				<p>Network performance problems are notoriously tricky to diagnose, and this is magnified when applications are often split into multiple tiers of application components spread across thousands of servers in a data center. Problems often arise in the communication between the tiers, where either the application or the network (or both!) could be to blame. In this paper, we present SNAP, a scalable network-application profiler that guides developers in identifying and fixing performance problems. SNAP passively collects TCP statistics and socket-call logs with low computation and storage overhead, and correlates across shared resources (e.g., host, link, switch) and connections to pinpoint the location of the problem (e.g., send buffer mismanagement , TCP/application conflicts, application-generated microbursts, or network congestion). Our one-week deployment of SNAP in a production data center (with over 8,000 servers and over 700 application components) has already helped developers uncover 15 major performance problems in application software, the network stack on the server, and the underlying network.</p>
+			</abstract>
+		</profileDesc>
+	</teiHeader>
+	<text xml:lang="en">
+		<body>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="1">Introduction</head><p>Modern data-center applications, running over networks with unusually high bandwidth and low latency, should have great communication performance. Yet, these applications often experience low throughput and high delay between the front-end user-facing servers and the back-end servers that perform database, storage, and indexing operations. Troubleshooting network performance problems is hard. Existing solutionslike detailed application-level logs or fine-grain packet monitoring-are too expensive to run continuously, and still offer too little insight into where performance problems lie. Instead, we argue that data centers should perform continuous, lightweight profiling of the end-host network stack, coupled with algorithms for classifying and correlating performance problems.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="1.1">Troubleshooting Network Performance</head><p>The nature of the data-center environment makes detecting and locating performance problems particularly challenging. Applications typically consist of tens to hundreds of application components, arranged in multiple tiers of front-ends and back-ends, and spread across hundreds to tens of thousands of servers. Application developers are continually updating their code to add features or fix bugs, so application components evolve independently and are updated while the application remains in operation. Human factors also enter into play: most developers do not have a deep understanding of how their design decisions interact with TCP or the network. There is a constant influx of new developers for whom the intricacies of Nagle's algorithm, delayed acknowledgments, and silly window syndrome remains a mystery. <ref type="bibr">1</ref> As a result, new network performance problems happen all the time. Compared to equipment failures that are relatively easy to detect, performance problems are tricky because they happen sporadically and many different components could be responsible. The developers sometimes blame "the network" for problems they cannot diagnose; in turn, the network operators blame the developers if the network shows no signs of equipment failures or persistent congestion. Often, they are both right, and the network stack or some subtle interaction between components is actually responsible <ref type="bibr" target="#b0">[2,</ref><ref type="bibr" target="#b1">3]</ref>. For example, an application sending small messages can trigger Nagle's algorithm in the TCP stack, causing transmission delays leading to terrible application throughput.</p><p>In the production data center we study, the process of actually detecting and locating even a single network per-formance problem typically requires tens to hundreds of hours of the developers' time. They collect detailed application logs (too heavy-weight to run continuously), deploy dedicated packet sniffers (too expensive to run ubiquitously), or sample the data (too coarse-grained to catch performance problems). They then pore over these logs and traces using a combination of manual inspection and custom-crafted analysis tools to attempt to track down the issue. Often the investigation fails or runs out of time, and some performance problems persist for months before they are finally caught and corrected.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="1.2">Lightweight, Continuous Profiling</head><p>In this paper, we argue that the data centers should continuously profile network performance, and analyze the data in real time to help pinpoint the source of the problems. Given the complexity of data-center applications, we cannot hope to fully automate the detection, diagnosis, and repair of network performance problems. Instead, our goal is dramatically reducing the demand for developer time by automatically identifying performance problems and narrowing them down to specific times and places (e.g., send buffer, delayed ACK, or network congestion). Any viable solution must be</p><p>• Lightweight: Running everywhere, all the time, requires a solution that is very lightweight (in terms of CPU, storage, and network overhead), so as not to degrade application performance.</p><p>• Generic: Given the constantly changing nature of the applications, our solution must detect problems without depending on detailed knowledge of the application or its log formats.</p><p>• Precise: To provide meaningful insights, the solution must pinpoint the component causing network performance problems, and tease apart interactions between the application and the network.</p><p>Finally, the system should help two very different kinds of users: (i) a developer who needs to detect, diagnose, and fix performance problems in his particular application and (ii) a data-center operator who needs to understand performance problems with the underlying platform so that he can tune the network stack, change server placement, or upgrade network equipment. In this paper, we present SNAP (Scalable Network-Application Profiler), a tool that enables application developers and data-center operators to detect and diagnose these performance problems. SNAP represents an "existence proof" that a tool meeting our three requirements can be built, deployed in a production data center, and provide valuable information to both kinds of users. SNAP capitalizes on the unique properties of modern data centers:</p><p>• SNAP has full knowledge of the network topology, the network-stack configuration, and the mapping of applications to servers. This allows SNAP to use correlation to identify applications with frequent problems, as well as congested resources (e.g., hosts or links) that affect multiple applications.</p><p>• SNAP can instrument the network stack to observe the evolution of TCP connections directly, rather than trying to infer TCP behavior from packet traces. In addition, SNAP can collect finer-grain information, compared to conventional SNMP statistics, without resorting to packet monitoring.</p><p>In addition, once the developers fix a problem (or the operator tunes the underlying platform), we can verify that the change truly did improve network performance.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="1.3">SNAP Research Contributions</head><p>SNAP passively collects TCP statistics and socket-level logs in real time, classifies and correlates the data to pinpoint performance problems. The profiler quickly identifies the right location (end host, link, or switch), the right layer (application, network stack, or network), at the right time. Our major contributions of the paper are:</p><p>Efficient, systematic profiling of network-application interactions: SNAP provides a simple, efficient way to detect performance problems through real-time analysis of passively-collected measurements of the network stack. We provide a systematic way to identify the component (e.g., sender application, send buffer, network, or receiver) responsible for the performance problem. SNAP also correlates across connections that belong to the same application, or share underlying resources, to provide more insight into the sources of problems.</p><p>Performance characterization of a production data center: We deployed SNAP in a data center with over 8,000 servers, and over 700 application components (including map-reduce, storage, database, and search services). We characterize the sources of performance problems, which helps data-center operators improve the underlying platform and better tune the network.</p><p>Case studies of performance bugs detected by SNAP: SNAP pinpointed 15 significant and unexpected problems in application software, the network stack, and the interaction between the two. SNAP saved the developers significant effort in locating and fixing these problems, leading to large performance improvements. Section 2 presents the design and development of SNAP. Section 3 describes our data-center environment and how SNAP was deployed. Section 4 validates SNAP against both labeled data (i.e., known performance problems) and detailed packet traces. Then, we present an evaluation of our one-week deployment of SNAP from the viewpoint of both the data-center operator (Section 5) and the application developer (Section 6). Section 7 shows how to reduce the overhead of SNAP through dynamic tuning of the polling rate. Section 8 discusses related work and Section 9 concludes the paper.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="2">Design of the SNAP Profiler</head><p>In this section, we describe how SNAP pinpoints performance problems. <ref type="figure" target="#fig_0">Figure 1</ref> shows the main components of our system. First, we collect TCP-connection statistics, augmented by socket-level logs of application read and write operations, in real time with low overhead. Second, we run a TCP classifier that identifies and categorizes periods of bad performance for each socket, and logs the diagnosis and a time sequence of the collected data. Finally, based on the logs, we have a centralized correlator that correlates across connections that share a common resource or belong to the same application to pinpoint the performance problems.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="2.1">Socket-Level Monitoring of TCP</head><p>Data centers host a wide variety of applications that may use different communication methods and design patterns, so our techniques must be quite general in order to work across the space. The following three goals guided the design of our system, and led us away from using the SNMP statistics, packet traces, or application logs.</p><p>(i) Fine-grained profiling: The data should be finegrained enough to indicate performance problems for individual applications on a small timescale (e.g, tens of milliseconds or seconds). Switches typically only capture link loads at a one-minute timescale, which is far too coarse-grained to detect many performance problems. For example, the TCP incast problem <ref type="bibr" target="#b1">[3]</ref>, caused by micro bursts of traffic at the timescale of tens of milliseconds, is not even visible in SNMP data.  <ref type="table">Table 1</ref>: Key TCP-level statistics for each socket <ref type="bibr">[5]</ref> (ii) Low overhead: Data centers can be huge, with hundreds of thousands of hosts and tens of thousands sockets on each host. Yet, the data collection must not degrade application performance. Packet traces are too expensive to capture in real time, to process at line speed, or to store on disk. In addition, capturing packet traces on high-speed links (e.g., 1-10 Gbps in data centers) often leads to measurement errors including drops, additions, and resequencing of packets <ref type="bibr" target="#b2">[4]</ref>. Thus it is impossible to capture packet trace everywhere, all the time to catch new performance problems.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>Statistic Definition</head><p>(iii) Generic across applications: Individual applications often generate detailed logs, but these logs differ from one application to another. Instead, we focus on measurements that do not require application support so our tool can work across a variety of applications. Through our work on SNAP, we found that the following two kinds of per-socket information can be collected cheaply enough to be used in analysis of large-scale data center applications, while still providing enough insight to diagnose where the performance problem lie (whether they are from the application software, from network issues, or from the interaction between the two).</p><p>TCP-level statistics: RFC 4898 <ref type="bibr">[5]</ref> defines a mechanism for exposing the internal counters and variables of a TCP state-machine that is implemented in both <ref type="bibr">Linux [6]</ref> and Windows <ref type="bibr">[7]</ref>. We select and collect the statistics shown in <ref type="table">Table 1</ref> based on our diagnosis experience 2 , which together expose the data-transfer performance of a socket. There are two types of statistics: <ref type="formula">(1)</ref>   These statistics are updated by the TCP stack as individual packets are sent and received, making it too expensive to log every change of these values. Instead, we periodically poll these statistics. For the cumulative counters, we calculate the difference between two polls (e.g., diff(#FastRetrans)). For snapshot values, we sample with a Poisson interval. According to the PASTA property (Poisson Arrivals See Time Averages), the samples are a representative view of the state of the system. Socket-call logs: Event-tracing systems in Windows <ref type="bibr">[8]</ref> and <ref type="bibr">Linux [9]</ref> record the time and number of bytes (ReadBytes and WriteBytes) whenever the socket makes a read/write call. Socket-call logs show the applications' data-transfer behavior, such as how many connections they initiated, how long they maintain each connection, and how much data they read/write (as opposed to the data that TCP actually transfers, i.e., SentBytes). These logs supplement the TCP statistics with application behavior to help developers diagnose problems. The socket-level logs are collected in an event-driven fashion, providing fine-grained information with low overhead. In comparison, the TCP statistics introduce a trade-off between accuracy and the polling overhead. For example, if SNAP polls TCP statistics once per second, a short burst of packet losses is hard to distinguish from a modest loss rate throughout the interval.</p><p>In summary, SNAP collects two types of data in the following formats: (i) timestamp, 4-tuples (source and destination address/port), ReadBytes, and WriteBytes; and (ii) timestamp, 4-tuples, TCP-level logs <ref type="table">(Table 1)</ref>. SNAP uses TCP-level logs to classify the performance problems and pinpoint the location of the problem, and then provides both the relevant TCP-level and socketlevel logs for the affected connections for that period of time. Developers can use these logs to quickly find the root cause of performance problems.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="2.2">Classifying Single-Socket Performance</head><p>Although it is difficult to determine the root cause of performance problems, we can pinpoint the component that is limiting performance. We classify performance problems in terms of the stages of data delivery, as summarized in the two columns of <ref type="table" target="#tab_2">Table 2</ref> 3 :</p><p>1. Application generates the data: The sender application may not generate the data fast enough, either by design or because of bottlenecks elsewhere (e.g., CPU, memory, or disk). For example, the sender may write a small amount of data, triggering Nagle's algorithm <ref type="bibr" target="#b3">[10]</ref> which combines small writes together into larger packets for better network utilization, at the expense of delay.</p><p>2. Data are copied from the application buffer to the send buffer: Even when the network is not congested, a small send buffer can limit throughput by stalling application writes. The send buffer must keep data until acknowledgments arrive from the receiver, limiting the buffer space available for writing new data.</p><p>3. TCP sends the data to the network: A congested network may drop packets, leading to lower throughput or higher delay. The sender can detect packet loss by receiving three duplicate ACKs, leading to a fast retransmission. When packet losses do not trigger a triple duplicate ACK, the sender must wait for a retransmission timeout (RTO) to detect loss and retransmit the data.</p><p>4. Receiver receives the data and sends an acknowledgment: The receiver may not read data, or acknowledge their arrival, quickly enough. The receiver window can limit the throughput if the receiver is not reading the data quickly enough (e.g., caused by a CPU starvation), allowing data to fill the receive buffer. A receiver delays sending acknowledgments in the hope of piggybacking the ACK on data in the reverse direction. The receiver acknowledges every other packet and waits up to 200 ms before sending an ACK.</p><p>The TCP statistics provide direct visibility into certain performance problems like packet loss and receiverwindow limits, where cumulative counts (e.g., #Time-out, #FastRetrans, and RwinLimitTime) indicate whether the problem occurred at any time during the polling interval. Detecting other problems relies on an instantaneous snapshot, such as comparing the current backlog of the send buffer (CurAppWQueue) to its maximum size (MaxAppWQueue); polling with a Poisson distribution allows SNAP to accurately estimate the fraction of time a connection is send-buffer limited. Pinpointing other latency problems requires some notion of expected delays. For example, the RTT should not be larger than the propagation delay plus the maximum queuing delay (MaxQueuingDelay) (whose value is measured in advance by operators), unless a problem like delayed ACK occurs. SNAP incorporates knowledge of the network configuration to identify these parameters.</p><p>SNAP detects send-buffer, network, and receiver problems using the rules listed in the last column of <ref type="table" target="#tab_2">Table 2</ref>, where multiple problems may take place for the same socket during the same time interval. If any of these problems are detected, SNAP logs the diagnosis and all the variables in <ref type="table">Table 1</ref>-as well as WriteBytes from the socket-call data-to provide the developers with detailed information to track down the problem. In the absence of any of the previous problems, we classify the connection as sender-application limited during the time interval, and log only the socket-call data to track application behavior. Being sender-application limited should be the most common scenario for a connection.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="2.3">Correlation Across TCP Connections</head><p>Although SNAP can detect performance problems on individual connections in isolation, combining information across multiple connections helps pinpoint the location of the problem. As such, a central controller analyzes the results of the TCP performance classifier, as shown earlier in <ref type="figure" target="#fig_0">Figure 1</ref>. The central controller can associate each connection with a particular application and with shared resources like a host, links, and switches. Pinpointing resource constraints (by correlating connections that share a host, link, or switch): Topology and routing data allow SNAP to identify which connections share resources such as a host, link, top-of-rack switch, or aggregator switch. SNAP checks if a performance problem (as identified by the algorithm in Table 2) occurs on many connections traversing the same resource at the same time. For example, packet losses (i.e., diff(#FastRetrans) &gt; 0 or diff(#Timeout) &gt; 0) on multiple connections traversing the same link would indicate a congested link. This would detect congestion occurring on a much smaller timescale than SNMP could measure. As another example, send-buffer problems for many connections on the same host could indicate that the machine has insufficient memory or a low default configuration of the send-buffer size.</p><p>Pinpoint application problem (by correlating across connections in the same application): SNAP also receives a mapping of each socket (as identified by the four-tuple) to an application. SNAP checks if a performance problem occurs on many connections from the same application, across different machines and different times. If so, the application software may not interact well with the underlying TCP layer. With SNAP, we have found several application programs that have severe performance problems and are currently working with developers to address them, as discussed in Section 6.</p><p>The two kinds of correlation analysis are similar, except for (i) sets of connections to compare S (i.e., connections sharing a resource vs. belonging to the same service) and (ii) the timescale for the comparison -correlation interval T (i.e., transient resource constraining events taking a few minutes or hours vs. permanent service code problems that lasts for days).</p><p>We use a simple linear correlation heuristic that works well in our setting Given a set of connections S and a correlation interval T , the SNAP correlation algorithm outputs whether these connections have correlated performance problems, and provides a time sequence of SNAP logs for operators and developers to diagnose.</p><p>We construct a performance vector</p><formula xml:id="formula_0">− −−−− → P T (c, t) = (time k (p 1 , c), ..., time k (p 5 , c)) k=1.</formula><p>.⌈T /t⌉ , where t is an aggregation time interval in T and time k (p i )(i = 1..5) denotes the total time that connection c is having problem p i during time period [(k − 1)t, kt]. <ref type="bibr" target="#b2">4</ref> We pick c 1 and c 2 in S, calculate the Pearson correlation coefficient, and check if the average across all pairs of connections (Average Correlation Coefficient ACC) is larger than a threshold α:</p><formula xml:id="formula_1">ACC = avg c1,c2∈S,c1񮽙 =c2 (cor( −−−−−→ P T (c 1 , t), −−−−−→ P T (c 2 , t)) &gt; α,</formula><p>where</p><formula xml:id="formula_2">cor( − → x , − → y ) = i (x i − ¯ x)(y i − ¯ y) i (x i − ¯ x) 2 (y i − ¯ y) 2 .</formula><p>If the correlation coefficient is high, SNAP reports that the connections in S have a common problem. To extend this correlation for different classes of problems (e.g., one connection's delayed ACK problem triggers  <ref type="table">Table 3</ref>: Characteristics in the production data center.</p><p>the sender application limited problem on another connection), we can extend our solution to use other inference techniques <ref type="bibr" target="#b4">[11,</ref><ref type="bibr" target="#b5">12]</ref> or principal component analysis (PCA) <ref type="bibr" target="#b6">[13]</ref>.</p><p>In practice, we must choose t carefully. With a large value of t, SNAP only compares the coarse-grained performance between connections; for example, if t = T , we only check if two connections have the same performance problem with the same percentage of time. With a small t, SNAP can detect fine-grained performance problems (e.g., two connections experiencing packet loss at almost the same time), but are susceptible to clock differences of the two machines and any differences in the polling rates for the two connections. The aggregation interval t should be large enough to mask the differences between the clocks and cannot be smaller than the least common multiple of the polling intervals of the connections.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3">Production Data Center Deployment</head><p>We deployed SNAP in a production data center. This section describes the characteristics of the data center and the configuration of SNAP, to set the stage for the following sections.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.1">Data Center Environment</head><p>The data center consists of 8K hosts and runs 700 application components, with the configuration summarized in <ref type="table">Table 3</ref>. The hosts run either Windows Server 2008 R2 or Windows Server 2003. The default send buffer size is 8K, and the maximum segment size is 1460 Bytes. The minimum retransmission timeout for packet loss is set to 300 ms, and the delayed-acknowledgment timeout is 200 ms. These values in Windows OS are configured for Internet traffic with long RTT.</p><p>While the OS enables Nagle's algorithm (which combines small writes into larger packets) by default, most delay-sensitive applications disable Nagle's algorithm using the NO DELAY socket option.</p><p>Most applications in the data center use persistent connections to avoid establishing new TCP connections whenever they have data to transmit. Slow-start restart is disabled to reduce the delay arising when applications transfer a large amount of data after an idle period over a persistent connection.</p><p>Receiver-window autotuning-a feature in Windows Server 2008 that allows TCP to dynamically tune the receiver window size to maximize throughput-is disabled to avoid bugs in the TCP stack (e.g., <ref type="bibr" target="#b7">[14]</ref>). Windows Server 2003 does not support this feature.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="3.2">SNAP Configuration</head><p>We ran SNAP continuously for a week in August 2010. The polling interval for TCP statistics follows the Poisson distribution with an average inter-arrival time of 500 ms. We collected the socket-call logs for all the connections from and to the servers running SNAP. Over the week, we collected less than 1 GB on each host per day and the total is just terabytes of logs for the week. This is a very small amount of data compared to packet traces which take more than 180 GB per host per day at a 1 Gbps link, even if we just keep packet header information.</p><p>To identify the connections sharing the same switch, link, and application, we collect the information about the topology, routing, and the mapping between sockets and applications in the data center. We collect topology and routing information from the data center configuration files. To identify the mapping between the sockets and applications, we first run a script at each machine to identify the process that created each socket. We then map the processes to the application based on the configuration file for the application deployment.</p><p>To correlate performance problems across connections using the correlation algorithm we proposed in Section 2.3, we chose two seconds as the aggregation interval t to summarize the time on each performance problems to mask time difference between machines. To pinpoint transient resource constraints which usually last for minutes or hours, we chose one hour as the correlation interval T . To pinpoint problems from application code which usually last for days, we chose 24 hours as the correlation interval T . We chose the correlation threshold α = 0.4. <ref type="bibr">5</ref> </p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="4">SNAP Validation</head><p>To validate the design of SNAP in Section 2 and evaluate whether SNAP can pinpoint the performance problems at the right place and time, we take two approaches: First, we inject a few known problems in our production data center and check if SNAP correctly catches these problems; Second, to validate the decision methods that use inference to determine the performance class in Table 2 rather than observing from TCP statistics directly, we compare SNAP results against packet traces.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="4.1">Validation by Injecting Known Bugs</head><p>To validate SNAP, we injected a few known data-center networking problems and verified if SNAP correctly classifies those problems for each connection. Next, running our correlation algorithm on the SNAP logs of these labeled problems together with the other logs from the data center, SNAP correctly pinpointed all the labeled problems. For brevity, we first discuss two representative problems in detail and then show how SNAP pinpoints problematic host for each of them.</p><p>Problems in receive-window autotuning: We first injected a receiver-window autotuning problem: This problem happens when a Windows Server 2008 R2 machine initiates a TCP connection to a Windows Server 2003 machine with a SYN packet that requests the receiver window autotuning feature. But due to a bug in the TCP stack of the Windows Server 2003 6 , the 2003 server does not parse the request for the receiver window autotuning feature correctly, and returns the SYN ACK packet with a wrong format. As a result, the 2008 server tuned its receiver window to four Bytes, leading to low throughput and long delay.</p><p>To inject this problem, we picked ten hosts running Windows 2008 in the data center and turn on their receiver window autotuning feature. Each of the ten hosts initiated TCP connections to a HTTP server running Windows 2003 to fetch 20 files of 5KB each from a host running Windows 2003. <ref type="bibr">7</ref> It took the Windows 2003 server more than 5 seconds to transfer each 5KB file. SNAP correctly reported that all these connections are receiver window limited all the time, and SNAP logs showed that the announced receiver window size (RWin) is 4 Byte. back at almost the same time. These responses together overflow the switch on the path and experience significant packet losses.</p><p>We wrote an application that generates a TCP incast traffic pattern. To limit the effect of our experiment to the other applications in the production data center, we picked 36 hosts under the same top-of-rack switch (TOR), used one host as the aggregator to send requests to the remaining 35 hosts which serve as workers. These workers respond with 100KB data immediately after they receive the requests. After receiving all the responses, the aggregator sends another request to the workers. The aggregator sends 20 requests in total.</p><p>SNAP correctly identified that seven of the 35 connections have experienced a significant amount of packet loss causing retransmission timeouts. This is verified from our application logs which show that it takes much longer time to get the response through the seven connections than the rest of the connections. 8 Correlation to pinpoint resource constraints for the two problems: We mixed the SNAP logs of the receiver window autotuning problem and TCP incast with the logs of an hour period collected at all other machines in the data center. Then we ran SNAP correlation algorithm across the connections sharing the same machine.</p><p>SNAP correctly identified the Windows Server 2003 servers that have receiver-window limited problems across 5-10 connections with an average correlation coefficient (ACC) of 0.8. SNAP also correctly identified the aggregator machine because the ACC across all the connections that traverse the TOR is 0.45. Both are above the threshold α = 0.4, which is chosen based on the discussion in Section 3.</p><p>Our correlation algorithm clearly distinguished the two injected problems with the performance of connections on the other machines in the data center. <ref type="figure" target="#fig_1">Figure 2</ref> presents the probability density function (PDF) of the number of machines with different values of ACC. Only 2.7% of the machines have an ACC larger than 0.4. In addition to the two injected problems, the other machines with ACC &gt; 0.4 may also indicate some problems that happen during our experiment, but we have not verified these problems yet.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="4.2">Validation Against Packet Traces</head><p>We also need to validate the performance-classification algorithm defined in <ref type="table" target="#tab_2">Table 2</ref>. The detection methods for the performance class of fast retransmissions, timeouts, receiver window limited is always accurate because these statistics are directly observed phenomena (e.g., #Time-outs) from the TCP stack. The accuracy of identifying send buffer problems is closely related to the probability of detecting the moments when the send buffer is full in the Poisson sampling, which is well studied in <ref type="bibr" target="#b7">[15]</ref>.</p><p>There is a tradeoff between the overhead and accuracy of identifying delayed ACK. The accuracy of identifying the delayed ACK and small writes classes is closely related to the estimation of the RTT. However, we cannot get per-packet RTT from the TCP stack because it is a significant overhead to log data for each packet. Instead, we get the sum of estimated RTTs (SumRTT) and the number of sampled packets (SampleRTT) from the TCP stack.</p><p>We evaluate the accuracy of identifying delayed ACK in SNAP by comparing SNAP's results with the packet trace. We picked two real-world applications from the production data center for which SNAP detects delayed ACK problems: One connection serves as an aggregator distributing requests for a Web application that has the delayed ACK problems for 100% of the packets <ref type="bibr">9</ref> . Another belongs to a configuration-file distribution service for various jobs running in the data center, which has 75% of the packets on average experiencing delayed ACK. While running SNAP with various polling rates, we captured packet traces simultaneously. We then compared the results of SNAP with the number of delayed-ACK incidents we identify from packet traces.</p><p>To estimate the number of packets that experience delayed ACK, SNAP should find a distribution of RTTs for the sampled packets that sum up to SumRTT. Those <ref type="bibr">9</ref> This application distributes requests whose size is smaller than MSS (i.e., one packet), and waits more than the delayed ACK timeout 200 ms before sending out another request. So the receiver has to keep each packet for 200 ms before sending the ACK to the sender. packets that experience delayed ACK have a RTT around DelayedACKTimeout. The rest of the packets all experience the maximum queuing delay. Therefore, we use the equation: (diff(#SumRTT) − diff(#SampleRTT) * MaxQueuingDelay)/DelayedACKTimeout to count the number of packets experiencing delayed ACK. We use MaxQueuingDelay = 10 ms and DelayedACKTimeout = 180 ms. The delayed timeout is set as 200 ms in TCP stack, but TCP timer is only accurate at 10 ms level and thus the real DelayedACKTimeout varies around 200 ms. So we use 180 ms to be conservative on the delayed ACK estimation. <ref type="figure" target="#fig_2">Figure 3</ref> shows the estimation error of SNAP's results which is defined by (d t −d s )/d t , where d s is the percentage of packets that experience delayed ACK reported by SNAP and d t is the actual percentage of delayed ACK we get from the packet trace. For the application that always has delayed ACK, SNAP's estimation error is 0.006 on average. For the application that has 75% of packets experiencing delayed ACK, the estimation error is within 0.2 for the polling intervals that range from 500 ms to 10 sec. <ref type="figure" target="#fig_2">Figure 3</ref> shows that the estimation error drops from positive (underestimation) to negative (overestimation) with the increase of the polling interval. When the polling interval is smaller than 200 ms, there is at most one packet experiencing delayed ACK in one polling interval. If a few packets take less than MaxQueuingDelay to transfer, we would overestimate the part of SumRTT that is contributed by these packets, and thus the rest of RTT is less than DelayedACKTimeout. When the polling interval is large, there are more packets experiencing delayed ACK in the same time interval. Since we have use 180 ms instead of 200 ms to detect delayed ACK, we would underestimate those packets that take longer than 180 ms delayed ACK. Nine such packets would contribute enough RTT for SNAP to assume one more delayed ACK.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="5">Profiling Data Center Performance</head><p>We deployed SNAP in the production data center to characterize different classes of performance problems, and provided information to the data-center operators about problems with the network stack, network congestion or the interference between services. We first characterize the frequency of each performance problem in the data center, and then discuss the key performance problems in our data center-packet loss and the TCP send buffer. <ref type="table" target="#tab_5">Table 4</ref> characterizes the frequency of the network performance problems (defined in <ref type="table" target="#tab_2">Table 2</ref>) in our data center. Not surprisingly, the overall network performance of the data center is good. For example, only 0.82% of all the connections were receiver limited during their lifetimes. However, there are two key problems that the operators should address:</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="5.1">Frequency of Performance Problems</head><p>Operators should focus on the small fraction of applications suffering from significant performance problems. Several connections/applications have severe performance problems. For example, about 0.11% of the connections are receiver-window limited essentially all the time. Even though 0.11% sounds like a small number, when 8K machines are each running many connections, there is almost always some connection or application experiencing bad performance. These performance problems at the "tail" of the distribution also constrain the total load operators are willing to put in the data center. Operators should look at the SNAP logs of these connections and work with the developers to improve the performance of these connections so that they can safely "ramp up" the utilization of the data center.</p><p>Operators should disable delayed ACK, or significantly reduce Delayed ACK timeout: About twothirds of the connections experienced delayed ACK problems. Nearly 2% of the connections suffer from delayed-ACKs for more than 99.9% of the time. We manually explore the delay-sensitive services, and count the percentage of connections that have delayed ACK. Unfortunately, about 136 delay-sensitive applications have experienced delayed ACKs. Packets that have delayed ACK would experience an unnecessary increase of latency by 200 ms, which is three orders of magnitude larger than the propagation delay in the data center and well exceeds the latency bounds for these applications. Since delayed ACK causes many problems for data-center applications, the operators are considering disabling delayed ACK or significantly reducing the delayed ACK timeout. The problems of delayed ACK for data center applications are also observed in <ref type="bibr" target="#b8">[16]</ref>. </p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="5.2">Packet Loss</head><p>Operators should schedule backup jobs more carefully to avoid triggering network congestion: <ref type="figure">Figure 4</ref> shows the number of fast retransmissions and timeouts per second over time. The percentage of retransmitted bytes increases between 2 am and 4 am. This is because most backup applications with large bulk transfers are initiated in this time period.</p><p>Operators should reduce the number and effect of packet loss (especially timeouts) for low-rate flows: SNAP data shows that about 99.8% of the connections have low throughput (&lt; 1 MB/sec). Although these low-rate flows do not consume much bandwidth and are usually not the cause of network congestion, they are significantly affected by network congestion. <ref type="figure">Figure 5</ref> is a scatter plot that shows the ratio of of fast retransmissions to timeouts vs. the connection sending rate. Each point in the graph represents one polling interval of one connection. Low-rate flows usually experience more timeouts than fast retransmission because they do not have multiple packets in flight to trigger triple duplicate ACKs. Timeouts, in turn, limit the throughput of these flows. In contrast, high-rate flows experience  more fast retransmission than timeouts and can quickly recover from packet losses achieving higher throughput (&gt; 1 MB/sec).</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="5.3">Send Buffer and Receiver Window</head><p>Operators should allow the TCP stack to automatically tune the send buffer and receiver window sizes, and consider the following two factors:</p><p>More send buffer problems on machines with more connections: SNAP reports correlated send buffer problems on hosts with more than 200 connections. This is because the larger the send buffer for each connection, the more memory is required for the machine. As a result, the developers of different applications on the same machine are cautious it setting the size of the send buffer; most use the default size of 8K, which is far less than the delay-bandwidth product in the data center and thus is more likely to become the performance bottleneck.</p><p>Mismatch between send buffer and receiver window size: SNAP logs the announced receiver window size when the connection is receiver limited. From the log we see that 0.1% of the total time when the senders indicate that their connections are bottlenecked by the receiver window, the receiver actually announced a 64 KB window. This is because the send buffer is larger than the announced receiver size, so the sender is still bottlenecked by the receiver window.</p><p>To fix the send-buffer problems in the short term, SNAP could help developers to decide what send buffer size they should set in an online fashion. SNAP logs the congestion window size (CWin), the amount of data the application expect to send (WriteBytes), and the announced receiver window size (RWin) for all the connections. Developers can use this information to size the send buffer based on the total resources (e.g., set the send buffer size to Cwin thisconn * T otalSendBuf f erM emory/ CW in). They can also evaluate the effect of their change using SNAP. In the long term, operators should have the TCP stack automatically tune both the send-buffer and receiver-window sizes for all the connections (e.g., <ref type="bibr">[6]</ref>).</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="6">Performance Problems Caught by SNAP</head><p>In this section, we show a few examples of performance problems caught by SNAP. In each example, we first show how the performance problem is exposed by SNAP's analysis of socket and TCP logs into performance classifications and then correlation across connections. Next, we explain how SNAP's reports help guide developers to identify quickly the root causes. Finally, we discuss the developer's fix or proposed fix to these problems. For most examples, we spent a few hours or days to discuss with developers to understand how their programs work and to discover how their programs cause the problems SNAP detects. It then took several days or weeks to iterate with developers and operators to find out the possible alternative ways to achieve their programing goals.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="6.1">Sending Pattern/Packet Loss Issues</head><p>Spreading application writes over multiple connections lowers throughput: When correlating performance problems across connections from the same application, SNAP found one application whose connections always experienced more timeouts (diff(#Timeout)) than fast retransmission (diff(#FastRetrans)) especially when the WriteBytes is small. For example, SNAP reported repeated periods where one connection transferred an average of five requests per second with a size of 2 KB -20 KB, while experiencing approximately ten timeouts but no fast retransmissions.</p><p>The developers were expecting to obtain far more than five requests per second from their system, and when this report showing small writes and timeouts was shown to them the cause became clear. The application sends requests to a server and waits for responses. Since some requests take longer to process than others and developers wanted to avoid having to implement request IDs while still avoiding head-of-line blocking, they open two connections to the server and place new requests on whichever connection is unused.</p><p>However, spreading the application writes over two connections meant that often there were not enough outstanding data on a connection to cause three duplicate ACKs and trigger fast retransmission when a packet was lost. Instead, TCP fell back to its slower timeout mechanism.</p><p>To fix the problem, the application could send all requests over a single connection, give requests a unique ID, and use pools of worker threads at each end. <ref type="bibr" target="#b3">10</ref> This would improve the chances there is enough data in flight to trigger fast retransmission when packet loss occurs.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>Congestion window failing to prevent sudden bursts:</head><p>SNAP discovered that some connections belonging to an application frequently experience packet loss (#FastRe-trans and #Timeout are both high, and correlate strongly to the application and across time). SNAP's logs expose a time sequence of socket write logs (WriteBytes) and TCP statistics <ref type="bibr">(Cwin)</ref> showing that before/during the intervals where packet loss occurs, there is a single large socket write call after an idle period. TCP immediately sends out the data in one large chunk of packets because the congestion window is large, but it experiences packet losses. For example, one application makes a socket call with WriteBytes &gt; 100 MB after an idle period of 3 seconds, the Cwin is 64 KB, and the traffic burst leads to a bunch of packet losses.</p><p>The developers told us they use a persistent connection to avoid three-way handshake for each data transfer. Since "slow start restart" is disabled, the congestion window size does not age out and remains constant until there is a packet loss. As a result, the congestion window no longer indicates the carrying capacity of the network, and losses are likely when the application suddenly sends a congestion window worth of data.</p><p>Interestingly, the developers are opposed to enabling slow start restart, and they intentionally manipulate the congestion window in an attempt to reduce latency. For example, if they send 64 KB data, and the congestion window is small (e.g., 1 MSS), they need at multiple round-trip times to finish the data transfer. But if they keep the congestion window large, they can transfer the data with one RTT. In order to have a large congestion window, they first make a few small writes when they set up the persistent connection.</p><p>To reduce both the network congestion and delay, we need better scheduling of traffic across applications, allowing delay-sensitive applications to send traffic bursts when there is no network congestion, but pacing the traffic if the network is highly used. The feedback mechanism proposed in DCTCP <ref type="bibr" target="#b9">[17]</ref> could be applied here.</p><p>Delayed ACK slows recovery after a retransmission timeout: SNAP found that one application frequently <ref type="bibr" target="#b3">10</ref> Note that the application should use a single connection because its requests are relatively small. For those applications that have a large amount of data to transfer for each request, they still have to use two connections to avoid head of line blocking during the network transfer. had two problems (timeout and delayed ACK) at almost the same time. As shown in <ref type="figure" target="#fig_4">Figure 6</ref>, when the fourth packet of the transferred data is lost, the TCP sender waits for a retransmission timeout (because there are not enough following packets to trigger triple-duplicate ACKs). However, the congestion window drops to one after the retransmission. As a result, TCP can only send a single packet, and the receiver waits for a delayed ACK timeout before acknowledging the packet. Meanwhile, the sender cannot increase its sending window until it receives the ACK from the receiver. To avoid this, developers are discussing the possibility of dropping the congestion window down to two packets when a retransmission timeout occurs. Disabling delayed ACK is another option.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="6.2">Buffer management and Delayed ACK</head><p>Some developers do not manage the application buffer and the socket send buffer appropriately, leading to bad interactions between buffer management and delayed ACK.</p><p>Delayed ACK caused by setting send buffer to zero: SNAP reports show that some applications have delayed ACK problems most of the time and these applications had set their send socket buffer length to 0. Investigation found that these applications set the size of the socket send buffer to zero in the expectation that it will decrease latency because data is not copied to a kernel socket buffer, but sent directly from the user space buffer. However, when send buffer is zero, the socket layer locks the application buffer until the data is ACK'd by the receiver so that the socket can retransmit the data in case a packet is lost. As a result, additional socket writes are blocked until the previous one has finished. Whenever an application writes data that results in an odd number of packets being sent, the last packet is not ACK'd until the delayed ACK timer expires. This effectively blocks the sending application for 200 ms and can reduce application throughput to 5 writes per second. One team attempted to improve application performance by shrinking the size of their messages, but ended up creating an odd number of packets and triggering this issue -destroying the application's performance instead of helping it. After the developers increased the send buffer  size, throughput returned to normal.</p><p>Delayed ACK affecting throughput: SNAP reports showed that an application was writing small amounts of data to the socket (WriteBytes) and its connections experienced both delayed ACK and sender application limited issues. For example, during 30 minutes, the application wrote 10K records at only five records per second and with a the record size of 20-100 Bytes. The developers explained theirs is a logging application where the client uploads records to a server, and should be able generate far more than five records per second. Looking into the code with the developers, we found three key problems in the design: (i) Blocking write: to simplify the programming, the client does blocking writes and the server does blocking reads. (ii) Small receive buffer: The server calls recv() in a loop with a 200 bytes buffer in hopes that exactly one record is read in each receive call. (iii) Send buffer is set to zero: Since the application is delay-sensitive, the developer set send buffer size to zero. The application records are 20-100 Bytes -much less than the MSS of 1460 Bytes. Additionally, Nagle's algorithm forces the socket to wait for an ACK before it can send another packet (record). 11 As a result, the single packet containing each record always experience delayed ACK, leading to a throughput of only five records per second. To address this problem while still avoiding the buffer copying in memory, developers changed the sender code to write a group of requests each time. Throughput improved to 10K requests/sec after the change-a factor of 5000 improvement.</p><p>Delayed ACK affecting performance for pipelined applications: By correlating connections to the same machine, SNAP found two connections with performance problems that co-occur repeatedly: SNAP classified one connection as having a significant delayed ACK problem and the other as having sender application problems.</p><p>Developers told us that these two connections belong to the same application and form a pipeline pattern <ref type="figure" target="#fig_5">(Fig- ure 7)</ref>. There is a proxy that sits between the clients and servers and serves as a load balancer. The proxy passes requests from the client to the server, fetches a sequence of responses from the server, and passes them to the client. SNAP finds such a strong correlation between the delayed ACK problem and the receiver limited problem because both stem from the passing of the messages through the proxy.</p><p>After looking at the code, developers figured out that the proxy uses a single thread and a single buffer for both the client and the server. The proxy waits for the ACK of every transfer (one packet in each transfer most of the time) before fetching a new response data from the server. <ref type="bibr" target="#b5">12</ref> When the developers changed the proxy to use two different threads with one fetching responses from the server and another sending responses to the client and a response queue between the two threads, the 99% tail of the request processing time drops from 200 ms to 10 ms.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="6.3">Other Problems</head><p>SNAP has also detected other problems such as switch port failure (significant correlated packet losses across multiple connections sharing the same switch port), receiver window negotiation problems as reported in <ref type="bibr" target="#b7">[14]</ref> (connections are always receiver window limited while receiver window size stays small), receiver not reading the data fast enough (receiver window limited), and poor latency caused by Nagle algorithm (sender application limited with small WriteBytes</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="7">Reducing SNAP CPU Overhead</head><p>To run in real time on all the hosts in the data center, SNAP must keep the CPU overhead and data volume low. The volume of data is small because (i) SNAP logs socket calls and TCP statistics instead of other highoverhead data such as packet traces and (ii) SNAP only logs the TCP statistics when there is a performance problem. To reduce CPU overhead, SNAP allows the operators to set the target percentage of CPU usage on each host. SNAP stays within a given CPU budget by dynamically tuning the polling rate for different connections. </p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>CPU Overhead of Profiling</head><p>Since SNAP collects logs for all the connections at the host, the overhead of SNAP consists of three parts: logging socket calls, reading the TCP table, and polling TCP statistics.</p><p>Logging socket calls: In our data center, the cost of turning on the event tracing for socket logging is a median of 1.6% of CPU capacity <ref type="bibr" target="#b10">[19]</ref>.</p><p>Polling CPU statistics and reading TCP table: The CPU overhead of polling TCP statistics and reading the TCP table depends on the polling frequency and the number of connections on the machine. <ref type="figure">Figure 8</ref> plots the CPU overhead on a 2.5 GHz Intel Xeon machine. If we poll TCP statistics for 1K connections at 500 millisecond interval, the CPU overhead is less than 5%. The CPU overhead of reading the TCP table is similar.</p><p>The CPU overhead is closely related to the number of connections on each machine. <ref type="figure">Figure 9</ref> takes a snapshot of the distribution of the number of established connections per machine. There are at most 10K established sockets and a median of 150. This means operators can configure the interval of reading TCP table in most machines to be 500 millisecond or one second to keep the CPU overhead lower than 5%. <ref type="bibr" target="#b6">13</ref> Since most of <ref type="bibr" target="#b6">13</ref> We read TCP tables at 500 millisecond interval in our data collecthe connections in our data center are long-lived connections (e.g., persistent HTTP connections), we can read the TCP table at a lower frequency compared to TCP statistics polling. For the machines with many connections, we need to carefully adjust the polling rate of TCP statistics for each connection to achieve a tradeoff between diagnosis accuracy and the CPU overhead.</p><p>Dynamic Polling Rate Tuning To achieve the best tradeoff between CPU overhead and accuracy, operators can first configure l CP U (u CP U ) to be the lower (upper) bound of the CPU percentage used by SNAP. We then propose an algorithm to dynamically tune the polling rate for different connections to keep CPU overhead between the two bounds. The basic idea of the algorithm is to have high polling rate for those connections that are having performance issues and have low polling rate for the others.</p><p>We start by polling all the connections on one host at the same rate. If the current CPU overhead is below l CP U , we pick a connection that has the most performance problems in the past T history time, and increase its polling rate for more detailed data. Similarly if the current CPU overhead is above u CP U , we pick a connection that has the least performance problems in the past T history time, and decrease its polling rate for more detailed data. Note that a lower polling rate introduces lower diagnosis accuracy. We can still catch those performance problems with the cumulative counters, but may miss some problems that rely on snapshots to detect.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="8">Related Work</head><p>Previous work in diagnosing performance problems focuses on either the application layer or the network layer. SNAP addresses the interactions between them that cause particularly insidious performance issues.</p><p>In the application layer, prior work has taken several approaches: instrumenting application code <ref type="bibr" target="#b11">[20,</ref><ref type="bibr" target="#b12">21,</ref><ref type="bibr" target="#b13">22]</ref> to find the causal path of problems, inferring the abnormal behaviors from history logs <ref type="bibr" target="#b4">[11,</ref><ref type="bibr" target="#b5">12]</ref>, or identifying fingerprints of performance problems <ref type="bibr" target="#b14">[23]</ref>. In contrast, SNAP focuses on profiling the interactions between applications and the network and diagnosing network performance problems, especially ones that arise from those interactions.</p><p>In the network layer, operators use network monitoring tools (e.g., switch counters) and active probing tools (ping, traceroute) to pinpoint network problems such as switch failures or congestion. To diagnose network performance problems, capture and analysis of packet traces remains the gold-standard. T-RAT <ref type="bibr" target="#b15">[24]</ref> uses packet traces to diagnosis throughput bottlenecks in tion.</p><p>Internet traffic. Tcpanaly <ref type="bibr" target="#b2">[4]</ref> uses packet traces to diagnose TCP stack problems. Others <ref type="bibr" target="#b16">[25,</ref><ref type="bibr" target="#b17">26]</ref> also infer the TCP performance and its problems from packet traces. In contrast, SNAP focuses on the multi-tier applications in data centers where it has access to the network stack, enabling us to create simple algorithms based on counters far cheaper to collect than packet traces to expose the network performance problems of the applications.</p></div>
+<div xmlns="http://www.tei-c.org/ns/1.0"><head n="9">Conclusion</head><p>SNAP combines socket-call logs of the application's desired data-transfer behaviors with TCP statistics from the network stack that highlight the delivery of data. SNAP leverages the knowledge of topology, routing, and application deployment in the data center to correlate performance problems among connections, to pinpoint the congested resource or problematic software component.</p><p>Our experiences in the design, development, and deployment of SNAP demonstrate that it is practical to build a lightweight, generic profiling tool that runs continuously in the entire data center. Such a profiling tool can help both operators and developers in diagnosing network performance problems.</p><p>With applications in data centers getting more complex and more distributed, the challenges of diagnosing the performance problems between the applications and the network will only grow in importance in the years ahead. For future work, we hope to further automate the diagnosis process to save developers' efforts by exploring the appropriate variables to monitor in the stack, studying the dependencies between the variables SNAP collects, and combining SNAP reports with automatic analysis of application software.</p></div><figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_0"><head>Figure 1 :</head><label>1</label><figDesc>Figure 1: SNAP socket-level monitoring and analysis</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_1"><head>TCP incast:Figure 2 :</head><label>2</label><figDesc>Figure 2: PDF of #Machines with different average correlation coefficient.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_2"><head>Figure 3 :</head><label>3</label><figDesc>Figure 3: SNAP estimation error of identifying delayed ACK problems.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_3"><head>Figure 4 :Figure 5 :</head><label>45</label><figDesc>Figure 4: # of fast retransmissions and timeouts over time.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_4"><head>Figure 6 :</head><label>6</label><figDesc>Figure 6: Delayed ACK after a retransmission timeout.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_5"><head>Figure 7 :</head><label>7</label><figDesc>Figure 7: Performance problem in pipeline communication.</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" xml:id="fig_6"><head>Figure 8 :Figure 9 :</head><label>89</label><figDesc>Figure 8: The CPU overhead of polling TCP statistics (poll) and reading TCP table (rt) with different number of connections (10, 100, 1K, 5K) and different intervals (from 50 ms to 10 sec).</figDesc></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_1" validated="false"><head>Cwin) that show the current value≈ MaxAppWQueue Network Fast retransmission Net diff(#FastRetrans) &gt; 0 Timeout Net diff(#Timeout) &gt; 0) Receiver Delayed ACK App and Net diff(SumRTT) &gt; diff(SampleRTT)*MaxQueuingDelay Receiver window limited App and Net diff(#RwinLimitTime) &gt; 0</head><label></label><figDesc></figDesc><table>instanta-
+neous snapshots (e.g., Locations 
+
+Problems 
+App/Net 
+Detection method 
+Sender app 
+Sender app limited 
+App 
+Not any other problems 
+Send buffer 
+Send buffer limited 
+App and Net 
+CurAppWQueue </table></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_2" validated="false"><head>Table 2 :</head><label>2</label><figDesc></figDesc><table>Classes of network performance for a socket 
+
+</table></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_4" validated="false"><head>% of conn. with prob.</head><label>of</label><figDesc></figDesc><table>#Apps with prob. 
+for &gt;X% of time 
+for &gt;X% of time 
+Performance limitation 
+&gt;0 
+&gt;25% &gt;50% &gt;75% &gt;99.9% &gt; 5% 
+&gt; 50% 
+Sender app limited 
+97.91% 96.62% 89.61% 59.21% 
+32.61% 
+561 
+557 
+Send buffer limited 
+0.45% 
+0.06% 
+0.02% 
+0.01% 
+0.01% 
+1 
+1 
+Congestion 
+1.90% 
+0.46% 
+0.22% 
+0.17% 
+0.15% 
+30 
+6 
+Receiver window limited 
+0.82% 
+0.36% 
+0.21% 
+0.15% 
+0.11% 
+22 
+8 
+Delayed ACK 
+65.71% 33.20% 10.10% 
+3.21% 
+1.82% 
+154 
+144 
+(belong to delay sensitive apps) 63.52% 32.82% 
+9.71% 
+3.01% 
+1.61% 
+136 
+129 
+
+</table></figure>
+<figure xmlns="http://www.tei-c.org/ns/1.0" type="table" xml:id="tab_5" validated="false"><head>Table 4 :</head><label>4</label><figDesc></figDesc><table>Percentage of connections and number of applications that have different TCP performance limitations. 
+
+</table></figure>
+
+			<note place="foot" n="1"> Some applications (like memcached [1]) use UDP, and reimplement reliability, error detection, and flow control; however, these mechanisms can also introduce performance problems.</note>
+
+			<note place="foot" n="2"> There are a few other variables in the TCP stack such as the time TCP spends in SlowStart stage, which are also useful but we did not mention in the paper due to space limit.</note>
+
+			<note place="foot" n="3"> The table only summarizes major performance problems and can be extended to cover other problems such as out-of-order packets.</note>
+
+			<note place="foot" n="4"> p i (i = 1..5) are the problems of send buffer limited, fast retransmission, timeout, delayed ACK and receiver window limited respectively. We do not include sender application limited because its time could be determined given the times of the first five problems.</note>
+
+			<note place="foot" n="5"> It is hard to determine the threshold α in practice. Operators can choose the top n shared resources/application code to investigate their performance problems.</note>
+
+			<note place="foot" n="6"> This bug is later fixed with a patch, but some machines do not have the latest patch. 7 We ran ten hosts to the same 2003 server to validate if the SNAP can correlate these connections and pinpoint the server.</note>
+
+			<note place="foot" n="8"> In this experiment, SNAP can only tell that the connections have correlated timeouts. If the same problem happens for different aggregators running the same application code, we can tell that the application code causes the timeouts. If SNAP reports all the connections have simultaneous small writes (identified from socket call logs) and correlated timeouts, we can infer that the application code has incast problems.</note>
+
+			<note place="foot" n="11"> A similar performance problem caused by interactions between delayed ACK and Nagle is discussed in [10].</note>
+
+			<note place="foot" n="12"> The proxy is using the HTTP.sys library without setting the HTTP SEND RESPONSE FLAG BUFFER DATA flag [18], which waits for the ACK from the client before sending a &quot;send complete&quot; signal to the application. By waiting for the ACK, HTTP.sys can make sure the application send buffer is not overwritten until the data is successfully transferred.</note>
+		</body>
+		<back>
+
+			<div type="acknowledgement">
+<div xmlns="http://www.tei-c.org/ns/1.0"><head>Acknowledgments</head><p>We thank our shepherd Jason Flinn, the anonymous reviewers, Rob Harrison, Eric Keller, and Vytautas Valancius for their comments on earlier versions of this paper. We also thank Kevin Damour, Chuanxiong Guo, Randy Kern, Varugis Kurien, Saby Mahajan, Jitendra Padhye, Murari Sridharan, Ming Zhang for inspiring discussions on this paper.</p></div>
+			</div>
+
+			<div type="references">
+
+				<listBibl>
+
+<biblStruct xml:id="b0">
+	<analytic>
+		<title level="a" type="main">HTTP/TCP Interaction</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">B</forename><surname>Krishnamurthy</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Rexford</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Web Protocols and Practice: HTTP/1.1, Networking Protocols, Caching, and Traffic Measurement</title>
+		<imprint>
+			<publisher>Addison-Wesley</publisher>
+			<date type="published" when="2001" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b1">
+	<analytic>
+		<title level="a" type="main">Safe and effective finegrained TCP retransmissions for datacenter communication</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">V</forename><surname>Vasudevan</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Phanishayee</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">H</forename><surname>Shah</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">E</forename><surname>Krevat</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Andersen</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">G</forename><surname>Ganger</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">G</forename><surname>Gibson</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">B</forename><surname>Mueller</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">ACM SIGCOMM</title>
+		<imprint>
+			<date type="published" when="2009" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b2">
+	<analytic>
+		<title level="a" type="main">Automated packet trace analysis of TCP implementations</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">V</forename><surname>Paxson</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">ACM SIGCOMM</title>
+		<imprint>
+			<date type="published" when="1997" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b3">
+	<monogr>
+		<title level="m" type="main">TCP performance problems caused by interaction between Nagle&apos;s algorithm and delayed ACK</title>
+		<ptr target="www.stuartcheshire.org/papers/NagleDelayedAck" />
+		<imprint/>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b4">
+	<analytic>
+		<title level="a" type="main">Detailed diagnosis in computer networks</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Kandula</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Mahajan</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>Verkaik</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Agarwal</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Padhye</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">V</forename><surname>Bahl</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">ACM SIG-COMM</title>
+		<imprint>
+			<date type="published" when="2009" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b5">
+	<analytic>
+		<title level="a" type="main">Towards highly reliable enterprise network services via inference of multi-level dependencies</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>Bahl</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Chandra</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Greenberg</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Kandula</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><forename type="middle">A</forename><surname>Maltz</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Zhang</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">ACM SIGCOMM</title>
+		<imprint>
+			<date type="published" when="2007" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b6">
+	<monogr>
+		<title level="m" type="main">Principal Component Analysis</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">I</forename><surname>Jolliffe</surname></persName>
+		</author>
+		<imprint>
+			<date type="published" when="1986" />
+			<publisher>Springer-Verlag</publisher>
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b7">
+	<monogr>
+		<title level="m" type="main">Model Assisted Survey Sampling</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Sarndal</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">B</forename><surname>Swensson</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Wretman</surname></persName>
+		</author>
+		<imprint>
+			<date type="published" when="1992" />
+			<publisher>Springer-Verlag</publisher>
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b8">
+	<monogr>
+		<title level="m" type="main">Clock alignment for large distributed services</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Diwan</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><forename type="middle">L</forename><surname>Sites</surname></persName>
+		</author>
+		<imprint>
+			<date type="published" when="2011" />
+		</imprint>
+	</monogr>
+<note type="report_type">Unpublished report</note>
+</biblStruct>
+
+<biblStruct xml:id="b9">
+	<monogr>
+				<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Alizadeh</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Greenberg</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Maltz</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Padhye</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>Patel</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">B</forename><surname>Prabhakar</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Sengupta</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Sridharan</surname></persName>
+		</author>
+		<title level="m">ACM SIGCOMM</title>
+		<imprint>
+			<date type="published" when="2010" />
+		</imprint>
+	</monogr>
+	<note>Data center TCP (DCTCP</note>
+</biblStruct>
+
+<biblStruct xml:id="b10">
+	<analytic>
+		<title level="a" type="main">The nature of datacenter traffic: Measurements and analysis</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Kandula</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Sengupta</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Greenberg</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>Patel</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Chaiken</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Proc. Internet Measurement Conference</title>
+		<meeting>Internet Measurement Conference</meeting>
+		<imprint>
+			<date type="published" when="2009" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b11">
+	<analytic>
+		<title level="a" type="main">Path-based failure and evolution management</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Chen</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Accardi</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">E</forename><surname>Kiciman</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Lloyd</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><surname>Patterson</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Fox</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">E</forename><surname>Brewer</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">NSDI</title>
+		<imprint>
+			<date type="published" when="2004" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b12">
+	<analytic>
+		<title level="a" type="main">Pip: Detecting the unexpected in distributed systems</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>Reynolds</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">C</forename><surname>Killian</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><forename type="middle">L</forename><surname>Wiener</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><forename type="middle">C</forename><surname>Mogul</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><forename type="middle">A</forename><surname>Shah</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Vahdat</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">NSDI</title>
+		<imprint>
+			<date type="published" when="2006" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b13">
+	<analytic>
+		<title level="a" type="main">XTrace: A pervasive network tracing framework</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><surname>Fonseca</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">G</forename><surname>Porter</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">R</forename><forename type="middle">H</forename><surname>Katz</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Shenker</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">I</forename><surname>Stoica</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">NSDI</title>
+		<imprint>
+			<date type="published" when="2007" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b14">
+	<monogr>
+		<title level="m" type="main">Fingerprinting the datacenter: Automated classification of performance crises</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>Bodik</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Goldszmidt</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Fox</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">D</forename><forename type="middle">B</forename><surname>Woodard</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">H</forename><surname>Andersen</surname></persName>
+		</author>
+		<imprint>
+			<date type="published" when="2010" />
+		</imprint>
+	</monogr>
+	<note>in EuroSys</note>
+</biblStruct>
+
+<biblStruct xml:id="b15">
+	<analytic>
+		<title level="a" type="main">On the characteristics and origins of Internet flow rates</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Y</forename><surname>Zhang</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">L</forename><surname>Breslau</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">V</forename><surname>Paxson</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Shenker</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">ACM SIGCOMM</title>
+		<imprint>
+			<date type="published" when="2002" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b16">
+	<analytic>
+		<title level="a" type="main">Jigsaw: Solving the puzzle of enterprise 802.11 analysis</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">Y.-C</forename><surname>Cheng</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">J</forename><surname>Bellardo</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">P</forename><surname>Benko</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><forename type="middle">C</forename><surname>Snoeren</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">G</forename><forename type="middle">M</forename><surname>Voelker</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">S</forename><surname>Savage</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">ACM SIGCOMM</title>
+		<imprint>
+			<date type="published" when="2006" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+<biblStruct xml:id="b17">
+	<analytic>
+		<title level="a" type="main">Answering what-if deployment and configuration questions with WISE</title>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Tariq</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">A</forename><surname>Zeitoun</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">V</forename><surname>Valancius</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">N</forename><surname>Feamster</surname></persName>
+		</author>
+		<author>
+			<persName xmlns="http://www.tei-c.org/ns/1.0"><forename type="first">M</forename><surname>Ammar</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">ACM SIGCOMM</title>
+		<imprint>
+			<date type="published" when="2008" />
+		</imprint>
+	</monogr>
+</biblStruct>
+
+				</listBibl>
+			</div>
+		</back>
+	</text>
+</TEI>
