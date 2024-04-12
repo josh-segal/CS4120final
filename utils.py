@@ -482,6 +482,56 @@ def predict_LSTM_RNN(paper_file, presentation_file):
 
     return category, probabilities, transformed_score
 
+def predict_transformer(paper_file, presentation_file, t_model):
+    # Load tokenizer and model
+    t_tokenizer = DistilBertTokenizer.from_pretrained(t_model)
+    t_model = DistilBertForSequenceClassification.from_pretrained(t_model)
+
+    # Combine data
+    paper_data, presentation_data = combine_data(paper_file, presentation_file)
+
+    presentation_flat = [sentence for sublist in presentation_data for sentence in sublist]
+    paper_flat = [sentence for sublist in paper_data for sentence in sublist]
+
+    presentation_sentence_pairs = []
+    for sentence in presentation_flat:
+        most_similar_sentence, similarity_score = find_most_similar_sentence(sentence, paper_flat)
+        presentation_sentence_pairs.append([sentence, most_similar_sentence, similarity_score])
+
+    presentation_sentences_list = [sentences[0] for sentences in presentation_sentence_pairs]
+    paper_sentences_list = [sublist[1] for sublist in presentation_sentence_pairs]
+
+    # Tokenize and pad sequences
+    input_dict = t_tokenizer(presentation_sentences_list, paper_sentences_list, padding=True, truncation=True,
+                             return_tensors='pt')
+
+    # Model inference
+    with torch.no_grad():
+        outputs = t_model(**input_dict)
+
+    logits = outputs.logits
+    probabilities = torch.softmax(logits, dim=1).numpy()
+
+    # Calculate transformed score
+    transformed_score = probabilities[:, 2]  # Assuming the third class is 'Entailment'
+
+    # Define thresholds and determine category
+    thresholds = {
+        'A VERY BAD': 0.3,
+        'A BAD': 0.50,
+        'A GOOD': 0.70,
+        'A GREAT': 0.85,
+        'AN EXCELLENT': 1.0
+    }
+
+    category = None
+    for label, threshold in thresholds.items():
+        if transformed_score <= threshold:
+            category = label
+            break
+
+    return category, probabilities, transformed_score
+
 
 def process_file(file_path, parse_func, preprocess_func):
     file_content = file_path.read()
