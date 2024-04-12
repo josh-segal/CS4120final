@@ -3,7 +3,7 @@ from keras.models import load_model
 import utils as utils
 import numpy as np
 
-model = load_model("best_model.h5")
+LSTM_RNN_model = load_model("best_model.h5")
 
 st.title('Model Inference App')
 st.write('Upload XML files to get predictions.')
@@ -19,10 +19,16 @@ if paper_file_content and presentation_file_content:
     model_name = st.selectbox("Select Model", ["Model A", "Model B", "Model C"])
 
     if st.button('Predict'):
-        category, probabilities, paper_score = utils.predict(paper_file_content, presentation_file_content)
+        if model_name == "Model A":
+            category, probabilities, paper_score = utils.predict_LSTM_RNN(paper_file_content, presentation_file_content)
+        elif model_name == "Model B":
+            category, probabilities, paper_score = utils.predict_logistic_regression(paper_file_content, presentation_file_content)
+        else:
+            category, probabilities, paper_score = utils.predict_transformer(paper_file_content, presentation_file_content)
+
         if paper_score is not None:
-            st.title('This presentation was ' + category + ' representation of this paper with a weighted similarity '
-                                                             'score of ' + str(paper_score))
+            st.title('This presentation was ' + category + ' representation of this paper')
+            st.write('with a weighted similarity score of ' + str(paper_score))
 
             # Transpose the list of probabilities
             entailment_probs = [prob[0] for prob in probabilities]

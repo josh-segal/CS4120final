@@ -402,7 +402,7 @@ with open('tokenizer.pkl', 'rb') as f:
     tokenizer = pickle.load(f)
 
 
-def predict(paper_file, presentation_file):
+def predict_LSTM_RNN(paper_file, presentation_file):
 
     paper_data, presentation_data = combine_data(paper_file, presentation_file)
 
