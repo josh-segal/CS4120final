@@ -1,11 +1,8 @@
 import streamlit as st
-from keras.models import load_model
 import utils as utils
 import numpy as np
 
-LSTM_RNN_model = load_model("best_model.h5")
-
-st.title('Model Inference App')
+st.title('Presentation Evaluation Inference App')
 st.write('Upload XML files to get predictions.')
 
 # File upload widgets for XML files
@@ -16,16 +13,17 @@ if paper_file_content and presentation_file_content:
     # paper_file_content = paper_file_content.read()
     # presentation_file_content = presentation_file_content.read()
 
-    model_name = st.selectbox("Select Model", ["Model A", "Model B", "Model C"])
+    model_name = st.selectbox("Select Model", ["LSTM RNN", "Transformer", "Logistic Regression"])
 
     if st.button('Predict'):
-        if model_name == "Model A":
+        if model_name == "LSTM RNN":
             category, probabilities, paper_score = utils.predict_LSTM_RNN(paper_file_content, presentation_file_content)
-        elif model_name == "Model B":
-            category, probabilities, paper_score = utils.predict_logistic_regression(paper_file_content, presentation_file_content)
+        # elif model_name == "Transformer":
+        #     category, probabilities, paper_score = utils.predict_transformer(paper_file_content, presentation_file_content)
+        # else:
+        #     category, probabilities, paper_score = utils.predict_logistic_regression(paper_file_content, presentation_file_content)
         else:
-            category, probabilities, paper_score = utils.predict_transformer(paper_file_content, presentation_file_content)
-
+            category, probabilities, paper_score = utils.predict_LSTM_RNN(paper_file_content, presentation_file_content)
         if paper_score is not None:
             st.title('This presentation was ' + category + ' representation of this paper')
             st.write('with a weighted similarity score of ' + str(paper_score))

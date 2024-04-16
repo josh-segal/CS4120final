@@ -19,6 +19,9 @@ from keras.models import load_model
 from sklearn.feature_extraction.text import TfidfVectorizer
 import pickle
 from tensorflow.keras.preprocessing.sequence import pad_sequences
+import torch
+from transformers import DistilBertForSequenceClassification, DistilBertTokenizer
+
 
 
 def read_file(file_path):
@@ -395,7 +398,7 @@ def remover(text):
     return text
 
 
-model = load_model("best_model.h5")
+# model = load_model("LSTM_RNN_MODEL.h5")
 
 # Load the tokenizer object
 with open('tokenizer.pkl', 'rb') as f:
@@ -482,8 +485,9 @@ def predict_LSTM_RNN(paper_file, presentation_file):
 
     return category, probabilities, transformed_score
 
-def predict_transformer(paper_file, presentation_file, t_model):
+def predict_transformer(paper_file, presentation_file):
     # Load tokenizer and model
+    t_model = "distilbert_trained_model.h5"
     t_tokenizer = DistilBertTokenizer.from_pretrained(t_model)
     t_model = DistilBertForSequenceClassification.from_pretrained(t_model)
 
@@ -513,7 +517,7 @@ def predict_transformer(paper_file, presentation_file, t_model):
     probabilities = torch.softmax(logits, dim=1).numpy()
 
     # Calculate transformed score
-    transformed_score = probabilities[:, 2]  # Assuming the third class is 'Entailment'
+    transformed_score = probabilities[:, 0]  # Assuming the third class is 'Entailment'
 
     # Define thresholds and determine category
     thresholds = {
