@@ -18,12 +18,10 @@ if paper_file_content and presentation_file_content:
     if st.button('Predict'):
         if model_name == "LSTM RNN":
             category, probabilities, paper_score = utils.predict_LSTM_RNN(paper_file_content, presentation_file_content)
-        # elif model_name == "Transformer":
-        #     category, probabilities, paper_score = utils.predict_transformer(paper_file_content, presentation_file_content)
-        # else:
-        #     category, probabilities, paper_score = utils.predict_logistic_regression(paper_file_content, presentation_file_content)
+        elif model_name == "Transformer":
+            category, probabilities, paper_score = utils.predict_transformer(paper_file_content, presentation_file_content)
         else:
-            category, probabilities, paper_score = utils.predict_LSTM_RNN(paper_file_content, presentation_file_content)
+            category, probabilities, paper_score = utils.predict_log_reg(paper_file_content, presentation_file_content)
         if paper_score is not None:
             st.title('This presentation was ' + category + ' representation of this paper')
             st.write('with a weighted similarity score of ' + str(paper_score))

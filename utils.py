@@ -20,8 +20,10 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 import pickle
 from tensorflow.keras.preprocessing.sequence import pad_sequences
 import torch
-from transformers import DistilBertForSequenceClassification, DistilBertTokenizer
-
+from transformers import DistilBertForSequenceClassification, DistilBertTokenizer, AutoTokenizer
+import joblib
+from transformers import TFDistilBertModel
+import tensorflow as tf
 
 
 def read_file(file_path):
@@ -398,15 +400,101 @@ def remover(text):
     return text
 
 
-# model = load_model("LSTM_RNN_MODEL.h5")
+model = load_model("LSTM_RNN_MODEL.h5")
 
 # Load the tokenizer object
 with open('tokenizer.pkl', 'rb') as f:
     tokenizer = pickle.load(f)
 
 
-def predict_LSTM_RNN(paper_file, presentation_file):
+# Load the tokenizer object
+with open('vectorizer.pkl', 'rb') as f:
+    vectorizer = pickle.load(f)
 
+
+# Load the model
+transformer_model = load_model('distilbert_trained_model.h5', custom_objects={'TFDistilBertModel': TFDistilBertModel})
+
+
+log_reg_model = joblib.load('best_logistic_regression_model.pkl')
+
+
+def predict_log_reg(paper_file, presentation_file):
+    paper_data, presentation_data = combine_data(paper_file, presentation_file)
+
+    presentation_flat = [sentence for sublist in presentation_data for sentence in sublist]
+    paper_flat = [sentence for sublist in paper_data for sentence in sublist]
+    presentation_sentence_pairs = []
+    for sentence in presentation_flat:
+        most_similar_sentence, similarity_score = find_most_similar_sentence(sentence, paper_flat)
+        presentation_sentence_pairs.append([sentence, most_similar_sentence, similarity_score])
+        presentation_sentence_pairs = sorted(presentation_sentence_pairs, key=lambda x: x[2], reverse=True)
+
+    presentation_sentences_list = []
+    paper_sentences_list = []
+
+    presentation_sentences = [sentences[0] for sentences in presentation_sentence_pairs]
+    paper_sentences = [sentences[1] for sentences in presentation_sentence_pairs]
+    presentation_sentences_list.append(presentation_sentences)
+    paper_sentences_list.append(paper_sentences)
+
+    combined_sentences = [presentation + ' ' + paper for presentation, paper in zip(presentation_sentences_list[0], paper_sentences_list[0])]
+
+    text_data = vectorizer.transform(combined_sentences)
+
+    probabilities = log_reg_model.predict_proba(text_data)
+
+    # entail_probs = [prob[0] for prob in probabilities]
+
+    predicted_classes = np.argmax(probabilities, axis=1)
+
+    # Step 3: Class Labels
+    class_labels = ["Entailment", "Neutral", "Contradictory"]  # Replace with your actual class labels
+    predicted_labels = [class_labels[idx] for idx in predicted_classes]
+
+    # Count the occurrences of each label
+    label_counts = {label: predicted_labels.count(label) for label in set(predicted_labels)}
+
+    # Calculate the total count of all labels
+    total_count = sum(label_counts.values())
+
+    # Calculate the proportion of each label
+    label_proportions = {label: count / total_count for label, count in label_counts.items()}
+
+    # Define weights for each label
+    label_weights = {
+        'Contradictory': 0,
+        'Neutral': 0.5,
+        'Entailment': 1
+    }
+
+    # Calculate the weighted sum of counts for all labels
+    weighted_sum = sum(label_counts[label] * label_weights[label] for label in label_counts)
+
+    # Normalize the weighted sum to range from 0 to 1
+    normalized_weighted_sum = weighted_sum / (total_count * max(label_weights.values()))
+    transformed_score = np.exp(normalized_weighted_sum * 10) / np.exp(5)
+
+    # Define the thresholds
+    thresholds = {
+        'A VERY BAD': 0.3,
+        'A BAD': 0.50,
+        'A GOOD': 0.70,
+        'A GREAT': 0.85,
+        'AN EXCELLENT': 1.0
+    }
+
+    # Determine the category based on the normalized weighted sum
+    category = 'AN EXCELLENT'
+    for label, threshold in thresholds.items():
+        if transformed_score <= threshold:
+            category = label
+            break
+
+    return category, probabilities, transformed_score
+
+
+def predict_LSTM_RNN(paper_file, presentation_file):
     paper_data, presentation_data = combine_data(paper_file, presentation_file)
 
     presentation_paper_pairs = []
@@ -485,10 +573,11 @@ def predict_LSTM_RNN(paper_file, presentation_file):
 
     return category, probabilities, transformed_score
 
+
 def predict_transformer(paper_file, presentation_file):
     # Load tokenizer and model
-    t_model = "distilbert_trained_model.h5"
-    t_tokenizer = DistilBertTokenizer.from_pretrained(t_model)
+    t_model = transformer_model
+    t_tokenizer = AutoTokenizer.from_pretrained("distilbert-base-uncased")
     t_model = DistilBertForSequenceClassification.from_pretrained(t_model)
 
     # Combine data
