@@ -1,6 +1,5 @@
 import os
 from bs4 import BeautifulSoup
-import re
 import nltk
 
 nltk.download('stopwords')
@@ -8,8 +7,6 @@ from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize, sent_tokenize
 from nltk.stem import PorterStemmer
 from sklearn.metrics.pairwise import cosine_similarity
-from tokenizers import Tokenizer
-from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 import numpy as np
 import shutil
 import xml.etree.ElementTree as ET
@@ -19,10 +16,8 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 import pickle
 from tensorflow.keras.preprocessing.sequence import pad_sequences
 import torch
-from transformers import DistilBertForSequenceClassification, DistilBertTokenizer, AutoTokenizer
+from transformers import DistilBertForSequenceClassification, AutoTokenizer
 import joblib
-from transformers import TFDistilBertModel
-import tensorflow as tf
 
 
 def read_file(file_path):
@@ -248,24 +243,29 @@ def remover(text):
     text = ' '.join(final_list)
     return text
 
+# Define the directory containing the models
+models_dir = 'models'
 
-model = load_model("models/LSTM_RNN_MODEL.h5")
+# Join the path
+model_path = os.path.join(models_dir, 'LSTM_RNN_MODEL.h5')
+
+model = load_model(model_path)
 
 # Load the tokenizer object
-with open('models/tokenizer.pkl', 'rb') as f:
+with open(os.path.join(models_dir, 'tokenizer.pkl'), 'rb') as f:
     tokenizer = pickle.load(f)
 
-
-# Load the tokenizer object
-with open('models/vectorizer.pkl', 'rb') as f:
+# Load the vectorizer object
+with open(os.path.join(models_dir, 'vectorizer.pkl'), 'rb') as f:
     vectorizer = pickle.load(f)
+
+# Load the logistic regression model
+log_reg_model = joblib.load(os.path.join(models_dir, 'best_logistic_regression_model.pkl'))
 
 
 # Load the model
 # transformer_model = load_model('distilbert_trained_model.h5', custom_objects={'TFDistilBertModel': TFDistilBertModel})
 
-
-log_reg_model = joblib.load('models/best_logistic_regression_model.pkl')
 
 
 def predict_log_reg(paper_file, presentation_file):

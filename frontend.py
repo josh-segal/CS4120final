@@ -10,9 +10,6 @@ paper_file_content = st.file_uploader("Upload Paper XML file", type="xml")
 presentation_file_content = st.file_uploader("Upload Presentation XML file", type="xml")
 
 if paper_file_content and presentation_file_content:
-    # paper_file_content = paper_file_content.read()
-    # presentation_file_content = presentation_file_content.read()
-
     model_name = st.selectbox("Select Model", ["LSTM RNN", "Transformer", "Logistic Regression"])
 
     if st.button('Predict'):
@@ -48,10 +45,6 @@ if paper_file_content and presentation_file_content:
 
             st.write('Sentence Entailment Probabilities for ', len(probabilities), 'sentences')
 
-            # Display an area chart for entailment and contradiction probabilities
-            # st.area_chart({"Entailment": smoothed_entail_probs, "Contradiction": smoothed_contradiction_probs},
-            #               color=["#FF4118", "#18D6FF"],
-            #               use_container_width=True)
             st.area_chart({"Entailment": smoothed_entail_probs, "Contradiction": smoothed_scaled_contradiction_probs},
                           color=["#FF4118", "#18D6FF"],
                           use_container_width=True)
