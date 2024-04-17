@@ -413,7 +413,7 @@ with open('vectorizer.pkl', 'rb') as f:
 
 
 # Load the model
-transformer_model = load_model('distilbert_trained_model.h5', custom_objects={'TFDistilBertModel': TFDistilBertModel})
+# transformer_model = load_model('distilbert_trained_model.h5', custom_objects={'TFDistilBertModel': TFDistilBertModel})
 
 
 log_reg_model = joblib.load('best_logistic_regression_model.pkl')
