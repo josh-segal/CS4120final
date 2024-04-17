@@ -14,7 +14,6 @@ import numpy as np
 import shutil
 import xml.etree.ElementTree as ET
 import re
-from nltk.corpus import stopwords
 from keras.models import load_model
 from sklearn.feature_extraction.text import TfidfVectorizer
 import pickle
@@ -69,16 +68,6 @@ def parse_paper_xml(file_xml):
         for sublist in file_data:
             flat_data.extend(sublist)
     return flat_data
-    # for head in heads:
-    #     head_text = ""
-    #     p_elements = head.find_next_siblings('p')
-    #     for p_element in p_elements:
-    #         text = p_element.get_text()
-    #         if text.strip():  # Check if the text is not empty or whitespace
-    #             head_text += text
-    #     if head_text:  # Append to file_data only if head_text is not empty
-    #         file_data.append(head_text)
-    # return file_data
 
 
 def parse_presentation_xml(presentation_xml):
@@ -144,139 +133,6 @@ def clean_word(word):
     # Convert to lowercase
     word = word.lower()
     return word
-
-
-def get_prfa(dev_y: list, preds: list, verbose=False) -> tuple:
-    """
-    Calculate precision, recall, f1, and accuracy for a given set of predictions and labels.
-    Args:
-        dev_y: list of labels
-        preds: list of predictions
-        verbose: whether to print the metrics
-    Returns:
-        tuple of precision, recall, f1, and accuracy
-    """
-    precision = precision_score(dev_y, preds)
-    recall = recall_score(dev_y, preds)
-    accuracy = accuracy_score(dev_y, preds)
-    f1 = f1_score(dev_y, preds)
-    # print("f1:", f1)
-
-    return precision, recall, f1, accuracy
-
-
-def create_presentation_to_paper_mapping(presentation_folder, paper_folder):
-    presentation_to_paper = {}
-    presentation_files = sorted(os.listdir(presentation_folder))
-    paper_files = sorted(os.listdir(paper_folder))
-
-    # Assuming presentation and paper files have the same indexes
-    for idx, (presentation_file, paper_file) in enumerate(zip(presentation_files, paper_files)):
-        presentation_index = presentation_file.split('.')[0]  # Extract index from presentation filename
-        paper_index = paper_file.split('.')[0]  # Extract index from paper filename
-        assert presentation_index == paper_index, "Mismatch between presentation and paper indexes"
-        presentation_to_paper[presentation_index] = idx  # Store index instead of paper name
-
-    return presentation_to_paper
-
-
-def process_papers_folder(folder_path):
-    """
-    Process files in a folder using a given parse function.
-
-    Args:
-    - folder_path (str): Path to the folder containing files.
-    - parse_function (function): Function to parse the content of each file.
-
-    Returns:
-    - all_data (list): List of processed data from all files in the folder.
-    """
-    all_data = []
-    for filename in os.listdir(folder_path):
-        file_path = os.path.join(folder_path, filename)
-        if os.path.isfile(file_path):
-            # Read the file content
-            file_content = read_file(file_path)
-            if file_content is not None:
-                # Parse the content using the provided parse function
-                parsed_data = parse_paper_xml(file_content)
-                if parsed_data:
-                    all_data.extend(parsed_data)
-    return all_data
-
-
-def process_presentation_folder(folder_path):
-    """
-    Process files in a folder using a given parse function.
-
-    Args:
-    - folder_path (str): Path to the folder containing files.
-    - parse_function (function): Function to parse the content of each file.
-
-    Returns:
-    - all_data (list): List of processed data from all files in the folder.
-    """
-    all_data = []
-    for filename in os.listdir(folder_path):
-        file_path = os.path.join(folder_path, filename)
-        if os.path.isfile(file_path):
-            # Read the file content
-            file_content = read_file(file_path)
-            if file_content is not None:
-                # Parse the content using the provided parse function
-                parsed_data = parse_presentation_xml(file_content)
-                if parsed_data:
-                    all_data.extend(parsed_data)
-    return all_data
-
-
-def read_embeddings(filename: str, tokenizer: Tokenizer) -> (dict, dict):
-    '''Loads and parses embeddings trained in earlier.
-    Parameters:
-        filename (str): path to file
-        Tokenizer: tokenizer used to tokenize the data (needed to get the word to index mapping)
-    Returns:
-        (dict): mapping from word to its embedding vector
-        (dict): mapping from index to its embedding vector
-    '''
-    # YOUR CODE HERE
-    word_map = {}
-    index_map = {}
-    vector = []
-    word = ""
-
-    # open file
-    file = open(filename)
-
-    # reading the file into a string
-    spooky_content = file.readlines()
-    # tokenizer.fit_on_texts(spooky_content)
-    # tokenizer.texts_to_sequences(spooky_content)
-
-    # map word to its embedding vector
-    # map index to its embedding vector
-
-    del spooky_content[0]
-
-    for line in spooky_content:
-
-        tokens = line.split(" ")
-        word = tokens[0]
-        vector = []
-        del tokens[0]
-        tokens[-1] = tokens[-1][:-2]
-
-        for token in tokens:
-            vector.append(token)
-
-        try:
-            index_map[tokenizer.word_index[word]] = vector
-            word_map[word] = vector
-        except KeyError:
-            tokenizer.word_index[word] = max(tokenizer.word_index.values()) + 1
-            word_map[word] = vector
-
-    return word_map, index_map
 
 
 def find_most_similar_paper(paper_embeddings, pres_embedding):
@@ -370,13 +226,6 @@ def parse_title(xml_content):
         return title.text.strip()
     else:
         return None
-
-
-def stringify(los):
-    strings = ""
-    for string in los:
-        strings += string
-    return string
 
 
 def clean_data(text):
