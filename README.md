@@ -4,6 +4,10 @@
 
 This repository contains the code and resources for the CS 4120 project by Joshua Segal and Cris Hernandez at Northeastern University. The project focuses on evaluating presentation-paper pairs for entailment, aiming to provide a robust rating system for presentations based on research papers. The method involves keyword matching presentation sentences to paper sentences and predicting entailment using machine learning models. The final rating is calculated using a weighted score.
 
+## Report
+
+[Access our project report here!](https://docs.google.com/document/d/1OfGY4GHFgta75f1Y15qswR-TceMsYTiG29EC4w4jIV4/edit?usp=sharing)
+
 ## Pipeline
 
 ### Datasets
