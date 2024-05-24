@@ -1,6 +1,6 @@
 # Presentation Evaluation Using Machine Learning
 
-[frontend example](static/frontend.png)
+![frontend example](static/frontend.png)
 
 ## Overview
 
